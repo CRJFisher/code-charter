@@ -322,6 +322,8 @@ github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1
 github.com/smartystreets/goconvey v1.6.4/go.mod h1:syvi0/a8iFYH4r/RixwvyeAJjdLS9QV7WQ/tjFTllLA=
 github.com/sourcegraph/scip v0.3.2 h1:wSonS1woUrbGLpRvIrLB4FFn1NAFlEEa+LxgGvRM7IQ=
 github.com/sourcegraph/scip v0.3.2/go.mod h1:Q67VaoTpftINIy/CLrkYQOMwlsx67h8ys+ligmdUcqM=
+github.com/sourcegraph/scip v0.3.3 h1:3EOkChYOntwHl0pPSAju7rj0oRuujh8owC4vjGDEr0s=
+github.com/sourcegraph/scip v0.3.3/go.mod h1:Q67VaoTpftINIy/CLrkYQOMwlsx67h8ys+ligmdUcqM=
 github.com/sourcegraph/sourcegraph/lib v0.0.0-20220511160847-5a43d3ea24eb h1:D8ciD0FEcPNnVm6BC8vg7gWJ9VxoJe6k/4j+Qxparj0=
 github.com/sourcegraph/sourcegraph/lib v0.0.0-20220511160847-5a43d3ea24eb/go.mod h1:iFiGPqnhOvQziDZkpWasU+Uo1BaEt/Au9kNK4VpqyOw=
 github.com/spf13/afero v1.1.2/go.mod h1:j4pytiNVoe2o6bmDsKpLACNPDBIoEAkihy7loJ1B0CQ=
@@ -539,6 +541,8 @@ google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQ
 google.golang.org/protobuf v1.28.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
 google.golang.org/protobuf v1.31.0 h1:g0LDEJHgrBl9N9r17Ru3sqWhkIx2NB67okBHPwC7hs8=
 google.golang.org/protobuf v1.31.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
+google.golang.org/protobuf v1.32.0 h1:pPC6BG5ex8PDFnkbrGU3EixyhKcQ2aDuBS36lqK/C7I=
+google.golang.org/protobuf v1.32.0/go.mod h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

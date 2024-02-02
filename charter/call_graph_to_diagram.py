@@ -61,7 +61,7 @@ def generate_mermaid(
     summary = summaries[node.symbol].split("---")[0].strip()
     length_limited_segments = [seg for sentence in summary.split(".") for seg in split_sentence(sentence)]
     split_summary = "\n".join(length_limited_segments)
-    node_label = f"[<strong>{node.display_name}</strong> \n {split_summary}]"
+    node_label = f'["<strong>{node.display_name}</strong> \n {split_summary}"]'
     if document not in subgraphs:
         subgraphs[document] = []
     subgraphs[document].append(f"{node_id}{node_label}")
@@ -95,7 +95,7 @@ def split_sentence(sentence: str, word_limit: int = 6) -> List[str]:
 def create_mermaid_diagram(subgraphs: Dict[str, List[str]], connections: List[str]) -> str:
     mermaid_syntax = ["graph TB"]
     for document, nodes in subgraphs.items():
-        mermaid_syntax.append(f"subgraph {document.replace(' ', '')} [{document}]")
+        mermaid_syntax.append(f'subgraph {document.replace(" ", "")} ["{document}"]')
         mermaid_syntax.extend(nodes)
         mermaid_syntax.append("end")
     mermaid_syntax.extend(connections)
