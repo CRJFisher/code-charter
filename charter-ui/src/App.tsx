@@ -1,5 +1,5 @@
-import callGraph from '../../out/call_graph.json';
-import summaries from '../../summaries.json';
+import callGraph from '../../examples/gpt-researcher/call_graph.json';
+import summaries from '../../examples/gpt-researcher/summaries.json';
 
 import 'reactflow/dist/style.css';
 import ELK, { LayoutOptions } from 'elkjs/lib/elk.bundled.js';
@@ -21,8 +21,6 @@ interface CallGraphNodesAndEdges {
   nodes: Node<CustomNodeData>[];
   edges: Edge[];
 }
-
-
 
 const callGraphToNodesAndEdges = (callGraph: any): CallGraphNodesAndEdges => {
 
