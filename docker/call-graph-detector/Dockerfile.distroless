@@ -1,0 +1,33 @@
+# Using ideas from: https://klotzandrew.com/blog/smallest-golang-docker-image
+FROM golang:latest as base
+
+RUN adduser \
+  --disabled-password \
+  --gecos "" \
+  --home "/nonexistent" \
+  --shell "/sbin/nologin" \
+  --no-create-home \
+  --uid 65532 \
+  small-user
+
+WORKDIR $GOPATH/src/smallest-golang/app/
+
+# Copy go mod and sum files
+COPY go.mod ./
+COPY go.sum ./
+
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+RUN go mod download
+RUN go mod verify
+
+COPY ./cmd ./cmd
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /main ./cmd/main.go
+
+FROM gcr.io/distroless/static-debian11
+
+COPY --from=base /main .
+
+USER 65532:65532
+
+ENTRYPOINT ["./main"]

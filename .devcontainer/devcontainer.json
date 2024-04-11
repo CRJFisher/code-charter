@@ -21,7 +21,8 @@
 				"ms-python.isort",
 				"golang.go",
 				"ms-python.vscode-pylance",
-				"timonwong.shellcheck"
+				"timonwong.shellcheck",
+				"ms-azuretools.vscode-docker"
 			]
 		}
 	}

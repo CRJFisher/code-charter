@@ -93,7 +93,7 @@ Here is the code:
 
     summaries = {}
     summary_futures = {}
-    await leaf_to_root_summarisation(call_graph, summary_futures, summaries, llm, chain)
+    await leaf_to_root_summarisation(call_graph, summary_futures, summaries, chain)
 
     with open("out/summaries.json", "w") as f:
         json.dump(summaries, f, indent=2)
@@ -103,7 +103,6 @@ async def leaf_to_root_summarisation(
     node: CallGraphNode,
     summary_futures: Dict[str, asyncio.Future],
     summaries: Dict[str, str],
-    llm: BaseLLM,
     chain: Chain,
 ) -> None:
     if node.symbol in summary_futures:
@@ -117,7 +116,7 @@ async def leaf_to_root_summarisation(
     # Launch and await tasks for children nodes
     await asyncio.gather(
         *(
-            leaf_to_root_summarisation(child, summary_futures, summaries, llm, chain)
+            leaf_to_root_summarisation(child, summary_futures, summaries, chain)
             for child in node.children
         )
     )

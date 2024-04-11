@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -114,9 +115,23 @@ func callDepth(nodeSymbol string, nodes map[string]*CallGraphNode) int {
 }
 
 func main() {
+	var inputFile string
+	flag.StringVar(&inputFile, "input_file", "index.scip", "path to SCIP index file")
+	var outputFile string
+	flag.StringVar(&outputFile, "output_file", "call_graph.json", "path to output json file containing the detected call graphs")
+	flag.Parse()
+
+	
 	// read file
-	b, err := os.ReadFile("../scip_indexes/gpt_researcher_index.scip")
+	b, err := os.ReadFile(inputFile)
 	if err != nil {
+		// print the contents of the /sources folder
+		files, _ := os.ReadDir("/sources")
+		for _, file := range files {
+			log.Printf("File: %s", file.Name())
+		}
+		// log input file path
+		log.Printf("Input file path: %s", inputFile)
 		panic(err)
 	}
 
@@ -150,7 +165,7 @@ func main() {
 		jsonData = append(jsonData, child)
 	}
 	// Write to JSON
-	jsonFile, err := os.Create("../out/call_graph.json")
+	jsonFile, err := os.Create(outputFile)
 	if err != nil {
 		panic(err)
 	}

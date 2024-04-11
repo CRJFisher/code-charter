@@ -205,6 +205,12 @@ backend.server.websocket_endpoint --4--> gpt_researcher.utils.websocket_manager.
 - [ ] Summarise with different intents e.g. business logic, implementation details, etc.
     - [ ] Prune the call graph to only include functions that are relevant to the intent / shrink the nodes that are not relevant
 
+### Performance
+
+- Reduce container size for shorter image download times e.g. by using distroless
+  - [x] call graph detector
+  - [ ] SCIP indexers
+
 ## License
 
 Mit License, see `LICENSE` for more information.

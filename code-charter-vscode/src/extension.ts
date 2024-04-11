@@ -1,72 +1,160 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import { exec } from 'child_process';
-import path from 'path';
-import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { checkDockerInstalled } from './docker';
+import { detectEnvironment } from './project/projectTypeDetection';
+import { addToGitignore } from './files';
+import { runCommand } from './run';
+import { readCallGraphJsonFile, summariseCallGraph } from './summarise/summarise';
+import { callGraphToMermaid } from './diagram';
+
+const extensionFolder = '.code-charter';
 
 // This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "code-charter-vscode" is now active!');
+	// Note on notification style: regular progress notifications are triggered in this file, while warnings and errors are shown at the source of the problem.
 
 	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('code-charter-vscode.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		// vscode.window.showInformationMessage('Hello World from Code Charter!');
-
-		// todo: check / make 
-		
-		let projectPath = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : undefined;
-		// const command = 'docker run -v $(pwd):/sources sourcegraph/scip-typescript:latest scip-typescript index --cwd /sources';
-		const command = `docker run -v ${projectPath}:/sources sourcegraph/scip-typescript:latest scip-typescript index --cwd /sources`;
-		runDockerCommand(command, (output) => {
-			// Handle the output from the Docker command
-			console.log('Docker command executed successfully:', output);
-		});
-	});
+	const disposable = vscode.commands.registerCommand('code-charter-vscode.generateDiagram', generateDiagram);
 
 	context.subscriptions.push(disposable);
 }
 
-function runDockerCommand(command: string, callback?: (output: string) => void): void {
-	exec(command, (error, stdout, stderr) => {
-		if (error) {
-			console.error(`exec error: ${error}`);
+async function generateDiagram(...args: any[]) {
+	// Check docker is installed
+	const isDockerInstalled = await checkDockerInstalled();
+	if (!isDockerInstalled) {
+		vscode.window.showErrorMessage('Docker is not running. Please install and run Docker to use this extension.');
+		return;
+	}
+	// Check if a `.code-charter` directory exists in the workspace
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	if (!workspaceFolders) {
+		vscode.window.showWarningMessage('No workspace is open.');
+		return;
+	}
+	const workspacePath = workspaceFolders[0].uri.fsPath;
+	const dirPath = vscode.Uri.file(`${workspacePath}/${extensionFolder}`);
+	const dirExists = await vscode.workspace.fs.stat(dirPath).then(() => true, () => false);
+	if (!dirExists) {
+		// Create the directory
+		await vscode.workspace.fs.createDirectory(dirPath);
+		addToGitignore(extensionFolder);
+	}
+
+	// Create another folder in the dirPath with a timestamp
+	const timestamp = new Date().getTime();
+	const folderPath = vscode.Uri.file(`${dirPath.fsPath}/${timestamp}`);
+	await vscode.workspace.fs.createDirectory(folderPath);
+
+	// TODO: create an object to hold the work folder info and helper functions e.g. relative path, docker-prefixed path etc
+
+	await vscode.window.withProgress({
+		location: vscode.ProgressLocation.Notification,
+		title: "Creating summary diagram",
+		cancellable: true
+	}, (p, t) => progressSteps(p, t, workspaceFolders, folderPath));
+
+}
+
+async function progressSteps(
+	progress: vscode.Progress<{
+		message?: string | undefined;
+		increment?: number | undefined;
+	}>,
+	token: vscode.CancellationToken,
+	workspaceFolders: readonly vscode.WorkspaceFolder[],
+	workDirPath: vscode.Uri,
+): Promise<void> {
+	token.onCancellationRequested(() => {
+		console.log("User canceled the long running operation");
+		// TODO: make every step cancellable. How to send sigterm to docker containers?
+	});
+
+	// TODO: move blocks into separate functions
+
+	progress.report({ increment: 0, message: "Detecting project environment" });
+
+	const environments = await detectEnvironment(workspaceFolders, workDirPath);
+
+	// Pick which environment to use
+	let selectedEnvironment;
+	if (!environments || environments.length === 0) {
+		vscode.window.showWarningMessage('No supported project environment detected in the workspace.');
+		return;
+	}
+	// Show picker
+	if (environments.length > 1) {
+		const picked = await vscode.window.showQuickPick(environments.map((env) => env.displayName()), {
+			placeHolder: 'Select project to analyse',
+			canPickMany: false,
+		});
+		if (!picked) {
 			return;
 		}
-		if (stderr) {
-			console.error(`stderr: ${stderr}`);
-		}
-		console.log(`stdout: ${stdout}`);
-		if (callback) {
-			callback(stdout);
-		}
-	});
-}
-
-function addToGitignore(fileName: string): void {
-	const workspaceFolders = vscode.workspace.workspaceFolders;
-	if (workspaceFolders) {
-		const workspacePath: string = workspaceFolders[0].uri.fsPath; // Assuming single workspace
-		const gitignorePath: string = path.join(workspacePath, '.gitignore');
-
-		fs.appendFile(gitignorePath, `\n${fileName}\n`, (err: NodeJS.ErrnoException | null) => {
-			if (err) {
-				console.error('Failed to update .gitignore:', err);
-			} else {
-				console.log(`${fileName} added to .gitignore.`);
-			}
-		});
+		selectedEnvironment = environments.find((env) => env.displayName() === picked);
+	} else {
+		selectedEnvironment = environments[0];
 	}
-}
+	if (!selectedEnvironment) {
+		vscode.window.showErrorMessage('No environment selected.');
+		return;
+	}
 
+	if (token.isCancellationRequested) {
+		return;
+	}
+	progress.report({ increment: 10, message: "Indexing..." });
+	
+	const scipIndexUri = await selectedEnvironment.parseCodebaseToScipIndex(workDirPath);
+	if (!scipIndexUri) {
+		return;
+	}
+	console.log(scipIndexUri.fsPath);
+	
+	progress.report({ increment: 20, message: "Detecting call graphs..." });
+	const relativeWorkDirPath = vscode.workspace.asRelativePath(workDirPath);
+	const containerInputFilePath = scipIndexUri.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
+	console.log("containerInputFilePath", containerInputFilePath);
+	const containerOutputFilePath = `/sources/${relativeWorkDirPath}/call_graph.json`;
+	console.log("containerOutputFilePath", containerOutputFilePath);
+
+	await runCommand(`docker run -v ${selectedEnvironment.projectPath.fsPath}:/sources/ crjfisher/codecharter-detectcallgraphs --input_file ${containerInputFilePath} --output_file ${containerOutputFilePath}`);
+
+	// TODO: add a LLM call to get the overall business logic summary for the selected project. Display this to user with the option to edit and improve it.
+
+	if (token.isCancellationRequested) {
+		return;
+	}
+	progress.report({ increment: 50, message: "Select call graph" });
+	// Read the call graph JSON file
+	const callGraphJsonFilePath = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.json`);
+	const callGraphJson = await readCallGraphJsonFile(callGraphJsonFilePath);
+	// Picker for the call graph
+	const pickedNode = await vscode.window.showQuickPick(callGraphJson.map((node) => node.symbol), {
+		placeHolder: 'Select a function to summarise',
+		canPickMany: false,
+	});
+	if (!pickedNode) {
+		return;
+	}
+	const selectedNode = callGraphJson.find((node) => node.symbol === pickedNode);
+	if (!selectedNode) {
+		vscode.window.showErrorMessage('Selected node not found.');
+		return;
+	}
+	const callGraphNodeSummaries = await summariseCallGraph(selectedNode, workDirPath, selectedEnvironment.projectPath);
+	if (token.isCancellationRequested) {
+		return;
+	}
+	progress.report({ increment: 90, message: "Generating diagram" });
+
+	// TODO: select the output format (mermaid, d2, etc.) and output file path
+	const outFile = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.md`);
+	await callGraphToMermaid(selectedNode, callGraphNodeSummaries, outFile);
+
+	const workspaceRelOutFile = vscode.workspace.asRelativePath(outFile);
+	progress.report({ increment: 100, message: `Diagram created at: ${workspaceRelOutFile}` });
+}
 
 // This method is called when your extension is deactivated
 export function deactivate() { }

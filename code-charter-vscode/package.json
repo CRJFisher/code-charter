@@ -6,16 +6,19 @@
   "engines": {
     "vscode": "^1.87.0"
   },
+  "publisher": "crjfisher",
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:code-charter-vscode.generateDiagram"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "code-charter-vscode.helloWorld",
-        "title": "Hello World"
+        "command": "code-charter-vscode.generateDiagram",
+        "title": "Code Charter: Summarise Code With Diagram"
       }
     ]
   },
@@ -28,14 +31,21 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.87.0",
     "@types/mocha": "^10.0.6",
-    "@types/node": "18.x",
+    "@types/node": "^18.19.26",
+    "@types/vscode": "^1.87.0",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
-    "eslint": "^8.56.0",
-    "typescript": "^5.3.3",
     "@vscode/test-cli": "^0.0.6",
-    "@vscode/test-electron": "^2.3.9"
+    "@vscode/test-electron": "^2.3.9",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.1.9",
+    "@vscode/python-extension": "^1.0.5",
+    "class-transformer": "^0.5.1",
+    "langchain": "^0.1.30",
+    "reflect-metadata": "^0.2.1"
   }
 }
