@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/sourcegraph/scip/bindings/go/scip"
 	"google.golang.org/protobuf/proto"
@@ -71,6 +70,11 @@ func (r *DocOccurrence) EnclosesOccurrence(occ *DocOccurrence) bool {
 	return rangeContains(defRange, occRange)
 }
 
+func (r *DocOccurrence) SymbolLocation() string {
+	occRange := scip.NewRange(r.occurrence.Range)
+	return fmt.Sprintf("%s:%d:%d", r.occurrence.Symbol, occRange.Start.Line, occRange.Start.Character)
+}
+
 func rangeContains(outer *scip.Range, inner *scip.Range) bool {
 	if outer.Start.Line > inner.Start.Line || outer.End.Line < inner.End.Line {
 		return false
@@ -99,14 +103,19 @@ type CallGraphNode struct {
 	enclosedReferences []*DocOccurrence
 }
 
-func callDepth(nodeSymbol string, nodes map[string]*CallGraphNode) int {
+func callDepth(nodeSymbol string, nodes map[string]*CallGraphNode, visitedRefs map[string]struct{}) int {
 	node := nodes[nodeSymbol]
 	if len(node.enclosedReferences) == 0 {
 		return 0
 	}
 	maxDepth := 0
 	for _, ref := range node.enclosedReferences {
-		depth := callDepth(ref.occurrence.Symbol, nodes)
+		refId := ref.SymbolLocation()
+		if _, ok := visitedRefs[refId]; ok {
+			continue
+		}
+		visitedRefs[refId] = struct{}{}
+		depth := callDepth(ref.occurrence.Symbol, nodes, visitedRefs)
 		if depth > maxDepth {
 			maxDepth = depth
 		}
@@ -121,7 +130,6 @@ func main() {
 	flag.StringVar(&outputFile, "output_file", "call_graph.json", "path to output json file containing the detected call graphs")
 	flag.Parse()
 
-	
 	// read file
 	b, err := os.ReadFile(inputFile)
 	if err != nil {
@@ -147,21 +155,15 @@ func main() {
 	topLevelNodes, allNodes := detectCallGraphs(&graph)
 
 	sort.Slice(topLevelNodes, func(i, j int) bool {
-		depthI := callDepth(topLevelNodes[i], allNodes)
-		depthJ := callDepth(topLevelNodes[j], allNodes)
+		depthI := callDepth(topLevelNodes[i], allNodes, make(map[string]struct{}))
+		depthJ := callDepth(topLevelNodes[j], allNodes, make(map[string]struct{}))
 		return depthJ < depthI
 	})
-
-	for _, nodeName := range topLevelNodes {
-		fmt.Println(" --------- ")
-		printCallGraph(nodeName, allNodes, 0)
-		fmt.Println("Depth: ", callDepth(nodeName, allNodes))
-	}
 
 	// Convert to JSON
 	jsonData := make([]interface{}, 0)
 	for _, node := range topLevelNodes {
-		child := nodeToJson(node, nil, allNodes)
+		child := nodeToJson(node, nil, allNodes, make(map[string]struct{}))
 		jsonData = append(jsonData, child)
 	}
 	// Write to JSON
@@ -214,7 +216,7 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 		}
 
 		fmt.Printf("Doc (%s) definition occurrences: %d\n", doc.RelativePath, len(docDefinitionOccurrences))
-		docEnclosedRefs := findEnclosedReferences(doc, docDefinitionOccurrences, docRefOccurrences)
+		docEnclosedRefs := findEnclosedReferences(docDefinitionOccurrences, docRefOccurrences)
 		for symbol, refs := range docEnclosedRefs {
 			if enclosedRefs[symbol] != nil {
 				panic("Duplicate symbol")
@@ -260,7 +262,7 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 	return GraphElements{symbols: symbols, definitionOccurrences: definitionOccurrences, refOccurrences: refsWithEnclosingDefs, definitionEnclosedRefs: enclosedRefsToOtherEnclosedRefs}
 }
 
-func findEnclosedReferences(doc *scip.Document, docDefinitionOccurrences map[string]*DocOccurrence, docRefOccurrences map[string][]*DocOccurrence) map[string][]*DocOccurrence {
+func findEnclosedReferences(docDefinitionOccurrences map[string]*DocOccurrence, docRefOccurrences map[string][]*DocOccurrence) map[string][]*DocOccurrence {
 	// list of SymbolRange
 	orderedDefinitionRanges := make([]*DocOccurrenceRange, 0)
 	for _, def := range docDefinitionOccurrences {
@@ -327,7 +329,7 @@ func detectCallGraphs(g *GraphElements) ([]string, map[string]*CallGraphNode) {
 	refs := make(map[string][]*DocOccurrence)
 	for enclosingDefSymbol := range g.definitionEnclosedRefs {
 		if _, ok := nodes[enclosingDefSymbol]; !ok {
-			buildCallGraphAtDefinition(g, enclosingDefSymbol, nodes, refs)
+			buildCallGraphAtDefinition(g, enclosingDefSymbol, nodes, make(map[string]struct{}), refs)
 		}
 	}
 
@@ -346,7 +348,13 @@ func detectCallGraphs(g *GraphElements) ([]string, map[string]*CallGraphNode) {
 	//   - type definitions
 }
 
-func buildCallGraphAtDefinition(g *GraphElements, definitionSymbol string, visitedNodes map[string]*CallGraphNode, refOccurrences map[string][]*DocOccurrence) {
+func buildCallGraphAtDefinition(
+	g *GraphElements,
+	definitionSymbol string,
+	visitedDefNodes map[string]*CallGraphNode,
+	visitedRefIds map[string]struct{},
+	refOccurrences map[string][]*DocOccurrence,
+) {
 	nodeDef := g.definitionOccurrences[definitionSymbol]
 	refsInsideNode := g.definitionEnclosedRefs[definitionSymbol]
 	enclosedRefs := make([]*DocOccurrence, 0)
@@ -361,43 +369,21 @@ func buildCallGraphAtDefinition(g *GraphElements, definitionSymbol string, visit
 		// 	enclosedRefs = append(enclosedRefs, &CallGraphNode{refOccurrence: enclosedRef})
 		// } else
 		refSymbol := enclosedRef.occurrence.Symbol
-		if _, ok := visitedNodes[refSymbol]; !ok { // handle recursive calls and previously visited references
-			buildCallGraphAtDefinition(g, refSymbol, visitedNodes, refOccurrences)
+		refId := enclosedRef.SymbolLocation()
+		if _, ok := visitedDefNodes[refSymbol]; !ok { // don't process the same definition node twice
+			if _, ok := visitedRefIds[refId]; !ok && refSymbol != definitionSymbol { // handle recursion
+				visitedRefIds[refId] = struct{}{}
+				buildCallGraphAtDefinition(g, refSymbol, visitedDefNodes, visitedRefIds, refOccurrences)
+			}
 		}
 		enclosedRefs = append(enclosedRefs, enclosedRef)
 		refOccurrences[refSymbol] = append(refOccurrences[refSymbol], enclosedRef)
 	}
 	node.enclosedReferences = enclosedRefs
-	visitedNodes[definitionSymbol] = node
+	visitedDefNodes[definitionSymbol] = node
 }
 
-func printCallGraph(nodeName string, allNodes map[string]*CallGraphNode, depth int) {
-	node := allNodes[nodeName]
-	fmt.Printf("%s%s\n", indent(depth), removeFirstFourSections(node.nodeOccurrence.occurrence.Symbol))
-	for _, ref := range node.enclosedReferences {
-		// handle recursion - todo: this doesn't handle recursion loops with > 1 function loop step e.g. A->B->A
-		refDef := allNodes[ref.occurrence.Symbol]
-		if refDef.nodeOccurrence == node.nodeOccurrence {
-			fmt.Printf("%s%s\n", indent(depth+1), removeFirstFourSections(refDef.nodeOccurrence.occurrence.Symbol))
-			continue
-		}
-		printCallGraph(ref.occurrence.Symbol, allNodes, depth+1)
-	}
-}
-
-func indent(depth int) string {
-	out := ""
-	for i := 0; i < depth; i++ {
-		out += "\t"
-	}
-	return out
-}
-
-func removeFirstFourSections(s string) string {
-	return strings.Join(strings.Split(s, " ")[4:], " ")
-}
-
-func nodeToJson(nodeSymbol string, reference *DocOccurrence, allNodes map[string]*CallGraphNode) map[string]interface{} {
+func nodeToJson(nodeSymbol string, reference *DocOccurrence, allNodes map[string]*CallGraphNode, visitedRefs map[string]struct{}) map[string]interface{} {
 	node := allNodes[nodeSymbol]
 	nodeJson := make(map[string]interface{})
 	nodeJson["symbol"] = node.nodeOccurrence.occurrence.Symbol
@@ -432,7 +418,12 @@ func nodeToJson(nodeSymbol string, reference *DocOccurrence, allNodes map[string
 	nodeJson["definition_node"] = def
 	nodeJson["children"] = make([]interface{}, 0)
 	for _, ref := range node.enclosedReferences {
-		nodeJson["children"] = append(nodeJson["children"].([]interface{}), nodeToJson(ref.occurrence.Symbol, ref, allNodes))
+		refId := ref.SymbolLocation()
+		if _, ok := visitedRefs[refId]; ok {
+			continue
+		}
+		visitedRefs[refId] = struct{}{}
+		nodeJson["children"] = append(nodeJson["children"].([]interface{}), nodeToJson(ref.occurrence.Symbol, ref, allNodes, visitedRefs))
 	}
 	return nodeJson
 }
