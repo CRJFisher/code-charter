@@ -179,6 +179,32 @@ func main() {
 	jsonFile.Write(jsonBytes)
 }
 
+func getOccurrenceDescriptor(occ *scip.Occurrence) (*scip.Descriptor, error) {
+	parsedSymbol, err := scip.ParseSymbol(occ.Symbol)
+	if err != nil {
+		fmt.Printf("Error parsing symbol: %s\n", occ.Symbol)
+		return nil, err
+	}
+	if len(parsedSymbol.Descriptors) == 0 {
+		return nil, fmt.Errorf("no descriptors found in symbol: %s", occ.Symbol)
+	}
+	return parsedSymbol.Descriptors[len(parsedSymbol.Descriptors)-1], nil
+}
+
+func isMethod(desc *scip.Descriptor) bool { // , location scip.Range, doc *scip.Document
+	return desc.Suffix == scip.Descriptor_Method
+	// else if desc.Suffix == scip.Descriptor_Type {
+	// 	// TODO: this doesn't work because the doc.Text isn't populated by scip-python. It would require passing the file path as a command line parameter and reading it here.
+	// 	// symbolText := doc.Text[location.Start:location.End]
+	// 	// use regex to check if the symbol is a class instantiation
+	// 	// e.g. `MyClass()` not `MyClass `
+	// 	isInstantiation := regexp.MustCompile(`\w+\(\)`)
+	// 	if isInstantiation.MatchString(desc.Name) {
+	// 		return true
+	// 	}
+	// }
+}
+
 func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 	symbols := make(map[string]*scip.SymbolInformation)
 	definitionOccurrences := make(map[string]*DocOccurrence)
@@ -197,16 +223,21 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 			if scip.IsLocalSymbol(occ.Symbol) || occ.Symbol == "" {
 				continue
 			}
+			desc, err := getOccurrenceDescriptor(occ)
+			if err != nil {
+				fmt.Printf("Error getting descriptor for symbol: %s\n", desc)
+				continue
+			}
+
 			// is it a definition or a reference?
 			docOcc := &DocOccurrence{document: doc, occurrence: occ}
 			if isDef := scip.SymbolRole_Definition.Matches(occ) && occ.EnclosingRange != nil; isDef { // without EnclosingRange check, it includes variable / parameter definitions
 				docDefinitionOccurrences[occ.Symbol] = docOcc
 				definitionOccurrences[occ.Symbol] = docOcc
-			} else {
-				// check if its symbol is a function, method or class
+			} else if isMethod(desc) {
 				docRefOccurrences[occ.Symbol] = append(docRefOccurrences[occ.Symbol], docOcc)
 				refOccurrences[occ.Symbol] = append(refOccurrences[occ.Symbol], docOcc)
-
+				// check if its symbol is a function, method or class
 				// This isn't working because the symbol information is not being indexed. TODO: raise an issue on the sourcegraph/scip-python repo.
 				// if sym, ok := symbols[occ.Symbol]; ok {
 				// 	if sym.Kind == scip.SymbolInformation_Function || sym.Kind == scip.SymbolInformation_Method || sym.Kind == scip.SymbolInformation_Class {
