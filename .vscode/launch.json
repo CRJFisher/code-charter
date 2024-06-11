@@ -11,7 +11,20 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/main.go",
-            "args": ["--input_file=/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712769721799/py-index.scip"]
+            "args": [
+                "--input_file=/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/py-index.scip",
+                "--output_file=/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/call_graph.json"
+            ]
+        },
+        {
+            "name": "Shell Script: build_call_graph_image.sh",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "/bin/bash",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/dev/build_call_graph_image.sh",
+            "args": [],
+            "console": "integratedTerminal"
         }
     ]
 }
