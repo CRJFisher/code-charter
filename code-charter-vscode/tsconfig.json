@@ -1,11 +1,15 @@
 {
 	"compilerOptions": {
-		"module": "CommonJS",
+		// "module": "CommonJS",
 		"moduleResolution": "node",
-		"target": "ES2022",
+		"target": "ES2018",
+		"module": "CommonJS",
+		"esModuleInterop": true,
+    	"skipLibCheck": true,
 		"outDir": "out",
 		"lib": [
-			"ES2022", "dom"
+			"ES2022",
+			"dom"
 		],
 		"sourceMap": true,
 		"rootDir": "src",

@@ -1,56 +1,60 @@
-import 'reflect-metadata';
-import { Type, Expose } from 'class-transformer';
+// import 'reflect-metadata';
+import { Type } from 'class-transformer';
 
 class DocRange {
-    start_line!: number;
-    start_character!: number;
-    end_line!: number;
-    end_character!: number;
-}
-
-class DefinitionNode {
-    @Type(() => DocRange)
-    range!: DocRange;
-
-    document!: string;
-
-    @Type(() => DocRange)
-    enclosing_range!: DocRange;
+    startLine!: number;
+    startCharacter!: number;
+    endLine!: number;
+    endCharacter!: number;
 }
 
 class ReferenceNode {
     @Type(() => DocRange)
     range!: DocRange;
 
-    document!: string;
+    symbol!: string;
 }
 
-class CallGraphNode {
+class DefinitionNode {
+    @Type(() => DocRange)
+    enclosingRange!: DocRange;
+
+    document!: string;
+
     symbol!: string;
 
+    children!: ReferenceNode[];
+}
+
+class CallGraph {
+    topLevelNodes!: string[];
+
     @Type(() => DefinitionNode)
-    definition_node!: DefinitionNode;
+    definitionNodes!: Record<string, DefinitionNode>;
+}
 
-    @Type(() => CallGraphNode)
-    children!: CallGraphNode[];
+function symbolRepoLocalName(symbol: string): string {
+    let shortened = symbol.split(" ").slice(4).join(" ")
+        .replace(/`|\//g, ".")
+        .replace(/\(|\)/g, "")
+        .replace(/\.\./g, ".");
+    shortened = shortened.replace(/^\./, "").replace(/\.$/, "");
+    return shortened;
+}
 
-    @Type(() => ReferenceNode)
-    reference_node!: ReferenceNode | null;
+function symbolDisplayName(symbol: string): string {
+    return symbolRepoLocalName(symbol).split(".").pop() || '';
+}
 
-    @Expose({ name: 'repoLocalName' })
-    get repoLocalName(): string {
-        let shortened = this.symbol.split(" ").slice(4).join(" ")
-            .replace(/`|\//g, ".")
-            .replace(/\(|\)/g, "")
-            .replace(/\.\./g, ".");
-        shortened = shortened.replace(/^\./, "").replace(/\.$/, "");
-        return shortened;
-    }
-
-    @Expose({ name: 'displayName' })
-    get displayName(): string {
-        return this.repoLocalName.split(".").pop() || '';
+class TreeAndContextSummaries {
+    functionSummaries: Map<string, string>;
+    refinedFunctionSummaries: Map<string, string>;
+    contextSummary: string;
+    constructor(treeSummary: Map<string, string>, refinedTreeSummary: Map<string, string>, contextSummary: string) {
+        this.functionSummaries = treeSummary;
+        this.refinedFunctionSummaries = refinedTreeSummary;
+        this.contextSummary = contextSummary;
     }
 }
 
-export { CallGraphNode };
+export { CallGraph, DefinitionNode, TreeAndContextSummaries, symbolRepoLocalName, symbolDisplayName };

@@ -18,7 +18,10 @@ export class PythonEnvironment implements ProjectEnvironment {
     }
 
     async parseCodebaseToScipIndex(outDirPath: vscode.Uri): Promise<vscode.Uri | undefined> {
+        console.time("parseCodebaseToScipIndex");
+        console.time("writePipPackagesFile");
         const pipListJsonFile = await writePipPackagesFile(outDirPath);
+        console.timeEnd("writePipPackagesFile");
         if (!pipListJsonFile) {
             vscode.window.showErrorMessage('Error generating pip packages file.');
             return;
@@ -27,8 +30,12 @@ export class PythonEnvironment implements ProjectEnvironment {
         const outFile = `/sources/${vscode.workspace.asRelativePath(outDirPath)}/py-index.scip`;
         const projectName = await getBottomLevelFolder(this.projectPath);
         
+        console.time("scip-pyton docker");
         const indexCommand = `docker run -v ${this.projectPath.fsPath}:/sources sourcegraph/scip-python:latest scip-python index --project-name ${projectName} --project-version 1.0.0 --environment ${relativePipeListJsonFile} --output ${outFile} --cwd /sources`;
-        await runCommand(indexCommand);
+        const output = await runCommand(indexCommand);
+        console.timeEnd("scip-pyton docker");
+        console.log('scip-pyton docker output', output);
+        console.timeEnd("parseCodebaseToScipIndex");
         return vscode.Uri.file(outFile);
     }
 }
@@ -49,7 +56,9 @@ async function writePipPackagesFile(outDirPath: vscode.Uri): Promise<vscode.Uri 
         return;
     }
     // get the list of installed packages
+    console.time("getPipPackagesDetails");
     const packages = await getPipPackagesDetails(pythonPath);
+    console.timeEnd("getPipPackagesDetails");
     if (!packages) {
         return;
     }
@@ -64,20 +73,23 @@ async function writePipPackagesFile(outDirPath: vscode.Uri): Promise<vscode.Uri 
 async function getPipPackagesDetails(pythonPath: string): Promise<Array<{ name: string, version: string, files: string[] }> | undefined> {
     try {
         // Run pip list and get the output in JSON format
-        const { stdout: pipList } = await execAsync(`${pythonPath} -m pip list --format=json`);
+        console.time("pip-list");
+        const { stdout: pipList } = await execAsync(`${pythonPath} -m pip list --local --no-index --format=json`);
+        console.timeEnd("pip-list");
         const packages = JSON.parse(pipList) as Array<{ name: string, version: string }>;
 
         const packageDetails = [];
 
         for (const pkg of packages) {
+            // removed because this was causing a massive slowdown
             // Get package info
-            const { stdout: packageInfo } = await execAsync(`${pythonPath} -m pip show ${pkg.name}`);
+            // const { stdout: packageInfo } = await execAsync(`${pythonPath} -m pip show ${pkg.name}`);
 
             // Parse the details
             const name = pkg.name;
             const version = pkg.version;
-            const filesStringMatch = packageInfo.match(/Files:\n([\s\S]*?)\n\n/);
-            const files = filesStringMatch ? filesStringMatch[1].trim().split('\n').map(line => line.trim()) : [];
+            // const filesStringMatch = packageInfo.match(/Files:\n([\s\S]*?)\n\n/);
+            const files: string[] = []; // filesStringMatch ? filesStringMatch[1].trim().split('\n').map(line => line.trim()) : [];
 
             // Construct JSON object for each package
             const packageDetail = { name, version, files };

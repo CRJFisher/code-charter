@@ -3,23 +3,35 @@ import { checkDockerInstalled } from './docker';
 import { detectEnvironment } from './project/projectTypeDetection';
 import { addToGitignore } from './files';
 import { runCommand } from './run';
-import { readCallGraphJsonFile, summariseCallGraph } from './summarise/summarise';
-import { callGraphToMermaid } from './diagram';
+import { countNodes, readCallGraphJsonFile, summariseCallGraph } from './summarise/summarise';
+import * as dotenv from 'dotenv';
+
+import { symbolRepoLocalName } from './summarise/models';
+import { callGraphToDOT } from './diagram/d3GraphViz';
 
 const extensionFolder = '.code-charter';
 
 // This method is called when your extension is activated
 export function activate(context: vscode.ExtensionContext) {
+	console.log('Congratulations, your extension "code-charter-vscode" is now active!');
 	// Note on notification style: regular progress notifications are triggered in this file, while warnings and errors are shown at the source of the problem.
 
 	// The command has been defined in the package.json file
 	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('code-charter-vscode.generateDiagram', generateDiagram);
+	const disposable = vscode.commands.registerCommand('code-charter-vscode.generateDiagram', () => generateDiagram(context));
 
 	context.subscriptions.push(disposable);
 }
 
-async function generateDiagram(...args: any[]) {
+async function generateDiagram(context: vscode.ExtensionContext) {
+	const res = dotenv.config( // TODO: use user parameter instead of env vars
+		{
+			path: `${__dirname}/../.env`
+		}
+	);
+	if (res.error) {
+		console.error(res.error);
+	}
 	// Check docker is installed
 	const isDockerInstalled = await checkDockerInstalled();
 	if (!isDockerInstalled) {
@@ -42,7 +54,7 @@ async function generateDiagram(...args: any[]) {
 	}
 
 	// Create another folder in the dirPath with a timestamp
-	const timestamp = new Date().getTime();
+	const timestamp = new Date().getTime(); // TODO: move away from timestamp-based folder names
 	const folderPath = vscode.Uri.file(`${dirPath.fsPath}/${timestamp}`);
 	await vscode.workspace.fs.createDirectory(folderPath);
 
@@ -52,11 +64,12 @@ async function generateDiagram(...args: any[]) {
 		location: vscode.ProgressLocation.Notification,
 		title: "Creating summary diagram",
 		cancellable: true
-	}, (p, t) => progressSteps(p, t, workspaceFolders, folderPath));
+	}, (p, t) => progressSteps(context, p, t, workspaceFolders, folderPath)); //vscode.Uri.file('/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062')));
 
 }
 
 async function progressSteps(
+	context: vscode.ExtensionContext,
 	progress: vscode.Progress<{
 		message?: string | undefined;
 		increment?: number | undefined;
@@ -104,13 +117,13 @@ async function progressSteps(
 		return;
 	}
 	progress.report({ increment: 10, message: "Indexing..." });
-	
+
 	const scipIndexUri = await selectedEnvironment.parseCodebaseToScipIndex(workDirPath);
 	if (!scipIndexUri) {
 		return;
 	}
 	console.log(scipIndexUri.fsPath);
-	
+
 	progress.report({ increment: 20, message: "Detecting call graphs..." });
 	const relativeWorkDirPath = vscode.workspace.asRelativePath(workDirPath);
 	const containerInputFilePath = scipIndexUri.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
@@ -120,40 +133,86 @@ async function progressSteps(
 
 	await runCommand(`docker run -v ${selectedEnvironment.projectPath.fsPath}:/sources/ crjfisher/codecharter-detectcallgraphs --input_file ${containerInputFilePath} --output_file ${containerOutputFilePath}`);
 
-	// TODO: add a LLM call to get the overall business logic summary for the selected project. Display this to user with the option to edit and improve it.
-
 	if (token.isCancellationRequested) {
 		return;
 	}
 	progress.report({ increment: 50, message: "Select call graph" });
 	// Read the call graph JSON file
 	const callGraphJsonFilePath = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.json`);
-	const callGraphJson = await readCallGraphJsonFile(callGraphJsonFilePath);
+	// const callGraphJsonFilePath = vscode.Uri.file('/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/call_graph.json');
+	const callGraph = await readCallGraphJsonFile(callGraphJsonFilePath);
 	// Picker for the call graph
-	const pickedNode = await vscode.window.showQuickPick(callGraphJson.map((node) => node.symbol), {
+	const displayNameToFunctions = Object.fromEntries(callGraph.topLevelNodes.map((functionSymbol) => [`${symbolRepoLocalName(functionSymbol)} (n=${countNodes(functionSymbol, callGraph)})`, functionSymbol]));
+	const pickedNode = await vscode.window.showQuickPick(Object.keys(displayNameToFunctions), {
 		placeHolder: 'Select a function to summarise',
 		canPickMany: false,
 	});
 	if (!pickedNode) {
 		return;
 	}
-	const selectedNode = callGraphJson.find((node) => node.symbol === pickedNode);
+	const selectedNode = displayNameToFunctions[pickedNode];
 	if (!selectedNode) {
 		vscode.window.showErrorMessage('Selected node not found.');
 		return;
 	}
-	const callGraphNodeSummaries = await summariseCallGraph(selectedNode, workDirPath, selectedEnvironment.projectPath);
+
+	const totNodes = countNodes(selectedNode, callGraph);
+	console.log(`Selected: ${selectedNode} with ${totNodes} nodes`);
+
+	const callGraphNodeSummaries = await summariseCallGraph(selectedNode, callGraph, workDirPath, vscode.Uri.file('/Users/chuck/workspace/repo_analysis/crewAI'));
+	// const file = fs.readFileSync('/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/summaries-src.crewai.crew.Crew#kickoff.json', 'utf-8');
+	// const callGraphNodeSummaries = new Map<string, string>(Object.entries(JSON.parse(file)));
 	if (token.isCancellationRequested) {
 		return;
 	}
 	progress.report({ increment: 90, message: "Generating diagram" });
 
-	// TODO: select the output format (mermaid, d2, etc.) and output file path
-	const outFile = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.md`);
-	await callGraphToMermaid(selectedNode, callGraphNodeSummaries, outFile);
+	// create a folder in the workDirPath for this diagram
+	const diagramFolderPath = vscode.Uri.joinPath(workDirPath, 'diagrams');
+	const dotString = await callGraphToDOT(selectedNode, callGraph, callGraphNodeSummaries.refinedFunctionSummaries
+		, workDirPath);
 
-	const workspaceRelOutFile = vscode.workspace.asRelativePath(outFile);
-	progress.report({ increment: 100, message: `Diagram created at: ${workspaceRelOutFile}` });
+	await showWebviewDiagram(context, workDirPath, dotString);
+
+	progress.report({ increment: 100, message: `Diagram complete`});
+}
+
+async function showWebviewDiagram(context: vscode.ExtensionContext, workFolder: vscode.Uri, dotString: string) {
+	const panel = vscode.window.createWebviewPanel(
+		'graphvizDiagram',
+		'Code Charter Diagram',
+		vscode.ViewColumn.One,
+		{
+			enableScripts: true,
+			localResourceRoots: [
+				vscode.Uri.file(context.extensionPath),
+				vscode.Uri.joinPath(context.extensionUri, 'node_modules'),
+			],
+		}
+	);
+
+	// Load the HTML template
+	const htmlPath = vscode.Uri.joinPath(context.extensionUri, 'assets', 'index.html');
+	let htmlContent = await vscode.workspace.fs.readFile(htmlPath).then((buffer) => new TextDecoder().decode(buffer));
+
+	// Resolve URIs for the scripts
+	const d3Uri = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'd3', 'dist', 'd3.min.js'));
+	const graphvizWasmUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', '@hpcc-js', 'wasm', 'dist', 'graphviz.umd.js'));
+	const d3GraphvizUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'd3-graphviz', 'build', 'd3-graphviz.js'));
+
+	// Replace placeholders with the actual URIs
+	htmlContent = htmlContent.replace('{d3Uri}', d3Uri.toString());
+	htmlContent = htmlContent.replace('{graphvizWasmUri}', graphvizWasmUri.toString());
+	htmlContent = htmlContent.replace('{d3GraphvizUri}', d3GraphvizUri.toString());
+
+	htmlContent = htmlContent.replace('{dotString}', dotString);
+	console.log(dotString);
+
+	// Write html to work folder (for debugging)
+	// const htmlFilePath = vscode.Uri.joinPath(workFolder, 'index.html');
+	// await vscode.workspace.fs.writeFile(htmlFilePath, Buffer.from(htmlContent));
+
+	panel.webview.html = htmlContent;
 }
 
 // This method is called when your extension is deactivated
