@@ -20,11 +20,9 @@ func TestBuildCallGraphAtDefinitionHandlesRecursion(t *testing.T) {
 	}
 	defOccurrence := DocOccurrence{}
 	g := &GraphElements{
-		symbols: make(map[string]*scip.SymbolInformation),
 		definitionOccurrences: map[string]*DocOccurrence{
 			defSymbol: &defOccurrence,
 		},
-		refOccurrences:         make(map[string][]*DocOccurrence),
 		definitionEnclosedRefs: defEnclosedRefs,
 	}
 	visitedNodes := make(map[string]*CallGraphNode)
@@ -62,12 +60,10 @@ func TestBuildCallGraphAtDefinitionHandlesMultiFunctionRecursiveCycles(t *testin
 	defOccurrence1 := DocOccurrence{}
 	defOccurrence2 := DocOccurrence{}
 	g := &GraphElements{
-		symbols: make(map[string]*scip.SymbolInformation),
 		definitionOccurrences: map[string]*DocOccurrence{
 			defSymbol1: &defOccurrence1,
 			defSymbol2: &defOccurrence2,
 		},
-		refOccurrences: make(map[string][]*DocOccurrence),
 		definitionEnclosedRefs: map[string][]*DocOccurrence{
 			defSymbol1: {&refOccurrence2},
 			defSymbol2: {&refOccurrence1},

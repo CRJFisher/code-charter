@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/sourcegraph/scip/bindings/go/scip"
 	"google.golang.org/protobuf/proto"
@@ -46,9 +47,7 @@ func (s *ScopeStack) IsEmpty() bool {
 }
 
 type GraphElements struct {
-	symbols                map[string]*scip.SymbolInformation
 	definitionOccurrences  map[string]*DocOccurrence
-	refOccurrences         map[string][]*DocOccurrence
 	definitionEnclosedRefs map[string][]*DocOccurrence
 }
 
@@ -149,7 +148,6 @@ func main() {
 		log.Fatalf("Failed to unmarshal SCIP index: %v", err)
 	}
 
-	// todo: keep the reference
 	graph := extractCallGraphElementsFromIndex(&index)
 
 	topLevelNodes, allNodes := detectCallGraphs(&graph)
@@ -161,22 +159,7 @@ func main() {
 	})
 
 	// Convert to JSON
-	jsonData := make([]interface{}, 0)
-	for _, node := range topLevelNodes {
-		child := nodeToJson(node, nil, allNodes, make(map[string]struct{}))
-		jsonData = append(jsonData, child)
-	}
-	// Write to JSON
-	jsonFile, err := os.Create(outputFile)
-	if err != nil {
-		panic(err)
-	}
-	defer jsonFile.Close()
-	jsonBytes, err := json.MarshalIndent(jsonData, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	jsonFile.Write(jsonBytes)
+	writeCallGraphToJson(outputFile, topLevelNodes, allNodes)
 }
 
 func getOccurrenceDescriptor(occ *scip.Occurrence) (*scip.Descriptor, error) {
@@ -214,6 +197,11 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 	for _, doc := range index.Documents {
 		docName := doc.RelativePath
 		fmt.Printf("Document: %s\n", docName)
+
+		// if docName contains 'printer'
+		if strings.Contains(docName, "printer") {
+			fmt.Printf("Document: %s\n", docName)
+		}
 		docDefinitionOccurrences := make(map[string]*DocOccurrence)
 		docRefOccurrences := make(map[string][]*DocOccurrence)
 		for _, sym := range doc.Symbols {
@@ -225,7 +213,7 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 			}
 			desc, err := getOccurrenceDescriptor(occ)
 			if err != nil {
-				fmt.Printf("Error getting descriptor for symbol: %s\n", desc)
+				fmt.Printf("Error getting descriptor for symbol: %s\n", occ.Symbol)
 				continue
 			}
 
@@ -270,16 +258,6 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 		}
 	}
 
-	// filter refOccurrences to include only references to symbols with enclosing scopes (e.g. function or class definitions)
-	refsWithEnclosingDefs := make(map[string][]*DocOccurrence)
-	for symbol, refs := range refOccurrences {
-		for _, ref := range refs {
-			if _, ok := enclosedRefsToOtherEnclosedRefs[ref.occurrence.Symbol]; ok {
-				refsWithEnclosingDefs[symbol] = append(refsWithEnclosingDefs[symbol], ref)
-			}
-		}
-	}
-
 	// count and print the number of different symbol types
 	symbolTypeCount := make(map[scip.SymbolInformation_Kind]int)
 	for _, sym := range symbols {
@@ -290,7 +268,7 @@ func extractCallGraphElementsFromIndex(index *scip.Index) GraphElements {
 		fmt.Printf("%s: %d\n", k, v)
 	}
 
-	return GraphElements{symbols: symbols, definitionOccurrences: definitionOccurrences, refOccurrences: refsWithEnclosingDefs, definitionEnclosedRefs: enclosedRefsToOtherEnclosedRefs}
+	return GraphElements{definitionOccurrences: definitionOccurrences, definitionEnclosedRefs: enclosedRefsToOtherEnclosedRefs}
 }
 
 func findEnclosedReferences(docDefinitionOccurrences map[string]*DocOccurrence, docRefOccurrences map[string][]*DocOccurrence) map[string][]*DocOccurrence {
@@ -356,23 +334,23 @@ func findEnclosedReferences(docDefinitionOccurrences map[string]*DocOccurrence, 
 }
 
 func detectCallGraphs(g *GraphElements) ([]string, map[string]*CallGraphNode) {
-	nodes := make(map[string]*CallGraphNode)
-	refs := make(map[string][]*DocOccurrence)
+	definitionNodes := make(map[string]*CallGraphNode)
+	nodeReferences := make(map[string][]*DocOccurrence)
 	for enclosingDefSymbol := range g.definitionEnclosedRefs {
-		if _, ok := nodes[enclosingDefSymbol]; !ok {
-			buildCallGraphAtDefinition(g, enclosingDefSymbol, nodes, make(map[string]struct{}), refs)
+		if _, ok := definitionNodes[enclosingDefSymbol]; !ok {
+			buildCallGraphAtDefinition(g, enclosingDefSymbol, definitionNodes, make(map[string]struct{}), nodeReferences)
 		}
 	}
 
 	// Top level nodes are nodes that are not referenced by other nodes
 	topLevelNodes := make([]string, 0)
-	for symbol := range nodes {
-		if len(refs[symbol]) == 0 {
+	for symbol := range definitionNodes {
+		if len(nodeReferences[symbol]) == 0 {
 			topLevelNodes = append(topLevelNodes, symbol)
 		}
 	}
 
-	return topLevelNodes, nodes
+	return topLevelNodes, definitionNodes
 	// Future work
 	// TODO: use symbol relationships to find any edges for:
 	//   - implementations
@@ -414,47 +392,52 @@ func buildCallGraphAtDefinition(
 	visitedDefNodes[definitionSymbol] = node
 }
 
-func nodeToJson(nodeSymbol string, reference *DocOccurrence, allNodes map[string]*CallGraphNode, visitedRefs map[string]struct{}) map[string]interface{} {
-	node := allNodes[nodeSymbol]
-	nodeJson := make(map[string]interface{})
-	nodeJson["symbol"] = node.nodeOccurrence.occurrence.Symbol
-	if reference != nil {
-		ref := make(map[string]interface{})
-		refRange := scip.NewRange(reference.occurrence.Range)
-		refRangeJson := make(map[string]interface{})
-		refRangeJson["start_line"] = refRange.Start.Line
-		refRangeJson["start_character"] = refRange.Start.Character
-		refRangeJson["end_line"] = refRange.End.Line
-		refRangeJson["end_character"] = refRange.End.Character
-		ref["range"] = refRangeJson
-		ref["document"] = reference.document.RelativePath
-		nodeJson["reference_node"] = ref
-	}
-	def := make(map[string]interface{})
-	defRange := scip.NewRange(node.nodeOccurrence.occurrence.Range)
-	def["range"] = make(map[string]interface{}, 0)
-	def["range"].(map[string]interface{})["start_line"] = defRange.Start.Line
-	def["range"].(map[string]interface{})["start_character"] = defRange.Start.Character
-	def["range"].(map[string]interface{})["end_line"] = defRange.End.Line
-	def["range"].(map[string]interface{})["end_character"] = defRange.End.Character
-	def["document"] = node.nodeOccurrence.document.RelativePath
-	if node.nodeOccurrence.occurrence.EnclosingRange != nil {
-		def["enclosing_range"] = make(map[string]interface{}, 0)
-		enclosingRange := scip.NewRange(node.nodeOccurrence.occurrence.EnclosingRange)
-		def["enclosing_range"].(map[string]interface{})["start_line"] = enclosingRange.Start.Line
-		def["enclosing_range"].(map[string]interface{})["start_character"] = enclosingRange.Start.Character
-		def["enclosing_range"].(map[string]interface{})["end_line"] = enclosingRange.End.Line
-		def["enclosing_range"].(map[string]interface{})["end_character"] = enclosingRange.End.Character
-	}
-	nodeJson["definition_node"] = def
-	nodeJson["children"] = make([]interface{}, 0)
-	for _, ref := range node.enclosedReferences {
-		refId := ref.SymbolLocation()
-		if _, ok := visitedRefs[refId]; ok {
-			continue
+func writeCallGraphToJson(outputFile string, topLevelNodes []string, allNodes map[string]*CallGraphNode) {
+	// make a json object with keys: "topLevelNodes" and "definitionNodes"
+	// topLevelNodes is an array of strings
+	jsonData := make(map[string]interface{})
+	jsonData["topLevelNodes"] = topLevelNodes
+	// definitionNodes is an object with keys as the symbol and values as an object with keys: "nodeOccurrence", "enclosedReferences"
+	jsonData["definitionNodes"] = make(map[string]interface{})
+	for symbol, node := range allNodes {
+		nodeJson := make(map[string]interface{})
+		// Enclosing Range
+		encRange := scip.NewRange(node.nodeOccurrence.occurrence.EnclosingRange)
+		encRangeJson := make(map[string]interface{})
+		encRangeJson["startLine"] = encRange.Start.Line
+		encRangeJson["startCharacter"] = encRange.Start.Character
+		encRangeJson["endLine"] = encRange.End.Line
+		encRangeJson["endCharacter"] = encRange.End.Character
+		nodeJson["enclosingRange"] = encRangeJson
+		// Document
+		nodeJson["document"] = node.nodeOccurrence.document.RelativePath
+		// Symbol
+		nodeJson["symbol"] = node.nodeOccurrence.occurrence.Symbol
+		// Children
+		nodeJson["children"] = make([]interface{}, 0)
+		for _, ref := range node.enclosedReferences {
+			refJson := make(map[string]interface{})
+			refRange := scip.NewRange(ref.occurrence.Range)
+			refRangeJson := make(map[string]interface{})
+			refRangeJson["startLine"] = refRange.Start.Line
+			refRangeJson["startCharacter"] = refRange.Start.Character
+			refRangeJson["endLine"] = refRange.End.Line
+			refRangeJson["endCharacter"] = refRange.End.Character
+			refJson["range"] = refRangeJson
+			refJson["symbol"] = ref.occurrence.Symbol
+			nodeJson["children"] = append(nodeJson["children"].([]interface{}), refJson)
 		}
-		visitedRefs[refId] = struct{}{}
-		nodeJson["children"] = append(nodeJson["children"].([]interface{}), nodeToJson(ref.occurrence.Symbol, ref, allNodes, visitedRefs))
+		jsonData["definitionNodes"].(map[string]interface{})[symbol] = nodeJson
 	}
-	return nodeJson
+	// Write to JSON
+	jsonFile, err := os.Create(outputFile)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	jsonBytes, err := json.MarshalIndent(jsonData, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	jsonFile.Write(jsonBytes)
 }
