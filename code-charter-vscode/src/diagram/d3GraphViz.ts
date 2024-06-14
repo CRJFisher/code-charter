@@ -22,7 +22,8 @@ function generateDOT(
     summaries: Map<string, string>
 ): string {
     const dotGraph = new Digraph({ fontname: "Helvetica", fontsize: 12, });
-    const visited = new Set<string>();
+    const visitedNodes = new Set<string>();
+    const visitedEdges = new Set<string>();
 
     function addNodeAndEdges(symbol: string): NodeModel {
         const node = graph.definitionNodes[symbol];
@@ -52,16 +53,17 @@ function generateDOT(
         if (existingNode) {
             return existingNode;
         }
-        visited.add(node.symbol);
+        visitedNodes.add(node.symbol);
         const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, color: "grey" });
 
         node.children.forEach((child, i) => {
-            if (visited.has(child.symbol)) {
-                return;
+            const childNode = visitedNodes.has(child.symbol) ? nodeSubgraph.getNode(sanitizeSymbolName(symbolRepoLocalName(child.symbol))) : addNodeAndEdges(child.symbol);
+            const edgeId = `${nodeId}->${sanitizeSymbolName(symbolRepoLocalName(child.symbol))}`;
+            if (!visitedEdges.has(edgeId)) {
+                const label = node.children.length > 1 ? `${i + 1}` : "";
+                dotGraph.createEdge([createdNode, childNode], { label: label });
+                visitedEdges.add(edgeId);
             }
-            const childNode = addNodeAndEdges(child.symbol);
-            const label = node.children.length > 1 ? `${i + 1}` : "";
-            dotGraph.createEdge([createdNode, childNode], { label: label });
         });
 
         return createdNode;
