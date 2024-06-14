@@ -9,7 +9,8 @@ export async function callGraphToDOT(
     summaries: Map<string, string>,
     outfileFolder: vscode.Uri,
 ): Promise<string> {
-    const dotSyntax = generateDOT(topLevelFunction, graph, summaries);
+    const dotGraph = generateDOT(topLevelFunction, graph, summaries);
+    const dotSyntax = toDot(dotGraph);
     // Save DOT syntax to a file
     const outfilePath = vscode.Uri.joinPath(outfileFolder, 'dot.txt');
     await vscode.workspace.fs.writeFile(outfilePath, Buffer.from(dotSyntax));
@@ -20,7 +21,7 @@ function generateDOT(
     topLevelFunctionSymbol: string,
     graph: CallGraph,
     summaries: Map<string, string>
-): string {
+): Digraph {
     const dotGraph = new Digraph({ fontname: "Helvetica", fontsize: 12, });
     const visitedNodes = new Set<string>();
     const visitedEdges = new Set<string>();
@@ -54,10 +55,13 @@ function generateDOT(
             return existingNode;
         }
         visitedNodes.add(node.symbol);
-        const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, color: "grey" });
+        const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, fillcolor: "white", });
 
         node.children.forEach((child, i) => {
-            const childNode = visitedNodes.has(child.symbol) ? nodeSubgraph.getNode(sanitizeSymbolName(symbolRepoLocalName(child.symbol))) : addNodeAndEdges(child.symbol);
+            const childNode = addNodeAndEdges(child.symbol); //visitedNodes.has(child.symbol) ? nodeSubgraph.getNode(sanitizeSymbolName(symbolRepoLocalName(child.symbol))) : addNodeAndEdges(child.symbol);
+            if (!childNode) {
+                return;
+            }
             const edgeId = `${nodeId}->${sanitizeSymbolName(symbolRepoLocalName(child.symbol))}`;
             if (!visitedEdges.has(edgeId)) {
                 const label = node.children.length > 1 ? `${i + 1}` : "";
@@ -71,7 +75,7 @@ function generateDOT(
 
     addNodeAndEdges(topLevelFunctionSymbol);
 
-    return toDot(dotGraph);
+    return dotGraph;
 }
 
 function escapeHtml(unsafe: string): string {
