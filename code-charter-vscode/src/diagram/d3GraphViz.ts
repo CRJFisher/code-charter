@@ -55,7 +55,7 @@ function generateDOT(
             return existingNode;
         }
         visitedNodes.add(node.symbol);
-        const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, fillcolor: "white", });
+        const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, style: "filled", fillcolor: "white", });
 
         node.children.forEach((child, i) => {
             const childNode = addNodeAndEdges(child.symbol); //visitedNodes.has(child.symbol) ? nodeSubgraph.getNode(sanitizeSymbolName(symbolRepoLocalName(child.symbol))) : addNodeAndEdges(child.symbol);
