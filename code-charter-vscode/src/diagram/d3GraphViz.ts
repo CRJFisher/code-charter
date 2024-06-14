@@ -1,5 +1,7 @@
-import * as vscode from 'vscode';
 import { CallGraph, symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
+
+import { Digraph, toDot, NodeModel, Edge, Subgraph } from 'ts-graphviz';
+import * as vscode from 'vscode';
 
 export async function callGraphToDOT(
     topLevelFunction: string,
@@ -7,51 +9,79 @@ export async function callGraphToDOT(
     summaries: Map<string, string>,
     outfileFolder: vscode.Uri,
 ): Promise<string> {
-    const [nodes, edges] = generateDOT(topLevelFunction, graph, summaries);
-    const dotSyntax = createDOTDiagram(nodes, edges);
-    // await vscode.workspace.fs.writeFile(outfilePath, Buffer.from(dotSyntax));
-    // Save DOT syntax to a JSON file
-    // todo: pass in out file folder, add 'graph.json' to the end of the path here (since this will know about the string replacement in the html file)
+    const dotSyntax = generateDOT(topLevelFunction, graph, summaries);
+    // Save DOT syntax to a file
     const outfilePath = vscode.Uri.joinPath(outfileFolder, 'dot.txt');
     await vscode.workspace.fs.writeFile(outfilePath, Buffer.from(dotSyntax));
     return dotSyntax;
 }
 
 function generateDOT(
-    topLevelFunction: string,
+    topLevelFunctionSymbol: string,
     graph: CallGraph,
-    summaries: Map<string, string>,
-    nodes: Set<string> = new Set(),
-    edges: string[] = [],
-    visitedNodes: Set<string> = new Set()
-): [Set<string>, string[]] {
-    const node = graph.definitionNodes[topLevelFunction];
-    // const nodeId = symbolRepoLocalName(topLevelFunction);
-    const nodeId = sanitizeSymbolName(symbolRepoLocalName(topLevelFunction));
+    summaries: Map<string, string>
+): string {
+    const dotGraph = new Digraph({ fontname: "Helvetica", fontsize: 12, });
+    const visited = new Set<string>();
 
-    if (visitedNodes.has(nodeId)) {
-        return [nodes, edges];
+    function addNodeAndEdges(symbol: string): NodeModel {
+        const node = graph.definitionNodes[symbol];
+        const nodeId = sanitizeSymbolName(symbolRepoLocalName(symbol));
+
+        const nodeSummary = summaries.get(node.symbol);
+        if (!nodeSummary) {
+            throw new Error(`Summary not found for ${node.symbol}`);
+        }
+        const summary = escapeHtml(nodeSummary.trim());
+        const lengthLimitedSegments = summary.split(".").flatMap(sentence => splitSentence(sentence));
+        const splitSummary = lengthLimitedSegments.join("<br/>"); // HTML uses <br/> for new lines
+        const nodeLabel = `<
+            <table border="0" cellborder="0" cellspacing="0">
+            <tr><td><b>${escapeHtml(symbolDisplayName(node.symbol))}</b></td></tr>
+            <tr><td>${splitSummary}</td></tr>
+            </table>
+            >`;
+
+        let nodeSubgraph = dotGraph.getSubgraph(node.document);
+        if (!nodeSubgraph) {
+            nodeSubgraph = new Subgraph(`cluster_${node.document}`, { label: node.document, style: "dashed", bgcolor: "lightgrey", fontname: "Helvetica", fontsize: 12, });
+            dotGraph.addSubgraph(nodeSubgraph);
+        }
+
+        const existingNode = nodeSubgraph.getNode(nodeId);
+        if (existingNode) {
+            return existingNode;
+        }
+        visited.add(node.symbol);
+        const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, color: "grey" });
+
+        node.children.forEach((child, i) => {
+            if (visited.has(child.symbol)) {
+                return;
+            }
+            const childNode = addNodeAndEdges(child.symbol);
+            const label = node.children.length > 1 ? `${i + 1}` : "";
+            dotGraph.createEdge([createdNode, childNode], { label: label });
+        });
+
+        return createdNode;
     }
-    visitedNodes.add(nodeId);
 
-    const nodeSummary = summaries.get(node.symbol);
-    if (!nodeSummary) {
-        throw new Error(`Summary not found for ${node.symbol}`);
-    }
-    const summary = nodeSummary.trim();
-    const lengthLimitedSegments = summary.split(".").flatMap(sentence => splitSentence(sentence));
-    const splitSummary = lengthLimitedSegments.join("\\n"); // DOT uses \n for new lines
-    const nodeLabel = `"${nodeId}" [label="${symbolDisplayName(node.symbol)}\\n${splitSummary}"];`;
-    nodes.add(nodeLabel);
+    addNodeAndEdges(topLevelFunctionSymbol);
 
-    node.children.forEach((child, index) => {
-        // const childId = symbolRepoLocalName(child.symbol);
-        const childId = sanitizeSymbolName(symbolRepoLocalName(child.symbol));
-        edges.push(`"${nodeId}" -> "${childId}";`);
-        generateDOT(child.symbol, graph, summaries, nodes, edges, visitedNodes);
+    return toDot(dotGraph);
+}
+
+function escapeHtml(unsafe: string): string {
+    return unsafe.replace(/[&<"']/g, (match) => {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '"': return '&quot;';
+            case "'": return '&#039;';
+            default: return match;
+        }
     });
-
-    return [nodes, edges];
 }
 
 function splitSentence(sentence: string, wordLimit: number = 6): string[] {
@@ -70,14 +100,6 @@ function splitSentence(sentence: string, wordLimit: number = 6): string[] {
     });
     segments.push(currentSegment.trim() + (currentSegment.trim().endsWith(".") ? "" : "."));
     return segments;
-}
-
-function createDOTDiagram(nodes: Set<string>, edges: string[]): string {
-    const dotSyntax: string[] = ["digraph G {"];
-    nodes.forEach(node => dotSyntax.push(`  ${node}`));
-    edges.forEach(edge => dotSyntax.push(`  ${edge}`));
-    dotSyntax.push("}");
-    return dotSyntax.join("\n");
 }
 
 function sanitizeSymbolName(symbolName: string): string {
