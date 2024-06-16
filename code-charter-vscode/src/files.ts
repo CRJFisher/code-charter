@@ -13,7 +13,7 @@ function addToGitignore(fileName: string): void {
         if (!fs.existsSync(gitignorePath)) {
             return;
         }
-        fs.appendFile(gitignorePath, `\n${fileName}\n`, (err: NodeJS.ErrnoException | null) => {
+        fs.appendFile(gitignorePath, `\n${fileName}`, (err: NodeJS.ErrnoException | null) => {
             if (err) {
                 console.error('Failed to update .gitignore:', err);
             } else {

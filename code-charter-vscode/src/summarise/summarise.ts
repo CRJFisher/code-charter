@@ -59,7 +59,7 @@ async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph
         const functionSummaries = await summariseIndividualFunctions(topLevelFunction, callGraph, workspacePath, workDir);
         const functionSummariesObject = Object.fromEntries(functionSummaries);
 
-
+        // TODO: filter out tests - is there a regex pattern for each environment type e.g for python it's test_*.py
         // TODO: Use GPT-3.5 to classify the control flow of the functions (e.g. if-else, loops)
         // TODO: Use GPT-3.5 to identify functions which don't have any meaningful business logic and so can be ignored/grouped with the parent in the diagram
         //  - is logging an implementation detail or business logic? It depends on the purpses of the logs - if they are for debugging, they are implementation details, if they are the main output, it's business logic   
@@ -81,7 +81,7 @@ async function summariseIndividualFunctions(topLevelFunction: string, graph: Cal
     function buildPrompt(symbol: string) {
         return new PromptTemplate({
             inputVariables: [symbol],
-            template: `Summarise the below code concisely, focusing on business logic. Avoid framing language. Directly describe the function's purpose and interactions, e.g., 'Calculates total price with tax.', keeping to a single, plaintext sentence.
+            template: `Describe the below code flow concisely, focusing on business logic and related, relevant control flow. Avoid framing language. Directly describe the function's purpose and interactions, e.g., 'Calculates total price with tax.', keeping to a single, plaintext sentence.
     """
     {${symbol}}
     """`,
@@ -141,7 +141,7 @@ async function refineSummaries(topLevelFunction: string, graph: CallGraph, summa
         const childSummaryTemplates = childSymbols.map((childSymbol) => `{${childSymbol}}`).join("\n");
         return new PromptTemplate({
             inputVariables: [parentSymbol, ...childSymbols],
-            template: `Below is a parent function summary and summaries of the child functions called inside it. Output just a refined parent function summary based on the child function summaries, reducing redundancy and creating a coherent narrative flow. Output a single, plaintext sentence.
+            template: `Below is a parent function description and the descriptions of the child functions called inside it. Output just a refined parent function description based on the child function descriptions, providing a higher-level description for the parent including the key business logic control flow. Output a single, plaintext sentence.
             """
     {${parentSymbol}}
     """

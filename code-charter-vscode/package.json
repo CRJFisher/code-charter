@@ -55,6 +55,7 @@
     "d3-graphviz": "^5.4.0",
     "dotenv": "^16.4.5",
     "langchain": "^0.1.30",
-    "reflect-metadata": "^0.2.1"
+    "reflect-metadata": "^0.2.1",
+    "ts-graphviz": "^2.1.2"
   }
 }

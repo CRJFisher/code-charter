@@ -1,4 +1,4 @@
-import { CallGraph, symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
+import { CallGraph, DefinitionNode, symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
 
 import { Digraph, toDot, NodeModel, Edge, Subgraph } from 'ts-graphviz';
 import * as vscode from 'vscode';
@@ -17,18 +17,27 @@ export async function callGraphToDOT(
     return dotSyntax;
 }
 
-function generateDOT(
+export function generateDOT(
     topLevelFunctionSymbol: string,
     graph: CallGraph,
     summaries: Map<string, string>
 ): Digraph {
-    const dotGraph = new Digraph({ fontname: "Helvetica", fontsize: 12, });
+    const dotGraph = new Digraph({ fontname: "Helvetica, Arial, sans-serif", fontsize: 12, });
     const visitedNodes = new Set<string>();
     const visitedEdges = new Set<string>();
 
     function addNodeAndEdges(symbol: string): NodeModel {
+
+        function getNodeId(symbol: string): string {
+            return sanitizeSymbolName(symbolRepoLocalName(symbol));
+        }
+
+        function getSubgraphId(defNode: DefinitionNode) {
+            return `cluster_${defNode.document}`; // subgraph IDs need to be prefixed with "cluster_" to get rendered as clusters
+        }
+
         const node = graph.definitionNodes[symbol];
-        const nodeId = sanitizeSymbolName(symbolRepoLocalName(symbol));
+        const nodeId = getNodeId(node.symbol);
 
         const nodeSummary = summaries.get(node.symbol);
         if (!nodeSummary) {
@@ -36,7 +45,7 @@ function generateDOT(
         }
         const summary = escapeHtml(nodeSummary.trim());
         const lengthLimitedSegments = summary.split(".").flatMap(sentence => splitSentence(sentence));
-        const splitSummary = lengthLimitedSegments.join("<br/>"); // HTML uses <br/> for new lines
+        const splitSummary = lengthLimitedSegments.join("<br/>");
         const nodeLabel = `<
             <table border="0" cellborder="0" cellspacing="0">
             <tr><td><b>${escapeHtml(symbolDisplayName(node.symbol))}</b></td></tr>
@@ -44,25 +53,38 @@ function generateDOT(
             </table>
             >`;
 
-        let nodeSubgraph = dotGraph.getSubgraph(node.document);
+        const nodeSubgraphId = getSubgraphId(node);
+        let nodeSubgraph = dotGraph.getSubgraph(nodeSubgraphId);
         if (!nodeSubgraph) {
-            nodeSubgraph = new Subgraph(`cluster_${node.document}`, { label: node.document, style: "dashed", bgcolor: "lightgrey", fontname: "Helvetica", fontsize: 12, });
+            nodeSubgraph = new Subgraph(nodeSubgraphId, { label: node.document, style: "dashed", bgcolor: "lightgrey", fontname: "Helvetica, Arial, sans-serif", fontsize: 12, });
             dotGraph.addSubgraph(nodeSubgraph);
         }
 
         const existingNode = nodeSubgraph.getNode(nodeId);
         if (existingNode) {
-            return existingNode;
+            throw new Error(`Node already exists (${node.symbol}). This function should not be called if it already exists.`);
         }
         visitedNodes.add(node.symbol);
         const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, style: "filled", fillcolor: "white", });
 
         node.children.forEach((child, i) => {
-            const childNode = addNodeAndEdges(child.symbol); //visitedNodes.has(child.symbol) ? nodeSubgraph.getNode(sanitizeSymbolName(symbolRepoLocalName(child.symbol))) : addNodeAndEdges(child.symbol);
-            if (!childNode) {
-                return;
+            let childNode: NodeModel;
+            const childNodeId = getNodeId(child.symbol);
+            if (visitedNodes.has(child.symbol)) {
+                const childSubgraphId = getSubgraphId(graph.definitionNodes[child.symbol]);    
+                const childSubgraph = dotGraph.getSubgraph(childSubgraphId);
+                if (!childSubgraph) {
+                    throw new Error(`Subgraph not found for visited node (${child.symbol})`);
+                }
+                const visitedNode = childSubgraph.getNode(childNodeId);
+                if (!visitedNode) {
+                    throw new Error(`Visited node (${child.symbol}) not found in subgraph (${node.document})`);
+                }
+                childNode = visitedNode;
+            } else {
+                childNode = addNodeAndEdges(child.symbol);
             }
-            const edgeId = `${nodeId}->${sanitizeSymbolName(symbolRepoLocalName(child.symbol))}`;
+            const edgeId = `${nodeId}->${childNodeId}`;
             if (!visitedEdges.has(edgeId)) {
                 const label = node.children.length > 1 ? `${i + 1}` : "";
                 dotGraph.createEdge([createdNode, childNode], { label: label });
