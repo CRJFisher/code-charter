@@ -62,7 +62,7 @@ export function generateDOT(
 
         const existingNode = nodeSubgraph.getNode(nodeId);
         if (existingNode) {
-            throw new Error(`Node already exists (${node.symbol}). This function should not be called if it already exists.`);
+            throw new Error(`Node already exists (${node.symbol}). This function should not be called if node already exists.`);
         }
         visitedNodes.add(node.symbol);
         const createdNode = nodeSubgraph.createNode(nodeId, { label: nodeLabel, style: "filled", fillcolor: "white", });

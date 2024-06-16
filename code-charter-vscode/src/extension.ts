@@ -13,7 +13,6 @@ const extensionFolder = '.code-charter';
 
 // This method is called when your extension is activated
 export function activate(context: vscode.ExtensionContext) {
-	console.log('Congratulations, your extension "code-charter-vscode" is now active!');
 	// Note on notification style: regular progress notifications are triggered in this file, while warnings and errors are shown at the source of the problem.
 
 	// The command has been defined in the package.json file
@@ -64,7 +63,7 @@ async function generateDiagram(context: vscode.ExtensionContext) {
 		location: vscode.ProgressLocation.Notification,
 		title: "Creating summary diagram",
 		cancellable: true
-	}, (p, t) => progressSteps(context, p, t, workspaceFolders, folderPath)); //vscode.Uri.file('/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062')));
+	}, (p, t) => progressSteps(context, p, t, workspaceFolders, folderPath));
 
 }
 
@@ -136,10 +135,10 @@ async function progressSteps(
 	if (token.isCancellationRequested) {
 		return;
 	}
-	progress.report({ increment: 50, message: "Select call graph" });
+	progress.report({ increment: 30, message: "Select call graph" });
 	// Read the call graph JSON file
 	const callGraphJsonFilePath = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.json`);
-	// const callGraphJsonFilePath = vscode.Uri.file('/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/call_graph.json');
+	// const callGraphJsonFilePath = vscode.Uri.file('/Users/chuck/workspace/repo_analysis/aider/.code-charter/1718388735764/call_graph.json');
 	const callGraph = await readCallGraphJsonFile(callGraphJsonFilePath);
 	// Picker for the call graph
 	const displayNameToFunctions = Object.fromEntries(callGraph.topLevelNodes.map((functionSymbol) => [`${symbolRepoLocalName(functionSymbol)} (n=${countNodes(functionSymbol, callGraph)})`, functionSymbol]));
@@ -159,22 +158,25 @@ async function progressSteps(
 	const totNodes = countNodes(selectedNode, callGraph);
 	console.log(`Selected: ${selectedNode} with ${totNodes} nodes`);
 
-	const callGraphNodeSummaries = await summariseCallGraph(selectedNode, callGraph, workDirPath, vscode.Uri.file('/Users/chuck/workspace/repo_analysis/crewAI'));
-	// const file = fs.readFileSync('/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/summaries-src.crewai.crew.Crew#kickoff.json', 'utf-8');
+	if (token.isCancellationRequested) {
+		return;
+	}
+	progress.report({ increment: 10, message: "Summarising call graph" });
+
+	const callGraphNodeSummaries = await summariseCallGraph(selectedNode, callGraph, workDirPath, selectedEnvironment.projectPath);
+	// const file = await vscode.workspace.fs.readFile(vscode.Uri.file('/Users/chuck/workspace/repo_analysis/aider/.code-charter/1718388735764/summaries-aider.linter.Linter#__init__.json')).then((buffer) => new TextDecoder().decode(buffer));
 	// const callGraphNodeSummaries = new Map<string, string>(Object.entries(JSON.parse(file)));
 	if (token.isCancellationRequested) {
 		return;
 	}
-	progress.report({ increment: 90, message: "Generating diagram" });
+	progress.report({ increment: 20, message: "Generating diagram" });
 
 	// create a folder in the workDirPath for this diagram
-	const diagramFolderPath = vscode.Uri.joinPath(workDirPath, 'diagrams');
-	const dotString = await callGraphToDOT(selectedNode, callGraph, callGraphNodeSummaries.refinedFunctionSummaries
-		, workDirPath);
+	const dotString = await callGraphToDOT(selectedNode, callGraph, callGraphNodeSummaries.refinedFunctionSummaries, workDirPath);
 
 	await showWebviewDiagram(context, workDirPath, dotString);
 
-	progress.report({ increment: 100, message: `Diagram complete`});
+	progress.report({ increment: 10, message: `Diagram complete` });
 }
 
 async function showWebviewDiagram(context: vscode.ExtensionContext, workFolder: vscode.Uri, dotString: string) {
