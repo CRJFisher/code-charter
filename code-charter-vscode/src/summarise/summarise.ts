@@ -10,6 +10,7 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableSequence, RunnableLambda, RunnableConfig, RunnablePassthrough } from "@langchain/core/runnables";
 import { TreeAndContextSummaries, symbolRepoLocalName } from "./models";
+import { PulumiDBClient } from "@pulumi/db-client";
 import { CallGraph, DefinitionNode } from '../models/callGraph';
 
 
@@ -25,6 +26,13 @@ import { CallGraph, DefinitionNode } from '../models/callGraph';
 async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph, workDir: vscode.Uri, workspacePath: vscode.Uri,): Promise<TreeAndContextSummaries> {
     // TODO: use vscode LLM API in chain when available
     // const model = new ChatOpenAI({ temperature: 0, modelName: 'gpt-4o' });
+
+    const pulumiDB = new PulumiDBClient({ /* your Pulumi DB configuration */ });
+
+    const cachedSummary = await pulumiDB.get(topLevelFunction);
+    if (cachedSummary) {
+        return JSON.parse(cachedSummary);
+    }
 
     const markdown = await checkForMarkdownFile(workspacePath);
     let projectText = "";
@@ -71,7 +79,9 @@ async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph
         const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
         console.log(`Writing summaries to ${outFile}`);
         await fsProm.writeFile(outFile, JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2));
-        return new TreeAndContextSummaries(functionSummaries, refinedFunctionSummaries, rootContext);
+        const summaries = new TreeAndContextSummaries(functionSummaries, refinedFunctionSummaries, rootContext);
+        await pulumiDB.set(topLevelFunction, JSON.stringify(summaries));
+        return summaries;
     } catch (error) {
         console.error("Failed to summarise call graph:", callGraph);
         throw error;
