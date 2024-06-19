@@ -72,6 +72,14 @@ async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph
         const functionSummaries = await summariseIndividualFunctions(topLevelFunction, callGraph, workspacePath, workDir);
         const functionSummariesObject = Object.fromEntries(functionSummaries);
 
+        // Store each function summary in the cache
+        for (const [symbol, summary] of functionSummaries) {
+            await db.put({
+                _id: symbol,
+                data: summary
+            });
+        }
+
         // TODO: filter out tests - is there a regex pattern for each environment type e.g for python it's test_*.py
         // TODO: Use GPT-3.5 to classify the control flow of the functions (e.g. if-else, loops)
         // TODO: Use GPT-3.5 to identify functions which don't have any meaningful business logic and so can be ignored/grouped with the parent in the diagram
@@ -84,10 +92,13 @@ async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph
         console.log(`Writing summaries to ${outFile}`);
         await fsProm.writeFile(outFile, JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2));
         const summaries = new TreeAndContextSummaries(functionSummaries, refinedFunctionSummaries, rootContext);
-        await db.put({
-            _id: topLevelFunction,
-            data: summaries
-        });
+        // Store the refined summaries in the cache
+        for (const [symbol, summary] of refinedFunctionSummaries) {
+            await db.put({
+                _id: symbol,
+                data: summary
+            });
+        }
         return summaries;
     } catch (error) {
         console.error("Failed to summarise call graph:", callGraph);
