@@ -9,7 +9,8 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableSequence, RunnableLambda, RunnableConfig, RunnablePassthrough } from "@langchain/core/runnables";
-import { TreeAndContextSummaries, CallGraph, DefinitionNode, symbolRepoLocalName } from "./models";
+import { TreeAndContextSummaries, symbolRepoLocalName } from "./models";
+import { CallGraph, DefinitionNode } from '../models/callGraph';
 
 
 // const safety = [
