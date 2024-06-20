@@ -17,7 +17,16 @@ export class PythonEnvironment implements ProjectEnvironment {
         return `Python (${relativePath})`;
     }
 
-    async parseCodebaseToScipIndex(outDirPath: vscode.Uri): Promise<vscode.Uri | undefined> {
+    fileName(): string {
+        const relPath = vscode.workspace.asRelativePath(this.projectPath);
+        if (relPath === this.projectPath.fsPath) {
+            return '';
+        }
+        // convert system-based folder separators to underscores
+        return relPath.replace(/[\\/]/g, '_');
+    }
+
+    async parseCodebaseToScipIndex(outDirPath: vscode.Uri, scipFilePath: vscode.Uri): Promise<void> {
         console.time("parseCodebaseToScipIndex");
         console.time("writePipPackagesFile");
         const pipListJsonFile = await writePipPackagesFile(outDirPath);
@@ -26,8 +35,8 @@ export class PythonEnvironment implements ProjectEnvironment {
             vscode.window.showErrorMessage('Error generating pip packages file.');
             return;
         }
-        const relativePipeListJsonFile = '/sources/' + vscode.workspace.asRelativePath(pipListJsonFile);
-        const outFile = `/sources/${vscode.workspace.asRelativePath(outDirPath)}/py-index.scip`;
+        const relativePipeListJsonFile = `/sources/${vscode.workspace.asRelativePath(pipListJsonFile)}`;
+        const outFile = `/sources/${vscode.workspace.asRelativePath(scipFilePath)}`;
         const projectName = await getBottomLevelFolder(this.projectPath);
         
         console.time("scip-pyton docker");
@@ -36,11 +45,19 @@ export class PythonEnvironment implements ProjectEnvironment {
         console.timeEnd("scip-pyton docker");
         console.log('scip-pyton docker output', output);
         console.timeEnd("parseCodebaseToScipIndex");
-        return vscode.Uri.file(outFile);
+    }
+
+    filterTopLevelFunctions(topLevelFunctionNames: string[]): string[] {
+        // regex pattern to match string containing test folder e.g. 'tests/', 'test/', 'testing/'
+        const testFolderPattern = /tests?\.|testing\./;
+        // regex pattern to match string containing test method or function e.g. '*#test_*()' or  '*/test_*()'
+        const testFilePattern = /.*#_?test_.*\(\)|.*\/test_.*\(\)/;
+        const filteredFunctions = topLevelFunctionNames.filter((name) => !testFolderPattern.test(name) && !testFilePattern.test(name)); 
+        return filteredFunctions;
     }
 }
 
-async function writePipPackagesFile(outDirPath: vscode.Uri): Promise<vscode.Uri | undefined> {
+async function writePipPackagesFile(outDirPath: vscode.Uri): Promise<vscode.Uri> {
     // TODO: check if python extension is installed - does this throw an error?
     const pythonExtensionApi = await PythonExtension.api();
     const environments = pythonExtensionApi.environments;
@@ -48,19 +65,20 @@ async function writePipPackagesFile(outDirPath: vscode.Uri): Promise<vscode.Uri 
     const environment = await environments.resolveEnvironment(environmentPath);
     if (!environment) {
         vscode.window.showErrorMessage('Python extension is not installed. Please install Microsoft Python extension.');
-        return;
+        throw new Error('Python extension is not installed. Please install Microsoft Python extension.');
     }
     const pythonPath = environment.executable.uri?.fsPath;
     if (!pythonPath) {
         vscode.window.showErrorMessage('Python executable path not found.');
-        return;
+        throw new Error('Python executable path not found.');
     }
     // get the list of installed packages
     console.time("getPipPackagesDetails");
     const packages = await getPipPackagesDetails(pythonPath);
     console.timeEnd("getPipPackagesDetails");
     if (!packages) {
-        return;
+        vscode.window.showErrorMessage('Error getting pip packages details.');
+        throw new Error('Error getting pip packages details.');
     }
     const packagesJSON = JSON.stringify(packages, null, 2);
     // write to file; TODO: include the name of the project

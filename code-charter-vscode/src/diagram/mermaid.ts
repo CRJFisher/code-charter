@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as vscode from "vscode";
-import { CallGraph, symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
+import { symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
+import { CallGraph } from '../models/callGraph';
 
 async function callGraphToMermaid(
     topLevelFunction: string,

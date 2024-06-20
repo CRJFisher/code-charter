@@ -1,7 +1,8 @@
-import { CallGraph, DefinitionNode, symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
+import { symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
 
-import { Digraph, toDot, NodeModel, Edge, Subgraph } from 'ts-graphviz';
+import { Digraph, toDot, NodeModel, Subgraph } from 'ts-graphviz';
 import * as vscode from 'vscode';
+import { CallGraph, DefinitionNode } from '../models/callGraph';
 
 export async function callGraphToDOT(
     topLevelFunction: string,

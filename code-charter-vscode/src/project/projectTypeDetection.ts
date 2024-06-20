@@ -10,7 +10,11 @@ export interface ProjectEnvironment {
 
   displayName(): string;
 
-  parseCodebaseToScipIndex(outDirPath: vscode.Uri): Promise<vscode.Uri | undefined>; // Convert the codebase to SCIP format, outputting the path of the generated file
+  fileName(): string;
+
+  parseCodebaseToScipIndex(outDirPath: vscode.Uri, outScipFilePath: vscode.Uri): Promise<void>; // Convert the codebase to SCIP format, outputting the path of the generated file
+
+  filterTopLevelFunctions(topLevelFunctionNames: string[]): string[]; // Filter out unwanted top-level functions from the codebase e.g. tests
 
 }
 

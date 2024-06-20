@@ -8,6 +8,7 @@ import * as dotenv from 'dotenv';
 
 import { symbolRepoLocalName } from './summarise/models';
 import { callGraphToDOT } from './diagram/d3GraphViz';
+import { getFileVersionHash } from './git';
 
 const extensionFolder = '.code-charter';
 
@@ -44,18 +45,13 @@ async function generateDiagram(context: vscode.ExtensionContext) {
 		return;
 	}
 	const workspacePath = workspaceFolders[0].uri.fsPath;
-	const dirPath = vscode.Uri.file(`${workspacePath}/${extensionFolder}`);
-	const dirExists = await vscode.workspace.fs.stat(dirPath).then(() => true, () => false);
+	const workDir = vscode.Uri.file(`${workspacePath}/${extensionFolder}`);
+	const dirExists = await vscode.workspace.fs.stat(workDir).then(() => true, () => false);
 	if (!dirExists) {
 		// Create the directory
-		await vscode.workspace.fs.createDirectory(dirPath);
+		await vscode.workspace.fs.createDirectory(workDir);
 		addToGitignore(extensionFolder);
 	}
-
-	// Create another folder in the dirPath with a timestamp
-	const timestamp = new Date().getTime(); // TODO: move away from timestamp-based folder names
-	const folderPath = vscode.Uri.file(`${dirPath.fsPath}/${timestamp}`);
-	await vscode.workspace.fs.createDirectory(folderPath);
 
 	// TODO: create an object to hold the work folder info and helper functions e.g. relative path, docker-prefixed path etc
 
@@ -63,7 +59,7 @@ async function generateDiagram(context: vscode.ExtensionContext) {
 		location: vscode.ProgressLocation.Notification,
 		title: "Creating summary diagram",
 		cancellable: true
-	}, (p, t) => progressSteps(context, p, t, workspaceFolders, folderPath));
+	}, (p, t) => progressSteps(context, p, t, workspaceFolders, workDir));
 
 }
 
@@ -117,15 +113,24 @@ async function progressSteps(
 	}
 	progress.report({ increment: 10, message: "Indexing..." });
 
-	const scipIndexUri = await selectedEnvironment.parseCodebaseToScipIndex(workDirPath);
-	if (!scipIndexUri) {
-		return;
+	let envFileString = selectedEnvironment.fileName();
+	if (envFileString.length > 0) {
+		envFileString += '-';
 	}
-	console.log(scipIndexUri.fsPath);
+	// TODO: only check for changes in the selected environment - need to add a getFiles() to environment then check against working tree changes - limit to just e.g. python files
+	const versionSuffix = (await getFileVersionHash()) || 'latest';
+	const scipFileName = `index-${envFileString}${versionSuffix}.scip`;
+	const scipFilePath = vscode.Uri.joinPath(workDirPath, scipFileName);
+	const doesFileExist = await vscode.workspace.fs.stat(scipFilePath).then(() => true, () => false);
+	if (doesFileExist) {
+		console.log(`SCIP file already exists: ${scipFilePath.fsPath}`);
+	} else {
+		await selectedEnvironment.parseCodebaseToScipIndex(workDirPath, scipFilePath);
+	}
 
 	progress.report({ increment: 20, message: "Detecting call graphs..." });
 	const relativeWorkDirPath = vscode.workspace.asRelativePath(workDirPath);
-	const containerInputFilePath = scipIndexUri.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
+	const containerInputFilePath = scipFilePath.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
 	console.log("containerInputFilePath", containerInputFilePath);
 	const containerOutputFilePath = `/sources/${relativeWorkDirPath}/call_graph.json`;
 	console.log("containerOutputFilePath", containerOutputFilePath);
@@ -141,7 +146,7 @@ async function progressSteps(
 	// const callGraphJsonFilePath = vscode.Uri.file('/Users/chuck/workspace/repo_analysis/aider/.code-charter/1718388735764/call_graph.json');
 	const callGraph = await readCallGraphJsonFile(callGraphJsonFilePath);
 	// Picker for the call graph
-	const displayNameToFunctions = Object.fromEntries(callGraph.topLevelNodes.map((functionSymbol) => [`${symbolRepoLocalName(functionSymbol)} (n=${countNodes(functionSymbol, callGraph)})`, functionSymbol]));
+	const displayNameToFunctions = Object.fromEntries(selectedEnvironment.filterTopLevelFunctions(callGraph.topLevelNodes).map((functionSymbol) => [`${symbolRepoLocalName(functionSymbol)} (n=${countNodes(functionSymbol, callGraph)})`, functionSymbol]));
 	const pickedNode = await vscode.window.showQuickPick(Object.keys(displayNameToFunctions), {
 		placeHolder: 'Select a function to summarise',
 		canPickMany: false,

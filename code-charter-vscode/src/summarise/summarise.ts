@@ -3,40 +3,55 @@ import * as fs from "fs";
 import * as fsProm from 'fs/promises';
 import * as vscode from 'vscode';
 import { ChatOpenAI } from "@langchain/openai";
-// import { ChatAnthropic } from "@langchain/anthropic";
-// import { VertexAI } from "@langchain/google-vertexai";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
-import { Runnable, RunnableMap, RunnableSequence, RunnableLambda, RunnableConfig, RunnablePassthrough } from "@langchain/core/runnables";
+import { Runnable, RunnableMap, RunnableConfig, RunnableBranch, RunnableLambda } from "@langchain/core/runnables";
 import { TreeAndContextSummaries, symbolRepoLocalName } from "./models";
 import PouchDB from "pouchdb";
 import { CallGraph, DefinitionNode } from '../models/callGraph';
+import { hashText } from "../hashing";
 
-
-// const safety = [
-//     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-//     { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
-//     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-//     { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-// ];
-// const model = new VertexAI({ temperature: 0, safetySettings: safety, model: 'gemini-1.5-flash-001' });
+interface SummaryRecord {
+    _id: string;
+    symbol: string;
+    summary: string;
+    createdAt: Date;
+}
 
 // Output a map and a string
-async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph, workDir: vscode.Uri, workspacePath: vscode.Uri,): Promise<TreeAndContextSummaries> {
+async function summariseCallGraph(topLevelFunctionSymbol: string, callGraph: CallGraph, workDir: vscode.Uri, workspacePath: vscode.Uri,): Promise<TreeAndContextSummaries> {
     // TODO: use vscode LLM API in chain when available
-    // const model = new ChatOpenAI({ temperature: 0, modelName: 'gpt-4o' });
 
-    const db = new PouchDB('summaries');
+    const topLevelFunctionName = symbolRepoLocalName(topLevelFunctionSymbol);
 
-    try {
-        const cachedSummary = await db.get(topLevelFunction);
-        return cachedSummary.data;
-    } catch (err) {
-        if (err.status !== 404) {
-            throw err;
-        }
-    }
+    const rootContext = await summariseRootScope(workDir, workspacePath, topLevelFunctionName);
+
+    const definitionNodes = getAllDefinitionNodesFromCallGraph(callGraph, topLevelFunctionSymbol);
+
+    const functionSymbolCode: Map<string, string> = await getSymbolToFunctionCode(definitionNodes, workspacePath);
+
+    const functionSummaries = await getFunctionSummaries(workDir, functionSymbolCode, definitionNodes);
+
+    // TODO: Classify the control flow of the functions (e.g. if-else, loops)
+    // TODO: Identify functions which don't have any meaningful business logic and so can be ignored/grouped with the parent in the diagram
+    //  - is logging an implementation detail or business logic? It depends on the purpses of the logs - if they are for debugging, they are implementation details, if they are the main output, it's business logic   
+    // TODO: incorporate the control flow into the re-summarisation
+
+    const refinedFunctionSummaries = await refineSummaries(workDir, functionSummaries, definitionNodes);
+
+    // (For debugging) write summaries to file
+    const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
+    console.log(`Writing summaries to ${outFile}`);
+    await fsProm.writeFile(outFile, JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2));
+
+    const summaries = new TreeAndContextSummaries(functionSummaries, refinedFunctionSummaries, rootContext);
+    return summaries;
+}
+
+async function summariseRootScope(workDir: vscode.Uri, workspacePath: vscode.Uri, topLevelFunctionName: string) {
+    const db = new PouchDB<SummaryRecord>(`${workDir.fsPath}/rootScopeSummary`);
+
+    const rootContextModelName = 'gpt-3.5-turbo';
 
     const markdown = await checkForMarkdownFile(workspacePath);
     let projectText = "";
@@ -45,68 +60,54 @@ async function summariseCallGraph(topLevelFunction: string, callGraph: CallGraph
     } else {
         projectText = "No markdown file found - please derive intentions from function path";
     }
+
+    const rootScopeSummaryKey = hashText(rootContextModelName, projectText);
+    const cachedSummary = await db.get(rootScopeSummaryKey).catch((_) => null);
+    if (cachedSummary) {
+        return cachedSummary.summary;
+    }
+
     const rootContextPrompt = new PromptTemplate({
         inputVariables: ["projectText", "functionPath"],
-        template: `Please carefully interperet the following, deriving from the high level use cases from the *project description* and the specific intentions served by the *function path*
-        *project description*:
+        template: `Please describe the user intention from the Project Description and the entrypoint Function Path they are interacting with. Output a single, plaintext sentence.
+        Project description:
         """
         {projectText}
         """
-        *function path*:
+        Function Path:
         """
         {functionPath}
-        """
-        Only output the summary text with no framing text, keeping it to the minimum possible length.`,
+        """`,
     });
-    const rootContextModelName = 'gpt-3.5-turbo';
     const model = new ChatOpenAI({ temperature: 0, modelName: rootContextModelName });
     const rootContextSummaryChain = rootContextPrompt.pipe(model).pipe(new StringOutputParser());
-    const topLevelFunctionName = symbolRepoLocalName(topLevelFunction);
     const rootContext = await rootContextSummaryChain.invoke({ projectText, functionPath: topLevelFunctionName });
-    fs.writeFile(`${workDir.fsPath}/rootContext_${rootContextModelName}.json`, JSON.stringify({ "rootContext": rootContext }), 'utf8', (err) => { });
 
-    try {
-        // const chain = await processTree(callGraphNode, "rootContext", workspacePath, model);
-        // const callGraphSummaries: { [key: string]: string } = await chain.invoke({ rootContext: rootContext });
-        // TODO: implement caching based on a hash of the function string
-        const functionSummaries = await summariseIndividualFunctions(topLevelFunction, callGraph, workspacePath, workDir);
-        const functionSummariesObject = Object.fromEntries(functionSummaries);
-
-        // Store each function summary in the cache
-        for (const [symbol, summary] of functionSummaries) {
-            await db.put({
-                _id: symbol,
-                data: summary
-            });
-        }
-
-        // TODO: filter out tests - is there a regex pattern for each environment type e.g for python it's test_*.py
-        // TODO: Use GPT-3.5 to classify the control flow of the functions (e.g. if-else, loops)
-        // TODO: Use GPT-3.5 to identify functions which don't have any meaningful business logic and so can be ignored/grouped with the parent in the diagram
-        //  - is logging an implementation detail or business logic? It depends on the purpses of the logs - if they are for debugging, they are implementation details, if they are the main output, it's business logic   
-        // TODO: incorporate the control flow into the re-summarisation
-        const refinedFunctionSummaries = await refineSummaries(topLevelFunction, callGraph, functionSummariesObject, workDir);
-
-        // Write summaries to file
-        const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
-        console.log(`Writing summaries to ${outFile}`);
-        await fsProm.writeFile(outFile, JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2));
-        const summaries = new TreeAndContextSummaries(functionSummaries, refinedFunctionSummaries, rootContext);
-        // Store the refined summaries in the cache
-        for (const [symbol, summary] of refinedFunctionSummaries) {
-            await db.put({
-                _id: symbol,
-                data: summary
-            });
-        }
-        return summaries;
-    } catch (error) {
-        console.error("Failed to summarise call graph:", callGraph);
-        throw error;
-    }
+    db.put({
+        _id: rootScopeSummaryKey,
+        summary: rootContext,
+        symbol: "",
+        createdAt: new Date(),
+    });
+    return rootContext;
 }
 
-async function summariseIndividualFunctions(topLevelFunction: string, graph: CallGraph, workspacePath: vscode.Uri, workDir: vscode.Uri): Promise<Map<string, string>> {
+function getAllDefinitionNodesFromCallGraph(graph: CallGraph, topLevelFunctionSymbol: string): Map<string, DefinitionNode> {
+    const allFunctionNodes: Map<string, DefinitionNode> = new Map();
+    const queue: DefinitionNode[] = [graph.definitionNodes[topLevelFunctionSymbol]];
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        if (!allFunctionNodes.has(node.symbol)) {
+            allFunctionNodes.set(node.symbol, node);
+            node.children.forEach(child => {
+                queue.push(graph.definitionNodes[child.symbol]);
+            });
+        }
+    }
+    return allFunctionNodes;
+}
+
+async function getFunctionSummaries(workDir: vscode.Uri, functionCode: Map<string, string>, allFunctionNodes: Map<string, DefinitionNode>): Promise<Map<string, string>> {
     function buildPrompt(symbol: string) {
         return new PromptTemplate({
             inputVariables: [symbol],
@@ -117,29 +118,64 @@ async function summariseIndividualFunctions(topLevelFunction: string, graph: Cal
         });
     }
 
-    // Get all the distinct functions (nodes) in the call graph
-    const allFunctionNodes = new Map<string, DefinitionNode>();
-    const allFunctionSummaryChains: { [key: string]: Runnable<any, string, RunnableConfig> } = {};
     const summaryModelName = 'gpt-3.5-turbo';
+    const functionSummariesDb = new PouchDB<SummaryRecord>(`${workDir.fsPath}/functionSummaries-${summaryModelName}`);
+
     const model = new ChatOpenAI({ temperature: 0, modelName: summaryModelName });
 
     const outputParser = new StringOutputParser();
 
-    const queue: DefinitionNode[] = [graph.definitionNodes[topLevelFunction]];
-    while (queue.length > 0) {
-        const node = queue.shift()!;
-        if (!allFunctionNodes.has(node.symbol)) {
-            allFunctionNodes.set(node.symbol, node);
-            const chain = buildPrompt(node.symbol).pipe(model).pipe(outputParser);
-            allFunctionSummaryChains[node.symbol] = chain;
-            node.children.forEach(child => {
-                queue.push(graph.definitionNodes[child.symbol]);
-            });
+    const allFunctionSummaryChains: { [key: string]: Runnable<any, string, RunnableConfig> } = {};
+    for (const [symbol, _] of allFunctionNodes) {
+        const code = functionCode.get(symbol);
+        if (!code) {
+            throw new Error(`Code not found for symbol ${symbol}`);
         }
+        const summaryKey = hashText(symbol, code);
+        const summaryChain = buildPrompt(symbol).pipe(model).pipe(outputParser);
+        const summaryFromCacheOrLLMChain = await getSummaryWithCachingChain(summaryChain, functionSummariesDb, summaryKey, symbol);
+        allFunctionSummaryChains[symbol] = summaryFromCacheOrLLMChain;
     }
 
-    // Get all the code for the nodes
-    const nodeCode: { [key: string]: string } = {};
+    const summaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(functionCode));
+
+    return new Map(Object.entries(summaries));
+}
+
+async function getSummaryWithCachingChain(summaryChain: Runnable<any, string, RunnableConfig>, functionSummariesDb: PouchDB.Database<SummaryRecord>, summaryKey: string, symbol: string) {
+    const summaryWithCacheChain = summaryChain.pipe(RunnableLambda.from(async (summary: string) => {
+        await functionSummariesDb.put({
+            _id: summaryKey,
+            summary: summary,
+            symbol: symbol,
+            createdAt: new Date(),
+        });
+        await functionSummariesDb.allDocs().then((r) => {
+            return console.log(r);
+        });
+        return summary;
+    }));
+    const cachedSummary = await functionSummariesDb.get(summaryKey).then((record) => record.summary).catch((err) => {
+        if (err.status !== 404) {
+            console.log(`Failed to get cached summary for ${symbol}: ${err}`);
+        }
+        return null;
+    });
+    const summaryFromCacheOrLLMChain = RunnableBranch.from([
+        [
+            (_) => !!cachedSummary,
+            RunnableLambda.from((_) => {
+                console.log(`Using cached summary for ${symbol}`);
+                return cachedSummary!;
+            }),
+        ],
+        summaryWithCacheChain,
+    ]);
+    return summaryFromCacheOrLLMChain;
+}
+
+async function getSymbolToFunctionCode(allFunctionNodes: Map<string, DefinitionNode>, workspacePath: vscode.Uri): Promise<Map<string, string>> {
+    const nodeCode: Map<string, string> = new Map();
     await Promise.all(Array.from(allFunctionNodes.values()).map(async (n) => {
         const filePath = `${workspacePath.fsPath}/${n.document}`;
         const code = await fs
@@ -147,23 +183,12 @@ async function summariseIndividualFunctions(topLevelFunction: string, graph: Cal
             .readFile(filePath, 'utf8');
         const codeLines = code.split('\n');
         const functionLines = codeLines.slice(n.enclosingRange.startLine, n.enclosingRange.endLine);
-        nodeCode[n.symbol] = functionLines.join('\n');
+        nodeCode.set(n.symbol, functionLines.join('\n'));
     }));
-
-    const summaries = await RunnableMap.from(allFunctionSummaryChains).invoke(nodeCode);
-    const summariesFile = `${workDir.fsPath}/callGraphSummaries_${summaryModelName}.json`;
-    console.log(`Writing summaries to ${summariesFile}`);
-    // store callGraphSummaries as a json file
-    fs.writeFile(summariesFile, JSON.stringify(summaries), 'utf8', (err) => {
-        if (err) {
-            console.error(err);
-            return;
-        }
-    });
-    return new Map(Object.entries(summaries));
+    return nodeCode;
 }
 
-async function refineSummaries(topLevelFunction: string, graph: CallGraph, summaries: { [key: string]: string }, workDir: vscode.Uri): Promise<Map<string, string>> {
+async function refineSummaries(workDir: vscode.Uri, summaries: Map<string, string>, allFunctionNodes: Map<string, DefinitionNode>): Promise<Map<string, string>> {
     // Re-summarise each parent function summary by including the child summaries
 
     function buildPrompt(parentSymbol: string, childSymbols: string[]) {
@@ -179,24 +204,25 @@ async function refineSummaries(topLevelFunction: string, graph: CallGraph, summa
     """`,
         });
     }
-    const allFunctionSummaryChains: { [key: string]: Runnable<any, string, RunnableConfig> } = {};
-    const outputParser = new StringOutputParser();
-    const queue: DefinitionNode[] = [graph.definitionNodes[topLevelFunction]];
+
     const refineModelName = 'gpt-3.5-turbo';
+    const refinedFunctionSummariesDb = new PouchDB<SummaryRecord>(`${workDir.fsPath}/refinedFunctionSummaries-${refineModelName}`);
+
     const model = new ChatOpenAI({ temperature: 0, modelName: refineModelName });
-    while (queue.length > 0) {
-        const node = queue.shift()!;
-        if (!allFunctionSummaryChains[node.symbol]) {
-            const childSymbols = node.children.map(child => child.symbol);
-            const chain = buildPrompt(node.symbol, childSymbols).pipe(model).pipe(outputParser);
-            allFunctionSummaryChains[node.symbol] = chain;
-            node.children.forEach(child => {
-                queue.push(graph.definitionNodes[child.symbol]);
-            });
-        }
+
+    const outputParser = new StringOutputParser();
+    const allFunctionSummaryChains: { [key: string]: Runnable<any, string, RunnableConfig> } = {};
+    for (const [_, node] of allFunctionNodes) {
+        const childSymbols = node.children.map(child => child.symbol);
+        const summaryChain = buildPrompt(node.symbol, childSymbols).pipe(model).pipe(outputParser);
+        const allSummaries = [summaries.get(node.symbol), ...childSymbols.map(childSymbol => summaries.get(childSymbol))];
+        const summaryKey = hashText(node.symbol, allSummaries.join(''));
+        const summaryFromCacheOrLLMChain = await getSummaryWithCachingChain(summaryChain, refinedFunctionSummariesDb, summaryKey, node.symbol);
+        allFunctionSummaryChains[node.symbol] = summaryFromCacheOrLLMChain;
     }
-    const refinedSummaries = await RunnableMap.from(allFunctionSummaryChains).invoke(summaries);
-    fs.writeFile(`${workDir.fsPath}/refinedSummaries_${refineModelName}.json`, JSON.stringify(refinedSummaries), 'utf8', (err) => { });
+
+    const refinedSummaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(summaries));
+
     return new Map(Object.entries(refinedSummaries));
 }
 
@@ -222,7 +248,6 @@ async function checkForMarkdownFile(directoryPath: vscode.Uri): Promise<string |
     try {
         // Read all files in the directory asynchronously
         const files = await fs.promises.readdir(directoryPath.fsPath);
-
         // Iterate over each file, check its lowercase form
         for (const file of files) {
             if (file.toLowerCase() === "readme.md") {
@@ -234,7 +259,6 @@ async function checkForMarkdownFile(directoryPath: vscode.Uri): Promise<string |
         console.error("Failed to read the directory:", error);
         return null;
     }
-
     // Return null if no matching file is found
     return null;
 }
@@ -250,6 +274,5 @@ function parseMarkdownTopSection(markdownText: string): string {
     // Return the matched text or an empty string if no match is found
     return matches ? matches[0] : '';
 }
-
 
 export { summariseCallGraph, readCallGraphJsonFile, countNodes };
