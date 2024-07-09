@@ -13,22 +13,19 @@
   "activationEvents": [
     "onCommand:code-charter-vscode.generateDiagram"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "code-charter-vscode.generateDiagram",
-        "title": "Code Charter: Summarise Code With Diagram"
+        "title": "Code Charter: Summarise Code Trees With A Diagram"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run copy-assets",
-    "copy-assets": "node copy-assets.js",
-    "watch-ts": "tsc -watch -p ./",
-    "watch-assets": "chokidar './out/**/*.js' -c 'sleep 1 && npm run copy-assets'",
-    "watch": "npm-run-all --parallel watch-ts watch-assets",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test"
@@ -49,9 +46,9 @@
   },
   "dependencies": {
     "@langchain/anthropic": "^0.1.9",
+    "@langchain/community": "^0.2.17",
     "@langchain/google-vertexai": "^0.0.5",
     "@vscode/python-extension": "^1.0.5",
-    "class-transformer": "^0.5.1",
     "d3": "^7.9.0",
     "d3-graphviz": "^5.4.0",
     "dotenv": "^16.4.5",

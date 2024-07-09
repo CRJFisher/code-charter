@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { hashText } from './hashing';
+import * as crypto from 'crypto';
 
 interface GitExtension {
     getAPI(version: 1): GitAPI;
@@ -91,7 +91,10 @@ export async function getFileVersionHash(): Promise<string | undefined> {
                 continue;
             }
         }
-        return `${latestCommitHash}-${hashText(combinedChanges)}`;
+        const hash = crypto.createHash('sha256');
+        hash.update(combinedChanges);
+        const fullHash = hash.digest('hex');
+        return `${latestCommitHash}-${fullHash.substring(0, 20)}`;
     } else {
         console.log('No changes since the latest commit.');
         return latestCommitHash;

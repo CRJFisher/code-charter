@@ -1,27 +1,22 @@
-import { symbolDisplayName, symbolRepoLocalName } from '../summarise/models';
 
 import { Digraph, toDot, NodeModel, Subgraph } from 'ts-graphviz';
-import * as vscode from 'vscode';
-import { CallGraph, DefinitionNode } from '../models/callGraph';
+import { CallGraph, DefinitionNode } from '../../../shared/models';
+import { symbolDisplayName, symbolRepoLocalName } from '../../../shared/symbols';
 
 export async function callGraphToDOT(
     topLevelFunction: string,
     graph: CallGraph,
-    summaries: Map<string, string>,
-    outfileFolder: vscode.Uri,
+    summaries: Record<string, string>,
 ): Promise<string> {
     const dotGraph = generateDOT(topLevelFunction, graph, summaries);
     const dotSyntax = toDot(dotGraph);
-    // Save DOT syntax to a file
-    const outfilePath = vscode.Uri.joinPath(outfileFolder, 'dot.txt');
-    await vscode.workspace.fs.writeFile(outfilePath, Buffer.from(dotSyntax));
     return dotSyntax;
 }
 
 export function generateDOT(
     topLevelFunctionSymbol: string,
     graph: CallGraph,
-    summaries: Map<string, string>
+    summaries: Record<string, string>
 ): Digraph {
     const dotGraph = new Digraph({ fontname: "Helvetica, Arial, sans-serif", fontsize: 12, });
     const visitedNodes = new Set<string>();
@@ -40,7 +35,7 @@ export function generateDOT(
         const node = graph.definitionNodes[symbol];
         const nodeId = getNodeId(node.symbol);
 
-        const nodeSummary = summaries.get(node.symbol);
+        const nodeSummary = summaries[node.symbol];
         if (!nodeSummary) {
             throw new Error(`Summary not found for ${node.symbol}`);
         }

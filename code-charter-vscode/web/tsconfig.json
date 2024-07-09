@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2022",
+    "outDir": "out",
+    "lib": ["ES2022"],
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "baseUrl": "..",
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    },
+    "strict": true,
+    "jsx": "react"  // Add this line to support JSX
+  },
+  "include": ["src", "../shared"],
+  "exclude": ["web"]
+}

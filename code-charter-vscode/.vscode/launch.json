@@ -11,7 +11,7 @@
 			"request": "launch",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"/Users/chuck/workspace/repo_analysis/crewAI"
+				"/Users/chuck/workspace/repo_analysis/aider"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"

@@ -1,15 +1,13 @@
-import { plainToInstance } from "class-transformer";
-import * as fs from "fs";
-import * as fsProm from 'fs/promises';
+import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import * as vscode from 'vscode';
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableConfig, RunnableBranch, RunnableLambda } from "@langchain/core/runnables";
-import { TreeAndContextSummaries, symbolRepoLocalName } from "./models";
+import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/models";
 import PouchDB from "pouchdb";
-import { CallGraph, DefinitionNode } from '../models/callGraph';
 import { hashText } from "../hashing";
+import { symbolRepoLocalName } from "../../shared/symbols";
 
 interface SummaryRecord {
     _id: string;
@@ -18,7 +16,6 @@ interface SummaryRecord {
     createdAt: Date;
 }
 
-// Output a map and a string
 async function summariseCallGraph(topLevelFunctionSymbol: string, callGraph: CallGraph, workDir: vscode.Uri, workspacePath: vscode.Uri,): Promise<TreeAndContextSummaries> {
     // TODO: use vscode LLM API in chain when available
 
@@ -42,9 +39,13 @@ async function summariseCallGraph(topLevelFunctionSymbol: string, callGraph: Cal
     // (For debugging) write summaries to file
     const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
     console.log(`Writing summaries to ${outFile}`);
-    await fsProm.writeFile(outFile, JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2));
+    await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2)));
 
-    const summaries = new TreeAndContextSummaries(functionSummaries, refinedFunctionSummaries, rootContext);
+    const summaries = {
+        functionSummaries: Object.fromEntries(functionSummaries),
+        refinedFunctionSummaries: Object.fromEntries(refinedFunctionSummaries),
+        contextSummary: rootContext,
+    };        
     return summaries;
 }
 
@@ -92,6 +93,7 @@ async function summariseRootScope(workDir: vscode.Uri, workspacePath: vscode.Uri
     return rootContext;
 }
 
+
 function getAllDefinitionNodesFromCallGraph(graph: CallGraph, topLevelFunctionSymbol: string): Map<string, DefinitionNode> {
     const allFunctionNodes: Map<string, DefinitionNode> = new Map();
     const queue: DefinitionNode[] = [graph.definitionNodes[topLevelFunctionSymbol]];
@@ -112,9 +114,9 @@ async function getFunctionSummaries(workDir: vscode.Uri, functionCode: Map<strin
         return new PromptTemplate({
             inputVariables: [symbol],
             template: `Describe the below code flow concisely, focusing on business logic and related, relevant control flow. Avoid framing language. Directly describe the function's purpose and interactions, e.g., 'Calculates total price with tax.', keeping to a single, plaintext sentence.
-    """
-    {${symbol}}
-    """`,
+            """
+            {${symbol}}
+            """`,
         });
     }
 
@@ -178,9 +180,7 @@ async function getSymbolToFunctionCode(allFunctionNodes: Map<string, DefinitionN
     const nodeCode: Map<string, string> = new Map();
     await Promise.all(Array.from(allFunctionNodes.values()).map(async (n) => {
         const filePath = `${workspacePath.fsPath}/${n.document}`;
-        const code = await fs
-            .promises
-            .readFile(filePath, 'utf8');
+        const code = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)).then((buffer) => new TextDecoder().decode(buffer));
         const codeLines = code.split('\n');
         const functionLines = codeLines.slice(n.enclosingRange.startLine, n.enclosingRange.endLine);
         nodeCode.set(n.symbol, functionLines.join('\n'));
@@ -197,11 +197,11 @@ async function refineSummaries(workDir: vscode.Uri, summaries: Map<string, strin
             inputVariables: [parentSymbol, ...childSymbols],
             template: `Below is a parent function description and the descriptions of the child functions called inside it. Output just a refined parent function description based on the child function descriptions, providing a higher-level description for the parent including the key business logic control flow. Output a single, plaintext sentence.
             """
-    {${parentSymbol}}
-    """
-    Child function summaries:    """
-    ${childSummaryTemplates}
-    """`,
+            {${parentSymbol}}
+            """
+            Child function summaries:    """
+            ${childSummaryTemplates}
+            """`,
         });
     }
 
@@ -226,33 +226,47 @@ async function refineSummaries(workDir: vscode.Uri, summaries: Map<string, strin
     return new Map(Object.entries(refinedSummaries));
 }
 
-async function readCallGraphJsonFile(callGraphFile: vscode.Uri): Promise<CallGraph> {
-    // Read the JSON file
-    const jsonString = await fs.promises.readFile(callGraphFile.fsPath, 'utf8');
-    // Ensure the JSON is parsed into an array and then deserialized into CallGraphNode instances
-    const jsonParsed = JSON.parse(jsonString);
-    return plainToInstance(CallGraph, jsonParsed);
+enum ModelProvider {
+    OpenAI = 'OpenAI',
+    Ollama = 'Ollama',
+    VSCode = 'VSCode',
 }
 
-function countNodes(topLevelNode: string, graph: CallGraph, visitedNodes: Set<string> = new Set<string>()): number {
-    return graph.definitionNodes[topLevelNode].children.reduce((acc, child) => {
-        if (visitedNodes.has(child.symbol)) {
-            return acc;
-        }
-        visitedNodes.add(child.symbol);
-        return acc + countNodes(child.symbol, graph, visitedNodes);
-    }, 1);
+interface ModelDetails {
+    provider: ModelProvider;
+    modelName: string;
+}
+
+// function getModelDetails(): ModelDetails {
+
+// }
+
+function getOllamaModel() {
+    const model = new ChatOllama({
+        baseUrl: "http://localhost:11434", // Default value
+        model: "phi3:3.8b",
+    });
+
+    const stream = model.pipe(new StringOutputParser());
+}
+
+async function readCallGraphJsonFile(callGraphFile: vscode.Uri): Promise<CallGraph> {
+    // Read the JSON file
+    const jsonString = await vscode.workspace.fs.readFile(callGraphFile).then((buffer) => new TextDecoder().decode(buffer));
+    // Ensure the JSON is parsed into an array and then deserialized into CallGraphNode instances
+    const jsonParsed = JSON.parse(jsonString);
+    return jsonParsed as CallGraph;
 }
 
 async function checkForMarkdownFile(directoryPath: vscode.Uri): Promise<string | null> {
     try {
         // Read all files in the directory asynchronously
-        const files = await fs.promises.readdir(directoryPath.fsPath);
+        const files = await vscode.workspace.fs.readDirectory(directoryPath);
         // Iterate over each file, check its lowercase form
-        for (const file of files) {
-            if (file.toLowerCase() === "readme.md") {
+        for (const [fileName, fileType] of files) {
+            if (fileName.toLowerCase() === "readme.md") {
                 // If a match is found, return the file text
-                return await fs.promises.readFile(`${directoryPath.fsPath}/${file}`, 'utf8');
+                return await vscode.workspace.fs.readFile(vscode.Uri.joinPath(directoryPath, fileName)).then((buffer) => new TextDecoder().decode(buffer));
             }
         }
     } catch (error) {
@@ -275,4 +289,4 @@ function parseMarkdownTopSection(markdownText: string): string {
     return matches ? matches[0] : '';
 }
 
-export { summariseCallGraph, readCallGraphJsonFile, countNodes };
+export { summariseCallGraph, readCallGraphJsonFile };

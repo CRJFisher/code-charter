@@ -19,10 +19,7 @@ export interface ProjectEnvironment {
 }
 
 // TODO: add more language/environment detection logic
-async function detectEnvironment(
-  workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined,
-  outDir: vscode.Uri,
-): Promise<ProjectEnvironment[] | undefined> {
+async function detectEnvironment(workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined): Promise<ProjectEnvironment[] | undefined> {
   if (!workspaceFolders) {
     vscode.window.showWarningMessage('No workspace is open.');
     console.log('Language Detection: No workspace is open.');
