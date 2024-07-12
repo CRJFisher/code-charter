@@ -1,5 +1,4 @@
 const path = require('path');
-const CopyPlugin = require("copy-webpack-plugin");
 module.exports = {
   entry: './src/index.tsx',
   module: {
@@ -35,19 +34,5 @@ module.exports = {
       writeToDisk: true,  // This will write the files to disk
     },
     allowedHosts: 'all',
-  },
-  plugins: [
-    new CopyPlugin({
-      patterns: [
-        {
-          from: 'node_modules/@hpcc-js/wasm/dist/graphvizlib.wasm',
-          to: 'build/@hpcc-js/wasm/dist'
-        },
-        {
-          from: 'node_modules/@hpcc-js/wasm/dist/index.min.js',
-          to: 'build/@hpcc-js/wasm/dist'
-        }
-      ]
-    }),
-  ],
+  }
 };

@@ -76,6 +76,19 @@ async function summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAn
     }
 }
 
+async function navigateToDoc(relativeDocPath: string, lineNumber: number) {
+    try {
+        console.log('Navigating to document...');
+        const response = await sendMessageWithResponse('navigateToDoc', { relativeDocPath, lineNumber });
+        const { data: { success } } = response;
+        if (!success) {
+            console.error('Error navigating to document:', response.message);
+        }
+    } catch (error) {
+        console.error('Error navigating to document:', error);
+    }
+}
+
 // async function runCommand(command: string): Promise<string> {
 //     try {
 //         console.log('Running command...');
@@ -206,4 +219,5 @@ export {
     detectEnvironments,
     getCallGraphForEnvironment,
     summariseCodeTree,
+    navigateToDoc,
 };

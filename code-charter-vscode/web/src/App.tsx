@@ -34,14 +34,14 @@ async function detectEntryPoints(setCallGraph: React.Dispatch<React.SetStateActi
 
   /// (1. Detect and select the environment)
   setStatusMessage(Status.DetectingEnvironments);
-  
+
   const environments = await detectEnvironments();
-  
+
   if (!environments || environments.length === 0) {
     setStatusMessage(Status.Error);
     return;
   }
-  
+
   let selectedEnvironment: ProjectEnvironmentId;
   if (environments.length > 1) {
     // TODO: implement select 
@@ -50,7 +50,7 @@ async function detectEntryPoints(setCallGraph: React.Dispatch<React.SetStateActi
     return;
   } else {
     selectedEnvironment = environments[0];
-  
+
   }
   setStatusMessage(Status.Indexing);
 
@@ -109,10 +109,12 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar callGraph={callGraph} onSelect={setSelectedEntryPoint} />
-        <div className="flex flex-1">
-          <CodeChartArea selectedEntryPoint={selectedEntryPoint} callGraph={callGraph} />
-          <EntryPointDetails entryPoint={selectedEntryPoint} />
+        <div className="w-1/4">
+          <Sidebar callGraph={callGraph} onSelect={setSelectedEntryPoint} />
+        </div>
+        <div className="flex flex-1 w-3/4">
+          <CodeChartArea selectedEntryPoint={selectedEntryPoint} callGraph={callGraph} screenWidthFraction={0.75}/>
+          {/* <EntryPointDetails entryPoint={selectedEntryPoint} /> */}
         </div>
       </div>
       <StatusBar statusMessage={statusMessage} />

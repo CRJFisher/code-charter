@@ -8,8 +8,11 @@ import { detectEnvironment, ProjectEnvironment } from './project/projectTypeDete
 import { readCallGraphJsonFile, summariseCallGraph } from './summarise/summarise';
 import { CallGraph } from '../shared/models';
 import { ProjectEnvironmentId } from '../shared/models';
+import { navigateToDoc } from './navigate';
 
 const extensionFolder = '.code-charter';
+
+let webviewColumn: vscode.ViewColumn | undefined;
 
 // This method is called when your extension is activated
 export function activate(context: vscode.ExtensionContext) {
@@ -189,7 +192,7 @@ async function showWebviewDiagram(
 	workFolder: vscode.Uri, 
 ) {
 	const panel = vscode.window.createWebviewPanel(
-		'graphvizDiagram',
+		'codeDiagram',
 		'Code Charter Diagram',
 		vscode.ViewColumn.One,
 		{
@@ -201,6 +204,11 @@ async function showWebviewDiagram(
 			],
 		}
 	);
+	webviewColumn = panel.viewColumn;
+
+	panel.onDidChangeViewState(() => {
+		webviewColumn = panel.viewColumn;
+	});
 
 	// Load the HTML template
 	const htmlPath = vscode.Uri.joinPath(context.extensionUri, 'assets', 'index.html');
@@ -285,6 +293,12 @@ async function showWebviewDiagram(
 					const { functionSymbol } = otherFields;
 					// TODO: get it from the db
 					panel.webview.postMessage({ id, command: 'functionSummaryStatusResponse', data: {  } });
+					break;
+				case 'navigateToDoc':
+					const { relativeDocPath, lineNumber } = otherFields;
+					const fileUri = vscode.Uri.file(`${selectedEnvironment?.projectPath.fsPath}/${relativeDocPath}`);
+					await navigateToDoc(fileUri, lineNumber, webviewColumn);
+					panel.webview.postMessage({ id, command: 'navigateToDocResponse', data: { success: true } });
 					break;
 				// case 'runCommand':
 				// 	const response = await runCommand(otherFields.commandToRun);

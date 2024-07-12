@@ -253,7 +253,6 @@ function getOllamaModel() {
 async function readCallGraphJsonFile(callGraphFile: vscode.Uri): Promise<CallGraph> {
     // Read the JSON file
     const jsonString = await vscode.workspace.fs.readFile(callGraphFile).then((buffer) => new TextDecoder().decode(buffer));
-    // Ensure the JSON is parsed into an array and then deserialized into CallGraphNode instances
     const jsonParsed = JSON.parse(jsonString);
     return jsonParsed as CallGraph;
 }

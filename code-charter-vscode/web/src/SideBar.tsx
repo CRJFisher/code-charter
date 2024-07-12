@@ -10,7 +10,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect }) => {
   return (
-    <aside className="w-1/4 bg-gray-100 p-4 overflow-y-auto">
+    <aside className="bg-gray-100 p-4 overflow-y-auto">
       <ul>
         {callGraph.topLevelNodes.map((nodeSymbol) => {
           const node = callGraph.definitionNodes[nodeSymbol];

@@ -10,15 +10,6 @@ interface ProjectEnvironmentId {
     name: string
 }
 
-interface CallGraphNode {
-    symbol: string
-    displayName: string
-    summary: string
-    document: string
-
-    children: CallGraphNode[]
-}
-
 interface DocRange {
     startLine: number;
     startCharacter: number;
@@ -68,7 +59,6 @@ export type {
     DocRange,
     ReferenceNode,
     DefinitionNode,
-    CallGraphNode,
     CallGraph,
     TreeAndContextSummaries,
 };

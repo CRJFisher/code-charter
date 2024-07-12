@@ -1,61 +1,65 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CallGraph, DefinitionNode, TreeAndContextSummaries } from 'shared/models';
-import { summariseCodeTree } from './vscodeApi';
-import { callGraphToDOT } from './diagram/d3GraphViz';
-import { graphviz } from 'd3-graphviz';
-import * as d3 from 'd3';
-import { BaseType, Transition } from 'd3';
-// import { Graphviz } from '@hpcc-js/wasm';
+import { CallGraph, DefinitionNode, TreeAndContextSummaries } from '../../shared/models';
+import { navigateToDoc, summariseCodeTree } from './vscodeApi';
+// import { graphviz } from 'd3-graphviz';
+// import * as d3 from 'd3';
+// import { BaseType, Transition } from 'd3';
 
-// import React, { useEffect, useRef } from 'react';
-// import { select as d3Select} from 'd3-selection';
-// import 'd3-graphviz';
-// function G() {
-
-//     const Graph = (props) => {
-//         const divRef = useRef();
-//         const graphviz = useRef();
-//         useEffect(()=>{
-//             divRef.current = d3Select("#graph");
-//             createGraph();
-//         }, []);
-//         const handleError = (errorMessage) => {let line = errorMessage.replace(/.*error in line ([0–9]*) .*\n/, '$1');
-//             console.error({message: errorMessage, line: line});
-//         }
-//         const createGraph = () => {
-//             wasmFolder('/@hpcc-js/wasm/dist');
-//             graphviz.current = divRef.current.graphviz().onerror(handleError).on('initEnd', () => renderGraph());
-//         }
-//         const renderGraph = () => {
-//             graphviz.current.renderDot(props.dotSrc);
-//         }
-//         return (<React.Fragment><div id="graph"style={{width:'100%',height:'100vh'}}></div></React.Fragment>);}
-// }
+import cytoscape, { Core } from 'cytoscape';
+import dagre from 'cytoscape-dagre';
+import { symbolDisplayName } from '../../shared/symbols';
+cytoscape.use(dagre);
 
 interface CodeChartAreaProps {
     selectedEntryPoint: DefinitionNode | null;
     callGraph: CallGraph;
+    screenWidthFraction: number;
 }
 
-export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint, callGraph }) => {
-    // const [summaries, setSummaries] = useState<TreeAndContextSummaries>({ functionSummaries: {}, refinedFunctionSummaries: {}, contextSummary: '' });
-    // const [dotString, setDotString] = useState<string>('');
-    const graphRef = useRef<HTMLDivElement>(null);
+const generateElements = (selectedEntryPoint: DefinitionNode, callGraph: CallGraph, summaries: Record<string, string>) => {
+    const elements: cytoscape.ElementDefinition[] = [];
+    const visited = new Set<string>();
 
-    function attributer(this: BaseType, datum: { tag: string; attributes: { width: string; height: string; }; }, index: any, nodes: any) {
-        const margin = 20;
-        var selection = d3.select(this);
-        if (datum.tag == "svg") {
-            var width = window.innerWidth - margin;
-            var height = window.innerHeight - margin;
-            var x = "10";
-            var y = "10";
-            var unit = "px";
-            selection.attr("width", width + unit).attr("height", height + unit);
-            datum.attributes.width = width + unit;
-            datum.attributes.height = height + unit;
+    const addNode = (node: DefinitionNode, isTopLevel: boolean) => {
+        if (visited.has(node.symbol)) {
+            return;
         }
-    }
+        visited.add(node.symbol);
+
+        elements.push({
+            data: {
+                id: node.symbol,
+                label: `⮕ ${symbolDisplayName(node.symbol)}\n\n${summaries[node.symbol]}`,
+                document: node.document,
+                range: node.enclosingRange,
+            },
+            classes: isTopLevel ? 'top-level' : 'child',
+        });
+
+        node.children.forEach((child, i) => {
+            elements.push({
+                data: {
+                    id: `${node.symbol}-${child.symbol}`,
+                    label: i + 1,
+                    source: node.symbol,
+                    target: child.symbol,
+                },
+            });
+
+            if (callGraph.definitionNodes[child.symbol]) {
+                addNode(callGraph.definitionNodes[child.symbol], false);
+            }
+        });
+    };
+
+    addNode(selectedEntryPoint, true);
+    return elements;
+};
+
+export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint, callGraph, screenWidthFraction }) => {
+    const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const cyRef = useRef<Core | null>(null);
 
     useEffect(() => {
         if (!selectedEntryPoint) {
@@ -66,54 +70,125 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
             if (!summaries) {
                 return;
             }
-            // setSummaries(summaries);
-            const dot = await callGraphToDOT(selectedEntryPoint.symbol, callGraph, summaries.functionSummaries);
-            // setDotString(dot);
-
-            if (graphRef.current) {
-                const graphvizInstance = graphviz(graphRef.current)
-                    .attributer(attributer)
-                    .transition((): any => {
-                        return d3.transition().duration(1000);
-                    });
-
-                    
-                    function attributer(this: d3.BaseType, datum: { tag: string; attributes: { width: string; height: string; }; }, index: any, nodes: any) {
-                        const margin = 20;
-                        const selection = d3.select(this);
-                        if (datum.tag === 'svg') {
-                            const width = graphRef.current?.clientWidth || window.innerWidth - margin;
-                            const height = graphRef.current?.clientHeight || window.innerHeight - margin;
-                  
-                            selection
-                              .attr('width', '100%')
-                              .attr('height', '100%')
-                              .attr('viewBox', `0 0 ${width} ${height}`)
-                              .attr('preserveAspectRatio', 'xMidYMid meet');
-                  
-                            datum.attributes.width = `${width}px`;
-                            datum.attributes.height = `${height}px`;
-                        }
-                      }
-                    
-                    function render() {
-                        graphvizInstance.renderDot(dot);
-                    }
-                    render();
-            }
-
-            // graphviz(".chart").attributer(attributer).renderDot(dot);
+            const newElements = generateElements(selectedEntryPoint, callGraph, summaries.refinedFunctionSummaries);
+            setElements(newElements);
         };
-        // Call the async function
         fetchData();
     }, [selectedEntryPoint, callGraph]);
+
+    useEffect(() => {
+        if (containerRef.current && elements.length > 0) {
+            if (!cyRef.current) {
+                const cy = cytoscape({
+                    container: containerRef.current,
+                    elements,
+                    layout: { name: 'dagre' },
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                label: 'data(label)',
+                                shape: 'rectangle',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'background-color': '#0074D9',
+                                'text-outline-color': '#0074D9',
+                                'text-outline-width': 2,
+                                color: '#fff',
+                                'font-size': '14px', // Inherit from editor settings? No, vary based on zoom level i.e. zoomed out level needs large font
+                                'text-wrap': 'wrap',
+                                'text-max-width': '180px', // Adjust the max width as needed
+                                // 'width': 'label',
+                                // 'height': 'label',
+                                // 'padding': '10px', // Add padding to the nodes
+                                // "text-margin-x": 10,
+                                // "text-margin-y": 10,
+                                "width": "label",
+                                "height": "label",
+                                "padding-left": "10px",
+                                "padding-right": "10px",
+                                "padding-top": "10px",
+                                "padding-bottom": "10px",
+                                'text-justification': 'center', // Center the text within the node
+                            },
+                        },
+                        {
+                            "selector": ".multiline-auto",
+                            "style": {
+                                "text-wrap": "wrap",
+                                "text-max-width": "80px",
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                width: 2,
+                                label: 'data(label)',
+                                color: '#fff',
+                                'line-color': '#ccc',
+                                'target-arrow-color': '#ccc',
+                                'target-arrow-shape': 'triangle',
+                                'curve-style': 'bezier',
+                                // 'text-rotation': 'autorotate', // Ensures the text follows the edge
+                                'text-margin-x': 10, // Adjust the horizontal margin
+                                'text-margin-y': -10, // Adjust the vertical margin,
+                            },
+                        },
+                        {
+                            selector: '.top-level',
+                            style: {
+                                'background-color': '#FF4136',
+                                'text-outline-color': '#FF4136',
+                            },
+                        },
+                        {
+                            selector: '.child',
+                            style: {
+                                'background-color': '#0074D9',
+                                'text-outline-color': '#0074D9',
+                            },
+                        },
+                    ],
+                });
+                cyRef.current = cy;
+                cy.on('zoom', function(event) {
+                    var zoomLevel = cy.zoom();
+                    // console.log('Zoom level changed to:', zoomLevel);
+                    // TODO: display different layers based on zoom level
+                });
+                window.addEventListener('resize', resizeContainer);
+                function resizeContainer(newContainerHeight: any){
+                    containerRef.current!.style.height = window.innerHeight + 'px';
+                    containerRef.current!.style.width = window.innerWidth * screenWidthFraction + 'px';
+                    cy.resize();
+                    cy.fit();
+                }
+                cy.on('click', 'node', async function(event) {
+                    var node = event.target;
+                    const definitionNode = callGraph.definitionNodes[node.id()];
+                    await navigateToDoc(definitionNode.document, definitionNode.enclosingRange.startLine);
+                    // cy.zoom(1);
+                    // cy.center(node);
+                    cy.animate({
+                        zoom: 1, // Set the desired zoom level
+                        center: {
+                            eles: node // Center on the clicked node
+                        },
+                        duration: 100, // Duration of the animation in milliseconds
+                        easing: 'ease-in-out' // Easing function for the animation
+                    });
+                });
+            } else {
+                cyRef.current.json({ elements });
+                cyRef.current.layout({ name: 'dagre' }).run();
+            }
+        }
+    }, [elements]);
+
     return (
-        <main className="w-3/4 p-4 overflow-auto">
+        <main className="w-full overflow-auto">
             {selectedEntryPoint ? (
-                <>
-                    <div id="chart-container" className="h-full" ref={graphRef}>
-                    </div>
-                </>
+                <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
             ) : (
                 <div className="text-center text-gray-500">Select an entry point to view the call graph.</div>
             )}
