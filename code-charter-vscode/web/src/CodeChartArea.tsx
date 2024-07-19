@@ -1,13 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CallGraph, DefinitionNode, TreeAndContextSummaries } from '../../shared/models';
+import { CallGraph, DefinitionNode, TreeAndContextSummaries } from '../../shared/codeGraph';
 import { navigateToDoc, summariseCodeTree } from './vscodeApi';
-// import { graphviz } from 'd3-graphviz';
-// import * as d3 from 'd3';
-// import { BaseType, Transition } from 'd3';
 
 import cytoscape, { Core } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { symbolDisplayName } from '../../shared/symbols';
+import { getCssVariable } from './cssUtils';
 cytoscape.use(dagre);
 
 interface CodeChartAreaProps {
@@ -29,27 +27,33 @@ const generateElements = (selectedEntryPoint: DefinitionNode, callGraph: CallGra
         elements.push({
             data: {
                 id: node.symbol,
-                label: `⮕ ${symbolDisplayName(node.symbol)}\n\n${summaries[node.symbol]}`,
+                label: `⮕ ${symbolDisplayName(node.symbol)}\n\n${summaries[node.symbol].trimStart()}`,
                 document: node.document,
                 range: node.enclosingRange,
             },
             classes: isTopLevel ? 'top-level' : 'child',
         });
-
-        node.children.forEach((child, i) => {
+        let i = 1;
+        const seenIds = new Set<string>();
+        for (const child of node.children) {
+            const edgeId = `${node.symbol}-${child.symbol}`;
+            if (seenIds.has(edgeId)) { // TODO: improve visualisation of multiple edges between nodes
+                continue;
+            }
             elements.push({
                 data: {
-                    id: `${node.symbol}-${child.symbol}`,
-                    label: i + 1,
+                    id: edgeId,
+                    label: node.children.length > 1 ? i.toString() : '',
                     source: node.symbol,
                     target: child.symbol,
                 },
             });
-
+            i++;
+            seenIds.add(edgeId);
             if (callGraph.definitionNodes[child.symbol]) {
                 addNode(callGraph.definitionNodes[child.symbol], false);
             }
-        });
+        }
     };
 
     addNode(selectedEntryPoint, true);
@@ -76,6 +80,15 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
         fetchData();
     }, [selectedEntryPoint, callGraph]);
 
+    const bgColor = getCssVariable('--vscode-editor-background');
+    const fgColor = getCssVariable('--vscode-editor-foreground');
+    const selectionBgColor = getCssVariable('--vscode-editor-selectionBackground');
+    const lineNumberColor = getCssVariable('--vscode-editorLineNumber-foreground');
+    const editorBorderColor = getCssVariable('--vscode-editor-widget-border');
+    const activeLineColor = getCssVariable('--vscode-editor-lineHighlightBackground');
+    const inactiveSelectionBgColor = getCssVariable('--vscode-editor-inactiveSelectionBackground');
+    const cursorColor = getCssVariable('--vscode-editorCursor-foreground');
+
     useEffect(() => {
         if (containerRef.current && elements.length > 0) {
             if (!cyRef.current) {
@@ -88,35 +101,28 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
                             selector: 'node',
                             style: {
                                 label: 'data(label)',
-                                shape: 'rectangle',
+                                shape: 'roundrectangle',
                                 'text-valign': 'center',
                                 'text-halign': 'center',
-                                'background-color': '#0074D9',
-                                'text-outline-color': '#0074D9',
-                                'text-outline-width': 2,
-                                color: '#fff',
-                                'font-size': '14px', // Inherit from editor settings? No, vary based on zoom level i.e. zoomed out level needs large font
+                                'background-color': bgColor,
+                                color: fgColor,
+                                'font-size': '14px',
                                 'text-wrap': 'wrap',
-                                'text-max-width': '180px', // Adjust the max width as needed
-                                // 'width': 'label',
-                                // 'height': 'label',
-                                // 'padding': '10px', // Add padding to the nodes
-                                // "text-margin-x": 10,
-                                // "text-margin-y": 10,
-                                "width": "label",
-                                "height": "label",
-                                "padding-left": "10px",
-                                "padding-right": "10px",
-                                "padding-top": "10px",
-                                "padding-bottom": "10px",
-                                'text-justification': 'center', // Center the text within the node
+                                'text-max-width': '180px',
+                                'width': 'label',
+                                'height': 'label',
+                                'padding-left': '10px',
+                                'padding-right': '10px',
+                                'padding-top': '10px',
+                                'padding-bottom': '10px',
+                                'text-justification': 'left',
                             },
                         },
                         {
-                            "selector": ".multiline-auto",
-                            "style": {
-                                "text-wrap": "wrap",
-                                "text-max-width": "80px",
+                            selector: '.multiline-auto',
+                            style: {
+                                'text-wrap': 'wrap',
+                                'text-max-width': '80px',
                             }
                         },
                         {
@@ -124,51 +130,54 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
                             style: {
                                 width: 2,
                                 label: 'data(label)',
-                                color: '#fff',
-                                'line-color': '#ccc',
-                                'target-arrow-color': '#ccc',
+                                color: fgColor,
+                                'line-color': fgColor,
+                                'target-arrow-color': fgColor,
                                 'target-arrow-shape': 'triangle',
                                 'curve-style': 'bezier',
-                                // 'text-rotation': 'autorotate', // Ensures the text follows the edge
-                                'text-margin-x': 10, // Adjust the horizontal margin
-                                'text-margin-y': -10, // Adjust the vertical margin,
+                                'text-margin-x': 10,
+                                'text-margin-y': -10,
                             },
                         },
                         {
                             selector: '.top-level',
                             style: {
-                                'background-color': '#FF4136',
-                                'text-outline-color': '#FF4136',
+                                'background-color': bgColor,
+                                //   'text-outline-color': bgColor,
+                                'border-color': fgColor,
+                                'border-width': 2,
+                                color: fgColor,
                             },
                         },
                         {
                             selector: '.child',
                             style: {
-                                'background-color': '#0074D9',
-                                'text-outline-color': '#0074D9',
+                                'background-color': bgColor,
+                                //   'text-outline-color': bgColor,
+                                'border-color': fgColor,
+                                'border-width': 2,
+                                color: fgColor,
                             },
                         },
                     ],
                 });
                 cyRef.current = cy;
-                cy.on('zoom', function(event) {
-                    var zoomLevel = cy.zoom();
+                cy.on('zoom', function (event) {
+                    const zoomLevel = cy.zoom();
                     // console.log('Zoom level changed to:', zoomLevel);
                     // TODO: display different layers based on zoom level
                 });
                 window.addEventListener('resize', resizeContainer);
-                function resizeContainer(newContainerHeight: any){
+                function resizeContainer(newContainerHeight: any) {
                     containerRef.current!.style.height = window.innerHeight + 'px';
                     containerRef.current!.style.width = window.innerWidth * screenWidthFraction + 'px';
                     cy.resize();
                     cy.fit();
                 }
-                cy.on('click', 'node', async function(event) {
-                    var node = event.target;
+                cy.on('click', 'node', async function (event) {
+                    const node = event.target;
                     const definitionNode = callGraph.definitionNodes[node.id()];
                     await navigateToDoc(definitionNode.document, definitionNode.enclosingRange.startLine);
-                    // cy.zoom(1);
-                    // cy.center(node);
                     cy.animate({
                         zoom: 1, // Set the desired zoom level
                         center: {
@@ -183,7 +192,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
                 cyRef.current.layout({ name: 'dagre' }).run();
             }
         }
-    }, [elements]);
+    }, [elements, bgColor, fgColor, selectionBgColor, lineNumberColor, editorBorderColor, activeLineColor, inactiveSelectionBgColor, cursorColor]);
 
     return (
         <main className="w-full overflow-auto">

@@ -10,7 +10,8 @@ function symbolRepoLocalName(symbol: string): string {
 }
 
 function symbolDisplayName(symbol: string): string {
-    return symbolRepoLocalName(symbol).split(".").pop() || '';
+    const finalSection = symbolRepoLocalName(symbol).split(".").pop() || '';
+    return finalSection.replace('#', '.').replace('__', '');
 }
 
 export { symbolRepoLocalName, symbolDisplayName };

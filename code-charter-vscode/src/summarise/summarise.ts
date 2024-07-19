@@ -1,13 +1,13 @@
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import * as vscode from 'vscode';
-import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableConfig, RunnableBranch, RunnableLambda } from "@langchain/core/runnables";
-import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/models";
+import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/codeGraph";
 import PouchDB from "pouchdb";
 import { hashText } from "../hashing";
 import { symbolRepoLocalName } from "../../shared/symbols";
+import { ModelDetails } from "src/model";
 
 interface SummaryRecord {
     _id: string;
@@ -16,25 +16,25 @@ interface SummaryRecord {
     createdAt: Date;
 }
 
-async function summariseCallGraph(topLevelFunctionSymbol: string, callGraph: CallGraph, workDir: vscode.Uri, workspacePath: vscode.Uri,): Promise<TreeAndContextSummaries> {
-    // TODO: use vscode LLM API in chain when available
+async function summariseCallGraph(
+    topLevelFunctionSymbol: string, 
+    callGraph: CallGraph, 
+    workDir: vscode.Uri, 
+    workspacePath: vscode.Uri, 
+    modelDetails: ModelDetails,
+): Promise<TreeAndContextSummaries> {
 
     const topLevelFunctionName = symbolRepoLocalName(topLevelFunctionSymbol);
 
-    const rootContext = await summariseRootScope(workDir, workspacePath, topLevelFunctionName);
+    const rootContext = await summariseRootScope(workDir, workspacePath, topLevelFunctionName, modelDetails);
 
     const definitionNodes = getAllDefinitionNodesFromCallGraph(callGraph, topLevelFunctionSymbol);
 
     const functionSymbolCode: Map<string, string> = await getSymbolToFunctionCode(definitionNodes, workspacePath);
 
-    const functionSummaries = await getFunctionSummaries(workDir, functionSymbolCode, definitionNodes);
+    const functionSummaries = await getFunctionSummaries(workDir, functionSymbolCode, definitionNodes, modelDetails);
 
-    // TODO: Classify the control flow of the functions (e.g. if-else, loops)
-    // TODO: Identify functions which don't have any meaningful business logic and so can be ignored/grouped with the parent in the diagram
-    //  - is logging an implementation detail or business logic? It depends on the purpses of the logs - if they are for debugging, they are implementation details, if they are the main output, it's business logic   
-    // TODO: incorporate the control flow into the re-summarisation
-
-    const refinedFunctionSummaries = await refineSummaries(workDir, functionSummaries, definitionNodes);
+    const refinedFunctionSummaries = await refineSummaries(workDir, functionSummaries, definitionNodes, modelDetails);
 
     // (For debugging) write summaries to file
     const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
@@ -45,14 +45,12 @@ async function summariseCallGraph(topLevelFunctionSymbol: string, callGraph: Cal
         functionSummaries: Object.fromEntries(functionSummaries),
         refinedFunctionSummaries: Object.fromEntries(refinedFunctionSummaries),
         contextSummary: rootContext,
-    };        
+    };
     return summaries;
 }
 
-async function summariseRootScope(workDir: vscode.Uri, workspacePath: vscode.Uri, topLevelFunctionName: string) {
+async function summariseRootScope(workDir: vscode.Uri, workspacePath: vscode.Uri, topLevelFunctionName: string, modelDetails: ModelDetails): Promise<string> {
     const db = new PouchDB<SummaryRecord>(`${workDir.fsPath}/rootScopeSummary`);
-
-    const rootContextModelName = 'gpt-3.5-turbo';
 
     const markdown = await checkForMarkdownFile(workspacePath);
     let projectText = "";
@@ -62,7 +60,7 @@ async function summariseRootScope(workDir: vscode.Uri, workspacePath: vscode.Uri
         projectText = "No markdown file found - please derive intentions from function path";
     }
 
-    const rootScopeSummaryKey = hashText(rootContextModelName, projectText);
+    const rootScopeSummaryKey = hashText(modelDetails.uid, projectText);
     const cachedSummary = await db.get(rootScopeSummaryKey).catch((_) => null);
     if (cachedSummary) {
         return cachedSummary.summary;
@@ -80,8 +78,7 @@ async function summariseRootScope(workDir: vscode.Uri, workspacePath: vscode.Uri
         {functionPath}
         """`,
     });
-    const model = new ChatOpenAI({ temperature: 0, modelName: rootContextModelName });
-    const rootContextSummaryChain = rootContextPrompt.pipe(model).pipe(new StringOutputParser());
+    const rootContextSummaryChain = rootContextPrompt.pipe(modelDetails.model).pipe(new StringOutputParser());
     const rootContext = await rootContextSummaryChain.invoke({ projectText, functionPath: topLevelFunctionName });
 
     db.put({
@@ -109,21 +106,19 @@ function getAllDefinitionNodesFromCallGraph(graph: CallGraph, topLevelFunctionSy
     return allFunctionNodes;
 }
 
-async function getFunctionSummaries(workDir: vscode.Uri, functionCode: Map<string, string>, allFunctionNodes: Map<string, DefinitionNode>): Promise<Map<string, string>> {
+async function getFunctionSummaries(workDir: vscode.Uri, functionCode: Map<string, string>, allFunctionNodes: Map<string, DefinitionNode>, modelDetails: ModelDetails): Promise<Map<string, string>> {
     function buildPrompt(symbol: string) {
         return new PromptTemplate({
             inputVariables: [symbol],
-            template: `Describe the below code flow concisely, focusing on business logic and related, relevant control flow. Avoid framing language. Directly describe the function's purpose and interactions, e.g., 'Calculates total price with tax.', keeping to a single, plaintext sentence.
+            template: `Describe the below code flow concisely, focusing on business logic and related, relevant control flow. Avoid framing language. 
+            Directly describe the function's purpose and interactions, e.g., 'Calculates total price with tax.', keeping to a single, plaintext sentence.
             """
             {${symbol}}
             """`,
         });
     }
 
-    const summaryModelName = 'gpt-3.5-turbo';
-    const functionSummariesDb = new PouchDB<SummaryRecord>(`${workDir.fsPath}/functionSummaries-${summaryModelName}`);
-
-    const model = new ChatOpenAI({ temperature: 0, modelName: summaryModelName });
+    const functionSummariesDb = new PouchDB<SummaryRecord>(`${workDir.fsPath}/functionSummaries-${modelDetails.uid}`);
 
     const outputParser = new StringOutputParser();
 
@@ -134,14 +129,23 @@ async function getFunctionSummaries(workDir: vscode.Uri, functionCode: Map<strin
             throw new Error(`Code not found for symbol ${symbol}`);
         }
         const summaryKey = hashText(symbol, code);
-        const summaryChain = buildPrompt(symbol).pipe(model).pipe(outputParser);
+        const summaryChain = buildPrompt(symbol).pipe(modelDetails.model).pipe(outputParser);
         const summaryFromCacheOrLLMChain = await getSummaryWithCachingChain(summaryChain, functionSummariesDb, summaryKey, symbol);
         allFunctionSummaryChains[symbol] = summaryFromCacheOrLLMChain;
     }
 
-    const summaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(functionCode));
-
-    return new Map(Object.entries(summaries));
+    try {
+        const summaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(functionCode));
+        return new Map(Object.entries(summaries));
+    } catch (error) {
+        console.error("Error summarising functions:", error);
+        throw error;
+    }
+    //         "{
+    //   name: "HeadersTimeoutError",
+    //   code: "UND_ERR_HEADERS_TIMEOUT",
+    //   message: "Headers Timeout Error",
+    // }"
 }
 
 async function getSummaryWithCachingChain(summaryChain: Runnable<any, string, RunnableConfig>, functionSummariesDb: PouchDB.Database<SummaryRecord>, summaryKey: string, symbol: string) {
@@ -151,9 +155,6 @@ async function getSummaryWithCachingChain(summaryChain: Runnable<any, string, Ru
             summary: summary,
             symbol: symbol,
             createdAt: new Date(),
-        });
-        await functionSummariesDb.allDocs().then((r) => {
-            return console.log(r);
         });
         return summary;
     }));
@@ -167,7 +168,7 @@ async function getSummaryWithCachingChain(summaryChain: Runnable<any, string, Ru
         [
             (_) => !!cachedSummary,
             RunnableLambda.from((_) => {
-                console.log(`Using cached summary for ${symbol}`);
+                // console.log(`Using cached summary for ${symbol}`);
                 return cachedSummary!;
             }),
         ],
@@ -188,66 +189,49 @@ async function getSymbolToFunctionCode(allFunctionNodes: Map<string, DefinitionN
     return nodeCode;
 }
 
-async function refineSummaries(workDir: vscode.Uri, summaries: Map<string, string>, allFunctionNodes: Map<string, DefinitionNode>): Promise<Map<string, string>> {
+async function refineSummaries(workDir: vscode.Uri, summaries: Map<string, string>, allFunctionNodes: Map<string, DefinitionNode>, modelDetails: ModelDetails): Promise<Map<string, string>> {
     // Re-summarise each parent function summary by including the child summaries
 
     function buildPrompt(parentSymbol: string, childSymbols: string[]) {
         const childSummaryTemplates = childSymbols.map((childSymbol) => `{${childSymbol}}`).join("\n");
         return new PromptTemplate({
             inputVariables: [parentSymbol, ...childSymbols],
-            template: `Below is a parent function description and the descriptions of the child functions called inside it. Output just a refined parent function description based on the child function descriptions, providing a higher-level description for the parent including the key business logic control flow. Output a single, plaintext sentence.
+            template: `Below is a parent function description and the descriptions of the child functions called inside it. 
+            Output just a refined parent function description based on the child function descriptions, providing a higher-level description for the parent including the key business logic control flow. 
+            Output a single, plaintext sentence.
             """
             {${parentSymbol}}
             """
-            Child function summaries:    """
+            Child function summaries: 
+            """
             ${childSummaryTemplates}
             """`,
         });
     }
 
-    const refineModelName = 'gpt-3.5-turbo';
-    const refinedFunctionSummariesDb = new PouchDB<SummaryRecord>(`${workDir.fsPath}/refinedFunctionSummaries-${refineModelName}`);
-
-    const model = new ChatOpenAI({ temperature: 0, modelName: refineModelName });
+    const refinedFunctionSummariesDb = new PouchDB<SummaryRecord>(`${workDir.fsPath}/refinedFunctionSummaries-${modelDetails.uid}`);
 
     const outputParser = new StringOutputParser();
     const allFunctionSummaryChains: { [key: string]: Runnable<any, string, RunnableConfig> } = {};
     for (const [_, node] of allFunctionNodes) {
         const childSymbols = node.children.map(child => child.symbol);
-        const summaryChain = buildPrompt(node.symbol, childSymbols).pipe(model).pipe(outputParser);
+        const summaryChain = buildPrompt(node.symbol, childSymbols).pipe(modelDetails.model).pipe(outputParser);
         const allSummaries = [summaries.get(node.symbol), ...childSymbols.map(childSymbol => summaries.get(childSymbol))];
         const summaryKey = hashText(node.symbol, allSummaries.join(''));
         const summaryFromCacheOrLLMChain = await getSummaryWithCachingChain(summaryChain, refinedFunctionSummariesDb, summaryKey, node.symbol);
         allFunctionSummaryChains[node.symbol] = summaryFromCacheOrLLMChain;
     }
 
-    const refinedSummaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(summaries));
+    try {
 
-    return new Map(Object.entries(refinedSummaries));
-}
+        const refinedSummaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(summaries));
+        return new Map(Object.entries(refinedSummaries));
+    }
+    catch (error) {
+        console.error("Error refining summaries:", error);
+        return summaries;
+    }
 
-enum ModelProvider {
-    OpenAI = 'OpenAI',
-    Ollama = 'Ollama',
-    VSCode = 'VSCode',
-}
-
-interface ModelDetails {
-    provider: ModelProvider;
-    modelName: string;
-}
-
-// function getModelDetails(): ModelDetails {
-
-// }
-
-function getOllamaModel() {
-    const model = new ChatOllama({
-        baseUrl: "http://localhost:11434", // Default value
-        model: "phi3:3.8b",
-    });
-
-    const stream = model.pipe(new StringOutputParser());
 }
 
 async function readCallGraphJsonFile(callGraphFile: vscode.Uri): Promise<CallGraph> {

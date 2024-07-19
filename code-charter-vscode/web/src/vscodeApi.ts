@@ -1,4 +1,4 @@
-import { CallGraph, ProjectEnvironmentId, TreeAndContextSummaries } from '../../shared/models';
+import { CallGraph, ProjectEnvironmentId, TreeAndContextSummaries } from '../../shared/codeGraph';
 
 interface VsCodeApi {
     postMessage(message: any): void;

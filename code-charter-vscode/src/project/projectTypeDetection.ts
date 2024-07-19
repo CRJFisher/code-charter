@@ -12,7 +12,7 @@ export interface ProjectEnvironment {
 
   fileName(): string;
 
-  parseCodebaseToScipIndex(outDirPath: vscode.Uri, outScipFilePath: vscode.Uri): Promise<void>; // Convert the codebase to SCIP format, outputting the path of the generated file
+  parseCodebaseToScipIndex(outDirPath: vscode.Uri, outScipFilePath: vscode.Uri): Promise<void>; // Process the codebase to SCIP format
 
   filterTopLevelFunctions(topLevelFunctionNames: string[]): string[]; // Filter out unwanted top-level functions from the codebase e.g. tests
 
@@ -30,8 +30,6 @@ async function detectEnvironment(workspaceFolders: readonly vscode.WorkspaceFold
   // TODO: convert this to recursive folder search (with max depth of 2 or 3 - configurable)
   for (const folder of workspaceFolders) {
     const workspacePath = folder.uri.fsPath;
-    // TODO: move to detectPython function in python.ts
-    // const hasRequirementsTxt = fs.existsSync(path.join(workspacePath, 'requirements.txt'));
     const hasRequirementsTxt = await fs.promises.stat(path.join(workspacePath, 'requirements.txt')).then(() => true, () => false);
     const hasPyprojectToml = await fs.promises.stat(path.join(workspacePath, 'pyproject.toml')).then(() => true, () => false);
     const pyFiles = fs.readdirSync(workspacePath).filter(file => file.endsWith('.py'));

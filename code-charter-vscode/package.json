@@ -20,7 +20,25 @@
         "command": "code-charter-vscode.generateDiagram",
         "title": "Code Charter: Summarise Code Trees With A Diagram"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Code Charter",
+      "properties": {
+        "code-charter-vscode.modelProvider": {
+          "order": 1,
+          "type": "string",
+          "default": "Ollama",
+          "enum": ["Ollama", "OpenAI"],
+          "description": "Select language model provider for code summarization"
+        },
+        "code-charter-vscode.APIKey": {
+          "order": 2,
+          "type": "string",
+          "default": null,
+          "description": "(if required) API key for language model provider"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -51,7 +69,6 @@
     "@vscode/python-extension": "^1.0.5",
     "d3": "^7.9.0",
     "d3-graphviz": "^5.4.0",
-    "dotenv": "^16.4.5",
     "langchain": "^0.1.30",
     "pouchdb": "^8.0.1",
     "ts-graphviz": "^2.1.2"

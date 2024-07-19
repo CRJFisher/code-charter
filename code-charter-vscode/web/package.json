@@ -30,13 +30,13 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "@types/cytoscape": "^3.21.4",
     "@types/cytoscape-dagre": "^2.3.3",
     "@types/jest": "^27.5.2",
     "@types/node": "^16.18.101",
     "@types/react": "^18.3.3",
     "@types/react-cytoscapejs": "^1.2.5",
     "@types/react-dom": "^18.3.0",
-    "@types/cytoscape": "^3.21.4",
     "@types/vscode": "^1.90.0",
     "@vscode/python-extension": "^1.0.5",
     "autoprefixer": "^10.4.19",
@@ -68,6 +68,7 @@
     "langchain": "^0.2.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-icons": "^5.2.1",
     "web-vitals": "^2.1.4"
   }
 }
