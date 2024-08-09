@@ -40,14 +40,8 @@ function sendMessageWithResponse(command: string, payload: any = {}): Promise<Re
 
 // TODO: create a Stream version of this using RxJS
 
-// TODO: make all of these calls much higher level - instead of exposing low level node api calls, expose higher level api calls as if it were a web server api
-// These should be at the level where we want to display status corresponding to the processing in the api call
-
-// TODO: how to share models accross the webview and extension so their types are in sync? Some way of importing the types from some top-level TS folder into both projects?
-
 async function detectEnvironments(): Promise<ProjectEnvironmentId[]> {
     try {
-        console.log('Detecting environments...');
         const response = await sendMessageWithResponse('detectEnvironments');
         return response.data;
     } catch (error) {
@@ -58,7 +52,6 @@ async function detectEnvironments(): Promise<ProjectEnvironmentId[]> {
 
 async function getCallGraphForEnvironment(env: ProjectEnvironmentId): Promise<CallGraph | undefined> {
     try {
-        console.log('Getting top level functions for environment...');
         const response = await sendMessageWithResponse('getCallGraphForEnvironment', { env });
         return response.data;
     } catch (error) {
@@ -68,7 +61,6 @@ async function getCallGraphForEnvironment(env: ProjectEnvironmentId): Promise<Ca
 
 async function summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
     try {
-        console.log('Summarising code tree...');
         const response = await sendMessageWithResponse('summariseCodeTree', { topLevelFunctionSymbol });
         return response.data;
     } catch (error) {
@@ -78,7 +70,6 @@ async function summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAn
 
 async function navigateToDoc(relativeDocPath: string, lineNumber: number) {
     try {
-        console.log('Navigating to document...');
         const response = await sendMessageWithResponse('navigateToDoc', { relativeDocPath, lineNumber });
         const { data: { success } } = response;
         if (!success) {

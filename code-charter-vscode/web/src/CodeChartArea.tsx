@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CallGraph, DefinitionNode, TreeAndContextSummaries } from '../../shared/codeGraph';
-import { navigateToDoc, summariseCodeTree } from './vscodeApi';
+import { CallGraph, DefinitionNode } from '../../shared/codeGraph';
+import { navigateToDoc } from './vscodeApi';
 
 import cytoscape, { Core } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
@@ -12,55 +12,10 @@ interface CodeChartAreaProps {
     selectedEntryPoint: DefinitionNode | null;
     callGraph: CallGraph;
     screenWidthFraction: number;
+    getSummaries: (nodeSymbol: string) => Promise<Record<string, string> | undefined>;
 }
 
-const generateElements = (selectedEntryPoint: DefinitionNode, callGraph: CallGraph, summaries: Record<string, string>) => {
-    const elements: cytoscape.ElementDefinition[] = [];
-    const visited = new Set<string>();
-
-    const addNode = (node: DefinitionNode, isTopLevel: boolean) => {
-        if (visited.has(node.symbol)) {
-            return;
-        }
-        visited.add(node.symbol);
-
-        elements.push({
-            data: {
-                id: node.symbol,
-                label: `⮕ ${symbolDisplayName(node.symbol)}\n\n${summaries[node.symbol].trimStart()}`,
-                document: node.document,
-                range: node.enclosingRange,
-            },
-            classes: isTopLevel ? 'top-level' : 'child',
-        });
-        let i = 1;
-        const seenIds = new Set<string>();
-        for (const child of node.children) {
-            const edgeId = `${node.symbol}-${child.symbol}`;
-            if (seenIds.has(edgeId)) { // TODO: improve visualisation of multiple edges between nodes
-                continue;
-            }
-            elements.push({
-                data: {
-                    id: edgeId,
-                    label: node.children.length > 1 ? i.toString() : '',
-                    source: node.symbol,
-                    target: child.symbol,
-                },
-            });
-            i++;
-            seenIds.add(edgeId);
-            if (callGraph.definitionNodes[child.symbol]) {
-                addNode(callGraph.definitionNodes[child.symbol], false);
-            }
-        }
-    };
-
-    addNode(selectedEntryPoint, true);
-    return elements;
-};
-
-export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint, callGraph, screenWidthFraction }) => {
+export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint, callGraph, screenWidthFraction, getSummaries }) => {
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
     const cyRef = useRef<Core | null>(null);
@@ -70,11 +25,11 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
             return;
         }
         const fetchData = async () => {
-            const summaries = await summariseCodeTree(selectedEntryPoint.symbol);
+            const summaries = await getSummaries(selectedEntryPoint.symbol);
             if (!summaries) {
                 return;
             }
-            const newElements = generateElements(selectedEntryPoint, callGraph, summaries.refinedFunctionSummaries);
+            const newElements = generateElements(selectedEntryPoint, callGraph, summaries);
             setElements(newElements);
         };
         fetchData();
@@ -108,7 +63,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
                                 color: fgColor,
                                 'font-size': '14px',
                                 'text-wrap': 'wrap',
-                                'text-max-width': '180px',
+                                'text-max-width': '300px',
                                 'width': 'label',
                                 'height': 'label',
                                 'padding-left': '10px',
@@ -203,4 +158,50 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({ selectedEntryPoint
             )}
         </main>
     );
+};
+
+const generateElements = (selectedEntryPoint: DefinitionNode, callGraph: CallGraph, summaries: Record<string, string>) => {
+    const elements: cytoscape.ElementDefinition[] = [];
+    const visited = new Set<string>();
+
+    const addNode = (node: DefinitionNode, isTopLevel: boolean) => {
+        if (visited.has(node.symbol)) {
+            return;
+        }
+        visited.add(node.symbol);
+
+        elements.push({
+            data: {
+                id: node.symbol,
+                label: `⮕ ${symbolDisplayName(node.symbol)}\n\n${summaries[node.symbol].trimStart()}`,
+                document: node.document,
+                range: node.enclosingRange,
+            },
+            classes: isTopLevel ? 'top-level' : 'child',
+        });
+        let i = 1;
+        const seenIds = new Set<string>();
+        for (const child of node.children) {
+            const edgeId = `${node.symbol}-${child.symbol}`;
+            if (seenIds.has(edgeId)) { // TODO: improve visualisation of multiple edges between nodes
+                continue;
+            }
+            elements.push({
+                data: {
+                    id: edgeId,
+                    label: node.children.length > 1 ? i.toString() : '',
+                    source: node.symbol,
+                    target: child.symbol,
+                },
+            });
+            i++;
+            seenIds.add(edgeId);
+            if (callGraph.definitionNodes[child.symbol]) {
+                addNode(callGraph.definitionNodes[child.symbol], false);
+            }
+        }
+    };
+
+    addNode(selectedEntryPoint, true);
+    return elements;
 };

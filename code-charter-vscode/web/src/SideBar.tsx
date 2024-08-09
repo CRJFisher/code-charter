@@ -11,9 +11,10 @@ interface SidebarProps {
   selectedNode: DefinitionNode | null;
   indexingStatus: CodeIndexStatus;
   onSelect: (entryPoint: DefinitionNode) => void;
+  areNodeSummariesLoading: (nodeSymbol: string) => boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, indexingStatus }) => {
+const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, indexingStatus, areNodeSummariesLoading }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const toggleSidebar = () => {
@@ -40,7 +41,12 @@ const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, in
               </div>
             </>
           )}
-          <FunctionsList callGraph={callGraph} selectedNode={selectedNode} onSelect={onSelect} />
+          <FunctionsList
+            callGraph={callGraph}
+            selectedNode={selectedNode}
+            onSelect={onSelect}
+            areNodeSummariesLoading={areNodeSummariesLoading}
+          />
         </aside>
       </div>
     </div>
@@ -51,9 +57,10 @@ interface FunctionsListProps {
   callGraph: CallGraph;
   selectedNode: DefinitionNode | null;
   onSelect: (entryPoint: DefinitionNode) => void;
+  areNodeSummariesLoading: (nodeSymbol: string) => boolean;
 }
 
-const FunctionsList: React.FC<FunctionsListProps> = ({ callGraph, selectedNode, onSelect }) => {
+const FunctionsList: React.FC<FunctionsListProps> = ({ callGraph, selectedNode, onSelect, areNodeSummariesLoading }) => {
 
   const onClickItem = async (node: DefinitionNode) => {
     onSelect(node);
@@ -66,6 +73,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({ callGraph, selectedNode, 
         const node = callGraph.definitionNodes[nodeSymbol];
         const displayName = symbolDisplayName(node.symbol);
         const isSelected = selectedNode && selectedNode.symbol === nodeSymbol;
+        const isLoading = areNodeSummariesLoading(node.symbol);
         return (
           <li
             key={node.symbol}
@@ -75,7 +83,16 @@ const FunctionsList: React.FC<FunctionsListProps> = ({ callGraph, selectedNode, 
             <div className="flex flex-wrap">
               <span className="ellipsis-end">{displayName}</span>
             </div>
-            <div className="text-xs ellipsis-end text-vscodeLineNumber">{node.document}</div>
+            <div className="flex items-center text-xs text-vscodeLineNumber h-5">
+              {isLoading ? (
+                <div className="flex items-center">
+                  <span className="mr-2">Summarizing</span>
+                  <VSCodeProgressRing className="w-4 h-4" />
+                </div>
+              ) : (
+                <span className="ellipsis-end">{node.document}</span>
+              )}
+            </div>
           </li>
         );
       })}

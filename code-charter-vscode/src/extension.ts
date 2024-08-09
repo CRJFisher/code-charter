@@ -164,15 +164,20 @@ async function showWebviewDiagram(
 
 async function getModelDetails(): Promise<ModelDetails> {
 	const configuration = vscode.workspace.getConfiguration('code-charter-vscode');
-
 	const provider = configuration.get('modelProvider');
 	if (provider === ModelProvider.OpenAI) {
+		const apiKey = configuration.get('APIKey');
+		if (apiKey === undefined || typeof apiKey !== 'string') {
+			throw new Error('OpenAI API Key not set');
+		}
+		const modelName = 'gpt-4o-mini';
 		return {
-			uid: 'openai:gpt-3.5-turbo',
+			uid: `openai:${modelName}`,
 			provider: ModelProvider.OpenAI,
 			model: new ChatOpenAI({
 				temperature: 0,
-				modelName: 'gpt-3.5-turbo',
+				modelName: modelName,
+				apiKey: apiKey,
 			}),
 		};
 	} else if (provider === ModelProvider.Ollama) {

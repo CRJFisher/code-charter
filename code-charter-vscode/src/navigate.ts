@@ -1,16 +1,6 @@
 import * as vscode from 'vscode';
 
 export async function navigateToDoc(fileUri: vscode.Uri, lineNumber: number, currentColumn: vscode.ViewColumn | undefined) {
-    // const currentEditor = vscode.window.activeTextEditor;
-
-    // if (!currentEditor) {
-    //     vscode.window.showErrorMessage('No active editor');
-    //     return;
-    // }
-
-    // // Determine the column to open the file in
-    // const currentViewColumn = currentEditor.viewColumn;
-    console.log(`Navigating to ${fileUri.fsPath}:${lineNumber}`);
     const visibleEditors = vscode.window.visibleTextEditors;
     const otherColumn = getOppositeColumn(currentColumn, visibleEditors);
 

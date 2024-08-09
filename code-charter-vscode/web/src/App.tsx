@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import Sidebar from './SideBar';
 import { CodeChartArea } from './CodeChartArea';
-import { detectEnvironments, getCallGraphForEnvironment } from './vscodeApi';
-import { CallGraph, DefinitionNode, ProjectEnvironmentId } from "../../shared/codeGraph";
+import { detectEnvironments, getCallGraphForEnvironment, summariseCodeTree } from './vscodeApi';
+import { CallGraph, DefinitionNode, ProjectEnvironmentId, TreeAndContextSummaries } from "../../shared/codeGraph";
 import { CodeIndexStatus } from './codeIndex';
 
 async function detectEntryPoints(
@@ -44,21 +44,61 @@ async function detectEntryPoints(
   setStatusMessage(CodeIndexStatus.Ready);
 }
 
+async function fetchSummaries(
+  nodeSymbol: string,
+  ongoingSummarisations: Map<string, Promise<any>>,
+  setOnGoingSummarisations: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>,
+): Promise<Record<string, string> | undefined> {
+  if (ongoingSummarisations.has(nodeSymbol)) {
+    return ongoingSummarisations.get(nodeSymbol);
+  }
+
+  const promise = summariseCodeTree(nodeSymbol)
+    .then((summaries) => summaries?.refinedFunctionSummaries)
+    .finally(() => setOnGoingSummarisations((ongoingSummarisations) => {
+      ongoingSummarisations.delete(nodeSymbol);
+      return new Map(ongoingSummarisations);
+    }));
+
+  setOnGoingSummarisations(new Map(ongoingSummarisations.set(nodeSymbol, promise)));
+  return promise;
+};
+
 const App: React.FC = () => {
   const [callGraph, setCallGraph] = useState<CallGraph>({ topLevelNodes: [], definitionNodes: {} });
   const [selectedEntryPoint, setSelectedEntryPoint] = useState<DefinitionNode | null>(null);
   const [statusMessage, setStatusMessage] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
+  const [ongoingSummarisations, setOnGoingSummarisations] = useState<Map<string, Promise<any>>>(new Map());
 
   useEffect(() => {
     detectEntryPoints(setCallGraph, setStatusMessage);
   }, []);
 
+  const areNodesSummariesLoading = (nodeSymbol: string) => {
+    return ongoingSummarisations.has(nodeSymbol);
+  }
+
+  const getSummaries = async (nodeSymbol: string) => {
+    return fetchSummaries(nodeSymbol, ongoingSummarisations, setOnGoingSummarisations);
+  }
+
   return (
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">
       <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">
-        <Sidebar callGraph={callGraph} onSelect={setSelectedEntryPoint} selectedNode={selectedEntryPoint} indexingStatus={statusMessage} />
+        <Sidebar
+          callGraph={callGraph}
+          onSelect={setSelectedEntryPoint}
+          selectedNode={selectedEntryPoint}
+          indexingStatus={statusMessage}
+          areNodeSummariesLoading={areNodesSummariesLoading}
+        />
         <div className="flex flex-1 bg-vscodeBg">
-          <CodeChartArea selectedEntryPoint={selectedEntryPoint} callGraph={callGraph} screenWidthFraction={1} />
+          <CodeChartArea
+            selectedEntryPoint={selectedEntryPoint}
+            callGraph={callGraph}
+            screenWidthFraction={0.75}
+            getSummaries={getSummaries}
+          />
         </div>
       </div>
     </div>

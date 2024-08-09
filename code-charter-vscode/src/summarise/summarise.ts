@@ -37,9 +37,8 @@ async function summariseCallGraph(
     const refinedFunctionSummaries = await refineSummaries(workDir, functionSummaries, definitionNodes, modelDetails);
 
     // (For debugging) write summaries to file
-    const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
-    console.log(`Writing summaries to ${outFile}`);
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2)));
+    // const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
+    // await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2)));
 
     const summaries = {
         functionSummaries: Object.fromEntries(functionSummaries),
@@ -141,7 +140,7 @@ async function getFunctionSummaries(workDir: vscode.Uri, functionCode: Map<strin
         console.error("Error summarising functions:", error);
         throw error;
     }
-    //         "{
+    // "{
     //   name: "HeadersTimeoutError",
     //   code: "UND_ERR_HEADERS_TIMEOUT",
     //   message: "Headers Timeout Error",
