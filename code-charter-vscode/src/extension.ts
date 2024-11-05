@@ -1,90 +1,100 @@
-import * as vscode from 'vscode';
-import { addToGitignore } from './files';
-import { checkDockerInstalled } from './docker';
-import { runCommand } from './run';
-import { getFileVersionHash } from './git';
-import { detectEnvironment, ProjectEnvironment } from './project/projectTypeDetection';
-import { readCallGraphJsonFile, summariseCallGraph } from './summarise/summarise';
-import { CallGraph } from '../shared/codeGraph';
-import { ProjectEnvironmentId } from '../shared/codeGraph';
-import { navigateToDoc } from './navigate';
-import { ModelDetails, ModelProvider } from './model';
-import { ChatOllama } from '@langchain/community/chat_models/ollama';
+import * as vscode from "vscode";
+import { addToGitignore } from "./files";
+import { checkDockerInstalled } from "./docker";
+import { runCommand } from "./run";
+import { getFileVersionHash } from "./git";
+import { detectEnvironment, ProjectEnvironment } from "./project/projectTypeDetection";
+import { readCallGraphJsonFile, summariseCallGraph } from "./summarise/summarise";
+import { CallGraph } from "../shared/codeGraph";
+import { ProjectEnvironmentId } from "../shared/codeGraph";
+import { navigateToDoc } from "./navigate";
+import { ModelDetails, ModelProvider } from "./model";
+import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatOpenAI } from "@langchain/openai";
+import { O } from "vitest/dist/chunks/environment.0M5R1SX_";
 
-const extensionFolder = '.code-charter';
+const extensionFolder = ".code-charter";
 
 let webviewColumn: vscode.ViewColumn | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-	// The command has been defined in the package.json file
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('code-charter-vscode.generateDiagram', () => generateDiagram(context));
+  // The command has been defined in the package.json file
+  // The commandId parameter must match the command field in package.json
+  const disposable = vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () =>
+    generateDiagram(context)
+  );
 
-	context.subscriptions.push(disposable);
+  context.subscriptions.push(disposable);
 }
 
 async function generateDiagram(context: vscode.ExtensionContext) {
+  // Check docker is installed
+  const isDockerInstalled = await checkDockerInstalled();
+  if (!isDockerInstalled) {
+    vscode.window.showErrorMessage("Docker is not running. Please install and run Docker to use this extension.");
+    return;
+  }
+  // Check if a `.code-charter` directory exists in the workspace
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    vscode.window.showWarningMessage("No workspace is open.");
+    return;
+  }
+  const workspacePath = workspaceFolders[0].uri.fsPath;
+  const workDir = vscode.Uri.file(`${workspacePath}/${extensionFolder}`);
+  const dirExists = await vscode.workspace.fs.stat(workDir).then(
+    () => true,
+    () => false
+  );
+  if (!dirExists) {
+    // Create the directory
+    await vscode.workspace.fs.createDirectory(workDir);
+    addToGitignore(extensionFolder);
+  }
 
-	// Check docker is installed
-	const isDockerInstalled = await checkDockerInstalled();
-	if (!isDockerInstalled) {
-		vscode.window.showErrorMessage('Docker is not running. Please install and run Docker to use this extension.');
-		return;
-	}
-	// Check if a `.code-charter` directory exists in the workspace
-	const workspaceFolders = vscode.workspace.workspaceFolders;
-	if (!workspaceFolders) {
-		vscode.window.showWarningMessage('No workspace is open.');
-		return;
-	}
-	const workspacePath = workspaceFolders[0].uri.fsPath;
-	const workDir = vscode.Uri.file(`${workspacePath}/${extensionFolder}`);
-	const dirExists = await vscode.workspace.fs.stat(workDir).then(() => true, () => false);
-	if (!dirExists) {
-		// Create the directory
-		await vscode.workspace.fs.createDirectory(workDir);
-		addToGitignore(extensionFolder);
-	}
-
-	await showWebviewDiagram(workspaceFolders, context, workDir);
+  await showWebviewDiagram(workspaceFolders, context, workDir);
 }
 
 async function showWebviewDiagram(
-	workspaceFolders: readonly vscode.WorkspaceFolder[],
-	context: vscode.ExtensionContext,
-	workFolder: vscode.Uri,
+  workspaceFolders: readonly vscode.WorkspaceFolder[],
+  context: vscode.ExtensionContext,
+  workFolder: vscode.Uri
 ) {
-	const panel = vscode.window.createWebviewPanel(
-		'codeDiagram',
-		'Code Charter Diagram',
-		vscode.ViewColumn.One,
-		{
-			enableScripts: true,
-			retainContextWhenHidden: true,
-			localResourceRoots: [
-				vscode.Uri.file(context.extensionPath),
-				vscode.Uri.joinPath(context.extensionUri, 'node_modules'),
-			],
-		}
-	);
-	webviewColumn = panel.viewColumn;
+  const panel = vscode.window.createWebviewPanel("codeDiagram", "Code Charter Diagram", vscode.ViewColumn.One, {
+    enableScripts: true,
+    retainContextWhenHidden: true,
+    localResourceRoots: [
+      vscode.Uri.file(context.extensionPath),
+      vscode.Uri.joinPath(context.extensionUri, "node_modules"),
+    ],
+  });
+  webviewColumn = panel.viewColumn;
 
-	panel.onDidChangeViewState(() => {
-		webviewColumn = panel.viewColumn;
-	});
+  panel.onDidChangeViewState(() => {
+    webviewColumn = panel.viewColumn;
+  });
 
-	const scriptSrc = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, "web", "dist", "bundle.js"));
+  const scriptSrc = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, "web", "dist", "bundle.js"));
 
-	const htmlContent = `<!DOCTYPE html>
+  const htmlContent = `<!DOCTYPE html>
         <html lang="en">
           <head>
 		  <style>
 			:root {
-			--vscode-editor-background: ${vscode.workspace.getConfiguration().get('workbench.colorCustomizations')['editor.background'] || '#ffffff'};
-			--vscode-editor-foreground: ${vscode.workspace.getConfiguration().get('workbench.colorCustomizations')['editor.foreground'] || '#333333'};
-			--vscode-editor-selectionBackground: ${vscode.workspace.getConfiguration().get('workbench.colorCustomizations')['editor.selectionBackground'] || '#3399ff'};
-			--vscode-editorLineNumber-foreground: ${vscode.workspace.getConfiguration().get('workbench.colorCustomizations')['editorLineNumber.foreground'] || '#aaaaaa'};
+			--vscode-editor-background: ${
+        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editor.background"] || "#ffffff"
+      };
+			--vscode-editor-foreground: ${
+        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editor.foreground"] || "#333333"
+      };
+			--vscode-editor-selectionBackground: ${
+        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editor.selectionBackground"] ||
+        "#3399ff"
+      };
+			--vscode-editorLineNumber-foreground: ${
+        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editorLineNumber.foreground"] ||
+        "#aaaaaa"
+      };
 			}
 		</style>
           </head>
@@ -96,137 +106,184 @@ async function showWebviewDiagram(
         </html>
         `;
 
-	let callGraph: CallGraph | undefined;
-	let allEnvironments: { [key: string]: ProjectEnvironment } | undefined;
-	let selectedEnvironment: ProjectEnvironment | undefined;
+  let callGraph: CallGraph | undefined;
+  let allEnvironments: { [key: string]: ProjectEnvironment } | undefined;
+  let selectedEnvironment: ProjectEnvironment | undefined;
 
-	panel.webview.onDidReceiveMessage(
-		async message => {
-			const { command, id, ...otherFields } = message;
-			switch (command) {
-				case 'detectEnvironments':
-					const envs = await detectEnvironment(workspaceFolders);
-					allEnvironments = Object.fromEntries(envs?.map((env) => [env.projectPath.fsPath, env]) || []);
-					const allEnvIds: ProjectEnvironmentId[] = envs?.map((env) => ({
-						id: env.projectPath.fsPath,
-						name: env.displayName()
-					})) || [];
-					panel.webview.postMessage({ id, command: 'detectEnvironmentsResponse', data: allEnvIds });
-					break;
-				case 'getCallGraphForEnvironment':
-					const { env }: { env: ProjectEnvironmentId } = otherFields;
-					selectedEnvironment = allEnvironments?.[env.id];
-					if (!selectedEnvironment) {
-						throw new Error('Selected environment not found');
-					}
-					const indexPath = await indexEnvironment(selectedEnvironment, workFolder);
-					callGraph = await detectTopLevelFunctions(indexPath, selectedEnvironment, workFolder);
-					if (!callGraph) {
-						throw new Error('Call graph not found');
-					}
-					const topLevelFunctionsSet = new Set(selectedEnvironment.filterTopLevelFunctions(callGraph.topLevelNodes));
-					callGraph.topLevelNodes = callGraph.topLevelNodes.filter((node) => topLevelFunctionsSet.has(node));
-					panel.webview.postMessage({ id, command: 'getCallGraphForEnvironmentResponse', data: callGraph });
-					break;
-				case 'summariseCodeTree':
-					const { topLevelFunctionSymbol } = otherFields;
-					if (!callGraph) {
-						throw new Error('Call graph not found');
-					}
-					if (!selectedEnvironment) {
-						throw new Error('Selected environment not found');
-					}
-					const modelDetails = await getModelDetails();
-					const summaries = await summariseCallGraph(topLevelFunctionSymbol, callGraph, workFolder, selectedEnvironment.projectPath, modelDetails);
-					panel.webview.postMessage({ id, command: 'summariseCodeTreeResponse', data: summaries });
-					break;
-				case 'functionSummaryStatus':
-					const { functionSymbol } = otherFields;
-					// TODO: get it from the db
-					panel.webview.postMessage({ id, command: 'functionSummaryStatusResponse', data: {} });
-					break;
-				case 'navigateToDoc':
-					const { relativeDocPath, lineNumber } = otherFields;
-					const fileUri = vscode.Uri.file(`${selectedEnvironment?.projectPath.fsPath}/${relativeDocPath}`);
-					await navigateToDoc(fileUri, lineNumber, webviewColumn);
-					panel.webview.postMessage({ id, command: 'navigateToDocResponse', data: { success: true } });
-					break;
-				default:
-					throw new Error(`Unsupported command: ${command}`);
-			}
-		},
-		undefined,
-		context.subscriptions
-	);
+  panel.webview.onDidReceiveMessage(
+    async (message) => {
+      const { command, id, ...otherFields } = message;
 
-	panel.webview.html = htmlContent;
+      // Map of command handlers
+      const commandHandlers: { [key: string]: () => Promise<void> } = {
+        detectEnvironments: async () => {
+          const envs = await detectEnvironment(workspaceFolders);
+          allEnvironments = Object.fromEntries(envs?.map((env) => [env.projectPath.fsPath, env]) || []);
+          const allEnvIds: ProjectEnvironmentId[] =
+            envs?.map((env) => ({
+              id: env.projectPath.fsPath,
+              name: env.displayName(),
+            })) || [];
+          panel.webview.postMessage({ id, command: "detectEnvironmentsResponse", data: allEnvIds });
+        },
+        clusterCodeTree: async () => {
+          const { topLevelFunctionSymbol } = otherFields;
+          const clusters = await clusterCodeTree(topLevelFunctionSymbol);
+          const nodeGroups = clusters.map((cluster) => {
+            return {
+              description: null, // TODO: get summary description from LLM
+              memberSymbols: cluster,
+            };
+          });
+          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: nodeGroups });
+        },
+        getCallGraphForEnvironment: async () => {
+          const { env }: { env: ProjectEnvironmentId } = otherFields;
+          selectedEnvironment = allEnvironments?.[env.id];
+          if (!selectedEnvironment) {
+            throw new Error("Selected environment not found");
+          }
+          const indexPath = await indexEnvironment(selectedEnvironment, workFolder);
+          callGraph = await detectTopLevelFunctions(indexPath, selectedEnvironment, workFolder);
+          if (!callGraph) {
+            throw new Error("Call graph not found");
+          }
+          const topLevelFunctionsSet = new Set(selectedEnvironment.filterTopLevelFunctions(callGraph.topLevelNodes));
+          callGraph.topLevelNodes = callGraph.topLevelNodes.filter((node) => topLevelFunctionsSet.has(node));
+          panel.webview.postMessage({ id, command: "getCallGraphForEnvironmentResponse", data: callGraph });
+        },
+        summariseCodeTree: async () => {
+          const { topLevelFunctionSymbol } = otherFields;
+          if (!callGraph) {
+            throw new Error("Call graph not found");
+          }
+          if (!selectedEnvironment) {
+            throw new Error("Selected environment not found");
+          }
+          const modelDetails = await getModelDetails();
+          const summaries = await summariseCallGraph(
+            topLevelFunctionSymbol,
+            callGraph,
+            workFolder,
+            selectedEnvironment.projectPath,
+            modelDetails
+          );
+          panel.webview.postMessage({ id, command: "summariseCodeTreeResponse", data: summaries });
+        },
+        functionSummaryStatus: async () => {
+          const { functionSymbol } = otherFields;
+          // TODO: get it from the db
+          panel.webview.postMessage({ id, command: "functionSummaryStatusResponse", data: {} });
+        },
+        navigateToDoc: async () => {
+          const { relativeDocPath, lineNumber } = otherFields;
+          const fileUri = vscode.Uri.file(`${selectedEnvironment?.projectPath.fsPath}/${relativeDocPath}`);
+          await navigateToDoc(fileUri, lineNumber, webviewColumn);
+          panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
+        },
+      };
+
+      // Execute the appropriate handler
+      const handler = commandHandlers[command];
+      if (handler) {
+        await handler();
+      } else {
+        throw new Error(`Unsupported command: ${command}`);
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
+
+  panel.webview.html = htmlContent;
 }
 
 async function getModelDetails(): Promise<ModelDetails> {
-	const configuration = vscode.workspace.getConfiguration('code-charter-vscode');
-	const provider = configuration.get('modelProvider');
-	if (provider === ModelProvider.OpenAI) {
-		const apiKey = configuration.get('APIKey');
-		if (apiKey === undefined || typeof apiKey !== 'string') {
-			throw new Error('OpenAI API Key not set');
-		}
-		const modelName = 'gpt-4o-mini';
-		return {
-			uid: `openai:${modelName}`,
-			provider: ModelProvider.OpenAI,
-			model: new ChatOpenAI({
-				temperature: 0,
-				modelName: modelName,
-				apiKey: apiKey,
-			}),
-		};
-	} else if (provider === ModelProvider.Ollama) {
-		// TODO: get by calling Ollama API - use the last-used model
-		const modelName = 'mistral'; // 'magicoder'; //"phi3:3.8b",
-		return {
-			uid: `ollama:${modelName}`,
-			provider: ModelProvider.Ollama,
-			model: new ChatOllama({
-				baseUrl: "http://localhost:11434",
-				model: modelName,
-				format: "txt",
-				keepAlive: "20m", // TODO: this doesn't work - still getting timeouts
-			}),
-		};
-	}
+  const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
+  const provider = configuration.get("modelProvider");
+  if (provider === ModelProvider.OpenAI) {
+    const apiKey = configuration.get("APIKey");
+    if (apiKey === undefined || typeof apiKey !== "string") {
+      throw new Error("OpenAI API Key not set");
+    }
+    const modelName = "gpt-4o";
+    return {
+      uid: `openai:${modelName}`,
+      provider: ModelProvider.OpenAI,
+      model: new ChatOpenAI({
+        temperature: 0,
+        modelName: modelName,
+        apiKey: apiKey,
+        topP: 0.1,
+      }),
+    };
+  } else if (provider === ModelProvider.Ollama) {
+    // TODO: get by calling Ollama API - use the last-used model
+    const modelName = "mistral"; // 'magicoder'; //"phi3:3.8b",
+    return {
+      uid: `ollama:${modelName}`,
+      provider: ModelProvider.Ollama,
+      model: new ChatOllama({
+        baseUrl: "http://localhost:11434",
+        model: modelName,
+        format: "txt",
+        keepAlive: "20m", // TODO: this doesn't work - still getting timeouts
+      }),
+    };
+  }
 }
 
 async function indexEnvironment(selectedEnvironment: ProjectEnvironment, workDirPath: vscode.Uri): Promise<vscode.Uri> {
-	let envFileString = selectedEnvironment.fileName();
-	if (envFileString.length > 0) {
-		envFileString += '-';
-	}
-	// TODO: only check for changes in the selected environment - need to add a getFiles() to environment then check against working tree changes - limit to just e.g. python files
-	const versionSuffix = (await getFileVersionHash()) || 'latest';
-	const scipFileName = `index-${envFileString}${versionSuffix}.scip`;
-	const scipFilePath = vscode.Uri.joinPath(workDirPath, scipFileName);
-	const doesFileExist = await vscode.workspace.fs.stat(scipFilePath).then(() => true, () => false);
-	if (doesFileExist) {
-		console.log(`SCIP file already exists: ${scipFilePath.fsPath}`);
-	} else {
-		await selectedEnvironment.parseCodebaseToScipIndex(workDirPath, scipFilePath);
-	}
-	return scipFilePath;
+  let envFileString = selectedEnvironment.fileName();
+  if (envFileString.length > 0) {
+    envFileString += "-";
+  }
+  // TODO: only check for changes in the selected environment - need to add a getFiles() to environment then check against working tree changes - limit to just e.g. python files
+  const versionSuffix = (await getFileVersionHash()) || "latest";
+  const scipFileName = `index-${envFileString}${versionSuffix}.scip`;
+  const scipFilePath = vscode.Uri.joinPath(workDirPath, scipFileName);
+  const doesFileExist = await vscode.workspace.fs.stat(scipFilePath).then(
+    () => true,
+    () => false
+  );
+  if (doesFileExist) {
+    console.log(`SCIP file already exists: ${scipFilePath.fsPath}`);
+  } else {
+    await selectedEnvironment.parseCodebaseToScipIndex(workDirPath, scipFilePath);
+  }
+  return scipFilePath;
 }
 
-async function detectTopLevelFunctions(scipFilePath: vscode.Uri, selectedEnvironment: ProjectEnvironment, workDirPath: vscode.Uri): Promise<CallGraph> {
-	const relativeWorkDirPath = vscode.workspace.asRelativePath(workDirPath);
-	const containerInputFilePath = scipFilePath.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
-	console.log("containerInputFilePath", containerInputFilePath);
-	const containerOutputFilePath = `/sources/${relativeWorkDirPath}/call_graph.json`;
-	console.log("containerOutputFilePath", containerOutputFilePath);
+async function detectTopLevelFunctions(
+  scipFilePath: vscode.Uri,
+  selectedEnvironment: ProjectEnvironment,
+  workDirPath: vscode.Uri
+): Promise<CallGraph> {
+  const relativeWorkDirPath = vscode.workspace.asRelativePath(workDirPath);
+  const containerInputFilePath = scipFilePath.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
+  console.log("containerInputFilePath", containerInputFilePath);
+  const containerOutputFilePath = `/sources/${relativeWorkDirPath}/call_graph.json`;
+  console.log("containerOutputFilePath", containerOutputFilePath);
 
-	await runCommand(`docker run -v ${selectedEnvironment.projectPath.fsPath}:/sources/ crjfisher/codecharter-detectcallgraphs --input_file ${containerInputFilePath} --output_file ${containerOutputFilePath}`);
+  await runCommand(
+    `docker run -v ${selectedEnvironment.projectPath.fsPath}:/sources/ crjfisher/codecharter-detectcallgraphs --input_file ${containerInputFilePath} --output_file ${containerOutputFilePath}`
+  );
 
-	// Read the call graph JSON file
-	const callGraphJsonFilePath = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.json`);
-	const callGraph = await readCallGraphJsonFile(callGraphJsonFilePath);
-	return callGraph;
+  // Read the call graph JSON file
+  const callGraphJsonFilePath = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.json`);
+  const callGraph = await readCallGraphJsonFile(callGraphJsonFilePath);
+  return callGraph;
 }
 
-export function deactivate() { }
+async function clusterCodeTree(topLevelFunctionSymbol: any): Promise<string[][]> {
+  // read json file at: `/workspaces/code-charter/charter/data/clusters.json`
+  // return the data from the json file
+  const file = vscode.Uri.file(`/Users/chuck/workspace/code-charter/charter/data/clusters.json`);
+  const clusters = await vscode.workspace.fs.readFile(file as vscode.Uri).then((data) => {
+    const clusters = JSON.parse(new TextDecoder().decode(data));
+    return clusters as string[][];
+  });
+  return clusters;
+}
+
+export function deactivate() {}

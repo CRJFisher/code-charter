@@ -1,11 +1,17 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
-import './App.css';
-import Sidebar from './SideBar';
-import { CodeChartArea } from './CodeChartArea';
-import { detectEnvironments, getCallGraphForEnvironment, summariseCodeTree } from './vscodeApi';
-import { CallGraph, DefinitionNode, ProjectEnvironmentId, TreeAndContextSummaries } from "../../shared/codeGraph";
-import { CodeIndexStatus } from './codeIndex';
+import React from "react";
+import { useEffect, useState } from "react";
+import "./App.css";
+import Sidebar from "./SideBar";
+import { CodeChartArea } from "./CodeChartArea";
+import { clusterCodeTree, detectEnvironments, getCallGraphForEnvironment, summariseCodeTree } from "./vscodeApi";
+import {
+  CallGraph,
+  DefinitionNode,
+  NodeGroup,
+  ProjectEnvironmentId,
+  TreeAndContextSummaries,
+} from "../../shared/codeGraph";
+import { CodeIndexStatus } from "./codeIndex";
 
 async function detectEntryPoints(
   setCallGraph: React.Dispatch<React.SetStateAction<CallGraph>>,
@@ -24,13 +30,12 @@ async function detectEntryPoints(
 
   let selectedEnvironment: ProjectEnvironmentId;
   if (environments.length > 1) {
-    // TODO: implement select 
+    // TODO: implement select
     setStatusMessage(CodeIndexStatus.Error);
     // selectedEnvironment = environments.find((env) => env.displayName() === picked);
     return;
   } else {
     selectedEnvironment = environments[0];
-
   }
 
   const callGraph = await getCallGraphForEnvironment(selectedEnvironment);
@@ -44,10 +49,22 @@ async function detectEntryPoints(
   setStatusMessage(CodeIndexStatus.Ready);
 }
 
+async function clusterNodes(
+  topLevelNodeSymbol: string | undefined,
+  setNodeGroups: React.Dispatch<React.SetStateAction<{[key: string]: NodeGroup[]}>>
+): Promise<void> {
+  if (!topLevelNodeSymbol) {
+    return;
+  }
+  const nodeGroups = await clusterCodeTree(topLevelNodeSymbol);
+  console.log(topLevelNodeSymbol == "scip-python python aider 1.0.0 `aider.coders.base_coder`/Coder#run().", nodeGroups);
+  setNodeGroups({ "scip-python python aider 1.0.0 `aider.coders.base_coder`/Coder#run().": nodeGroups });
+}
+
 async function fetchSummaries(
   nodeSymbol: string,
   ongoingSummarisations: Map<string, Promise<any>>,
-  setOnGoingSummarisations: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>,
+  setOnGoingSummarisations: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>
 ): Promise<Record<string, string> | undefined> {
   if (ongoingSummarisations.has(nodeSymbol)) {
     return ongoingSummarisations.get(nodeSymbol);
@@ -55,17 +72,20 @@ async function fetchSummaries(
 
   const promise = summariseCodeTree(nodeSymbol)
     .then((summaries) => summaries?.refinedFunctionSummaries)
-    .finally(() => setOnGoingSummarisations((ongoingSummarisations) => {
-      ongoingSummarisations.delete(nodeSymbol);
-      return new Map(ongoingSummarisations);
-    }));
+    .finally(() =>
+      setOnGoingSummarisations((ongoingSummarisations) => {
+        ongoingSummarisations.delete(nodeSymbol);
+        return new Map(ongoingSummarisations);
+      })
+    );
 
   setOnGoingSummarisations(new Map(ongoingSummarisations.set(nodeSymbol, promise)));
   return promise;
-};
+}
 
 const App: React.FC = () => {
   const [callGraph, setCallGraph] = useState<CallGraph>({ topLevelNodes: [], definitionNodes: {} });
+  const [nodeGroups, setNodeGroups] = useState<{ [key: string]: NodeGroup[] }>({});
   const [selectedEntryPoint, setSelectedEntryPoint] = useState<DefinitionNode | null>(null);
   const [statusMessage, setStatusMessage] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
   const [ongoingSummarisations, setOnGoingSummarisations] = useState<Map<string, Promise<any>>>(new Map());
@@ -76,14 +96,18 @@ const App: React.FC = () => {
 
   const areNodesSummariesLoading = (nodeSymbol: string) => {
     return ongoingSummarisations.has(nodeSymbol);
-  }
+  };
 
   const getSummaries = async (nodeSymbol: string) => {
     return fetchSummaries(nodeSymbol, ongoingSummarisations, setOnGoingSummarisations);
-  }
+  };
 
+  const selectedNodeGroups = nodeGroups[selectedEntryPoint?.symbol || ""];
   return (
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">
+      <button className="p-2 bg-vscodeFg text-vscodeBg" onClick={() => clusterNodes(selectedEntryPoint?.symbol, setNodeGroups)}>
+        Cluster
+      </button>
       <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">
         <Sidebar
           callGraph={callGraph}
@@ -96,6 +120,7 @@ const App: React.FC = () => {
           <CodeChartArea
             selectedEntryPoint={selectedEntryPoint}
             callGraph={callGraph}
+            nodeGroups={selectedNodeGroups}
             screenWidthFraction={0.75}
             getSummaries={getSummaries}
           />

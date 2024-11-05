@@ -6,6 +6,7 @@ import { MdKeyboardDoubleArrowLeft } from "react-icons/md";
 import { navigateToDoc } from './vscodeApi';
 import { CodeIndexStatus } from './codeIndex';
 import { VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react';
+
 interface SidebarProps {
   callGraph: CallGraph;
   selectedNode: DefinitionNode | null;

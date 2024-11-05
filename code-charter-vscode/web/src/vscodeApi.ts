@@ -1,4 +1,4 @@
-import { CallGraph, ProjectEnvironmentId, TreeAndContextSummaries } from '../../shared/codeGraph';
+import { CallGraph, NodeGroup, ProjectEnvironmentId, TreeAndContextSummaries } from '../../shared/codeGraph';
 
 interface VsCodeApi {
     postMessage(message: any): void;
@@ -46,6 +46,16 @@ async function detectEnvironments(): Promise<ProjectEnvironmentId[]> {
         return response.data;
     } catch (error) {
         console.error('Error detecting environments:', error);
+        return [];
+    }
+}
+
+async function clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
+    try {
+        const response = await sendMessageWithResponse('clusterCodeTree');
+        return response.data;
+    } catch (error) {
+        console.error('Error clustering:', error);
         return [];
     }
 }
@@ -211,4 +221,5 @@ export {
     getCallGraphForEnvironment,
     summariseCodeTree,
     navigateToDoc,
+    clusterCodeTree,
 };
