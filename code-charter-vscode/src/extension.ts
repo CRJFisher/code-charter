@@ -5,13 +5,13 @@ import { runCommand } from "./run";
 import { getFileVersionHash } from "./git";
 import { detectEnvironment, ProjectEnvironment } from "./project/projectTypeDetection";
 import { readCallGraphJsonFile, summariseCallGraph } from "./summarise/summarise";
-import { CallGraph } from "../shared/codeGraph";
+import { CallGraph, TreeAndContextSummaries } from "../shared/codeGraph";
 import { ProjectEnvironmentId } from "../shared/codeGraph";
 import { navigateToDoc } from "./navigate";
 import { ModelDetails, ModelProvider } from "./model";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatOpenAI } from "@langchain/openai";
-import { O } from "vitest/dist/chunks/environment.0M5R1SX_";
+import { getClusterDescriptions } from "./summarise/summariseClusters";
 
 const extensionFolder = ".code-charter";
 
@@ -76,25 +76,55 @@ async function showWebviewDiagram(
 
   const scriptSrc = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, "web", "dist", "bundle.js"));
 
+  const colorCustomizations = vscode.workspace.getConfiguration().get("workbench.colorCustomizations") || {};
+
+  const editorColors = `
+  --vscode-editor-background: ${colorCustomizations["editor.background"] || "#1e1e1e"};
+  --vscode-editor-foreground: ${colorCustomizations["editor.foreground"] || "#d4d4d4"};
+  --vscode-editor-selectionBackground: ${colorCustomizations["editor.selectionBackground"] || "#264f78"};
+  --vscode-editor-selectionForeground: ${colorCustomizations["editor.selectionForeground"] || "#ffffff"};
+  --vscode-editor-lineHighlightBackground: ${colorCustomizations["editor.lineHighlightBackground"] || "#2b2b2b"};
+  --vscode-editor-inactiveSelectionBackground: ${
+    colorCustomizations["editor.inactiveSelectionBackground"] || "#3a3d41"
+  };
+  --vscode-editor-widget-border: ${colorCustomizations["editorWidget.border"] || "#454545"};
+  --vscode-editorLineNumber-foreground: ${colorCustomizations["editorLineNumber.foreground"] || "#858585"};
+  --vscode-editorLineNumber-activeForeground: ${colorCustomizations["editorLineNumber.activeForeground"] || "#c6c6c6"};
+  --vscode-gutter-background: ${colorCustomizations["gutter.background"] || "#252526"};
+  --vscode-gutter-border: ${colorCustomizations["gutter.border"] || "#454545"};
+  --vscode-editor-rulerForeground: ${colorCustomizations["editorRuler.foreground"] || "#5a5a5a"};
+  --vscode-editorCursor-foreground: ${colorCustomizations["editorCursor.foreground"] || "#aeafad"};
+  --vscode-editorWhitespace-foreground: ${colorCustomizations["editorWhitespace.foreground"] || "#3b3a32"};
+  --vscode-editorComments-foreground: ${colorCustomizations["editorComments.foreground"] || "#6a9955"};
+  --vscode-editor-selectionHighlightBackground: ${
+    colorCustomizations["editor.selectionHighlightBackground"] || "#add6ff26"
+  };
+  --vscode-editorHoverHighlight-background: ${colorCustomizations["editorHoverHighlight.background"] || "#264f78"};
+  --vscode-editor-findMatchHighlightBackground: ${
+    colorCustomizations["editor.findMatchHighlightBackground"] || "#ffd33d44"
+  };
+  --vscode-editor-findMatchBackground: ${colorCustomizations["editor.findMatchBackground"] || "#ffd33d22"};
+  --vscode-editorBracketMatch-background: ${colorCustomizations["editorBracketMatch.background"] || "#a0a0a0"};
+  --vscode-editorBracketMatch-border: ${colorCustomizations["editorBracketMatch.border"] || "#555555"};
+  --vscode-editorOverviewRuler-border: ${colorCustomizations["editorOverviewRuler.border"] || "#282828"};
+  --vscode-editorOverviewRuler-background: ${colorCustomizations["editorOverviewRuler.background"] || "#1e1e1e"};
+  --vscode-editor-keyword-foreground: ${colorCustomizations["editor.keyword.foreground"] || "#569cd6"};
+  --vscode-editor-function-foreground: ${colorCustomizations["editor.function.foreground"] || "#dcdcaa"};
+  --vscode-editor-variable-foreground: ${colorCustomizations["editor.variable.foreground"] || "#9cdcfe"};
+  --vscode-editor-string-foreground: ${colorCustomizations["editor.string.foreground"] || "#ce9178"};
+  --vscode-editor-number-foreground: ${colorCustomizations["editor.number.foreground"] || "#b5cea8"};
+  --vscode-editor-boolean-foreground: ${colorCustomizations["editor.boolean.foreground"] || "#569cd6"};
+  --vscode-editor-constant-foreground: ${colorCustomizations["editor.constant.foreground"] || "#4ec9b0"};
+  --vscode-editor-type-foreground: ${colorCustomizations["editor.type.foreground"] || "#4ec9b0"};
+  --vscode-editor-operator-foreground: ${colorCustomizations["editor.operator.foreground"] || "#d4d4d4"};
+  --vscode-editor-comment-foreground: ${colorCustomizations["editor.comment.foreground"] || "#6a9955"};
+`;
   const htmlContent = `<!DOCTYPE html>
         <html lang="en">
           <head>
 		  <style>
 			:root {
-			--vscode-editor-background: ${
-        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editor.background"] || "#ffffff"
-      };
-			--vscode-editor-foreground: ${
-        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editor.foreground"] || "#333333"
-      };
-			--vscode-editor-selectionBackground: ${
-        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editor.selectionBackground"] ||
-        "#3399ff"
-      };
-			--vscode-editorLineNumber-foreground: ${
-        vscode.workspace.getConfiguration().get("workbench.colorCustomizations")["editorLineNumber.foreground"] ||
-        "#aaaaaa"
-      };
+			${editorColors}
 			}
 		</style>
           </head>
@@ -109,6 +139,7 @@ async function showWebviewDiagram(
   let callGraph: CallGraph | undefined;
   let allEnvironments: { [key: string]: ProjectEnvironment } | undefined;
   let selectedEnvironment: ProjectEnvironment | undefined;
+  let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};
 
   panel.webview.onDidReceiveMessage(
     async (message) => {
@@ -125,17 +156,6 @@ async function showWebviewDiagram(
               name: env.displayName(),
             })) || [];
           panel.webview.postMessage({ id, command: "detectEnvironmentsResponse", data: allEnvIds });
-        },
-        clusterCodeTree: async () => {
-          const { topLevelFunctionSymbol } = otherFields;
-          const clusters = await clusterCodeTree(topLevelFunctionSymbol);
-          const nodeGroups = clusters.map((cluster) => {
-            return {
-              description: null, // TODO: get summary description from LLM
-              memberSymbols: cluster,
-            };
-          });
-          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: nodeGroups });
         },
         getCallGraphForEnvironment: async () => {
           const { env }: { env: ProjectEnvironmentId } = otherFields;
@@ -168,7 +188,33 @@ async function showWebviewDiagram(
             selectedEnvironment.projectPath,
             modelDetails
           );
+          topLevelFunctionToSummaries[topLevelFunctionSymbol] = summaries;
           panel.webview.postMessage({ id, command: "summariseCodeTreeResponse", data: summaries });
+        },
+        clusterCodeTree: async () => {
+          const { topLevelFunctionSymbol } = otherFields;
+          const clusters = await clusterCodeTree(
+            topLevelFunctionToSummaries[topLevelFunctionSymbol].refinedFunctionSummaries
+          );
+          const modelDetails = await getModelDetails();
+          const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
+          const descriptions = await getClusterDescriptions(
+            clusters.map((cluster) => cluster.map((member) => {
+              return {
+                symbol: member,
+                functionString: summaries.refinedFunctionSummaries[member],
+              };
+            })),
+            modelDetails,
+            summaries.contextSummary
+          );
+          const nodeGroups = clusters.map((cluster, i) => {
+            return {
+              description: descriptions[i],
+              memberSymbols: cluster,
+            };
+          });
+          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: nodeGroups });
         },
         functionSummaryStatus: async () => {
           const { functionSymbol } = otherFields;
@@ -275,14 +321,15 @@ async function detectTopLevelFunctions(
   return callGraph;
 }
 
-async function clusterCodeTree(topLevelFunctionSymbol: any): Promise<string[][]> {
-  // read json file at: `/workspaces/code-charter/charter/data/clusters.json`
-  // return the data from the json file
-  const file = vscode.Uri.file(`/Users/chuck/workspace/code-charter/charter/data/clusters.json`);
-  const clusters = await vscode.workspace.fs.readFile(file as vscode.Uri).then((data) => {
-    const clusters = JSON.parse(new TextDecoder().decode(data));
-    return clusters as string[][];
+async function clusterCodeTree(summaries: { [key: string]: string }): Promise<string[][]> {
+  const response = await fetch("http://127.0.0.1:5000/cluster", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(summaries),
   });
+  const clusters = await response.json();
   return clusters;
 }
 

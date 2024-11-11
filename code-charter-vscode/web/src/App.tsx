@@ -51,14 +51,15 @@ async function detectEntryPoints(
 
 async function clusterNodes(
   topLevelNodeSymbol: string | undefined,
-  setNodeGroups: React.Dispatch<React.SetStateAction<{[key: string]: NodeGroup[]}>>
+  setNodeGroups: React.Dispatch<React.SetStateAction<{ [key: string]: NodeGroup[] }>>
 ): Promise<void> {
   if (!topLevelNodeSymbol) {
     return;
   }
-  const nodeGroups = await clusterCodeTree(topLevelNodeSymbol);
-  console.log(topLevelNodeSymbol == "scip-python python aider 1.0.0 `aider.coders.base_coder`/Coder#run().", nodeGroups);
-  setNodeGroups({ "scip-python python aider 1.0.0 `aider.coders.base_coder`/Coder#run().": nodeGroups });
+  const newNodeGroups = await clusterCodeTree(topLevelNodeSymbol);
+  setNodeGroups((nodeGroups) => {
+    return { ...nodeGroups, [topLevelNodeSymbol]: newNodeGroups };
+  });
 }
 
 async function fetchSummaries(
@@ -102,10 +103,13 @@ const App: React.FC = () => {
     return fetchSummaries(nodeSymbol, ongoingSummarisations, setOnGoingSummarisations);
   };
 
-  const selectedNodeGroups = nodeGroups[selectedEntryPoint?.symbol || ""];
+  const selectedNodeGroups = nodeGroups[selectedEntryPoint?.symbol || ""]; // TODO: could provide default values of [] for all top level nodes in order to avoid passing undefined when something is selected
   return (
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">
-      <button className="p-2 bg-vscodeFg text-vscodeBg" onClick={() => clusterNodes(selectedEntryPoint?.symbol, setNodeGroups)}>
+      <button
+        className="p-2 bg-vscodeFg text-vscodeBg"
+        onClick={() => clusterNodes(selectedEntryPoint?.symbol, setNodeGroups)}
+      >
         Cluster
       </button>
       <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">

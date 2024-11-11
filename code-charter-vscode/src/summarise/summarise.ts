@@ -90,7 +90,6 @@ async function summariseRootScope(
   if (cachedSummary) {
     return cachedSummary.summary;
   }
-"**Domain:**\nSoftware Development / AI Pair Programming\n\n**Keywords:**\n- AI pair programming\n- Terminal\n- Local git repository\n- GPT-4o\n- Claude 3 Opus\n- LLM (Large Language Model)\n- Code editing\n- Git repo\n- Aider\n\n**Likely Intentions of the Top-Level Function:**\nThe top-level function `aider.coders.editblock_fenced_coder.EditBlockFencedCoder#__init__()` is likely intended to initialize an instance of the `EditBlockFencedCoder` class. This class is probably responsible for handling code editing tasks within a fenced block of code, leveraging AI capabilities to assist the user in making modifications. The initialization function would set up necessary parameters and configurations to enable the AI pair programming features, ensuring seamless integration with the user's local git repository and the chosen LLMs (such as GPT-4o and Claude 3 Opus)."
   const rootContextPrompt = new PromptTemplate({
     inputVariables: ["projectText", "functionPath"],
     template: `Please detect the domain of the project and describe the likely intentions of the top-level function in this project.

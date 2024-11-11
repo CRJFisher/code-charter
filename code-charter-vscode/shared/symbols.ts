@@ -12,4 +12,4 @@ function symbolDisplayName(symbol: string): string {
     return finalSection.replace('#', '.');
 }
 
-export { symbolRepoLocalName, symbolDisplayName };
+export { symbolRepoLocalName, symbolDisplayName }

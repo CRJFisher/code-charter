@@ -52,7 +52,7 @@ async function detectEnvironments(): Promise<ProjectEnvironmentId[]> {
 
 async function clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
     try {
-        const response = await sendMessageWithResponse('clusterCodeTree');
+        const response = await sendMessageWithResponse('clusterCodeTree', {topLevelFunctionSymbol});
         return response.data;
     } catch (error) {
         console.error('Error clustering:', error);
