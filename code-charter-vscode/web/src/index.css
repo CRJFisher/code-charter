@@ -49,11 +49,3 @@ body {
   background-color: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
 }
-
-.ellipsis-end {
-  direction: rtl;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
