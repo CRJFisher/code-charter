@@ -2,7 +2,12 @@ import * as vscode from "vscode";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableConfig, RunnableBranch, RunnableLambda } from "@langchain/core/runnables";
-import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/codeGraph";
+import {
+  TreeAndContextSummaries,
+  CallGraph,
+  DefinitionNode,
+  RefinedSummariesAndFilteredOutNodes,
+} from "@shared/codeGraph";
 import PouchDB from "pouchdb";
 import { hashText } from "../hashing";
 import { symbolRepoLocalName } from "../../shared/symbols";
@@ -60,8 +65,8 @@ async function summariseCallGraph(
 
   const summaries = {
     functionSummaries: Object.fromEntries(functionDescriptions),
-    refinedFunctionSummaries: Object.fromEntries(businessLogicDescriptions),
-    contextSummary: null, //rootContext,
+    refinedAndFilteredOutNodes: businessLogicDescriptions,
+    contextSummary: rootContext,
   };
   // write summaries to file
   const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(" ", "")}.json`;
@@ -193,7 +198,7 @@ async function getFunctionBusinessLogic(
   allFunctionNodes: Map<string, DefinitionNode>,
   modelDetails: ModelDetails,
   domainSummary: string
-): Promise<Map<string, string>> {
+): Promise<RefinedSummariesAndFilteredOutNodes> {
   function buildBusinessLogicPrompt(symbol: string) {
     return new PromptTemplate({
       inputVariables: [symbol],
@@ -236,7 +241,13 @@ async function getFunctionBusinessLogic(
 
   try {
     const refinedSummaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(summaries));
-    return new Map(Object.entries(refinedSummaries));
+    const filteredOutNodes = Object.entries(refinedSummaries)
+      .filter(([_, summary]) => summary.includes("- None"))
+      .map(([symbol, _]) => symbol);
+    return {
+      refinedFunctionSummaries: refinedSummaries,
+      filteredOutNodes,
+    };
   } catch (error) {
     console.error("Error summarising business logic", error);
     throw error;
@@ -326,25 +337,27 @@ async function getSummaryWithCachingChain(
 ) {
   const summaryWithCacheChain = summaryChain.pipe(
     RunnableLambda.from((summary: string) => {
-      functionSummariesDb.put({
-        _id: summaryKey,
-        summary: summary,
-        symbol: symbol,
-        createdAt: new Date(),
-      }).catch(async function (err) {
-        if (err.name === 'conflict') {
-          functionSummariesDb.put({
-            _id: summaryKey,
-            _rev: (await functionSummariesDb.get(summaryKey))._rev,
-            summary: summary,
-            symbol: symbol,
-            createdAt: new Date(),
-          });
-        } else {
+      functionSummariesDb
+        .put({
+          _id: summaryKey,
+          summary: summary,
+          symbol: symbol,
+          createdAt: new Date(),
+        })
+        .catch(async function (err) {
+          if (err.name === "conflict") {
+            functionSummariesDb.put({
+              _id: summaryKey,
+              _rev: (await functionSummariesDb.get(summaryKey))._rev,
+              summary: summary,
+              symbol: symbol,
+              createdAt: new Date(),
+            });
+          } else {
             console.log(`Failed to put cached summary for ${symbol}`);
             throw err;
-        }
-      });
+          }
+        });
       return summary;
     })
   );

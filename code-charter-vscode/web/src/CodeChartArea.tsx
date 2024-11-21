@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CallGraph, DefinitionNode, NodeGroup } from "../../shared/codeGraph";
+import { CallGraph, DefinitionNode, NodeGroup, RefinedSummariesAndFilteredOutNodes } from "../../shared/codeGraph";
 import { navigateToDoc } from "./vscodeApi";
 
 import cytoscape, { Core, ElementDefinition, LayoutOptions, Stylesheet, StylesheetStyle } from "cytoscape";
@@ -31,7 +31,7 @@ interface CodeChartAreaProps {
   callGraph: CallGraph;
   nodeGroups: NodeGroup[] | undefined;
   screenWidthFraction: number;
-  getSummaries: (nodeSymbol: string) => Promise<Record<string, string> | undefined>;
+  getSummaries: (nodeSymbol: string) => Promise<RefinedSummariesAndFilteredOutNodes | undefined>;
 }
 
 export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
@@ -354,12 +354,12 @@ function applyZoomMode(cy: Core, zoomMode: ZoomMode, nodeGroupsRef: React.Mutabl
 const generateElements = (
   selectedEntryPoint: DefinitionNode,
   callGraph: CallGraph,
-  summaries: Record<string, string>,
+  summaries: RefinedSummariesAndFilteredOutNodes,
   nodeGroups: NodeGroup[] | undefined
 ): cytoscape.ElementDefinition[] => {
   const elements: cytoscape.ElementDefinition[] = [];
   const visited = new Set<string>();
-  const nodesToSkip = findAllNodesToSkip(selectedEntryPoint, callGraph, summaries);
+  const nodesToSkip = summaries.filteredOutNodes;
 
   // Define the mappings
   const compoundIdToGroup: { [compoundId: string]: NodeGroup } = {};
@@ -391,12 +391,12 @@ const generateElements = (
   };
 
   const addNode = (node: DefinitionNode, isTopLevel: boolean) => {
-    if (visited.has(node.symbol)) {
+    if (visited.has(node.symbol) || nodesToSkip.includes(node.symbol)) {
       return;
     }
     visited.add(node.symbol);
 
-    const summary = summaries[node.symbol]?.trimStart() || "";
+    const summary = summaries.refinedFunctionSummaries[node.symbol]?.trimStart() || "";
     const compoundId = symbolToCompoundId[node.symbol] || undefined;
 
     // Add node
@@ -414,7 +414,7 @@ const generateElements = (
     });
 
     for (const child of node.children) {
-      if (nodesToSkip.has(child.symbol)) {
+      if (nodesToSkip.includes(child.symbol)) {
         continue;
       }
 
@@ -465,27 +465,4 @@ const generateElements = (
   }
 
   return elements;
-};
-
-const findAllNodesToSkip = (entryPoint: DefinitionNode, callGraph: CallGraph, summaries: Record<string, string>) => {
-  const nodesToSkip = new Set<string>();
-  const visited = new Set<string>();
-  const stack = [entryPoint];
-  while (stack.length > 0) {
-    const node = stack.pop();
-    if (!node || visited.has(node.symbol)) {
-      continue;
-    }
-    visited.add(node.symbol);
-    const summary = summaries[node.symbol].trimStart();
-    if (/- None/.test(summary)) {
-      nodesToSkip.add(node.symbol);
-    }
-    for (const child of node.children) {
-      if (!visited.has(child.symbol)) {
-        stack.push(callGraph.definitionNodes[child.symbol]);
-      }
-    }
-  }
-  return nodesToSkip;
 };

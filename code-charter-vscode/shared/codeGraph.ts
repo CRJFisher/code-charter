@@ -54,8 +54,13 @@ function countNodes(topLevelNode: string, graph: CallGraph, visitedNodes: Set<st
 
 interface TreeAndContextSummaries {
   functionSummaries: Record<string, string>;
-  refinedFunctionSummaries: Record<string, string>;
+  refinedAndFilteredOutNodes: RefinedSummariesAndFilteredOutNodes;
   contextSummary: string;
+}
+
+interface RefinedSummariesAndFilteredOutNodes {
+  refinedFunctionSummaries: Record<string, string>;
+  filteredOutNodes: string[];
 }
 
 export type {
@@ -65,8 +70,9 @@ export type {
   ReferenceNode,
   DefinitionNode,
   CallGraph,
-  TreeAndContextSummaries,
   NodeGroup,
+  TreeAndContextSummaries,
+  RefinedSummariesAndFilteredOutNodes,
 };
 
 export { countNodes };

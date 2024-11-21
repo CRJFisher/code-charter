@@ -5,7 +5,7 @@ import { runCommand } from "./run";
 import { getFileVersionHash } from "./git";
 import { detectEnvironment, ProjectEnvironment } from "./project/projectTypeDetection";
 import { readCallGraphJsonFile, summariseCallGraph } from "./summarise/summarise";
-import { CallGraph, TreeAndContextSummaries } from "../shared/codeGraph";
+import { CallGraph, RefinedSummariesAndFilteredOutNodes, TreeAndContextSummaries } from "../shared/codeGraph";
 import { ProjectEnvironmentId } from "../shared/codeGraph";
 import { navigateToDoc } from "./navigate";
 import { ModelDetails, ModelProvider } from "./model";
@@ -194,7 +194,7 @@ async function showWebviewDiagram(
         clusterCodeTree: async () => {
           const { topLevelFunctionSymbol } = otherFields;
           const clusters = await clusterCodeTree(
-            topLevelFunctionToSummaries[topLevelFunctionSymbol].refinedFunctionSummaries
+            topLevelFunctionToSummaries[topLevelFunctionSymbol].refinedAndFilteredOutNodes
           );
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
@@ -202,7 +202,7 @@ async function showWebviewDiagram(
             clusters.map((cluster) => cluster.map((member) => {
               return {
                 symbol: member,
-                functionString: summaries.refinedFunctionSummaries[member],
+                functionString: summaries.refinedAndFilteredOutNodes.refinedFunctionSummaries[member],
               };
             })),
             modelDetails,
@@ -321,7 +321,7 @@ async function detectTopLevelFunctions(
   return callGraph;
 }
 
-async function clusterCodeTree(summaries: { [key: string]: string }): Promise<string[][]> {
+async function clusterCodeTree(summaries: RefinedSummariesAndFilteredOutNodes): Promise<string[][]> {
   const response = await fetch("http://127.0.0.1:5000/cluster", {
     method: "POST",
     headers: {

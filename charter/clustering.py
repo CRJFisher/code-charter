@@ -3,6 +3,7 @@
 call_graph_file = "charter/data/call_graph.json"
 
 # %%
+from dataclasses import dataclass
 from gettext import find
 from typing import Dict, List
 
@@ -341,13 +342,23 @@ def file_exists(file_path: str) -> bool:
     except FileNotFoundError:
         return False
 
+@dataclass
+class RefinedSummariesAndFilteredOutNodes:
+    refinedFunctionSummaries: Dict[str, str]
+    filteredOutNodes: List[str]
 
 @app.route("/cluster", methods=["POST"])
 def post_cluster():
     # Get the JSON payload from the request
-    summaries = request.get_json()
-    summaries_hash = hash_summaries(summaries)
-    print("request", len(summaries), summaries_hash)
+    response = request.get_json()
+    summaries = RefinedSummariesAndFilteredOutNodes(**response)
+    summaries_to_include = {
+        name: summary
+        for name, summary in summaries.refinedFunctionSummaries.items()
+        if name not in summaries.filteredOutNodes
+    }
+    summaries_hash = hash_summaries(summaries_to_include)
+    print("request", len(summaries_to_include), summaries_hash)
     summaries_path = f"charter/data/clusters/{summaries_hash}.json"
     if file_exists(summaries_path):
         with open(summaries_path) as f:
@@ -359,7 +370,7 @@ def post_cluster():
         with open(embeddings_path) as f:
             embeddings = json.load(f)
     else:
-        embeddings = embed_summaries(summaries)
+        embeddings = embed_summaries(summaries_to_include)
         with open(embeddings_path, "w") as f:
             json.dump(embeddings, f, indent=2)
 

@@ -9,6 +9,7 @@ import {
   DefinitionNode,
   NodeGroup,
   ProjectEnvironmentId,
+  RefinedSummariesAndFilteredOutNodes,
   TreeAndContextSummaries,
 } from "../../shared/codeGraph";
 import { CodeIndexStatus } from "./codeIndex";
@@ -66,13 +67,13 @@ async function fetchSummaries(
   nodeSymbol: string,
   ongoingSummarisations: Map<string, Promise<any>>,
   setOnGoingSummarisations: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>
-): Promise<Record<string, string> | undefined> {
+): Promise<RefinedSummariesAndFilteredOutNodes | undefined> {
   if (ongoingSummarisations.has(nodeSymbol)) {
     return ongoingSummarisations.get(nodeSymbol);
   }
 
   const promise = summariseCodeTree(nodeSymbol)
-    .then((summaries) => summaries?.refinedFunctionSummaries)
+    .then((summaries) => summaries?.refinedAndFilteredOutNodes)
     .finally(() =>
       setOnGoingSummarisations((ongoingSummarisations) => {
         ongoingSummarisations.delete(nodeSymbol);
