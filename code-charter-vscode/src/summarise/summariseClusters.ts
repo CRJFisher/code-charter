@@ -237,33 +237,53 @@ function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): Clu
       symbolToClusterId[member.symbol] = `${index}`;
     }
   }
+  
   const clusterIdToMembers = {};
-  const clusterIdToParentClusterIds = {};
-  const clusterIdToChildClusterIds = {};
+  const clusterIdToDependencies = {}; // Clusters that the current cluster depends on
+  const clusterIdToDependents = {};   // Clusters that depend on the current cluster
+  
   for (const [index, cluster] of clusters.entries()) {
-    const parentClusterId = `${index}`;
-    clusterIdToMembers[parentClusterId] = cluster;
+    const currentClusterId = `${index}`;
+    clusterIdToMembers[currentClusterId] = cluster;
+    
     for (const member of cluster) {
-      const memberChildSymbols = callGraph.definitionNodes[member.symbol].children.map((child) => child.symbol);
+      const memberChildSymbols = callGraph.definitionNodes[member.symbol]?.children?.map((child) => child.symbol) || [];
+      
       for (const symbol of memberChildSymbols) {
-        if (!symbolToClusterId[symbol] || symbolToClusterId[symbol] === parentClusterId) {
+        const dependencyClusterId = symbolToClusterId[symbol];
+        
+        if (!dependencyClusterId || dependencyClusterId === currentClusterId) {
           continue;
         }
-        const childClusterId = symbolToClusterId[symbol];
-
-        // child->parent
-        if (!clusterIdToParentClusterIds[childClusterId]) {
-          clusterIdToParentClusterIds[childClusterId] = new Set();
+        
+        // Add to clusterIdToDependencies
+        if (!clusterIdToDependencies[currentClusterId]) {
+          clusterIdToDependencies[currentClusterId] = new Set();
         }
-        clusterIdToParentClusterIds[childClusterId].add(parentClusterId);
-
-        // parent->child
-        if (!clusterIdToChildClusterIds[parentClusterId]) {
-          clusterIdToChildClusterIds[parentClusterId] = new Set();
+        clusterIdToDependencies[currentClusterId].add(dependencyClusterId);
+        
+        // Add to clusterIdToDependents
+        if (!clusterIdToDependents[dependencyClusterId]) {
+          clusterIdToDependents[dependencyClusterId] = new Set();
         }
-        clusterIdToChildClusterIds[parentClusterId].add(childClusterId);
+        clusterIdToDependents[dependencyClusterId].add(currentClusterId);
       }
     }
   }
-  return { clusterIdToMembers, clusterIdToParentClusterIds, clusterIdToChildClusterIds };
+  
+  // Convert Sets to Arrays if needed
+  for (const clusterId in clusterIdToDependencies) {
+    clusterIdToDependencies[clusterId] = Array.from(clusterIdToDependencies[clusterId]);
+  }
+  
+  for (const clusterId in clusterIdToDependents) {
+    clusterIdToDependents[clusterId] = Array.from(clusterIdToDependents[clusterId]);
+  }
+  
+  return {
+    clusterIdToMembers,
+    clusterIdToChildClusterIds: clusterIdToDependencies,
+    clusterIdToParentClusterIds: clusterIdToDependents,
+  };
 }
+
