@@ -199,14 +199,17 @@ async function showWebviewDiagram(
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
           const descriptions = await getClusterDescriptions(
-            clusters.map((cluster) => cluster.map((member) => {
-              return {
-                symbol: member,
-                functionString: summaries.refinedAndFilteredOutNodes.refinedFunctionSummaries[member],
-              };
-            })),
+            clusters.map((cluster) =>
+              cluster.map((memberSymbol) => {
+                return {
+                  symbol: memberSymbol,
+                  functionSummaryString: summaries.refinedAndFilteredOutNodes.refinedFunctionSummaries[memberSymbol],
+                };
+              })
+            ),
             modelDetails,
-            summaries.contextSummary
+            summaries.contextSummary,
+            callGraph
           );
           const nodeGroups = clusters.map((cluster, i) => {
             return {
