@@ -2,7 +2,7 @@ import React from "react";
 import { useEffect, useState } from "react";
 import "./App.css";
 import Sidebar from "./SideBar";
-import { CodeChartArea } from "./CodeChartArea";
+import { CodeChartArea } from "./codeChartArea/CodeChartArea";
 import { clusterCodeTree, detectEnvironments, getCallGraphForEnvironment, summariseCodeTree } from "./vscodeApi";
 import {
   CallGraph,
