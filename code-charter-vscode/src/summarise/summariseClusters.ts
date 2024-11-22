@@ -11,42 +11,11 @@ import {
 import { symbolRepoLocalName } from "../../shared/symbols";
 import { ModelDetails } from "src/model";
 import { CallGraph } from "@shared/codeGraph";
-import { symbol } from "d3";
 
 interface ClusterMember {
   symbol: string;
   functionSummaryString: string;
 }
-
-// const outputParser = new StringOutputParser();
-// const allClusterSummaryChains: {
-//   [key: string]: Runnable<any, string, RunnableConfig>;
-// } = {};
-
-// const clusterIndexToDescriptions = {};
-// for (const [index, cluster] of clusters.entries()) {
-//   const clusterIndex = `${index}`;
-// const summaryChain = buildClusterSummaryPrompt(clusterIndex).pipe(modelDetails.model).pipe(outputParser);
-//   allClusterSummaryChains[clusterIndex] = summaryChain;
-//   const clusterStrings = cluster.map(
-//     (member) => `${symbolRepoLocalName(member.symbol)}\n${member.functionSummaryString}`
-//   );
-//   const clusterDescriptions = clusterStrings.join("------\n");
-//   clusterIndexToDescriptions[clusterIndex] = clusterDescriptions;
-// }
-
-// try {
-//   const refinedSummaries = await RunnableMap.from(allClusterSummaryChains).invoke(clusterIndexToDescriptions);
-//   return Object.values(refinedSummaries);
-// } catch (error) {
-//   console.error("Error summarising cluster descriptions", error);
-//   throw error;
-// }
-/**
- * TODO:
- * 1. give it the graph structure of the nodes in the cluster
- * 2. instead of the current domain summary, give it a summary of the parent contexts. This requires a BFS traversal of the cluster graph
- */
 
 export async function getClusterDescriptions(
   clusters: ClusterMember[][],
@@ -54,6 +23,10 @@ export async function getClusterDescriptions(
   domainSummary: string,
   callGraph: CallGraph
 ): Promise<Record<string, string>> {
+  /**
+   * TODO:
+   * - give it the graph structure of the nodes in the cluster
+   */
   const clusterGraph = getClusterGraph(clusters, callGraph);
 
   const depthLevels = computeDepthLevels(clusterGraph);
@@ -73,6 +46,7 @@ export async function getClusterDescriptions(
       sequence = sequence.pipe(
         RunnableParallel.from({
           curr: RunnableLambda.from((inputs: any) => {
+            console.log(inputs);
             return levelRunnable.invoke({ ...inputs.curr, ...inputs.prev });
           }),
           prev: RunnableLambda.from((inputs: any) => ({ ...inputs.curr, ...inputs.prev })),
@@ -95,7 +69,7 @@ interface ClusterContext {
   clusterMembers: ClusterMember[];
 }
 
-function buildClusterSummaryPrompt(clusterId: string, contextSummary: ClusterContext): PromptTemplate {
+function buildClusterSummaryPrompt(contextSummary: ClusterContext): PromptTemplate {
   // TODO: if it's root, make it link to the context in the summary. If not, make it differentiate from the parent description.
   const isRoot = !contextSummary.parentIds || contextSummary.parentIds.length === 0;
   let context: string;
@@ -110,20 +84,21 @@ function buildClusterSummaryPrompt(clusterId: string, contextSummary: ClusterCon
   } else {
     context = `Here are the summaries of the modules that depend on this module.
     """
-    ${contextSummary.parentIds.map((parentId) => "{" + parentId + "}").join("\n\n")}
+    ${contextSummary.parentIds.map((parentId) => "{" + parentId + "}").join("\n")}
     """
     Avoid repeating the same information in the parent descriptions. Instead, focus on what this module does differently or adds to the parent modules.`;
     inputVariables = contextSummary.parentIds;
   }
   const functionIdsPlaceholders = contextSummary.clusterMembers
     .map((member) => `${symbolRepoLocalName(member.symbol)}\n${member.functionSummaryString}`)
-    .join("\n");
+    .join("\n\n");
   const templateString = `Function descriptions:
 """
 ${functionIdsPlaceholders}
 """
 ${context}
 Write a short, action-focused sentence about **what these functions collectively do** in telegraph-style, without mentioning specific classes, files, or organisational details`;
+  console.log(templateString);
   return new PromptTemplate({
     inputVariables: inputVariables,
     template: templateString,
@@ -142,7 +117,7 @@ function createLevelRunnable(
       clusterMembers: clusterGraph.clusterIdToMembers[clusterId],
     };
     const outputParser = new StringOutputParser();
-    const summaryChain = buildClusterSummaryPrompt(clusterId, context).pipe(modelDetails.model).pipe(outputParser);
+    const summaryChain = buildClusterSummaryPrompt(context).pipe(modelDetails.model).pipe(outputParser);
     clusterIdToRunnable[clusterId] = summaryChain;
   }
   return RunnableMap.from(clusterIdToRunnable);
@@ -188,8 +163,8 @@ function computeDepthLevels(graph: ClusterGraph): Record<number, string[]> {
 
   // Check there is only 1 root cluster
   const depthClustersMap = Object.fromEntries(depthToClusterIds);
-  if (depthClustersMap[0].length !== 1) {
-    throw new Error("Expected exactly one root cluster");
+  if (!depthClustersMap[0] || depthClustersMap[0].length !== 1) {
+    throw new Error(`Expected exactly one root cluster. ${depthClustersMap}`);
   }
 
   // Check we are not duplicating clusters at different levels

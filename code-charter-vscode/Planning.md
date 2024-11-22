@@ -7,17 +7,17 @@
     - Write blog posts about underlying motivations, principles and direction of the project
     - Improve documentation
       - Shift all planning notes to this file. Mention this in the `Contributing` section.
-        - Use Foam? 
+        - Use Foam?
           - Allow for easy linking between notes.
-      - Create diagram to explain repo layout including links to the different parts of the project. 
+      - Create diagram to explain repo layout including links to the different parts of the project.
         - This could inform the output formats for the charts. E.g. how much functionality would SVG support?
 
 ## Functionality:
 
-- Create diagrams that distill out the fundamental business logic in a codebase. 
-  - Describe functionality in the domain language. 
+- Create diagrams that distill out the fundamental business logic in a codebase.
+  - Describe functionality in the domain language.
     - This requires discovering the domain language in the codebase and from external sources. Also allowing the user to add / edit this.
-- Create a tool to chart the function under the cursor 
+- Create a tool to chart the function under the cursor
 
 ## Ideas
 
@@ -48,6 +48,7 @@
 - [ ] Add the option to show non-business logic nodes in the chart.
   - Or toggle between full descriptions and business logic focussed
 - [ ] Rebuild the scip-python image using distroless to reduce the image size
+- [ ] In summariseClusters.ts the strategy of using `computeDepthLevels` to determine when to summarise a cluster isn't working. Some parent clusters aren't available as context.
 
 ### ChartArea
 
@@ -71,15 +72,15 @@
 ### Clustering
 
 - Manual intervention
-  - Choose between: 
+  - Choose between:
     - Manual labels. Optionally cluster around these descriptions
     - Automatic labels. Cluster around these.
-    - Existing module  labels
+    - Existing module labels
     - No clusters
     - "Recluster" button to retry clustering
 - [ ] Set a minimum threshold for clustering e.g. 7 nodes
 - [ ] Improve prompt
-  - Display the dependencies between nodes 
+  - Display the dependencies between nodes
   - Create a "memory" summary of the above context (like in MemGPT)
 
 ## Features
@@ -93,6 +94,3 @@
 - Add some chat-with-repo feature to:
   - Ask questions about the codebase
   - See if existing issues / documentation / specs match a user's query
-
-
-"Function descriptions:\n\"\"\"\n{scip-python python aider 1.0.0 `aider.coders.editblock_coder`/EditBlockCoder#apply_edits().}\n{scip-python python aider 1.0.0 `aider.coders.editblock_coder`/find_similar_lines().}\n{scip-python python aider 1.0.0 `aider.coders.editblock_coder`/strip_quoted_wrapping().}\n{scip-python python aider 1.0.0 `aider.coders.editblock_coder`/do_replace().}\n\"\"\"\nSome high-level domain context for the project:\n    \"\"\"\n    {root}\n    \"\"\"\nWrite a short, action-focused sentence about **what these functions collectively do** in telegraph-style, without mentioning specific classes, files, or organisational details"
