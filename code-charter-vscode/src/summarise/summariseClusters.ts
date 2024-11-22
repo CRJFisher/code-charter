@@ -6,6 +6,7 @@ import {
   RunnableLambda,
   RunnableLike,
   RunnableMap,
+  RunnableParallel,
   RunnablePassthrough,
   RunnableSequence,
 } from "@langchain/core/runnables";
@@ -70,25 +71,42 @@ export async function getClusterDescriptions(
     sequence = new RunnablePassthrough();
     for (const levelRunnable of levelRunnables) {
       // Pipe each levelRunnable, ensuring inputs are passed along
-      sequence = sequence.pipe(levelRunnable).pipe(new RunnablePassthrough());
+      sequence = sequence.pipe(
+        RunnableParallel.from({
+          curr: RunnableLambda.from((inputs: any) => {
+            return levelRunnable.invoke({ ...inputs.curr, ...inputs.prev });
+          }),
+          prev: RunnableLambda.from((inputs: any) => ({ ...inputs.curr, ...inputs.prev })),
+        })
+      );
     }
   }
-  const clusterSummaries = await sequence.invoke({ "0": domainSummary });
 
+  const symbolToFunctionCode = {};
+  for (const cluster of clusters) {
+    for (const member of cluster) {
+      symbolToFunctionCode[member.symbol] = member.functionSummaryString;
+    }
+  }
+  const output = await sequence.invoke({ curr: { root: domainSummary, ...symbolToFunctionCode }, prev: {} });
+  const combinedSummaries = {...output.curr, ...output.prev};
+  const clusterSummaries = {};
+  for (const clusterId in Object.keys(clusterGraph.clusterIdToMembers)) {
+    clusterSummaries[clusterId] = combinedSummaries[clusterId];
+  }
   return clusterSummaries;
 }
 
 interface ClusterContext {
-  parentIds: string[];
+  parentIds: string[] | undefined;
   clusterMembers: ClusterMember[];
 }
 
-function buildClusterSummaryPrompt(
-  clusterId: string,
-  contextSummary: ClusterContext,
-  isRoot: boolean = false
-): PromptTemplate {
+function buildClusterSummaryPrompt(clusterId: string, contextSummary: ClusterContext): PromptTemplate {
   // TODO: if it's root, make it link to the context in the summary. If not, make it differentiate from the parent description.
+  // let;
+  if (!contextSummary.parentIds || contextSummary.parentIds.length === 0) {
+  }
   return new PromptTemplate({
     inputVariables: [clusterId],
     template: `
@@ -110,76 +128,29 @@ function createLevelRunnable(
   clusterGraph: ClusterGraph,
   modelDetails: ModelDetails
 ): Runnable<any, any, RunnableConfig> {
-  const clusterRunnables = clustersAtLevel.map((clusterId) => {
-    const parentIds = [...clusterGraph.clusterIdToParentClusterIds[clusterId]];
-
-    const clusterMembers = clusterGraph.clusterIdToMembers[clusterId];
-
+  const clusterIdToRunnable: Record<string, Runnable<any, string, RunnableConfig>> = {};
+  for (const clusterId of clustersAtLevel) {
     const context = {
-      parentIds,
-      clusterMembers,
+      parentIds: clusterGraph.clusterIdToParentClusterIds[clusterId],
+      clusterMembers: clusterGraph.clusterIdToMembers[clusterId],
     };
-
-    const outputParser = new StringOutputParser();
-    const summaryChain = buildClusterSummaryPrompt(clusterId, context).pipe(modelDetails.model).pipe(outputParser);
-    return summaryChain;
-  });
-
-  return RunnableMap.from(clusterRunnables);
-}
-
-function computeLevels(clusterGraph: ClusterGraph): string[][] {
-  const clusterIdToLevel: Record<string, number> = {};
-  const levels: string[][] = [];
-
-  // Initialize clusters with no parents at level 0
-  const level0Clusters = Object.keys(clusterGraph.clusterIdToMembers).filter((clusterId) => {
-    const parents = clusterGraph.clusterIdToParentClusterIds[clusterId];
-    return !parents || parents.size === 0;
-  });
-
-  levels.push(level0Clusters);
-  level0Clusters.forEach((clusterId) => {
-    clusterIdToLevel[clusterId] = 0;
-  });
-
-  let currentLevel = 1;
-  let clustersAtCurrentLevel = level0Clusters;
-
-  while (true) {
-    const nextLevelClusters: string[] = [];
-
-    clustersAtCurrentLevel.forEach((clusterId) => {
-      const childClusters = clusterGraph.clusterIdToChildClusterIds[clusterId];
-      if (childClusters) {
-        childClusters.forEach((childClusterId) => {
-          // Only process child clusters that haven't been assigned a level yet
-          if (clusterIdToLevel[childClusterId] === undefined) {
-            const parentIds = clusterGraph.clusterIdToParentClusterIds[childClusterId];
-            // Check if all parents have been assigned levels
-            const allParentsAssigned = Array.from(parentIds || []).every(
-              (parentId) => clusterIdToLevel[parentId] !== undefined
-            );
-
-            if (allParentsAssigned) {
-              clusterIdToLevel[childClusterId] = currentLevel;
-              nextLevelClusters.push(childClusterId);
-            }
-          }
-        });
+    // const outputParser = new StringOutputParser();
+    // const summaryChain = buildClusterSummaryPrompt(clusterId, context).pipe(modelDetails.model).pipe(outputParser);
+    const summaryChain = RunnableLambda.from(async (inputs: any) => {
+      const parentSummaries = context.parentIds?.map((parentId) => inputs[parentId]) || [];
+      if (parentSummaries.length === 0) {
+        parentSummaries.push("No parent context available");
       }
+      return `Cluster ${clusterId} summary based on:
+      Domain:
+      ${parentSummaries.join("\n")}
+      Functions:
+      ${context.clusterMembers.map((member) => `${member.symbol}\n${member.functionSummaryString}`).join("\n")}
+      `;
     });
-
-    if (nextLevelClusters.length === 0) {
-      break;
-    }
-
-    levels.push(nextLevelClusters);
-    clustersAtCurrentLevel = nextLevelClusters;
-    currentLevel++;
+    clusterIdToRunnable[clusterId] = summaryChain;
   }
-
-  return levels;
+  return RunnableMap.from(clusterIdToRunnable);
 }
 
 function computeDepthLevels(graph: ClusterGraph): Record<number, string[]> {
@@ -187,12 +158,11 @@ function computeDepthLevels(graph: ClusterGraph): Record<number, string[]> {
   const depthToClusterIds: Map<number, string[]> = new Map();
 
   const visited = new Set<string>();
-  const stack: string[] = [];
 
   // Find root clusters (clusters with no parents)
   const rootClusters = Object.keys(graph.clusterIdToMembers).filter((clusterId) => {
     const parents = graph.clusterIdToParentClusterIds[clusterId];
-    return !parents || parents.size === 0;
+    return !parents || parents.length === 0;
   });
 
   // Perform BFS to assign depth levels
@@ -226,8 +196,8 @@ function computeDepthLevels(graph: ClusterGraph): Record<number, string[]> {
 
 interface ClusterGraph {
   clusterIdToMembers: Record<string, ClusterMember[]>;
-  clusterIdToParentClusterIds: Record<string, Set<string>>;
-  clusterIdToChildClusterIds: Record<string, Set<string>>;
+  clusterIdToParentClusterIds: Record<string, string[]>;
+  clusterIdToChildClusterIds: Record<string, string[]>;
 }
 
 function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): ClusterGraph {
@@ -237,53 +207,51 @@ function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): Clu
       symbolToClusterId[member.symbol] = `${index}`;
     }
   }
-  
+
   const clusterIdToMembers = {};
-  const clusterIdToDependencies = {}; // Clusters that the current cluster depends on
-  const clusterIdToDependents = {};   // Clusters that depend on the current cluster
-  
+  const clusterIdToDependencies: Record<string, string[]> = {}; // Clusters that the current cluster depends on
+  const clusterIdToDependents: Record<string, string[]> = {}; // Clusters that depend on the current cluster
+
   for (const [index, cluster] of clusters.entries()) {
     const currentClusterId = `${index}`;
     clusterIdToMembers[currentClusterId] = cluster;
-    
+
     for (const member of cluster) {
-      const memberChildSymbols = callGraph.definitionNodes[member.symbol]?.children?.map((child) => child.symbol) || [];
-      
-      for (const symbol of memberChildSymbols) {
-        const dependencyClusterId = symbolToClusterId[symbol];
-        
-        if (!dependencyClusterId || dependencyClusterId === currentClusterId) {
-          continue;
-        }
-        
+      const dependencyClusterIds = new Set(
+        callGraph.definitionNodes[member.symbol]?.children
+          ?.map((child) => symbolToClusterId[child.symbol])
+          .filter((id) => id !== undefined && id !== currentClusterId) || []
+      );
+
+      for (const dependencyClusterId of dependencyClusterIds) {
+
         // Add to clusterIdToDependencies
         if (!clusterIdToDependencies[currentClusterId]) {
-          clusterIdToDependencies[currentClusterId] = new Set();
+          clusterIdToDependencies[currentClusterId] = [];
         }
-        clusterIdToDependencies[currentClusterId].add(dependencyClusterId);
-        
+        clusterIdToDependencies[currentClusterId].push(dependencyClusterId);
+
         // Add to clusterIdToDependents
         if (!clusterIdToDependents[dependencyClusterId]) {
-          clusterIdToDependents[dependencyClusterId] = new Set();
+          clusterIdToDependents[dependencyClusterId] = [];
         }
-        clusterIdToDependents[dependencyClusterId].add(currentClusterId);
+        clusterIdToDependents[dependencyClusterId].push(currentClusterId);
       }
     }
   }
-  
-  // Convert Sets to Arrays if needed
-  for (const clusterId in clusterIdToDependencies) {
-    clusterIdToDependencies[clusterId] = Array.from(clusterIdToDependencies[clusterId]);
+
+  // validate deps are symmetrical
+  for (const [clusterId, dependencyClusterIds] of Object.entries(clusterIdToDependencies)) {
+    for (const dependencyClusterId of dependencyClusterIds) {
+      if (!clusterIdToDependents[dependencyClusterId]?.includes(clusterId)) {
+        throw new Error(`Cluster dependencies are not symmetrical: ${clusterId} depends on ${dependencyClusterId}`);
+      }
+    }
   }
-  
-  for (const clusterId in clusterIdToDependents) {
-    clusterIdToDependents[clusterId] = Array.from(clusterIdToDependents[clusterId]);
-  }
-  
+
   return {
     clusterIdToMembers,
     clusterIdToChildClusterIds: clusterIdToDependencies,
     clusterIdToParentClusterIds: clusterIdToDependents,
   };
 }
-
