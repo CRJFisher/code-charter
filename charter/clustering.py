@@ -1,10 +1,9 @@
 # %%
 
-call_graph_file = "charter/data/call_graph.json"
-
+# Use nbconvert to convert this notebook to a python script and vice versa
+import json
 # %%
 from dataclasses import dataclass
-from gettext import find
 from typing import Dict, List
 
 from pydantic import BaseModel
@@ -34,10 +33,6 @@ class CallGraph(BaseModel):
     definitionNodes: Dict[str, DefinitionNode]
 
 
-import json
-
-with open(call_graph_file) as f:
-    call_graph = CallGraph.model_validate(json.load(f))
 
 # %%
 from typing import Dict, Optional
@@ -59,7 +54,6 @@ class TreeAndContextSummaries(BaseModel):
 from typing import Sequence
 
 from ollama import Client
-
 from openai import Client as OpenAIClient
 
 client = Client(host="http://host.docker.internal:11434")
@@ -177,22 +171,22 @@ from sklearn.preprocessing import normalize
 
 
 def create_adjacency_matrix(
-    call_graph: CallGraph,
-    func_to_index: Dict[str, int],
+    call_graph_items: Dict[str, DefinitionNode],
+    func_symbol_to_index: Dict[str, int],
     similarity_matrix: np.ndarray,
     n: int,
 ) -> np.ndarray:
     # TODO: split into two functions
     adjacency_data = {
-        func: [ref.symbol for ref in call_graph.definitionNodes[func].children]
-        for func in func_to_index.keys()
+        symbol: [ref.symbol for ref in call_graph_items[symbol].children]
+        for symbol in func_symbol_to_index.keys()
     }
 
     adjacency_matrix = np.zeros((n, n))
     for func_i, neighbors in adjacency_data.items():
-        i = func_to_index[func_i]
+        i = func_symbol_to_index[func_i]
         for func_j in neighbors:
-            j = func_to_index.get(func_j)
+            j = func_symbol_to_index.get(func_j)
             if j is not None and i != j:
                 adjacency_matrix[i, j] = 1
                 adjacency_matrix[j, i] = 1
@@ -214,11 +208,8 @@ def create_adjacency_matrix(
 
 # %%
 from sklearn.cluster import AgglomerativeClustering, SpectralClustering
-from sklearn.metrics import (
-    calinski_harabasz_score,
-    davies_bouldin_score,
-    silhouette_score,
-)
+from sklearn.metrics import (calinski_harabasz_score, davies_bouldin_score,
+                             silhouette_score)
 
 
 def choose_number_of_clusters(similarity_matrix: np.ndarray) -> int:
@@ -342,23 +333,18 @@ def file_exists(file_path: str) -> bool:
     except FileNotFoundError:
         return False
 
-@dataclass
-class RefinedSummariesAndFilteredOutNodes:
+class SummariesAndCallGraphItems(BaseModel):
     refinedFunctionSummaries: Dict[str, str]
-    filteredOutNodes: List[str]
+    callGraphItems: Dict[str, DefinitionNode]
 
 @app.route("/cluster", methods=["POST"])
 def post_cluster():
     # Get the JSON payload from the request
     response = request.get_json()
-    summaries = RefinedSummariesAndFilteredOutNodes(**response)
-    summaries_to_include = {
-        name: summary
-        for name, summary in summaries.refinedFunctionSummaries.items()
-        if name not in summaries.filteredOutNodes
-    }
-    summaries_hash = hash_summaries(summaries_to_include)
-    print("request", len(summaries_to_include), summaries_hash)
+    summaries_and_call_graph = SummariesAndCallGraphItems.model_validate(response)
+    summaries = summaries_and_call_graph.refinedFunctionSummaries
+    summaries_hash = hash_summaries(summaries)
+    print("request", len(summaries), summaries_hash)
     summaries_path = f"charter/data/clusters/{summaries_hash}.json"
     if file_exists(summaries_path):
         with open(summaries_path) as f:
@@ -370,7 +356,7 @@ def post_cluster():
         with open(embeddings_path) as f:
             embeddings = json.load(f)
     else:
-        embeddings = embed_summaries(summaries_to_include)
+        embeddings = embed_summaries(summaries)
         with open(embeddings_path, "w") as f:
             json.dump(embeddings, f, indent=2)
 
@@ -378,14 +364,12 @@ def post_cluster():
     func_to_index, index_to_func, n = prepare_data(comparisons)
     similarity_matrix = create_similarity_matrix(comparisons, func_to_index, n)
     combined_matrix = create_adjacency_matrix(
-        call_graph, func_to_index, similarity_matrix, n
+        summaries_and_call_graph.callGraphItems, func_to_index, similarity_matrix, n
     )
     clusters = cluster(index_to_func, combined_matrix)
     ordered_clusters = order_clusters_by_distance_to_centroid(clusters, embeddings)
 
     cluster_symbols = [c for c in ordered_clusters.values()]
-    # with open(summaries_path, "w") as f:
-    #     json.dump(cluster_symbols, f, indent=2)
 
     return jsonify(cluster_symbols)
 

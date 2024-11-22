@@ -1,24 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CallGraph, DefinitionNode, NodeGroup, RefinedSummariesAndFilteredOutNodes } from "../../../shared/codeGraph";
+import { DefinitionNode, NodeGroup, TreeAndContextSummaries } from "../../../shared/codeGraph";
 import { navigateToDoc } from "../vscodeApi";
 
 import cytoscape, { Core } from "cytoscape";
 
 import fcose, { FcoseLayoutOptions, FcoseRelativePlacementConstraint } from "cytoscape-fcose";
-import { symbolDisplayName } from "../../../shared/symbols";
-import {
-  bgColor,
-  editorBorderColor,
-  fgColor,
-  findMatchHighlightBgColor,
-  gutterBgColor,
-  hoverHighlightBgColor,
-  inactiveSelectionBgColor,
-  lineNumberColor,
-  selectionBgColor,
-  selectionFgColor,
-  selectionHighlightBgColor,
-} from "../colorTheme";
+import { selectionBgColor, selectionFgColor } from "../colorTheme";
 import { generateElements, generateRelativePlacementConstraints } from "./nodePlacement";
 import { nodeAndEdgeStyles } from "../styles/cytoscapeStyles";
 
@@ -28,23 +15,22 @@ type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
   selectedEntryPoint: DefinitionNode | null;
-  callGraph: CallGraph;
   nodeGroups: NodeGroup[] | undefined;
   screenWidthFraction: number;
-  getSummaries: (nodeSymbol: string) => Promise<RefinedSummariesAndFilteredOutNodes | undefined>;
+  getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
 }
 
 export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   selectedEntryPoint,
-  callGraph,
   nodeGroups,
   screenWidthFraction,
   getSummaries,
 }) => {
   const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
   const [nodePlacements, setNodePlacments] = useState<FcoseRelativePlacementConstraint[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
+  const [callGraphNodes, setCallChart] = useState<Record<string, DefinitionNode> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const zoomModeRef = useRef<ZoomMode>(zoomMode);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(nodeGroups);
   const cyRef = useRef<Core | null>(null);
@@ -62,39 +48,27 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
       return;
     }
     const fetchData = async () => {
-      const summaries = await getSummaries(selectedEntryPoint.symbol);
-      if (!summaries) {
+      const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
+      if (!summariesAndFilteredCallTree) {
         return;
       }
-      const newElements = generateElements(selectedEntryPoint, callGraph, summaries, nodeGroups);
-      setElements(newElements);
-      const placements = generateRelativePlacementConstraints(
-        selectedEntryPoint,
-        callGraph,
-        summaries.filteredOutNodes,
+      setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
+      const entryPointInFilteredTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
+      const newElements = generateElements(
+        entryPointInFilteredTree,
+        summariesAndFilteredCallTree,
         nodeGroups
       );
-      console.log("Placements", placements);
-      // validate placements have the same nodes as the elements
-      const elementIds = new Set(newElements.map((element) => element.data.id));
-      for (const placement of placements) {
-        if ("top" in placement && !elementIds.has(placement.top)) {
-          console.error(`Placement top node ${placement.top} not found in elements`);
-        }
-        if ("bottom" in placement && !elementIds.has(placement.bottom)) {
-          console.error(`Placement bottom node ${placement.bottom} not found in elements`);
-        }
-        if ("left" in placement && !elementIds.has(placement.left)) {
-          console.error(`Placement left node ${placement.left} not found in elements`);
-        }
-        if ("right" in placement && !elementIds.has(placement.right)) {
-          console.error(`Placement right node ${placement.right} not found in elements`);
-        }
-      }
+      setElements(newElements);
+      const placements = generateRelativePlacementConstraints(
+        entryPointInFilteredTree,
+        summariesAndFilteredCallTree,
+        nodeGroups
+      );
       setNodePlacments(placements);
     };
     fetchData();
-  }, [selectedEntryPoint, callGraph, nodeGroups]);
+  }, [selectedEntryPoint, nodeGroups]);
 
   const layoutOptions: FcoseLayoutOptions = {
     name: "fcose",
@@ -160,7 +134,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
 
         cy.on("click", "node", async function (event) {
           const node = event.target;
-          const definitionNode = callGraph.definitionNodes[node.id()];
+          const definitionNode = callGraphNodes ? callGraphNodes[node.id()] : null;
           if (!definitionNode) {
             return;
           }
@@ -242,5 +216,3 @@ function applyZoomMode(cy: Core, zoomMode: ZoomMode, nodeGroupsRef: React.Mutabl
     });
   }
 }
-
-

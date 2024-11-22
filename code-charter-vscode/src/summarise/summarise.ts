@@ -2,12 +2,7 @@ import * as vscode from "vscode";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableConfig, RunnableBranch, RunnableLambda } from "@langchain/core/runnables";
-import {
-  TreeAndContextSummaries,
-  CallGraph,
-  DefinitionNode,
-  RefinedSummariesAndFilteredOutNodes,
-} from "@shared/codeGraph";
+import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/codeGraph";
 import PouchDB from "pouchdb";
 import { hashText } from "../hashing";
 import { symbolRepoLocalName } from "../../shared/symbols";
@@ -19,6 +14,12 @@ interface SummaryRecord {
   symbol: string;
   summary: string;
   createdAt: Date;
+}
+
+interface RefinedSummariesAndFilteredOutNodes {
+  refinedFunctionSummaries: Record<string, string>;
+  filteredOutNodes: string[];
+  filteredCallTree: Record<string, DefinitionNode>;
 }
 
 async function summariseCallGraph(
@@ -54,7 +55,9 @@ async function summariseCallGraph(
     functionDescriptions,
     definitionNodes,
     modelDetails,
-    rootContext
+    rootContext,
+    topLevelFunctionSymbol,
+    callGraph
   );
 
   // const refinedFunctionSummaries = await refineSummaries(workDir, functionDescriptions, definitionNodes, modelDetails);
@@ -65,8 +68,9 @@ async function summariseCallGraph(
 
   const summaries = {
     functionSummaries: Object.fromEntries(functionDescriptions),
-    refinedAndFilteredOutNodes: businessLogicDescriptions,
+    refinedFunctionSummaries: businessLogicDescriptions.refinedFunctionSummaries,
     contextSummary: rootContext,
+    callTreeWithFilteredOutNodes: businessLogicDescriptions.filteredCallTree,
   };
   // write summaries to file
   const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(" ", "")}.json`;
@@ -197,7 +201,9 @@ async function getFunctionBusinessLogic(
   summaries: Map<string, string>,
   allFunctionNodes: Map<string, DefinitionNode>,
   modelDetails: ModelDetails,
-  domainSummary: string
+  domainSummary: string,
+  topLevelFunctionSymbol: string,
+  callGraph: CallGraph
 ): Promise<RefinedSummariesAndFilteredOutNodes> {
   function buildBusinessLogicPrompt(symbol: string) {
     return new PromptTemplate({
@@ -244,9 +250,18 @@ async function getFunctionBusinessLogic(
     const filteredOutNodes = Object.entries(refinedSummaries)
       .filter(([_, summary]) => summary.includes("- None"))
       .map(([symbol, _]) => symbol);
-    return {
-      refinedFunctionSummaries: refinedSummaries,
+    const filteredCallTree = getCallGraphItemsWithFilteredOutFunctions(
+      topLevelFunctionSymbol,
       filteredOutNodes,
+      callGraph
+    );
+    const filteredFunctionSummaries = Object.fromEntries(
+      Object.entries(refinedSummaries).filter(([symbol, _]) => !!filteredCallTree[symbol])
+    );
+    return {
+      refinedFunctionSummaries: filteredFunctionSummaries,
+      filteredOutNodes,
+      filteredCallTree,
     };
   } catch (error) {
     console.error("Error summarising business logic", error);
@@ -411,6 +426,32 @@ async function checkForMarkdownFile(directoryPath: vscode.Uri): Promise<string |
   }
   // Return null if no matching file is found
   return null;
+}
+
+function getCallGraphItemsWithFilteredOutFunctions(
+  topLevelFunctionSymbol: string,
+  filteredOutNodes: string[],
+  callGraph: CallGraph
+): Record<string, DefinitionNode> {
+  function copyDefNodeWitoutFilteredOutRefs(node: DefinitionNode): DefinitionNode {
+    const newChildren = node.children.filter((child) => !filteredOutNodes.includes(child.symbol));
+    return {
+      ...node,
+      children: newChildren,
+    };
+  }
+  const callGraphItems: Record<string, DefinitionNode> = {};
+  const queue: DefinitionNode[] = [copyDefNodeWitoutFilteredOutRefs(callGraph.definitionNodes[topLevelFunctionSymbol])];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    if (!filteredOutNodes.includes(node.symbol)) {
+      callGraphItems[node.symbol] = node;
+      node.children.forEach((child) => {
+        queue.push(copyDefNodeWitoutFilteredOutRefs(callGraph.definitionNodes[child.symbol]));
+      });
+    }
+  }
+  return callGraphItems;
 }
 
 export { summariseCallGraph, readCallGraphJsonFile };

@@ -5,7 +5,7 @@ import { runCommand } from "./run";
 import { getFileVersionHash } from "./git";
 import { detectEnvironment, ProjectEnvironment } from "./project/projectTypeDetection";
 import { readCallGraphJsonFile, summariseCallGraph } from "./summarise/summarise";
-import { CallGraph, RefinedSummariesAndFilteredOutNodes, TreeAndContextSummaries } from "../shared/codeGraph";
+import { CallGraph, TreeAndContextSummaries } from "../shared/codeGraph";
 import { ProjectEnvironmentId } from "../shared/codeGraph";
 import { navigateToDoc } from "./navigate";
 import { ModelDetails, ModelProvider } from "./model";
@@ -188,14 +188,13 @@ async function showWebviewDiagram(
             selectedEnvironment.projectPath,
             modelDetails
           );
+          // TODO: create a filtered Record<string, DefinitionNode> based on filtered out nodes. Then we don't need filtering
           topLevelFunctionToSummaries[topLevelFunctionSymbol] = summaries;
           panel.webview.postMessage({ id, command: "summariseCodeTreeResponse", data: summaries });
         },
         clusterCodeTree: async () => {
           const { topLevelFunctionSymbol } = otherFields;
-          const clusters = await clusterCodeTree(
-            topLevelFunctionToSummaries[topLevelFunctionSymbol].refinedAndFilteredOutNodes
-          );
+          const clusters = await clusterCodeTree(topLevelFunctionToSummaries[topLevelFunctionSymbol]);
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
           const descriptions = await getClusterDescriptions(
@@ -203,7 +202,7 @@ async function showWebviewDiagram(
               cluster.map((memberSymbol) => {
                 return {
                   symbol: memberSymbol,
-                  functionSummaryString: summaries.refinedAndFilteredOutNodes.refinedFunctionSummaries[memberSymbol],
+                  functionSummaryString: summaries.refinedFunctionSummaries[memberSymbol],
                 };
               })
             ),
@@ -324,13 +323,16 @@ async function detectTopLevelFunctions(
   return callGraph;
 }
 
-async function clusterCodeTree(summaries: RefinedSummariesAndFilteredOutNodes): Promise<string[][]> {
+async function clusterCodeTree(summaries: TreeAndContextSummaries): Promise<string[][]> {
   const response = await fetch("http://127.0.0.1:5000/cluster", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(summaries),
+    body: JSON.stringify({
+      refinedFunctionSummaries: summaries.refinedFunctionSummaries,
+      callGraphItems: summaries.callTreeWithFilteredOutNodes,
+    }),
   });
   const clusters = await response.json();
   return clusters;
