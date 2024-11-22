@@ -4,15 +4,14 @@ import {
   Runnable,
   RunnableConfig,
   RunnableLambda,
-  RunnableLike,
   RunnableMap,
   RunnableParallel,
   RunnablePassthrough,
-  RunnableSequence,
 } from "@langchain/core/runnables";
 import { symbolRepoLocalName } from "../../shared/symbols";
 import { ModelDetails } from "src/model";
 import { CallGraph } from "@shared/codeGraph";
+import { symbol } from "d3";
 
 interface ClusterMember {
   symbol: string;
@@ -56,7 +55,7 @@ export async function getClusterDescriptions(
   callGraph: CallGraph
 ): Promise<Record<string, string>> {
   const clusterGraph = getClusterGraph(clusters, callGraph);
-  // const levels = computeLevels(clusterGraph);
+
   const depthLevels = computeDepthLevels(clusterGraph);
 
   const levelRunnables = Object.entries(depthLevels).map(([_, clustersAtLevel]) =>
@@ -82,14 +81,8 @@ export async function getClusterDescriptions(
     }
   }
 
-  const symbolToFunctionCode = {};
-  for (const cluster of clusters) {
-    for (const member of cluster) {
-      symbolToFunctionCode[member.symbol] = member.functionSummaryString;
-    }
-  }
-  const output = await sequence.invoke({ curr: { root: domainSummary, ...symbolToFunctionCode }, prev: {} });
-  const combinedSummaries = {...output.curr, ...output.prev};
+  const output = await sequence.invoke({ curr: { root: domainSummary }, prev: {} });
+  const combinedSummaries = { ...output.curr, ...output.prev };
   const clusterSummaries = {};
   for (const clusterId in Object.keys(clusterGraph.clusterIdToMembers)) {
     clusterSummaries[clusterId] = combinedSummaries[clusterId];
@@ -104,22 +97,36 @@ interface ClusterContext {
 
 function buildClusterSummaryPrompt(clusterId: string, contextSummary: ClusterContext): PromptTemplate {
   // TODO: if it's root, make it link to the context in the summary. If not, make it differentiate from the parent description.
-  // let;
-  if (!contextSummary.parentIds || contextSummary.parentIds.length === 0) {
+  const isRoot = !contextSummary.parentIds || contextSummary.parentIds.length === 0;
+  let context: string;
+  let inputVariables: string[];
+  if (isRoot) {
+    context = `These functions include the entrypoint into the application. 
+    Connect their meaning to the following high-level domain context about the project:
+    """
+    {root}
+    """`;
+    inputVariables = ["root"];
+  } else {
+    context = `Here are the summaries of the modules that depend on this module.
+    """
+    ${contextSummary.parentIds.map((parentId) => "{" + parentId + "}").join("\n\n")}
+    """
+    Avoid repeating the same information in the parent descriptions. Instead, focus on what this module does differently or adds to the parent modules.`;
+    inputVariables = contextSummary.parentIds;
   }
+  const functionIdsPlaceholders = contextSummary.clusterMembers
+    .map((member) => `${symbolRepoLocalName(member.symbol)}\n${member.functionSummaryString}`)
+    .join("\n");
+  const templateString = `Function descriptions:
+"""
+${functionIdsPlaceholders}
+"""
+${context}
+Write a short, action-focused sentence about **what these functions collectively do** in telegraph-style, without mentioning specific classes, files, or organisational details`;
   return new PromptTemplate({
-    inputVariables: [clusterId],
-    template: `
-              Some function descriptions:
-              """
-              {${clusterId}}
-              """
-              Some high-level domain context for the project:
-              """
-              ${contextSummary.parentIds.map((parentId) => "{" + parentId + "}").join("\n")}')}
-              """
-              Write a short, action-focused sentence about **what these functions collectively do** in telegraph-style, without mentioning specific classes, files, or organisational details.
-              `,
+    inputVariables: inputVariables,
+    template: templateString,
   });
 }
 
@@ -134,20 +141,8 @@ function createLevelRunnable(
       parentIds: clusterGraph.clusterIdToParentClusterIds[clusterId],
       clusterMembers: clusterGraph.clusterIdToMembers[clusterId],
     };
-    // const outputParser = new StringOutputParser();
-    // const summaryChain = buildClusterSummaryPrompt(clusterId, context).pipe(modelDetails.model).pipe(outputParser);
-    const summaryChain = RunnableLambda.from(async (inputs: any) => {
-      const parentSummaries = context.parentIds?.map((parentId) => inputs[parentId]) || [];
-      if (parentSummaries.length === 0) {
-        parentSummaries.push("No parent context available");
-      }
-      return `Cluster ${clusterId} summary based on:
-      Domain:
-      ${parentSummaries.join("\n")}
-      Functions:
-      ${context.clusterMembers.map((member) => `${member.symbol}\n${member.functionSummaryString}`).join("\n")}
-      `;
-    });
+    const outputParser = new StringOutputParser();
+    const summaryChain = buildClusterSummaryPrompt(clusterId, context).pipe(modelDetails.model).pipe(outputParser);
     clusterIdToRunnable[clusterId] = summaryChain;
   }
   return RunnableMap.from(clusterIdToRunnable);
@@ -191,7 +186,19 @@ function computeDepthLevels(graph: ClusterGraph): Record<number, string[]> {
     }
   }
 
-  return Object.fromEntries(depthToClusterIds);
+  // Check there is only 1 root cluster
+  const depthClustersMap = Object.fromEntries(depthToClusterIds);
+  if (depthClustersMap[0].length !== 1) {
+    throw new Error("Expected exactly one root cluster");
+  }
+
+  // Check we are not duplicating clusters at different levels
+  const allClusters = Object.keys(graph.clusterIdToMembers);
+  if (allClusters.length !== new Set(allClusters).size) {
+    throw new Error("Duplicate clusters");
+  }
+
+  return depthClustersMap;
 }
 
 interface ClusterGraph {
@@ -224,7 +231,6 @@ function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): Clu
       );
 
       for (const dependencyClusterId of dependencyClusterIds) {
-
         // Add to clusterIdToDependencies
         if (!clusterIdToDependencies[currentClusterId]) {
           clusterIdToDependencies[currentClusterId] = [];
