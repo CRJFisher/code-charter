@@ -440,15 +440,17 @@ function getCallGraphItemsWithFilteredOutFunctions(
       children: newChildren,
     };
   }
+  const visitedNodes = new Set<string>();
   const callGraphItems: Record<string, DefinitionNode> = {};
   const queue: DefinitionNode[] = [copyDefNodeWitoutFilteredOutRefs(callGraph.definitionNodes[topLevelFunctionSymbol])];
   while (queue.length > 0) {
     const node = queue.shift()!;
-    if (!filteredOutNodes.includes(node.symbol)) {
+    if (!filteredOutNodes.includes(node.symbol) && !visitedNodes.has(node.symbol)) {
       callGraphItems[node.symbol] = node;
       node.children.forEach((child) => {
         queue.push(copyDefNodeWitoutFilteredOutRefs(callGraph.definitionNodes[child.symbol]));
       });
+      visitedNodes.add(node.symbol);
     }
   }
   return callGraphItems;
