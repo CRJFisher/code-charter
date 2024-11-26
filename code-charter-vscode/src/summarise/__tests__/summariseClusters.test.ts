@@ -1,15 +1,7 @@
 import { ClusterGraph, getClusterDepthLevels, getClusterDependencySequence } from "../summariseClusters";
 
-import { jest } from "@jest/globals";
-
-import * as summeriseClusters from "../summariseClusters";
-
 describe("getClusterDependencySequence", () => {
-  beforeEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  test("should return correct sequence for a simple linear dependency", () => {
+  test("should process simple linear dependency", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
@@ -30,51 +22,16 @@ describe("getClusterDependencySequence", () => {
       },
     };
 
-    // Mocking getClusterDepthLevels
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0]),
-      B: new Set([1]),
-      C: new Set([2]),
+    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+
+    expect(result).toEqual({
+      0: [{ clusterId: "A", dependencies: [] }],
+      1: [{ clusterId: "B", dependencies: ["A"] }],
+      2: [{ clusterId: "C", dependencies: ["B"] }],
     });
-
-    const result = summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
-
-    expect(result).toEqual([["A"], ["B"], ["C"]]);
   });
 
-  test("should handle circular dependencies gracefully", () => {
-    const rootClusterId = "A";
-
-    const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
-        A: [],
-        B: [],
-        C: [],
-      },
-      clusterIdToParentClusterIds: {
-        A: ["C"],
-        B: ["A"],
-        C: ["B"],
-      },
-      clusterIdToChildClusterIds: {
-        A: ["B"],
-        B: ["C"],
-        C: ["A"],
-      },
-    };
-
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0, 3]),
-      B: new Set([1]),
-      C: new Set([2]),
-    });
-
-    const result = summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
-
-    expect(result).toEqual([["A"], ["B"], ["C"]]);
-  });
-
-  test("should select clusters with the fewest unused dependencies", () => {
+  test("should process branching dependencies", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
@@ -98,47 +55,19 @@ describe("getClusterDependencySequence", () => {
       },
     };
 
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0]),
-      B: new Set([1]),
-      C: new Set([1]),
-      D: new Set([2]),
+    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+
+    expect(result).toEqual({
+      0: [{ clusterId: "A", dependencies: [] }],
+      1: [
+        { clusterId: "B", dependencies: ["A"] },
+        { clusterId: "C", dependencies: ["A"] },
+      ],
+      2: [{ clusterId: "D", dependencies: ["B", "C"] }],
     });
-
-    const result = summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
-
-    expect(result).toEqual([["A"], ["B", "C"], ["D"]]);
   });
 
-  test("should throw an error when no clusters are found at a sequence index", () => {
-    const rootClusterId = "A";
-
-    const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
-        A: [],
-        B: [],
-      },
-      clusterIdToParentClusterIds: {
-        A: [],
-        B: [],
-      },
-      clusterIdToChildClusterIds: {
-        A: [],
-        B: [],
-      },
-    };
-
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0]),
-      B: new Set([2]), // No clusters at index 1
-    });
-
-    expect(() => {
-      summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
-    }).toThrow("No clusters at sequence index 1");
-  });
-
-  test("should ignore dependencies when cycles mean they cant be fulfilled", () => {
+  test("should handle cyclic dependencies", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
@@ -146,109 +75,81 @@ describe("getClusterDependencySequence", () => {
         A: [],
         B: [],
         C: [],
-        D: [],
       },
       clusterIdToParentClusterIds: {
-        A: [],
-        B: ["A", "D"],
-        C: ["B"],
-        D: ["C"],
-      },
-      clusterIdToChildClusterIds: {
-        A: ["B"],
-        B: ["C"],
-        C: ["D"],
-        D: ["B"],
-      },
-    };
-
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0]),
-      B: new Set([1, 4]),
-      C: new Set([2]),
-      D: new Set([3]),
-    });
-
-    const result = summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
-
-    expect(result).toEqual([["A"], ["B"], ["C"], ["D"]]);
-  });
-
-  test("should ignore dependencies when cycles mean they cant be fulfilled", () => {
-    const rootClusterId = "A";
-
-    const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
-        A: [],
-        B: [],
-        C: [],
-        D: [],
-      },
-      clusterIdToParentClusterIds: {
-        A: [],
-        B: ["A", "D"],
-        C: ["B"],
-        D: ["C"],
-      },
-      clusterIdToChildClusterIds: {
-        A: ["B"],
-        B: ["C"],
-        C: ["D"],
-        D: ["B"],
-      },
-    };
-
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0]),
-      B: new Set([1, 4]),
-      C: new Set([2]),
-      D: new Set([3]),
-    });
-
-    const result = summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
-
-    expect(result).toEqual([["A"], ["B"], ["C"], ["D"]]);
-  });
-
-  test("should prioritize clusters with the fewest unused dependencies at the same sequence index", () => {
-    const rootClusterId = "A";
-
-    const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
-        A: [],
-        B: [],
-        C: [],
-        D: [],
-        E: [],
-      },
-      clusterIdToParentClusterIds: {
-        A: [],
+        A: ["C"],
         B: ["A"],
-        C: ["A"],
-        D: ["B", "C"],
-        E: ["B"],
+        C: ["B"],
       },
       clusterIdToChildClusterIds: {
-        A: ["B", "C"],
-        B: ["D", "E"],
-        C: ["D"],
-        D: [],
-        E: [],
+        A: ["B"],
+        B: ["C"],
+        C: ["A"],
       },
     };
 
-    // Mocking getClusterDepthLevels
-    jest.spyOn(summeriseClusters, "getClusterDepthLevels").mockReturnValue({
-      A: new Set([0]),
-      B: new Set([1]),
-      C: new Set([1]),
-      D: new Set([2]),
-      E: new Set([2]),
+    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+
+    expect(result).toEqual({
+      0: [{ clusterId: "A", dependencies: [] }],
+      1: [{ clusterId: "B", dependencies: ["A"] }],
+      2: [{ clusterId: "C", dependencies: ["B"] }],
+      3: [{ clusterId: "A", dependencies: ["C"] }],
     });
+  });
 
-    const result = summeriseClusters.getClusterDependencySequence(rootClusterId, clusterGraph);
+  test("should handle cluster appearing at multiple depths", () => {
+    const rootClusterId = "A";
 
-    expect(result).toEqual([["A"], ["B", "C"], ["D", "E"]]);
+    const clusterGraph: ClusterGraph = {
+      clusterIdToMembers: {
+        A: [],
+        B: [],
+        C: [],
+      },
+      clusterIdToParentClusterIds: {
+        A: ["C"],
+        B: ["A"],
+        C: ["B"],
+      },
+      clusterIdToChildClusterIds: {
+        A: ["B"],
+        B: ["C"],
+        C: ["A"],
+      },
+    };
+
+    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+
+    expect(result).toEqual({
+      0: [{ clusterId: "A", dependencies: [] }],
+      1: [{ clusterId: "B", dependencies: ["A"] }],
+      2: [{ clusterId: "C", dependencies: ["B"] }],
+      3: [{ clusterId: "A", dependencies: ["C"] }],
+    });
+  });
+
+  test("should handle self-loop", () => {
+    const rootClusterId = "A";
+
+    const clusterGraph: ClusterGraph = {
+      clusterIdToMembers: {
+        A: [],
+      },
+      clusterIdToParentClusterIds: {
+        A: ["A"],
+      },
+      clusterIdToChildClusterIds: {
+        A: ["A"],
+      },
+    };
+
+    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+
+    expect(result).toEqual({
+      0: [{ clusterId: "A", dependencies: [] }],
+      1: [{ clusterId: "A", dependencies: ["A"] }],
+    });
   });
 });
 

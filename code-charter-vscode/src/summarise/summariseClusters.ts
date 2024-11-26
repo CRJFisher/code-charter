@@ -37,10 +37,11 @@ export async function getClusterDescriptions(
   const clusterGraph = getClusterGraph(clusters, callGraph);
 
   const cluserSequence = getClusterDependencySequence("0", clusterGraph);
-
-  const levelRunnables = cluserSequence.map((clustersAtLevel) =>
-    createLevelRunnable(clustersAtLevel, clusterGraph, modelDetails)
-  );
+  const sequenceLength = Object.keys(cluserSequence).length;
+  const levelRunnables = [];
+  for (let i = 0; i < sequenceLength; i++) {
+    levelRunnables.push(createLevelRunnable(cluserSequence[i], clusterGraph.clusterIdToMembers, modelDetails));
+  }
 
   let sequence: Runnable;
   if (levelRunnables.length === 0) {
@@ -77,7 +78,6 @@ interface ClusterContext {
 }
 
 function buildClusterSummaryPrompt(contextSummary: ClusterContext): PromptTemplate {
-  // TODO: if it's root, make it link to the context in the summary. If not, make it differentiate from the parent description.
   const isRoot = !contextSummary.parentIds || contextSummary.parentIds.length === 0;
   let context: string;
   let inputVariables: string[];
@@ -105,7 +105,6 @@ ${functionIdsPlaceholders}
 """
 ${context}
 Write a short, action-focused sentence about **what these functions collectively do** in telegraph-style, without mentioning specific classes, files, or organisational details`;
-  console.log(templateString);
   return new PromptTemplate({
     inputVariables: inputVariables,
     template: templateString,
@@ -113,15 +112,16 @@ Write a short, action-focused sentence about **what these functions collectively
 }
 
 function createLevelRunnable(
-  clustersAtLevel: string[],
-  clusterGraph: ClusterGraph,
+  clustersAtLevel: ClusterDependencies[],
+  clusterIdToMembers: Record<string, ClusterMember[]>,
   modelDetails: ModelDetails
 ): Runnable<any, any, RunnableConfig> {
   const clusterIdToRunnable: Record<string, Runnable<any, string, RunnableConfig>> = {};
-  for (const clusterId of clustersAtLevel) {
+  for (const cluster of clustersAtLevel) {
+    const clusterId = cluster.clusterId;
     const context = {
-      parentIds: clusterGraph.clusterIdToParentClusterIds[clusterId],
-      clusterMembers: clusterGraph.clusterIdToMembers[clusterId],
+      parentIds: cluster.dependencies,
+      clusterMembers: clusterIdToMembers[clusterId],
     };
     const outputParser = new StringOutputParser();
     const summaryChain = buildClusterSummaryPrompt(context).pipe(modelDetails.model).pipe(outputParser);
@@ -133,47 +133,28 @@ function createLevelRunnable(
 export function getClusterDependencySequence(
   rootClusterId: string,
   clusterGraph: ClusterGraph
-): ClusterDependencies[][] {
+): { [sequenceIndex: number]: ClusterDependencies[] } {
   /**
    * If possible, we want the cluster to be processed after all it's dependencies have been processed.
-   * If there a circular dependency in the graph. E.g. in A -> B -> C -> A, we can't include A in A's context.
+   * If there a circular dependency in the graph, we need to process it (at least) twice - once with a restricted context (so the sequence can progreess) and then with the full context.
+   * E.g. in A -> B -> C -> A, we can't include A in A's context in the first pass but we can once C has been processed.
    */
-  const numberOfClusters = Object.keys(clusterGraph.clusterIdToMembers).length;
-  const clusterSequence: ClusterDependencies[][] = [[{ clusterId: rootClusterId, dependencies: [] }]];
-  
-  const usedClusters = new Set<string>([rootClusterId]);
+  const clusterSequence: { [sequenceIndex: number]: ClusterDependencies[] } = {};
   const clusterDepthLevels = getClusterDepthLevels(rootClusterId, clusterGraph);
-  const clusterToParents = clusterGraph.clusterIdToParentClusterIds;
-
-  const unusedParentIds = (clusterId: string) => {
-    const parentIds = clusterToParents[clusterId];
-    return parentIds.filter((parentId) => !usedClusters.has(parentId));
-  };
-  let sequenceIndex = 1;
-  while (usedClusters.size < numberOfClusters) {
-    const clustersWithSequenceIndex = Object.keys(clusterDepthLevels).filter(
-      (clusterId) => clusterDepthLevels[clusterId].has(sequenceIndex) && !usedClusters.has(clusterId)
-    );
-
-    let chosenClusterIds: string[];
-    if (clustersWithSequenceIndex.length === 0) {
-      throw new Error(`No clusters at sequence index ${sequenceIndex}`);
-    } else if (clustersWithSequenceIndex.length > 1) {
-      // use the cluster(s) with the fewest dependencies
-      const minDepCountClusters = clustersWithSequenceIndex.sort(
-        (a, b) => unusedParentIds(a).length - unusedParentIds(b).length
-      );
-      const minDepCount = unusedParentIds(minDepCountClusters[0]).length;
-      chosenClusterIds = minDepCountClusters.filter((clusterId) => unusedParentIds(clusterId).length === minDepCount);
-    } else {
-      chosenClusterIds = clustersWithSequenceIndex;
+  for (const [clusterId, depths] of Object.entries(clusterDepthLevels)) {
+    for (const depth of depths) {
+      if (!clusterSequence[depth]) {
+        clusterSequence[depth] = [];
+      }
+      const clusterDependencies = new Set(clusterGraph.clusterIdToParentClusterIds[clusterId] || []);
+      // Its dependencies have to have been processed before it
+      const dependencies = Object.entries(clusterDepthLevels)
+        .filter(
+          ([clusterId, depths]) => clusterDependencies.has(clusterId) && Array.from(depths).some((d) => d < depth)
+        )
+        .map(([clusterId]) => clusterId);
+      clusterSequence[depth].push({ clusterId, dependencies });
     }
-
-    for (const clusterId of chosenClusterIds) {
-      usedClusters.add(clusterId);
-    }
-    clusterSequence.push(chosenClusterIds);
-    sequenceIndex++;
   }
   return clusterSequence;
 }
