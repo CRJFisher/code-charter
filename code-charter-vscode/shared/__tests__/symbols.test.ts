@@ -1,6 +1,4 @@
 import { symbolRepoLocalName, symbolDisplayName } from '../symbols';
-import { expect, test, describe } from 'vitest';
-
 
 describe('symbolRepoLocalName', () => {
     test('should return the local name of a class method symbol', () => {

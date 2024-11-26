@@ -1,5 +1,9 @@
 import { parseMarkdownTopSection } from "../domainContext";
-import { describe, test, expect } from "vitest";
+import { describe, expect, test } from "@jest/globals";
+
+test("given a name produces the expected greeting", () => {
+  expect("George").toBe("George");
+});
 
 describe("parseMarkdownTopSection", () => {
   const markdown =

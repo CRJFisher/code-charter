@@ -17,21 +17,28 @@ interface ClusterMember {
   functionSummaryString: string;
 }
 
+export interface ClusterGraph {
+  clusterIdToMembers: Record<string, ClusterMember[]>;
+  clusterIdToParentClusterIds: Record<string, string[]>;
+  clusterIdToChildClusterIds: Record<string, string[]>;
+}
+
+interface ClusterDependencies {
+  clusterId: string;
+  dependencies: string[];
+}
+
 export async function getClusterDescriptions(
   clusters: ClusterMember[][],
   modelDetails: ModelDetails,
   domainSummary: string,
   callGraph: CallGraph
 ): Promise<Record<string, string>> {
-  /**
-   * TODO:
-   * - give it the graph structure of the nodes in the cluster
-   */
   const clusterGraph = getClusterGraph(clusters, callGraph);
 
-  const depthLevels = computeDepthLevels(clusterGraph);
+  const cluserSequence = getClusterDependencySequence("0", clusterGraph);
 
-  const levelRunnables = Object.entries(depthLevels).map(([_, clustersAtLevel]) =>
+  const levelRunnables = cluserSequence.map((clustersAtLevel) =>
     createLevelRunnable(clustersAtLevel, clusterGraph, modelDetails)
   );
 
@@ -47,16 +54,16 @@ export async function getClusterDescriptions(
         RunnableParallel.from({
           curr: RunnableLambda.from((inputs: any) => {
             console.log(inputs);
-            return levelRunnable.invoke({ ...inputs.curr, ...inputs.prev });
+            return levelRunnable.invoke({ ...inputs.prev, ...inputs.curr });
           }),
-          prev: RunnableLambda.from((inputs: any) => ({ ...inputs.curr, ...inputs.prev })),
+          prev: RunnableLambda.from((inputs: any) => ({ ...inputs.prev, ...inputs.curr })),
         })
       );
     }
   }
 
   const output = await sequence.invoke({ curr: { root: domainSummary }, prev: {} });
-  const combinedSummaries = { ...output.curr, ...output.prev };
+  const combinedSummaries = { ...output.prev, ...output.curr };
   const clusterSummaries = {};
   for (const clusterId in Object.keys(clusterGraph.clusterIdToMembers)) {
     clusterSummaries[clusterId] = combinedSummaries[clusterId];
@@ -123,63 +130,96 @@ function createLevelRunnable(
   return RunnableMap.from(clusterIdToRunnable);
 }
 
-function computeDepthLevels(graph: ClusterGraph): Record<number, string[]> {
-  const clusterIdToDepth: Record<string, number> = {};
-  const depthToClusterIds: Map<number, string[]> = new Map();
+export function getClusterDependencySequence(
+  rootClusterId: string,
+  clusterGraph: ClusterGraph
+): ClusterDependencies[][] {
+  /**
+   * If possible, we want the cluster to be processed after all it's dependencies have been processed.
+   * If there a circular dependency in the graph. E.g. in A -> B -> C -> A, we can't include A in A's context.
+   */
+  const numberOfClusters = Object.keys(clusterGraph.clusterIdToMembers).length;
+  const clusterSequence: ClusterDependencies[][] = [[{ clusterId: rootClusterId, dependencies: [] }]];
+  
+  const usedClusters = new Set<string>([rootClusterId]);
+  const clusterDepthLevels = getClusterDepthLevels(rootClusterId, clusterGraph);
+  const clusterToParents = clusterGraph.clusterIdToParentClusterIds;
 
-  const visited = new Set<string>();
+  const unusedParentIds = (clusterId: string) => {
+    const parentIds = clusterToParents[clusterId];
+    return parentIds.filter((parentId) => !usedClusters.has(parentId));
+  };
+  let sequenceIndex = 1;
+  while (usedClusters.size < numberOfClusters) {
+    const clustersWithSequenceIndex = Object.keys(clusterDepthLevels).filter(
+      (clusterId) => clusterDepthLevels[clusterId].has(sequenceIndex) && !usedClusters.has(clusterId)
+    );
 
-  // Find root clusters (clusters with no parents)
-  const rootClusters = Object.keys(graph.clusterIdToMembers).filter((clusterId) => {
-    const parents = graph.clusterIdToParentClusterIds[clusterId];
-    return !parents || parents.length === 0;
-  });
-
-  // Perform BFS to assign depth levels
-  const queue: { clusterId: string; depth: number }[] = rootClusters.map((clusterId) => ({
-    clusterId,
-    depth: 0,
-  }));
-
-  while (queue.length > 0) {
-    const { clusterId, depth } = queue.shift()!;
-    if (visited.has(clusterId)) continue;
-    visited.add(clusterId);
-
-    clusterIdToDepth[clusterId] = depth;
-
-    if (!depthToClusterIds.has(depth)) {
-      depthToClusterIds.set(depth, []);
+    let chosenClusterIds: string[];
+    if (clustersWithSequenceIndex.length === 0) {
+      throw new Error(`No clusters at sequence index ${sequenceIndex}`);
+    } else if (clustersWithSequenceIndex.length > 1) {
+      // use the cluster(s) with the fewest dependencies
+      const minDepCountClusters = clustersWithSequenceIndex.sort(
+        (a, b) => unusedParentIds(a).length - unusedParentIds(b).length
+      );
+      const minDepCount = unusedParentIds(minDepCountClusters[0]).length;
+      chosenClusterIds = minDepCountClusters.filter((clusterId) => unusedParentIds(clusterId).length === minDepCount);
+    } else {
+      chosenClusterIds = clustersWithSequenceIndex;
     }
-    depthToClusterIds.get(depth)!.push(clusterId);
 
-    const childClusterIds = graph.clusterIdToChildClusterIds[clusterId];
-    if (childClusterIds) {
-      for (const childId of childClusterIds) {
-        queue.push({ clusterId: childId, depth: depth + 1 });
-      }
+    for (const clusterId of chosenClusterIds) {
+      usedClusters.add(clusterId);
     }
+    clusterSequence.push(chosenClusterIds);
+    sequenceIndex++;
   }
-
-  // Check there is only 1 root cluster
-  const depthClustersMap = Object.fromEntries(depthToClusterIds);
-  if (!depthClustersMap[0] || depthClustersMap[0].length !== 1) {
-    throw new Error(`Expected exactly one root cluster. ${depthClustersMap}`);
-  }
-
-  // Check we are not duplicating clusters at different levels
-  const allClusters = Object.keys(graph.clusterIdToMembers);
-  if (allClusters.length !== new Set(allClusters).size) {
-    throw new Error("Duplicate clusters");
-  }
-
-  return depthClustersMap;
+  return clusterSequence;
 }
 
-interface ClusterGraph {
-  clusterIdToMembers: Record<string, ClusterMember[]>;
-  clusterIdToParentClusterIds: Record<string, string[]>;
-  clusterIdToChildClusterIds: Record<string, string[]>;
+export function getClusterDepthLevels(
+  startClusterId: string,
+  clusterGraph: ClusterGraph,
+  visitedNodes: Set<string> = new Set(),
+  clusterIdDepthLevels: Record<string, Set<number>> = {},
+  depth: number = 0
+): Record<string, Set<number>> {
+  if (clusterIdDepthLevels[startClusterId] === undefined) {
+    clusterIdDepthLevels[startClusterId] = new Set();
+  }
+  clusterIdDepthLevels[startClusterId].add(depth);
+  if (visitedNodes.has(startClusterId)) {
+    return clusterIdDepthLevels;
+  }
+  visitedNodes.add(startClusterId);
+  for (const child of clusterGraph.clusterIdToChildClusterIds[startClusterId] || []) {
+    getClusterDepthLevels(child, clusterGraph, visitedNodes, clusterIdDepthLevels, depth + 1);
+  }
+  return clusterIdDepthLevels;
+}
+
+function rebuildClusterGraphBasedOnProcessingSequence(
+  currentCluterGraph: ClusterGraph,
+  processingSequence: string[][]
+): ClusterGraph {
+  const clusterIdToMembers = {};
+  const clusterIdToChildClusterIds = {};
+  const clusterIdToParentClusterIds = {};
+
+  for (const [index, clusterIds] of processingSequence.entries()) {
+    for (const clusterId of clusterIds) {
+      clusterIdToMembers[clusterId] = currentCluterGraph.clusterIdToMembers[clusterId];
+      clusterIdToChildClusterIds[clusterId] = currentCluterGraph.clusterIdToChildClusterIds[clusterId];
+      clusterIdToParentClusterIds[clusterId] = currentCluterGraph.clusterIdToParentClusterIds[clusterId];
+    }
+  }
+
+  return {
+    clusterIdToMembers,
+    clusterIdToChildClusterIds,
+    clusterIdToParentClusterIds,
+  };
 }
 
 function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): ClusterGraph {
@@ -230,6 +270,7 @@ function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): Clu
     }
   }
 
+  // TODO: remove duplicate cluster IDs
   return {
     clusterIdToMembers,
     clusterIdToChildClusterIds: clusterIdToDependencies,
