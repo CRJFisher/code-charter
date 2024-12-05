@@ -12,21 +12,24 @@
       - Create diagram to explain repo layout including links to the different parts of the project.
         - This could inform the output formats for the charts. E.g. how much functionality would SVG support?
 
+## TODO before release:
+
+- Clustering
+  - Containerise
+    - Start and stop the server in the extension
+  - UX
+    - Add caching for clusters, summaries and node locations
+    - How to trigger clustering?
+      - Do it automatically and give option to remove them (make this configurable)
+    - Move status display to the chart area and show a loading wheel in the sidebar
+- Search bar at the top of the sidebar
+
 ## Functionality:
 
 - Create diagrams that distill out the fundamental business logic in a codebase.
   - Describe functionality in the domain language.
     - This requires discovering the domain language in the codebase and from external sources. Also allowing the user to add / edit this.
 - Create a tool to chart the function under the cursor
-
-## Ideas
-
-- Try (re)clustering with LLM
-  - Size constraints on the graph
-- Improve the Domain Agent. Search in:
-  - Documentation
-  - Tests
-  - Web
 
 ## Fixes
 
@@ -49,6 +52,7 @@
   - Or toggle between full descriptions and business logic focussed
 - [ ] Rebuild the scip-python image using distroless to reduce the image size
 - [ ] In summariseClusters.ts the strategy of using `computeDepthLevels` to determine when to summarise a cluster isn't working. Some parent clusters aren't available as context.
+- [ ] Navigate to function is failing on most clicks
 
 ### ChartArea
 
@@ -59,6 +63,15 @@
 - [ ] Re-add edge number labels
 - [ ] Add numbers to the cluster edges
 
+## Ideas
+
+- Try (re)clustering with LLM
+  - Size constraints on the graph
+- Improve the Domain Agent. Search in:
+  - Documentation
+  - Tests
+  - Web
+
 ## Things to consider
 
 - When we filter out a node from the chart, if it's not a leaf node, it can mean we lose a branch of the tree. Maybe we should check if its children are also filtered out.
@@ -68,6 +81,9 @@
 - Improve statefulness
   - "Save" the state of the chart so that it can be reloaded later
 - Export the chart in various formats e.g. SVG
+- Improve clarity of diagrams
+  - Increase the size of nodes with lots of connections
+  - Incorporate icons or colour schemes to represent different types of nodes
 
 ### Clustering
 
