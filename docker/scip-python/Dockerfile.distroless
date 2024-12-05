@@ -1,0 +1,52 @@
+## This is run inside the [scip-python](https://github.com/sourcegraph/scip-python) repository with:
+# docker build -t codecharter-scip-python -f Dockerfile.distroless .
+# docker tag codecharter-scip-python crjfisher/codecharter-scip-python:latest
+
+# Stage 1: Builder with Python and Node
+FROM python:3.10-slim AS builder
+
+# Ensure global npm installs go to /usr/local
+ENV NPM_CONFIG_PREFIX=/usr/local
+
+# Install Node.js 16
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install globally required npm packages
+RUN npm install -g @sourcegraph/scip-python @sourcegraph/src
+
+RUN mkdir -p /out/python /out/node /out/npm-bin /out/npm-lib
+
+# Copy Python runtime
+RUN cp -r /usr/local /out/python/
+# Debug to ensure this worked:
+RUN ls -lR /out/python
+
+# Copy Node and npm binaries
+RUN cp /usr/bin/node /out/node/
+RUN cp /usr/bin/npm /out/node/
+
+# If npm packages are indeed in /usr/local/lib/node_modules:
+RUN cp -r /usr/local/lib/node_modules /out/npm-lib/
+RUN cp -r /usr/local/bin /out/npm-bin/
+
+# Stage 2: Final Distroless image
+FROM gcr.io/distroless/cc
+
+# Copy Python runtime
+COPY --from=builder /out/python/ /
+
+# Copy Node and npm binaries
+COPY --from=builder /out/node/node /usr/bin/node
+COPY --from=builder /out/node/npm /usr/bin/npm
+
+# Copy global Node modules and symlinks
+COPY --from=builder /out/npm-lib/node_modules /usr/local/lib/node_modules
+COPY --from=builder /out/npm-bin/bin /usr/local/bin
+
+WORKDIR /app
+
+ENTRYPOINT ["/usr/bin/node", "/usr/local/bin/scip-python"]
+CMD []

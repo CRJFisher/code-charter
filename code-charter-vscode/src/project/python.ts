@@ -38,9 +38,8 @@ export class PythonEnvironment implements ProjectEnvironment {
         const relativePipeListJsonFile = `/sources/${vscode.workspace.asRelativePath(pipListJsonFile)}`;
         const outFile = `/sources/${vscode.workspace.asRelativePath(scipFilePath)}`;
         const projectName = await getBottomLevelFolder(this.projectPath);
-        
         console.time("scip-pyton docker");
-        const indexCommand = `docker run -v ${this.projectPath.fsPath}:/sources sourcegraph/scip-python:latest scip-python index --project-name ${projectName} --project-version 1.0.0 --environment ${relativePipeListJsonFile} --output ${outFile} --cwd /sources`;
+        const indexCommand = `docker run -v ${this.projectPath.fsPath}:/sources crjfisher/codecharter-scip-python:latest index --project-name ${projectName} --project-version 1.0.0 --environment ${relativePipeListJsonFile} --output ${outFile} --cwd /sources`;
         const output = await runCommand(indexCommand);
         console.timeEnd("scip-pyton docker");
         console.log('scip-pyton docker output', output);

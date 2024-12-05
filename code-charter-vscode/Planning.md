@@ -11,25 +11,32 @@
           - Allow for easy linking between notes.
       - Create diagram to explain repo layout including links to the different parts of the project.
         - This could inform the output formats for the charts. E.g. how much functionality would SVG support?
+  - Basic functionality, including "zoom" interface
+  - 
 
 ## TODO before release:
 
 - Clustering
-  - Containerise
-    - Start and stop the server in the extension
+  - [ ] Containerise the clustering server. Manage lifecyle
   - UX
-    - Add caching for clusters, summaries and node locations
+    - Add caching for clusters and their summaries
     - How to trigger clustering?
       - Do it automatically and give option to remove them (make this configurable)
     - Move status display to the chart area and show a loading wheel in the sidebar
-- Search bar at the top of the sidebar
+- LLM 
+  - UI to configure LLM model and embeddings
+  - Support for copilot, ollama, openai and anthropic models
+  - Support for ollama and openai embeddings
+    - Copilot embeddings aren't yet available: [issue](https://github.com/microsoft/vscode/issues/212083)
+- [x] Build the scip-python image using distroless to reduce the image size and minimise the inconvenience of running Docker
+  - Reduced size from 561MB to 427MB. `node_modules` is still very large
 
-## Functionality:
+## TODO next:
 
-- Create diagrams that distill out the fundamental business logic in a codebase.
-  - Describe functionality in the domain language.
-    - This requires discovering the domain language in the codebase and from external sources. Also allowing the user to add / edit this.
-- Create a tool to chart the function under the cursor
+- UI
+  - [ ] Search bar at the top of the sidebar
+  - [ ] Track and restore chart state
+    - [ ] Add caching for node locations 
 
 ## Fixes
 
@@ -44,15 +51,16 @@
   - This would make it easier to see the overall structure of the codebase.
 - [ ] Integrate the `cluster` button into the workflow seamlessly.
   - [ ] Display the processing status and loading wheel in the chart area instead of the SideBar
-- [ ] Containerise the clustering server. Manage lifecyle
 - [ ] Make "container" nodes expand to fit their text + padding
+  - They are sized based on their contents i.e. where the function nodes are placed
 - [ ] Cluster summary descriptions are overlapping. They all use prepend some domain context.
   - They could be compared side-by-side to remove duplication
 - [ ] Add the option to show non-business logic nodes in the chart.
   - Or toggle between full descriptions and business logic focussed
 - [ ] Rebuild the scip-python image using distroless to reduce the image size
 - [ ] In summariseClusters.ts the strategy of using `computeDepthLevels` to determine when to summarise a cluster isn't working. Some parent clusters aren't available as context.
-- [ ] Navigate to function is failing on most clicks
+- [ ] Navigate-to-function is failing on some clicks
+  - Test this in a release version - could be a dev issue
 
 ### ChartArea
 
