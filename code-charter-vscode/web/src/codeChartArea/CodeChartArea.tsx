@@ -8,7 +8,7 @@ import fcose, { FcoseLayoutOptions, FcoseRelativePlacementConstraint } from "cyt
 import { selectionBgColor, selectionFgColor } from "../colorTheme";
 import { generateElements, generateRelativePlacementConstraints } from "./nodePlacement";
 import { nodeAndEdgeStyles } from "../styles/cytoscapeStyles";
-import { CodeIndexStatus } from "../loadingStatus";
+import { CodeIndexStatus, SummarisationStatus } from "../loadingStatus";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 
 cytoscape.use(fcose);
@@ -19,7 +19,7 @@ interface CodeChartAreaProps {
   selectedEntryPoint: DefinitionNode | null;
   screenWidthFraction: number;
   getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
-  getClusters: () => Promise<NodeGroup[] | undefined>;
+  detectModules: () => Promise<NodeGroup[] | undefined>;
   indexingStatus: CodeIndexStatus;
 }
 
@@ -27,7 +27,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   selectedEntryPoint,
   screenWidthFraction,
   getSummaries,
-  getClusters,
+  detectModules,
   indexingStatus,
 }) => {
   const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
@@ -38,6 +38,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   const zoomModeRef = useRef<ZoomMode>(zoomMode);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   const cyRef = useRef<Core | null>(null);
+  const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
 
   useEffect(() => {
     zoomModeRef.current = zoomMode;
@@ -48,12 +49,19 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
       return;
     }
     const fetchData = async () => {
+      setSummaryStatus(SummarisationStatus.SummarisingFunctions);
       const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
       if (!summariesAndFilteredCallTree) {
         return;
       }
       setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
-      const nodeGroups = await getClusters();
+      // TODO: if node count is less than 10, skip clustering and use dagre layout
+      // const totalNodes = Object.keys(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes).length;
+      // if (totalNodes < 10) {
+      //   cytoscape.use('dagre');
+      // }
+      setSummaryStatus(SummarisationStatus.DetectingModules);
+      const nodeGroups = await detectModules();
       nodeGroupsRef.current = nodeGroups;
       const entryPointInFilteredTree =
         summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
@@ -65,6 +73,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
         nodeGroups
       );
       setNodePlacments(placements);
+      setSummaryStatus(SummarisationStatus.Ready);
     };
     fetchData();
   }, [selectedEntryPoint]);
@@ -156,14 +165,25 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
     }
   }, [elements]);
 
+  let statusMessage: string | null = null;
+  console.log(indexingStatus, summaryStatus);
+  if (indexingStatus !== CodeIndexStatus.Ready) {
+    statusMessage = "Indexing...";
+  } else if (summaryStatus !== SummarisationStatus.Ready) {
+    if (summaryStatus === SummarisationStatus.SummarisingFunctions) {
+      statusMessage = "Summarising functions...";
+    } else if (summaryStatus === SummarisationStatus.DetectingModules) {
+      statusMessage = "Detecting modules...";
+    }
+  }
   return (
     <main className="w-full overflow-auto">
       {selectedEntryPoint ? (
         <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
-          {indexingStatus !== CodeIndexStatus.Ready && (
+          { statusMessage && (
             <>
               <div className="p-4 text-center">
-                Indexing...<br></br>
+                {statusMessage}<br></br>
               </div>
               <div className="flex justify-center items-center">
                 <VSCodeProgressRing />

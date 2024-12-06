@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Sidebar from "./SideBar";
 import { CodeChartArea } from "./codeChartArea/CodeChartArea";
-import { clusterCodeTree, detectEnvironments, getCallGraphForEnvironment, summariseCodeTree } from "./vscodeApi";
+import {
+  clusterCodeTree as clusterAndSummariseCodeTree,
+  detectEnvironments,
+  getCallGraphForEnvironment,
+  summariseCodeTree,
+} from "./vscodeApi";
 import {
   CallGraph,
   DefinitionNode,
@@ -49,13 +54,11 @@ async function detectEntryPoints(
   setStatusMessage(CodeIndexStatus.Ready);
 }
 
-async function clusterNodes(
-  topLevelNodeSymbol: string | undefined
-): Promise<NodeGroup[] | undefined> {
+async function detectModules(topLevelNodeSymbol: string | undefined): Promise<NodeGroup[] | undefined> {
   if (!topLevelNodeSymbol) {
     return;
   }
-  const newNodeGroups = await clusterCodeTree(topLevelNodeSymbol);
+  const newNodeGroups = await clusterAndSummariseCodeTree(topLevelNodeSymbol);
   return newNodeGroups;
 }
 
@@ -99,10 +102,6 @@ const App: React.FC = () => {
     return fetchSummaries(nodeSymbol, ongoingSummarisations, setOnGoingSummarisations);
   };
 
-  const getClusters = async () => {
-    return clusterNodes(selectedEntryPoint?.symbol);
-  };
-
   return (
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">
       <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">
@@ -117,7 +116,7 @@ const App: React.FC = () => {
             selectedEntryPoint={selectedEntryPoint}
             screenWidthFraction={0.8}
             getSummaries={getSummaries}
-            getClusters={getClusters}
+            detectModules={() => detectModules(selectedEntryPoint?.symbol)}
             indexingStatus={statusMessage}
           />
         </div>

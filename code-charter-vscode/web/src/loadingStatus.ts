@@ -9,7 +9,6 @@ export enum CodeIndexStatus {
 export enum SummarisationStatus {
     SummarisingFunctions = 'Summarising Functions',
     DetectingModules = 'Detecting Modules',
-    SummarisingModules = 'Summarising Modules',
     Error = 'Error',
     Ready = 'Ready',
 }
