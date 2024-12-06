@@ -8,6 +8,8 @@ import fcose, { FcoseLayoutOptions, FcoseRelativePlacementConstraint } from "cyt
 import { selectionBgColor, selectionFgColor } from "../colorTheme";
 import { generateElements, generateRelativePlacementConstraints } from "./nodePlacement";
 import { nodeAndEdgeStyles } from "../styles/cytoscapeStyles";
+import { CodeIndexStatus } from "../loadingStatus";
+import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 
 cytoscape.use(fcose);
 
@@ -15,16 +17,18 @@ type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
   selectedEntryPoint: DefinitionNode | null;
-  nodeGroups: NodeGroup[] | undefined;
   screenWidthFraction: number;
   getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
+  getClusters: () => Promise<NodeGroup[] | undefined>;
+  indexingStatus: CodeIndexStatus;
 }
 
 export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   selectedEntryPoint,
-  nodeGroups,
   screenWidthFraction,
   getSummaries,
+  getClusters,
+  indexingStatus,
 }) => {
   const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
   const [nodePlacements, setNodePlacments] = useState<FcoseRelativePlacementConstraint[]>([]);
@@ -32,16 +36,12 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   const [callGraphNodes, setCallChart] = useState<Record<string, DefinitionNode> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomModeRef = useRef<ZoomMode>(zoomMode);
-  const nodeGroupsRef = useRef<NodeGroup[] | undefined>(nodeGroups);
+  const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   const cyRef = useRef<Core | null>(null);
 
   useEffect(() => {
     zoomModeRef.current = zoomMode;
   }, [zoomMode]);
-
-  useEffect(() => {
-    nodeGroupsRef.current = nodeGroups;
-  }, [nodeGroups]);
 
   useEffect(() => {
     if (!selectedEntryPoint) {
@@ -53,12 +53,11 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
         return;
       }
       setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
-      const entryPointInFilteredTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
-      const newElements = generateElements(
-        entryPointInFilteredTree,
-        summariesAndFilteredCallTree,
-        nodeGroups
-      );
+      const nodeGroups = await getClusters();
+      nodeGroupsRef.current = nodeGroups;
+      const entryPointInFilteredTree =
+        summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
+      const newElements = generateElements(entryPointInFilteredTree, summariesAndFilteredCallTree, nodeGroups);
       setElements(newElements);
       const placements = generateRelativePlacementConstraints(
         entryPointInFilteredTree,
@@ -68,7 +67,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
       setNodePlacments(placements);
     };
     fetchData();
-  }, [selectedEntryPoint, nodeGroups]);
+  }, [selectedEntryPoint]);
 
   const layoutOptions: FcoseLayoutOptions = {
     name: "fcose",
@@ -160,7 +159,18 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   return (
     <main className="w-full overflow-auto">
       {selectedEntryPoint ? (
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+          {indexingStatus !== CodeIndexStatus.Ready && (
+            <>
+              <div className="p-4 text-center">
+                Indexing...<br></br>
+              </div>
+              <div className="flex justify-center items-center">
+                <VSCodeProgressRing />
+              </div>
+            </>
+          )}
+        </div>
       ) : (
         <div className="text-center text-gray-500">Select an entry point to view the call graph.</div>
       )}

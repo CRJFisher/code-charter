@@ -11,7 +11,7 @@ import {
   ProjectEnvironmentId,
   TreeAndContextSummaries,
 } from "../../shared/codeGraph";
-import { CodeIndexStatus } from "./codeIndex";
+import { CodeIndexStatus } from "./loadingStatus";
 
 async function detectEntryPoints(
   setCallGraph: React.Dispatch<React.SetStateAction<CallGraph>>,
@@ -50,16 +50,13 @@ async function detectEntryPoints(
 }
 
 async function clusterNodes(
-  topLevelNodeSymbol: string | undefined,
-  setNodeGroups: React.Dispatch<React.SetStateAction<{ [key: string]: NodeGroup[] }>>
-): Promise<void> {
+  topLevelNodeSymbol: string | undefined
+): Promise<NodeGroup[] | undefined> {
   if (!topLevelNodeSymbol) {
     return;
   }
   const newNodeGroups = await clusterCodeTree(topLevelNodeSymbol);
-  setNodeGroups((nodeGroups) => {
-    return { ...nodeGroups, [topLevelNodeSymbol]: newNodeGroups };
-  });
+  return newNodeGroups;
 }
 
 async function fetchSummaries(
@@ -86,7 +83,6 @@ async function fetchSummaries(
 
 const App: React.FC = () => {
   const [callGraph, setCallGraph] = useState<CallGraph>({ topLevelNodes: [], definitionNodes: {} });
-  const [nodeGroups, setNodeGroups] = useState<{ [key: string]: NodeGroup[] }>({});
   const [selectedEntryPoint, setSelectedEntryPoint] = useState<DefinitionNode | null>(null);
   const [statusMessage, setStatusMessage] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
   const [ongoingSummarisations, setOnGoingSummarisations] = useState<Map<string, Promise<any>>>(new Map());
@@ -103,29 +99,26 @@ const App: React.FC = () => {
     return fetchSummaries(nodeSymbol, ongoingSummarisations, setOnGoingSummarisations);
   };
 
-  const selectedNodeGroups = nodeGroups[selectedEntryPoint?.symbol || ""]; // TODO: could provide default values of [] for all top level nodes in order to avoid passing undefined when something is selected
+  const getClusters = async () => {
+    return clusterNodes(selectedEntryPoint?.symbol);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">
-      <button
-        className="p-2 bg-vscodeFg text-vscodeBg"
-        onClick={() => clusterNodes(selectedEntryPoint?.symbol, setNodeGroups)}
-      >
-        Cluster
-      </button>
       <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">
         <Sidebar
           callGraph={callGraph}
           onSelect={setSelectedEntryPoint}
           selectedNode={selectedEntryPoint}
-          indexingStatus={statusMessage}
           areNodeSummariesLoading={areNodesSummariesLoading}
         />
         <div className="flex flex-1 bg-vscodeBg">
           <CodeChartArea
             selectedEntryPoint={selectedEntryPoint}
-            nodeGroups={selectedNodeGroups}
-            screenWidthFraction={0.75}
+            screenWidthFraction={0.8}
             getSummaries={getSummaries}
+            getClusters={getClusters}
+            indexingStatus={statusMessage}
           />
         </div>
       </div>

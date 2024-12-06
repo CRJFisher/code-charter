@@ -225,6 +225,7 @@ async function showWebviewDiagram(
         },
         navigateToDoc: async () => {
           const { relativeDocPath, lineNumber } = otherFields;
+          console.log("Navigating to doc:", relativeDocPath, lineNumber);
           const fileUri = vscode.Uri.file(`${selectedEnvironment?.projectPath.fsPath}/${relativeDocPath}`);
           await navigateToDoc(fileUri, lineNumber, webviewColumn);
           panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });

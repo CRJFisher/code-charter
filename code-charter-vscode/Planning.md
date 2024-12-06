@@ -22,14 +22,16 @@
     - Add caching for clusters and their summaries
     - How to trigger clustering?
       - Do it automatically and give option to remove them (make this configurable)
-    - Move status display to the chart area and show a loading wheel in the sidebar
+    - [ ] Move status display to the chart area and show a loading wheel in the sidebar
+      - [ ] Add some interesting interstitial image e.g. visual math proof
+    - If total functions < 10, don't cluster; use dagre layout
 - LLM 
   - UI to configure LLM model and embeddings
   - Support for copilot, ollama, openai and anthropic models
   - Support for ollama and openai embeddings
     - Copilot embeddings aren't yet available: [issue](https://github.com/microsoft/vscode/issues/212083)
 - [x] Build the scip-python image using distroless to reduce the image size and minimise the inconvenience of running Docker
-  - Reduced size from 561MB to 427MB. `node_modules` is still very large
+  - Reduced size from 561MB to 427MB. Node and python binaries are still very large
 
 ## TODO next:
 
@@ -37,6 +39,19 @@
   - [ ] Search bar at the top of the sidebar
   - [ ] Track and restore chart state
     - [ ] Add caching for node locations 
+  - Add a status icon in the sidebar items to indicate:
+        - are function summaries done
+          - are they partially done i.e. some out of date (this relates to code-change detection work)
+        - are module summaries done
+      - 
+
+## Epics
+
+- Call-tree customisation
+  - Pick an arbitrary node e.g. as a code-action when cursor is on a function name, and see the call tree from that node
+  - Display any 'calling' nodes as 'out' edges which can be added if the user wants to see them
+  - Allow the user to edit trees to fill-in missing nodes
+  - Allow the user to remove unwanted nodes. Leave a (+) button to add them back
 
 ## Fixes
 

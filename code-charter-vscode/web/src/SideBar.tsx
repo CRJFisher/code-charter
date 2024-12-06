@@ -4,29 +4,27 @@ import { symbolDisplayName } from "../../shared/symbols";
 import { AiOutlineMenu } from "react-icons/ai";
 import { MdKeyboardDoubleArrowLeft } from "react-icons/md";
 import { navigateToDoc } from "./vscodeApi";
-import { CodeIndexStatus } from "./codeIndex";
+import { CodeIndexStatus } from "./loadingStatus";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import TextOverflow from "react-text-overflow";
 
 interface SidebarProps {
   callGraph: CallGraph;
   selectedNode: DefinitionNode | null;
-  indexingStatus: CodeIndexStatus;
   onSelect: (entryPoint: DefinitionNode) => void;
   areNodeSummariesLoading: (nodeSymbol: string) => boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
-  callGraph,
-  onSelect,
-  selectedNode,
-  indexingStatus,
-  areNodeSummariesLoading,
-}) => {
+const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, areNodeSummariesLoading }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const selectItemAndCloseSidebar = (node: DefinitionNode) => {
+    onSelect(node);
+    setIsSidebarOpen(false);
   };
 
   return (
@@ -46,20 +44,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             isSidebarOpen ? "opacity-100" : "opacity-0"
           } transition-opacity duration-300`}
         >
-          {indexingStatus !== CodeIndexStatus.Ready && (
-            <>
-              <div className="p-4 text-center">
-                Indexing...<br></br>
-              </div>
-              <div className="flex justify-center items-center">
-                <VSCodeProgressRing />
-              </div>
-            </>
-          )}
           <FunctionsList
             callGraph={callGraph}
             selectedNode={selectedNode}
-            onSelect={onSelect}
+            onSelect={selectItemAndCloseSidebar}
             areNodeSummariesLoading={areNodeSummariesLoading}
           />
         </aside>
