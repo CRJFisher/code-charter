@@ -9,7 +9,7 @@ import { CallGraph, TreeAndContextSummaries } from "../shared/codeGraph";
 import { ProjectEnvironmentId } from "../shared/codeGraph";
 import { navigateToDoc } from "./navigate";
 import { ModelDetails, ModelProvider } from "./model";
-import { ChatOllama } from "@langchain/community/chat_models/ollama";
+import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { getClusterDescriptions } from "./summarise/summariseClusters";
 

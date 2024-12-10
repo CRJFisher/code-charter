@@ -22,8 +22,6 @@ async function detectEntryPoints(
   setCallGraph: React.Dispatch<React.SetStateAction<CallGraph>>,
   setStatusMessage: React.Dispatch<React.SetStateAction<CodeIndexStatus>>
 ) {
-  console.log("detectEntryPoints");
-
   setStatusMessage(CodeIndexStatus.Indexing);
 
   const environments = await detectEnvironments();

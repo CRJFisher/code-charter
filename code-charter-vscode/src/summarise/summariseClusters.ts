@@ -54,7 +54,6 @@ export async function getClusterDescriptions(
       sequence = sequence.pipe(
         RunnableParallel.from({
           curr: RunnableLambda.from((inputs: any) => {
-            console.log(inputs);
             return levelRunnable.invoke({ ...inputs.prev, ...inputs.curr });
           }),
           prev: RunnableLambda.from((inputs: any) => ({ ...inputs.prev, ...inputs.curr })),
@@ -178,29 +177,6 @@ export function getClusterDepthLevels(
     getClusterDepthLevels(child, clusterGraph, visitedNodes, clusterIdDepthLevels, depth + 1);
   }
   return clusterIdDepthLevels;
-}
-
-function rebuildClusterGraphBasedOnProcessingSequence(
-  currentCluterGraph: ClusterGraph,
-  processingSequence: string[][]
-): ClusterGraph {
-  const clusterIdToMembers = {};
-  const clusterIdToChildClusterIds = {};
-  const clusterIdToParentClusterIds = {};
-
-  for (const [index, clusterIds] of processingSequence.entries()) {
-    for (const clusterId of clusterIds) {
-      clusterIdToMembers[clusterId] = currentCluterGraph.clusterIdToMembers[clusterId];
-      clusterIdToChildClusterIds[clusterId] = currentCluterGraph.clusterIdToChildClusterIds[clusterId];
-      clusterIdToParentClusterIds[clusterId] = currentCluterGraph.clusterIdToParentClusterIds[clusterId];
-    }
-  }
-
-  return {
-    clusterIdToMembers,
-    clusterIdToChildClusterIds,
-    clusterIdToParentClusterIds,
-  };
 }
 
 function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): ClusterGraph {

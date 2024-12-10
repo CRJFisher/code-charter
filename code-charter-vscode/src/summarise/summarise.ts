@@ -1,20 +1,14 @@
 import * as vscode from "vscode";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
-import { Runnable, RunnableMap, RunnableConfig, RunnableBranch, RunnableLambda } from "@langchain/core/runnables";
+import { Runnable, RunnableMap, RunnableConfig } from "@langchain/core/runnables";
 import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/codeGraph";
 import PouchDB from "pouchdb";
 import { hashText } from "../hashing";
 import { symbolRepoLocalName } from "../../shared/symbols";
 import { ModelDetails } from "src/model";
 import { parseMarkdownTopSection } from "./domainContext";
-
-interface SummaryRecord {
-  _id: string;
-  symbol: string;
-  summary: string;
-  createdAt: Date;
-}
+import { getSummaryWithCachingChain, SummaryRecord } from "./caching";
 
 interface RefinedSummariesAndFilteredOutNodes {
   refinedFunctionSummaries: Record<string, string>;
@@ -38,11 +32,6 @@ async function summariseCallGraph(
 
   const functionSymbolCode: Map<string, string> = await getSymbolToFunctionCode(definitionNodes, workspacePath);
 
-  // TODO:
-  // - Summary that includes bullet points for each function, such that the function could be reproduced from the summary
-  // - Bullet points that only include "business logic" aka user-intentioned actions, not implementation details
-  // - Cluster detection and re-summarisation
-
   const functionDescriptions = await getFunctionProcessingSteps(
     workDir,
     functionSymbolCode,
@@ -60,12 +49,6 @@ async function summariseCallGraph(
     callGraph
   );
 
-  // const refinedFunctionSummaries = await refineSummaries(workDir, functionDescriptions, definitionNodes, modelDetails);
-
-  // (For debugging) write summaries to file
-  // const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(' ', '')}.json`;
-  // await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(Object.fromEntries(refinedFunctionSummaries), null, 2)));
-
   const summaries = {
     functionSummaries: Object.fromEntries(functionDescriptions),
     refinedFunctionSummaries: businessLogicDescriptions.refinedFunctionSummaries,
@@ -73,8 +56,8 @@ async function summariseCallGraph(
     callTreeWithFilteredOutNodes: businessLogicDescriptions.filteredCallTree,
   };
   // write summaries to file
-  const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(" ", "")}.json`;
-  await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(summaries, null, 2)));
+  // const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(" ", "")}.json`;
+  // await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(summaries, null, 2)));
   return summaries;
 }
 
@@ -286,116 +269,6 @@ async function getSymbolToFunctionCode(
     })
   );
   return nodeCode;
-}
-
-async function refineSummaries(
-  workDir: vscode.Uri,
-  summaries: Map<string, string>,
-  allFunctionNodes: Map<string, DefinitionNode>,
-  modelDetails: ModelDetails
-): Promise<Map<string, string>> {
-  // Re-summarise each parent function summary by including the child summaries
-
-  function buildPrompt(parentSymbol: string, childSymbols: string[]) {
-    const childSummaryTemplates = childSymbols.map((childSymbol) => `{${childSymbol}}`).join("\n");
-    return new PromptTemplate({
-      inputVariables: [parentSymbol, ...childSymbols],
-      template: `Below is a parent function description and the descriptions of the child functions called inside it. 
-            Output just a refined parent function description based on the child function descriptions, providing a higher-level description for the parent including the key business logic control flow. 
-            Output a single, plaintext sentence.
-            """
-            {${parentSymbol}}
-            """
-            Child function summaries: 
-            """
-            ${childSummaryTemplates}
-            """`,
-    });
-  }
-
-  const refinedFunctionSummariesDb = new PouchDB<SummaryRecord>(
-    `${workDir.fsPath}/refinedFunctionSummaries-${modelDetails.uid}`
-  );
-
-  const outputParser = new StringOutputParser();
-  const allFunctionSummaryChains: {
-    [key: string]: Runnable<any, string, RunnableConfig>;
-  } = {};
-  for (const [_, node] of allFunctionNodes) {
-    const childSymbols = node.children.map((child) => child.symbol);
-    const summaryChain = buildPrompt(node.symbol, childSymbols).pipe(modelDetails.model).pipe(outputParser);
-    const allSummaries = [summaries.get(node.symbol), ...childSymbols.map((childSymbol) => summaries.get(childSymbol))];
-    const summaryKey = hashText(node.symbol, allSummaries.join(""));
-    const summaryFromCacheOrLLMChain = await getSummaryWithCachingChain(
-      summaryChain,
-      refinedFunctionSummariesDb,
-      summaryKey,
-      node.symbol
-    );
-    allFunctionSummaryChains[node.symbol] = summaryFromCacheOrLLMChain;
-  }
-
-  try {
-    const refinedSummaries = await RunnableMap.from(allFunctionSummaryChains).invoke(Object.fromEntries(summaries));
-    return new Map(Object.entries(refinedSummaries));
-  } catch (error) {
-    console.error("Error refining summaries:", error);
-    return summaries;
-  }
-}
-
-async function getSummaryWithCachingChain(
-  summaryChain: Runnable<any, string, RunnableConfig>,
-  functionSummariesDb: PouchDB.Database<SummaryRecord>,
-  summaryKey: string,
-  symbol: string
-) {
-  const summaryWithCacheChain = summaryChain.pipe(
-    RunnableLambda.from((summary: string) => {
-      functionSummariesDb
-        .put({
-          _id: summaryKey,
-          summary: summary,
-          symbol: symbol,
-          createdAt: new Date(),
-        })
-        .catch(async function (err) {
-          if (err.name === "conflict") {
-            functionSummariesDb.put({
-              _id: summaryKey,
-              _rev: (await functionSummariesDb.get(summaryKey))._rev,
-              summary: summary,
-              symbol: symbol,
-              createdAt: new Date(),
-            });
-          } else {
-            console.log(`Failed to put cached summary for ${symbol}`);
-            throw err;
-          }
-        });
-      return summary;
-    })
-  );
-  const cachedSummary = await functionSummariesDb
-    .get(summaryKey)
-    .then((record) => record.summary)
-    .catch((err) => {
-      if (err.status !== 404) {
-        console.log(`Failed to get cached summary for ${symbol}: ${err}`);
-      }
-      return null;
-    });
-  const summaryFromCacheOrLLMChain = RunnableBranch.from([
-    [
-      (_) => !!cachedSummary,
-      RunnableLambda.from((_) => {
-        // console.log(`Using cached summary for ${symbol}`);
-        return cachedSummary!;
-      }),
-    ],
-    summaryWithCacheChain,
-  ]);
-  return summaryFromCacheOrLLMChain;
 }
 
 async function readCallGraphJsonFile(callGraphFile: vscode.Uri): Promise<CallGraph> {

@@ -55,8 +55,6 @@
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-typescript": "^7.26.0",
     "@jest/globals": "^29.7.0",
-    "@types/d3": "^7.4.3",
-    "@types/d3-graphviz": "^2.6.10",
     "@types/jest": "^29.5.14",
     "@types/node": "^18.19.26",
     "@types/pouchdb": "^6.4.2",
@@ -73,15 +71,11 @@
   },
   "dependencies": {
     "@langchain/anthropic": "^0.1.9",
-    "@langchain/community": "^0.2.17",
     "@langchain/google-vertexai": "^0.0.5",
+    "@langchain/ollama": "^0.1.3",
     "@vscode/python-extension": "^1.0.5",
-    "d3": "^7.9.0",
-    "d3-graphviz": "^5.4.0",
-    "langchain": "^0.1.30",
-    "mocha-explorer-launcher-scripts": "^0.4.0",
+    "langchain": "^0.3.6",
     "pouchdb": "^8.0.1",
-    "pouchdb-upsert": "^2.2.0",
-    "ts-graphviz": "^2.1.2"
+    "pouchdb-upsert": "^2.2.0"
   }
 }
