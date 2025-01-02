@@ -180,7 +180,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   return (
     <main className="w-full overflow-auto">
       {selectedEntryPoint ? (
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+        <div ref={containerRef} className="flex-grow w-full h-full">
           { statusMessage && (
             <>
               <div className="p-4 text-center">

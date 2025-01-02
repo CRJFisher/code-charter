@@ -58,10 +58,12 @@
   - The nodes should be filtered as "close" to the summary refinement as possible since it should use the `- None` string match which is defined in the prompt.
   - [x] #Refactoring - when filtering out functions in refine summary, we then have to manually remove them every time we traverse the call graph. It would be good to do this once.
   - Currently this is tricky because we are always using the original `CallGraph` with `selectedNode` to derive the nodes. We might need an intermediary model that gets processed.
-- When closing the sidebar, the chart area should expand to fill the space. Currently, the chart area just moves left to fill the space, leaving dead space to the right.
 - [x] Make `fcose` layout put the top-level functions at the top of the diagram
   - This would make it easier to see the overall structure of the codebase.
 - [x] Delete old cytoscape chart when a new call graph is selected
+- [x] Rebuild the scip-python image using distroless to reduce the image size
+  - Done but insufficient. The image is still 427MB
+- [ ] When closing the sidebar, the chart area should expand to fill the space. Currently, the chart area just moves left to fill the space, leaving dead space to the right.
 - [ ] Integrate the `cluster` button into the workflow seamlessly.
   - [ ] Display the processing status and loading wheel in the chart area instead of the SideBar
 - [ ] Make "container" nodes expand to fit their text + padding
@@ -70,7 +72,6 @@
   - They could be compared side-by-side to remove duplication
 - [ ] Add the option to show non-business logic nodes in the chart.
   - Or toggle between full descriptions and business logic focussed
-- [ ] Rebuild the scip-python image using distroless to reduce the image size
 - [ ] In summariseClusters.ts the strategy of using `computeDepthLevels` to determine when to summarise a cluster isn't working. Some parent clusters aren't available as context.
 - [ ] Navigate-to-function is failing on some clicks
   - Test this in a release version - could be a dev issue
