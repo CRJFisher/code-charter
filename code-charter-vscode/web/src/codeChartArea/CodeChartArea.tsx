@@ -48,7 +48,15 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
     if (!selectedEntryPoint) {
       return;
     }
-    cyRef.current?.destroy();
+    if (cyRef.current) {
+      try {
+        cyRef.current.destroy(); // Safely destroy
+      } catch (error) {
+        console.error("Error destroying Cytoscape instance:", error);
+      } finally {
+        cyRef.current = null; // Ensure it's reset
+      }
+    }
     const fetchData = async () => {
       setSummaryStatus(SummarisationStatus.SummarisingFunctions);
       const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
@@ -181,10 +189,11 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
     <main className="w-full overflow-auto">
       {selectedEntryPoint ? (
         <div ref={containerRef} className="flex-grow w-full h-full">
-          { statusMessage && (
+          {statusMessage && (
             <>
               <div className="p-4 text-center">
-                {statusMessage}<br></br>
+                {statusMessage}
+                <br></br>
               </div>
               <div className="flex justify-center items-center">
                 <VSCodeProgressRing />

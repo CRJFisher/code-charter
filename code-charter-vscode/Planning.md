@@ -63,12 +63,12 @@
 - [x] Delete old cytoscape chart when a new call graph is selected
 - [x] Rebuild the scip-python image using distroless to reduce the image size
   - Done but insufficient. The image is still 427MB
-- [ ] When closing the sidebar, the chart area should expand to fill the space. Currently, the chart area just moves left to fill the space, leaving dead space to the right.
-- [ ] Integrate the `cluster` button into the workflow seamlessly.
-  - [ ] Display the processing status and loading wheel in the chart area instead of the SideBar
+- [x] When closing the sidebar, the chart area should expand to fill the space. Currently, the chart area just moves left to fill the space, leaving dead space to the right.
+- [x] Integrate the `cluster` button into the workflow seamlessly.
+  - [x] Display the processing status and loading wheel in the chart area instead of the SideBar
 - [ ] Make "container" nodes expand to fit their text + padding
   - They are sized based on their contents i.e. where the function nodes are placed
-- [ ] Cluster summary descriptions are overlapping. They all use prepend some domain context.
+- [x] Cluster summary descriptions are overlapping. They all use prepend some domain context.
   - They could be compared side-by-side to remove duplication
 - [ ] Add the option to show non-business logic nodes in the chart.
   - Or toggle between full descriptions and business logic focussed
