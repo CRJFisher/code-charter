@@ -48,6 +48,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
     if (!selectedEntryPoint) {
       return;
     }
+    cyRef.current?.destroy();
     const fetchData = async () => {
       setSummaryStatus(SummarisationStatus.SummarisingFunctions);
       const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
@@ -166,7 +167,6 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   }, [elements]);
 
   let statusMessage: string | null = null;
-  console.log(indexingStatus, summaryStatus);
   if (indexingStatus !== CodeIndexStatus.Ready) {
     statusMessage = "Indexing...";
   } else if (summaryStatus !== SummarisationStatus.Ready) {
@@ -176,6 +176,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
       statusMessage = "Detecting modules...";
     }
   }
+
   return (
     <main className="w-full overflow-auto">
       {selectedEntryPoint ? (

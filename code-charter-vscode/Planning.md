@@ -12,7 +12,6 @@
       - Create diagram to explain repo layout including links to the different parts of the project.
         - This could inform the output formats for the charts. E.g. how much functionality would SVG support?
   - Basic functionality, including "zoom" interface
-  - 
 
 ## TODO before release:
 
@@ -25,11 +24,12 @@
     - [ ] Move status display to the chart area and show a loading wheel in the sidebar
       - [ ] Add some interesting interstitial image e.g. visual math proof
     - If total functions < 10, don't cluster; use dagre layout
-- LLM 
+- LLM
   - UI to configure LLM model and embeddings
   - Support for copilot, ollama, openai and anthropic models
   - Support for ollama and openai embeddings
     - Copilot embeddings aren't yet available: [issue](https://github.com/microsoft/vscode/issues/212083)
+    - Could remove the need for embeddings by clustering only on adjacenc
 - [x] Build the scip-python image using distroless to reduce the image size and minimise the inconvenience of running Docker
   - Reduced size from 561MB to 427MB. Node and python binaries are still very large
 
@@ -38,12 +38,9 @@
 - UI
   - [ ] Search bar at the top of the sidebar
   - [ ] Track and restore chart state
-    - [ ] Add caching for node locations 
-  - Add a status icon in the sidebar items to indicate:
-        - are function summaries done
-          - are they partially done i.e. some out of date (this relates to code-change detection work)
-        - are module summaries done
-      - 
+    - [ ] Add caching for node locations
+  - Add a status icon in the sidebar items to indicate: - are function summaries done - are they partially done i.e. some out of date (this relates to code-change detection work) - are module summaries done
+  - If using Copilot API, pre-summarise all the functions in the codebase based on last-modified time
 
 ## Epics
 
@@ -64,6 +61,7 @@
 - When closing the sidebar, the chart area should expand to fill the space. Currently, the chart area just moves left to fill the space, leaving dead space to the right.
 - [x] Make `fcose` layout put the top-level functions at the top of the diagram
   - This would make it easier to see the overall structure of the codebase.
+- [x] Delete old cytoscape chart when a new call graph is selected
 - [ ] Integrate the `cluster` button into the workflow seamlessly.
   - [ ] Display the processing status and loading wheel in the chart area instead of the SideBar
 - [ ] Make "container" nodes expand to fit their text + padding
@@ -94,6 +92,10 @@
   - Documentation
   - Tests
   - Web
+- In function summary refinement, istead of classifying functions, classify them into predified categories e.g. analytics, error handling, core business logic, compute optimisation etc.
+  - Let the user choose which categories to filter for
+  - Let the user refine and add categories
+- When replacing SCIP indexing with tree-sitter, use Bloop repo as a guide for indexing an entire codebase (and convert to e.g. TS)
 
 ## Things to consider
 
