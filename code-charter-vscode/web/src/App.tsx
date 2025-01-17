@@ -52,21 +52,13 @@ async function detectEntryPoints(
   setStatusMessage(CodeIndexStatus.Ready);
 }
 
-async function detectModules(topLevelNodeSymbol: string | undefined): Promise<NodeGroup[] | undefined> {
-  if (!topLevelNodeSymbol) {
-    return;
-  }
-  const newNodeGroups = await clusterAndSummariseCodeTree(topLevelNodeSymbol);
-  return newNodeGroups;
-}
-
 async function fetchSummaries(
   nodeSymbol: string,
-  ongoingSummarisations: Map<string, Promise<any>>,
+  ongoingTasks: Map<string, Promise<any>>,
   setOnGoingSummarisations: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>
-): Promise<TreeAndContextSummaries | undefined> {
-  if (ongoingSummarisations.has(nodeSymbol)) {
-    return ongoingSummarisations.get(nodeSymbol);
+): Promise<any> {
+  if (ongoingTasks.has(nodeSymbol)) {
+    return ongoingTasks.get(nodeSymbol);
   }
 
   const promise = summariseCodeTree(nodeSymbol)
@@ -78,7 +70,7 @@ async function fetchSummaries(
       })
     );
 
-  setOnGoingSummarisations(new Map(ongoingSummarisations.set(nodeSymbol, promise)));
+  setOnGoingSummarisations(new Map(ongoingTasks.set(nodeSymbol, promise)));
   return promise;
 }
 
@@ -96,9 +88,17 @@ const App: React.FC = () => {
     return ongoingSummarisations.has(nodeSymbol);
   };
 
-  const getSummaries = async (nodeSymbol: string) => {
+  const getSummaries = async (nodeSymbol: string): Promise<TreeAndContextSummaries | undefined> => {
     return fetchSummaries(nodeSymbol, ongoingSummarisations, setOnGoingSummarisations);
   };
+
+  async function detectModules(topLevelNodeSymbol: string | undefined): Promise<NodeGroup[] | undefined> {
+    if (!topLevelNodeSymbol) {
+      return;
+    }
+    const newNodeGroups = await clusterAndSummariseCodeTree(topLevelNodeSymbol);
+    return newNodeGroups;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">

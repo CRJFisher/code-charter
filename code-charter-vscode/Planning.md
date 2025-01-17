@@ -18,11 +18,11 @@
 - Clustering
   - [ ] Containerise the clustering server. Manage lifecyle
   - UX
-    - Add caching for clusters and their summaries
+    - [ ] Add caching for clusters and their summaries
     - How to trigger clustering?
       - Do it automatically and give option to remove them (make this configurable)
-    - [ ] Move status display to the chart area and show a loading wheel in the sidebar
-      - [ ] Add some interesting interstitial image e.g. visual math proof
+    - [x] Move status display to the chart area and show a loading wheel in the sidebar
+      - ~~[ ] Add some interesting interstitial image e.g. visual math proof~~
     - If total functions < 10, don't cluster; use dagre layout
 - LLM
   - UI to configure LLM model and embeddings
@@ -44,11 +44,13 @@
 
 ## Epics
 
-- Call-tree customisation
-  - Pick an arbitrary node e.g. as a code-action when cursor is on a function name, and see the call tree from that node
-  - Display any 'calling' nodes as 'out' edges which can be added if the user wants to see them
-  - Allow the user to edit trees to fill-in missing nodes
-  - Allow the user to remove unwanted nodes. Leave a (+) button to add them back
+- Statefullness
+  - Call-tree customisation
+    - Pick an arbitrary node e.g. as a code-action when cursor is on a function name, and see the call tree from that node
+    - Display any 'calling' nodes as 'out' edges which can be added if the user wants to see them
+    - Allow the user to edit trees to fill-in missing nodes
+    - Allow the user to remove unwanted nodes. Leave a (+) button to add them back
+  - Consider whether we still need the other two caching mechanisms (on-disk LLM-resutls and in-memory App.tsx Promise caching)
 
 ## Fixes
 
@@ -84,6 +86,10 @@
 - [ ] Add handler for click on compound node, zooming, centering etc
 - [ ] Re-add edge number labels
 - [ ] Add numbers to the cluster edges
+
+## Known issues
+
+- Some settings are in VSCode settings, some are in the internal settings view. This is confusing but since there isn't a programatic settings view (for selecting contingent options such as model provider -> type), it's hard to change.
 
 ## Ideas
 

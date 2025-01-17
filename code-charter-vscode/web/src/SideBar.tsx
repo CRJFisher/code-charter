@@ -2,9 +2,8 @@ import React, { useState } from "react";
 import { CallGraph, countNodes, DefinitionNode } from "../../shared/codeGraph";
 import { symbolDisplayName } from "../../shared/symbols";
 import { AiOutlineMenu } from "react-icons/ai";
-import { MdKeyboardDoubleArrowLeft } from "react-icons/md";
+import { MdKeyboardDoubleArrowLeft, MdSettings } from "react-icons/md";
 import { navigateToDoc } from "./vscodeApi";
-import { CodeIndexStatus } from "./loadingStatus";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import TextOverflow from "react-text-overflow";
 
@@ -13,6 +12,7 @@ interface SidebarProps {
   selectedNode: DefinitionNode | null;
   onSelect: (entryPoint: DefinitionNode) => void;
   areNodeSummariesLoading: (nodeSymbol: string) => boolean;
+
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, areNodeSummariesLoading }) => {
@@ -24,7 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, ar
 
   const selectItemAndCloseSidebar = (node: DefinitionNode) => {
     onSelect(node);
-    setIsSidebarOpen(false);
+    // setIsSidebarOpen(false); // TODO: make configurable
   };
 
   return (
@@ -34,10 +34,17 @@ const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, ar
       } bg-vscodeGutter border-r border-vscodeBorder`}
     >
       <div className="relative h-full flex flex-col w-full">
-        <div className="flex items-center p-2">
-          <button onClick={toggleSidebar} className="p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none">
-            {isSidebarOpen ? <MdKeyboardDoubleArrowLeft size={24} /> : <AiOutlineMenu size={24} />}
-          </button>
+        <div className="flex items-center p-2 bg-vscodeBg">
+          <div className="flex-grow">
+            <button onClick={toggleSidebar} className="p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none">
+              {isSidebarOpen ? <MdKeyboardDoubleArrowLeft size={20} /> : <AiOutlineMenu size={20} />}
+            </button>
+          </div>
+          {isSidebarOpen && (
+            <button onClick={toggleSidebar} className="ml-auto p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none">
+              <MdSettings size={20} />
+            </button>
+          )}
         </div>
         <aside
           className={`flex-1 overflow-y-auto ${
