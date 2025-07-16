@@ -170,3 +170,5 @@ cython_debug/
 **/node_modules
 .aider*
 .claude/
+.codex/
+.cursorrules
