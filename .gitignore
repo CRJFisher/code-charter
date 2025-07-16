@@ -169,3 +169,4 @@ cython_debug/
 # all node_modules directories
 **/node_modules
 .aider*
+.claude/
