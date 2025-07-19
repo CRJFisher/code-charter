@@ -5,43 +5,22 @@ import Sidebar from "./SideBar";
 import { CodeChartArea } from "./codeChartArea/CodeChartArea";
 import {
   clusterCodeTree as clusterAndSummariseCodeTree,
-  detectEnvironments,
-  getCallGraphForEnvironment,
+  getCallGraph,
   summariseCodeTree,
 } from "./vscodeApi";
-import {
-  CallGraph,
-  DefinitionNode,
-  NodeGroup,
-  ProjectEnvironmentId,
-  TreeAndContextSummaries,
-} from "../../shared/codeGraph";
+import { CallGraph, CallGraphNode } from "refscope-types";
+
+// Import local types from vscodeApi where they are now defined
+import type { NodeGroup, TreeAndContextSummaries } from "./vscodeApi";
 import { CodeIndexStatus } from "./loadingStatus";
 
 async function detectEntryPoints(
-  setCallGraph: React.Dispatch<React.SetStateAction<CallGraph>>,
+  setCallGraph: React.Dispatch<React.SetStateAction<CallGraph | null>>,
   setStatusMessage: React.Dispatch<React.SetStateAction<CodeIndexStatus>>
 ) {
   setStatusMessage(CodeIndexStatus.Indexing);
 
-  const environments = await detectEnvironments();
-
-  if (!environments || environments.length === 0) {
-    setStatusMessage(CodeIndexStatus.Error);
-    return;
-  }
-
-  let selectedEnvironment: ProjectEnvironmentId;
-  if (environments.length > 1) {
-    // TODO: implement select
-    setStatusMessage(CodeIndexStatus.Error);
-    // selectedEnvironment = environments.find((env) => env.displayName() === picked);
-    return;
-  } else {
-    selectedEnvironment = environments[0];
-  }
-
-  const callGraph = await getCallGraphForEnvironment(selectedEnvironment);
+  const callGraph = await getCallGraph();
 
   if (!callGraph) {
     setStatusMessage(CodeIndexStatus.Error);
@@ -75,8 +54,8 @@ async function fetchSummaries(
 }
 
 const App: React.FC = () => {
-  const [callGraph, setCallGraph] = useState<CallGraph>({ topLevelNodes: [], definitionNodes: {} });
-  const [selectedEntryPoint, setSelectedEntryPoint] = useState<DefinitionNode | null>(null);
+  const [callGraph, setCallGraph] = useState<CallGraph | null>(null);
+  const [selectedEntryPoint, setSelectedEntryPoint] = useState<CallGraphNode | null>(null);
   const [statusMessage, setStatusMessage] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
   const [ongoingSummarisations, setOnGoingSummarisations] = useState<Map<string, Promise<any>>>(new Map());
 
@@ -104,7 +83,7 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen bg-vscodeBg text-vscodeFg">
       <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">
         <Sidebar
-          callGraph={callGraph}
+          callGraph={callGraph || { nodes: new Map(), top_level_nodes: [], edges: [] }}
           onSelect={setSelectedEntryPoint}
           selectedNode={selectedEntryPoint}
           areNodeSummariesLoading={areNodesSummariesLoading}

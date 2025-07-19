@@ -77,6 +77,7 @@
     "langchain": "^0.3.6",
     "pouchdb": "^8.0.1",
     "pouchdb-upsert": "^2.2.0",
-    "refscope": "^0.5.0"
+    "refscope": "^0.5.0",
+    "refscope-types": "^0.5.6"
   }
 }

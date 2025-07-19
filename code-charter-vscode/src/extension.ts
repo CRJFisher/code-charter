@@ -1,17 +1,13 @@
 import * as vscode from "vscode";
 import { addToGitignore } from "./files";
-import { checkDockerInstalled } from "./docker";
-import { runCommand } from "./run";
-import { getFileVersionHash } from "./git";
-import { detectEnvironment, ProjectEnvironment } from "./project/projectTypeDetection";
-import { readCallGraphJsonFile, summariseCallGraph } from "./summarise/summarise";
-import { CallGraph, TreeAndContextSummaries } from "../shared/codeGraph";
-import { ProjectEnvironmentId } from "../shared/codeGraph";
+import { summariseCallGraph } from "./summarise/summarise";
 import { navigateToDoc } from "./navigate";
 import { ModelDetails, ModelProvider } from "./model";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { getClusterDescriptions } from "./summarise/summariseClusters";
+import { CallGraph, get_call_graph } from "refscope";
+import { TreeAndContextSummaries } from "@shared/codeGraph";
 
 const extensionFolder = ".code-charter";
 
@@ -28,12 +24,6 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function generateDiagram(context: vscode.ExtensionContext) {
-  // Check docker is installed
-  const isDockerInstalled = await checkDockerInstalled();
-  if (!isDockerInstalled) {
-    vscode.window.showErrorMessage("Docker is not running. Please install and run Docker to use this extension.");
-    return;
-  }
   // Check if a `.code-charter` directory exists in the workspace
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
@@ -137,8 +127,6 @@ async function showWebviewDiagram(
         `;
 
   let callGraph: CallGraph | undefined;
-  let allEnvironments: { [key: string]: ProjectEnvironment } | undefined;
-  let selectedEnvironment: ProjectEnvironment | undefined;
   let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};
 
   panel.webview.onDidReceiveMessage(
@@ -147,45 +135,36 @@ async function showWebviewDiagram(
 
       // Map of command handlers
       const commandHandlers: { [key: string]: () => Promise<void> } = {
-        detectEnvironments: async () => {
-          const envs = await detectEnvironment(workspaceFolders);
-          allEnvironments = Object.fromEntries(envs?.map((env) => [env.projectPath.fsPath, env]) || []);
-          const allEnvIds: ProjectEnvironmentId[] =
-            envs?.map((env) => ({
-              id: env.projectPath.fsPath,
-              name: env.displayName(),
-            })) || [];
-          panel.webview.postMessage({ id, command: "detectEnvironmentsResponse", data: allEnvIds });
-        },
-        getCallGraphForEnvironment: async () => {
-          const { env }: { env: ProjectEnvironmentId } = otherFields;
-          selectedEnvironment = allEnvironments?.[env.id];
-          if (!selectedEnvironment) {
-            throw new Error("Selected environment not found");
-          }
-          const indexPath = await indexEnvironment(selectedEnvironment, workFolder);
-          callGraph = await detectTopLevelFunctions(indexPath, selectedEnvironment, workFolder);
+        getCallGraph: async () => {
+          // Use the first workspace folder directly
+          const workspacePath = workspaceFolders[0].uri.fsPath;
+          callGraph = await get_call_graph(workspacePath, {
+            include_external: false,
+            file_filter: (path) => {
+              // Filter out test files and common non-source directories
+              return !path.includes('test') && 
+                     !path.includes('node_modules') && 
+                     !path.includes('__pycache__') &&
+                     !path.includes('.git');
+            }
+          });
           if (!callGraph) {
             throw new Error("Call graph not found");
           }
-          const topLevelFunctionsSet = new Set(selectedEnvironment.filterTopLevelFunctions(callGraph.topLevelNodes));
-          callGraph.topLevelNodes = callGraph.topLevelNodes.filter((node) => topLevelFunctionsSet.has(node));
-          panel.webview.postMessage({ id, command: "getCallGraphForEnvironmentResponse", data: callGraph });
+          panel.webview.postMessage({ id, command: "getCallGraphResponse", data: callGraph });
         },
         summariseCodeTree: async () => {
           const { topLevelFunctionSymbol } = otherFields;
           if (!callGraph) {
             throw new Error("Call graph not found");
           }
-          if (!selectedEnvironment) {
-            throw new Error("Selected environment not found");
-          }
+          const workspacePath = workspaceFolders[0].uri;
           const modelDetails = await getModelDetails();
           const summaries = await summariseCallGraph(
             topLevelFunctionSymbol,
             callGraph,
             workFolder,
-            selectedEnvironment.projectPath,
+            workspacePath,
             modelDetails
           );
           // TODO: create a filtered Record<string, DefinitionNode> based on filtered out nodes. Then we don't need filtering
@@ -226,7 +205,8 @@ async function showWebviewDiagram(
         navigateToDoc: async () => {
           const { relativeDocPath, lineNumber } = otherFields;
           console.log("Navigating to doc:", relativeDocPath, lineNumber);
-          const fileUri = vscode.Uri.file(`${selectedEnvironment?.projectPath.fsPath}/${relativeDocPath}`);
+          const workspacePath = workspaceFolders[0].uri.fsPath;
+          const fileUri = vscode.Uri.file(`${workspacePath}/${relativeDocPath}`);
           await navigateToDoc(fileUri, lineNumber, webviewColumn);
           panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
         },
@@ -280,48 +260,6 @@ async function getModelDetails(): Promise<ModelDetails> {
       }),
     };
   }
-}
-
-async function indexEnvironment(selectedEnvironment: ProjectEnvironment, workDirPath: vscode.Uri): Promise<vscode.Uri> {
-  let envFileString = selectedEnvironment.fileName();
-  if (envFileString.length > 0) {
-    envFileString += "-";
-  }
-  // TODO: only check for changes in the selected environment - need to add a getFiles() to environment then check against working tree changes - limit to just e.g. python files
-  const versionSuffix = (await getFileVersionHash()) || "latest";
-  const scipFileName = `index-${envFileString}${versionSuffix}.scip`;
-  const scipFilePath = vscode.Uri.joinPath(workDirPath, scipFileName);
-  const doesFileExist = await vscode.workspace.fs.stat(scipFilePath).then(
-    () => true,
-    () => false
-  );
-  if (doesFileExist) {
-    console.log(`SCIP file already exists: ${scipFilePath.fsPath}`);
-  } else {
-    await selectedEnvironment.parseCodebaseToScipIndex(workDirPath, scipFilePath);
-  }
-  return scipFilePath;
-}
-
-async function detectTopLevelFunctions(
-  scipFilePath: vscode.Uri,
-  selectedEnvironment: ProjectEnvironment,
-  workDirPath: vscode.Uri
-): Promise<CallGraph> {
-  const relativeWorkDirPath = vscode.workspace.asRelativePath(workDirPath);
-  const containerInputFilePath = scipFilePath.fsPath.replace(workDirPath.fsPath, `/sources/${relativeWorkDirPath}`);
-  console.log("containerInputFilePath", containerInputFilePath);
-  const containerOutputFilePath = `/sources/${relativeWorkDirPath}/call_graph.json`;
-  console.log("containerOutputFilePath", containerOutputFilePath);
-
-  await runCommand(
-    `docker run -v ${selectedEnvironment.projectPath.fsPath}:/sources/ crjfisher/codecharter-detectcallgraphs --input_file ${containerInputFilePath} --output_file ${containerOutputFilePath}`
-  );
-
-  // Read the call graph JSON file
-  const callGraphJsonFilePath = vscode.Uri.file(`${workDirPath.fsPath}/call_graph.json`);
-  const callGraph = await readCallGraphJsonFile(callGraphJsonFilePath);
-  return callGraph;
 }
 
 async function clusterCodeTree(summaries: TreeAndContextSummaries): Promise<string[][]> {

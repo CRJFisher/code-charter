@@ -1,4 +1,17 @@
-import { CallGraph, NodeGroup, ProjectEnvironmentId, TreeAndContextSummaries } from '../../shared/codeGraph';
+import { CallGraph, CallGraphNode } from 'refscope-types';
+
+// Local types
+export interface TreeAndContextSummaries {
+  functionSummaries: Record<string, string>;
+  refinedFunctionSummaries: Record<string, string>;
+  callTreeWithFilteredOutNodes: Record<string, CallGraphNode>;
+  contextSummary: string;
+}
+
+export interface NodeGroup {
+  description: string;
+  memberSymbols: string[];
+}
 
 interface VsCodeApi {
     postMessage(message: any): void;
@@ -40,15 +53,6 @@ function sendMessageWithResponse(command: string, payload: any = {}): Promise<Re
 
 // TODO: create a Stream version of this using RxJS
 
-async function detectEnvironments(): Promise<ProjectEnvironmentId[]> {
-    try {
-        const response = await sendMessageWithResponse('detectEnvironments');
-        return response.data;
-    } catch (error) {
-        console.error('Error detecting environments:', error);
-        return [];
-    }
-}
 
 async function clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
     try {
@@ -60,12 +64,12 @@ async function clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGrou
     }
 }
 
-async function getCallGraphForEnvironment(env: ProjectEnvironmentId): Promise<CallGraph | undefined> {
+async function getCallGraph(): Promise<CallGraph | undefined> {
     try {
-        const response = await sendMessageWithResponse('getCallGraphForEnvironment', { env });
+        const response = await sendMessageWithResponse('getCallGraph');
         return response.data;
     } catch (error) {
-        console.error('Error getting top level functions for environment:', error);
+        console.error('Error getting call graph:', error);
     }
 }
 
@@ -217,8 +221,7 @@ export {
     // runCommand,
     // getFileVersionHash,
     // getPythonPath,
-    detectEnvironments,
-    getCallGraphForEnvironment,
+    getCallGraph,
     summariseCodeTree,
     navigateToDoc,
     clusterCodeTree,

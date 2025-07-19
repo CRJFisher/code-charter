@@ -196,9 +196,10 @@ function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): Clu
     clusterIdToMembers[currentClusterId] = cluster;
 
     for (const member of cluster) {
+      const node = callGraph.nodes.get(member.symbol);
       const dependencyClusterIds = new Set(
-        callGraph.definitionNodes[member.symbol]?.children
-          ?.map((child) => symbolToClusterId[child.symbol])
+        node?.calls
+          ?.map((call) => symbolToClusterId[call.symbol])
           .filter((id) => id !== undefined && id !== currentClusterId) || []
       );
 

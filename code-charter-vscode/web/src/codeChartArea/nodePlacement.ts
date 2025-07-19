@@ -1,9 +1,10 @@
 import { FcoseRelativePlacementConstraint } from "cytoscape-fcose";
-import { DefinitionNode, NodeGroup, TreeAndContextSummaries } from "../../../shared/codeGraph";
+import { CallGraphNode } from "refscope-types";
+import type { NodeGroup, TreeAndContextSummaries } from "../vscodeApi";
 import { symbolDisplayName } from "../../../shared/symbols";
 
 function generateRelativePlacementConstraints(
-  selectedEntryPoint: DefinitionNode,
+  selectedEntryPoint: CallGraphNode,
   summariesAndFilteredCallTree: TreeAndContextSummaries,
   nodeGroups: NodeGroup[] | undefined
 ): FcoseRelativePlacementConstraint[] {
@@ -135,7 +136,7 @@ function generateRelativePlacementConstraints(
     return dfs(startCompound);
   }
 
-  function traverse(node: DefinitionNode) {
+  function traverse(node: CallGraphNode) {
     if (visited.has(node.symbol)) {
       return;
     }
@@ -143,8 +144,8 @@ function generateRelativePlacementConstraints(
 
     const nodeCompoundId = symbolToCompoundId[node.symbol] || undefined;
 
-    // Get the children that are DefinitionNodes
-    const childSymbols = node.children.map((childRef) => childRef.symbol);
+    // Get the children that are CallGraphNodes
+    const childSymbols = node.calls.map((call) => call.symbol);
 
     // Add top-bottom constraints (position children below the parent)
     for (const childSymbol of childSymbols) {
@@ -221,7 +222,7 @@ function generateRelativePlacementConstraints(
 }
 
 const generateElements = (
-  selectedEntryPoint: DefinitionNode,
+  selectedEntryPoint: CallGraphNode,
   summariesAndFilteredCallTree: TreeAndContextSummaries,
   nodeGroups: NodeGroup[] | undefined
 ): cytoscape.ElementDefinition[] => {
@@ -257,7 +258,7 @@ const generateElements = (
     });
   };
 
-  const addNode = (node: DefinitionNode, isTopLevel: boolean) => {
+  const addNode = (node: CallGraphNode, isTopLevel: boolean) => {
     if (visited.has(node.symbol)) {
       return;
     }
@@ -273,27 +274,27 @@ const generateElements = (
         label: isTopLevel
           ? `⮕ ${symbolDisplayName(node.symbol)}\n\n${summary}`
           : `${symbolDisplayName(node.symbol)}\n\n${summary}`,
-        document: node.document,
-        range: node.enclosingRange,
+        document: node.definition.file_path,
+        range: node.definition.range,
         parent: compoundId,
       },
       classes: isTopLevel ? "top-level-node" : "node",
     });
 
-    for (const child of node.children) {
+    for (const call of node.calls) {
       // Add edge between nodes
-      const edgeId = `${node.symbol}-${child.symbol}`;
+      const edgeId = `${node.symbol}-${call.symbol}`;
       elements.push({
         data: {
           id: edgeId,
           source: node.symbol,
-          target: child.symbol,
+          target: call.symbol,
         },
         classes: "edge",
       });
 
       // Record compound connections
-      const childCompoundId = symbolToCompoundId[child.symbol] || undefined;
+      const childCompoundId = symbolToCompoundId[call.symbol] || undefined;
       if (compoundId && childCompoundId && compoundId !== childCompoundId) {
         if (!compoundConnections.has(compoundId)) {
           compoundConnections.set(compoundId, new Set());
@@ -302,8 +303,8 @@ const generateElements = (
       }
 
       const callTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes;
-      if (callTree[child.symbol]) {
-        addNode(callTree[child.symbol], false);
+      if (callTree[call.symbol]) {
+        addNode(callTree[call.symbol], false);
       }
     }
   };

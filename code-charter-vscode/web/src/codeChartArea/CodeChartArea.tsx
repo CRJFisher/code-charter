@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { DefinitionNode, NodeGroup, TreeAndContextSummaries } from "../../../shared/codeGraph";
+import { CallGraphNode } from "refscope-types";
+import type { NodeGroup, TreeAndContextSummaries } from "../vscodeApi";
 import { navigateToDoc } from "../vscodeApi";
 
 import cytoscape, { Core } from "cytoscape";
@@ -16,7 +17,7 @@ cytoscape.use(fcose);
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
-  selectedEntryPoint: DefinitionNode | null;
+  selectedEntryPoint: CallGraphNode | null;
   screenWidthFraction: number;
   getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
   detectModules: () => Promise<NodeGroup[] | undefined>;
@@ -33,7 +34,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
   const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
   const [nodePlacements, setNodePlacments] = useState<FcoseRelativePlacementConstraint[]>([]);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
-  const [callGraphNodes, setCallChart] = useState<Record<string, DefinitionNode> | null>(null);
+  const [callGraphNodes, setCallChart] = useState<Record<string, CallGraphNode> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomModeRef = useRef<ZoomMode>(zoomMode);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
@@ -155,7 +156,7 @@ export const CodeChartArea: React.FC<CodeChartAreaProps> = ({
           if (!definitionNode) {
             return;
           }
-          await navigateToDoc(definitionNode.document, definitionNode.enclosingRange.startLine);
+          await navigateToDoc(definitionNode.definition.file_path, definitionNode.definition.range.start.row);
           cy.animate({
             zoom: 1,
             center: {

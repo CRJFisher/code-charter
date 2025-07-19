@@ -1,11 +1,12 @@
 ---
-id: task-1.1
+id: task-1.3
 title: Implement incremental parsing API for refscope integration
 status: To Do
 assignee: []
 created_date: '2025-07-17'
 labels: []
-dependencies: []
+dependencies:
+  - task-1.1
 parent_task_id: task-1
 ---
 

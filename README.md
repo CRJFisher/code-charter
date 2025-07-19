@@ -14,9 +14,7 @@ Currently in development and set to be released soon as a VSCode extension, Code
 
 To use Code Charter, ensure you have the following installed and running:
 
-1. **Docker**: Docker is required to manage the containerised environment for Code Charter. You can download and install Docker from [Docker's official website](https://www.docker.com/get-started).
-
-2. **Ollama**: Ollama is necessary for specific functionalities within Code Charter. Make sure Ollama is installed and running on your system. You can find more information and download links on [Ollama's website](https://ollama.com).
+1. **Ollama**: Ollama is necessary for specific functionalities within Code Charter. Make sure Ollama is installed and running on your system. You can find more information and download links on [Ollama's website](https://ollama.com).
 
 ### Installation
 

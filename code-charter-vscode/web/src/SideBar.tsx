@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { CallGraph, countNodes, DefinitionNode } from "../../shared/codeGraph";
+import { CallGraph, CallGraphNode } from "refscope-types";
+import { countNodes } from "../../shared/codeGraph";
 import { symbolDisplayName } from "../../shared/symbols";
 import { AiOutlineMenu } from "react-icons/ai";
 import { MdKeyboardDoubleArrowLeft, MdSettings } from "react-icons/md";
@@ -9,8 +10,8 @@ import TextOverflow from "react-text-overflow";
 
 interface SidebarProps {
   callGraph: CallGraph;
-  selectedNode: DefinitionNode | null;
-  onSelect: (entryPoint: DefinitionNode) => void;
+  selectedNode: CallGraphNode | null;
+  onSelect: (entryPoint: CallGraphNode) => void;
   areNodeSummariesLoading: (nodeSymbol: string) => boolean;
 
 }
@@ -22,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, ar
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  const selectItemAndCloseSidebar = (node: DefinitionNode) => {
+  const selectItemAndCloseSidebar = (node: CallGraphNode) => {
     onSelect(node);
     // setIsSidebarOpen(false); // TODO: make configurable
   };
@@ -65,8 +66,8 @@ const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, ar
 
 interface FunctionsListProps {
   callGraph: CallGraph;
-  selectedNode: DefinitionNode | null;
-  onSelect: (entryPoint: DefinitionNode) => void;
+  selectedNode: CallGraphNode | null;
+  onSelect: (entryPoint: CallGraphNode) => void;
   areNodeSummariesLoading: (nodeSymbol: string) => boolean;
 }
 
@@ -76,19 +77,20 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
   onSelect,
   areNodeSummariesLoading,
 }) => {
-  const onClickItem = async (node: DefinitionNode) => {
+  const onClickItem = async (node: CallGraphNode) => {
     onSelect(node);
-    await navigateToDoc(node.document, node.enclosingRange.startLine);
+    await navigateToDoc(node.definition.file_path, node.definition.range.start.row);
   };
 
-  const totNodesCountDescendingSymbols = callGraph.topLevelNodes.sort(
-    (a, b) => countNodes(b, callGraph) - countNodes(a, callGraph)
+  const totNodesCountDescendingSymbols = callGraph.top_level_nodes.sort(
+    (a: string, b: string) => countNodes(b, callGraph) - countNodes(a, callGraph)
   );
 
   return (
     <ul className="w-full">
-      {totNodesCountDescendingSymbols.map((nodeSymbol) => {
-        const node = callGraph.definitionNodes[nodeSymbol];
+      {totNodesCountDescendingSymbols.map((nodeSymbol: string) => {
+        const node = callGraph.nodes.get(nodeSymbol);
+        if (!node) return null;
         const displayName = symbolDisplayName(node.symbol);
         const isSelected = selectedNode && selectedNode.symbol === nodeSymbol;
         const isLoading = areNodeSummariesLoading(node.symbol);
@@ -110,7 +112,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
                   <VSCodeProgressRing className="w-4 h-4" />
                 </div>
               ) : (
-                <span className="ellipsis-end">{node.document}</span>
+                <span className="ellipsis-end">{node.definition.file_path}</span>
               )}
             </div>
           </li>

@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableConfig } from "@langchain/core/runnables";
-import { TreeAndContextSummaries, CallGraph, DefinitionNode } from "@shared/codeGraph";
+import { TreeAndContextSummaries, CallGraph } from "@shared/codeGraph";
+import { CallGraphNode } from "refscope";
 import PouchDB from "pouchdb";
 import { hashText } from "../hashing";
 import { symbolRepoLocalName } from "../../shared/symbols";
@@ -13,7 +14,7 @@ import { getSummaryWithCachingChain, SummaryRecord } from "./caching";
 interface RefinedSummariesAndFilteredOutNodes {
   refinedFunctionSummaries: Record<string, string>;
   filteredOutNodes: string[];
-  filteredCallTree: Record<string, DefinitionNode>;
+  filteredCallTree: Record<string, CallGraphNode>;
 }
 
 async function summariseCallGraph(
@@ -113,15 +114,20 @@ async function summariseRootScope(
 function getAllDefinitionNodesFromCallGraph(
   graph: CallGraph,
   topLevelFunctionSymbol: string
-): Map<string, DefinitionNode> {
-  const allFunctionNodes: Map<string, DefinitionNode> = new Map();
-  const queue: DefinitionNode[] = [graph.definitionNodes[topLevelFunctionSymbol]];
+): Map<string, CallGraphNode> {
+  const allFunctionNodes: Map<string, CallGraphNode> = new Map();
+  const startNode = graph.nodes.get(topLevelFunctionSymbol);
+  if (!startNode) return allFunctionNodes;
+  const queue: CallGraphNode[] = [startNode];
   while (queue.length > 0) {
     const node = queue.shift()!;
     if (!allFunctionNodes.has(node.symbol)) {
       allFunctionNodes.set(node.symbol, node);
-      node.children.forEach((child) => {
-        queue.push(graph.definitionNodes[child.symbol]);
+      node.calls.forEach((child) => {
+        const childNode = graph.nodes.get(child.symbol);
+        if (childNode) {
+          queue.push(childNode);
+        }
       });
     }
   }
@@ -131,7 +137,7 @@ function getAllDefinitionNodesFromCallGraph(
 async function getFunctionProcessingSteps(
   workDir: vscode.Uri,
   functionCode: Map<string, string>,
-  allFunctionNodes: Map<string, DefinitionNode>,
+  allFunctionNodes: Map<string, CallGraphNode>,
   modelDetails: ModelDetails
 ): Promise<Map<string, string>> {
   function buildProcessingStepsPrompt(symbol: string) {
@@ -182,7 +188,7 @@ async function getFunctionProcessingSteps(
 async function getFunctionBusinessLogic(
   workDir: vscode.Uri,
   summaries: Map<string, string>,
-  allFunctionNodes: Map<string, DefinitionNode>,
+  allFunctionNodes: Map<string, CallGraphNode>,
   modelDetails: ModelDetails,
   domainSummary: string,
   topLevelFunctionSymbol: string,
@@ -253,18 +259,18 @@ async function getFunctionBusinessLogic(
 }
 
 async function getSymbolToFunctionCode(
-  allFunctionNodes: Map<string, DefinitionNode>,
+  allFunctionNodes: Map<string, CallGraphNode>,
   workspacePath: vscode.Uri
 ): Promise<Map<string, string>> {
   const nodeCode: Map<string, string> = new Map();
   await Promise.all(
     Array.from(allFunctionNodes.values()).map(async (n) => {
-      const filePath = `${workspacePath.fsPath}/${n.document}`;
+      const filePath = `${workspacePath.fsPath}/${n.definition.file_path}`;
       const code = await vscode.workspace.fs
         .readFile(vscode.Uri.file(filePath))
         .then((buffer) => new TextDecoder().decode(buffer));
       const codeLines = code.split("\n");
-      const functionLines = codeLines.slice(n.enclosingRange.startLine, n.enclosingRange.endLine);
+      const functionLines = codeLines.slice(n.definition.range.start.row, n.definition.range.end.row);
       nodeCode.set(n.symbol, functionLines.join("\n"));
     })
   );
@@ -305,23 +311,28 @@ function getCallGraphItemsWithFilteredOutFunctions(
   topLevelFunctionSymbol: string,
   filteredOutNodes: string[],
   callGraph: CallGraph
-): Record<string, DefinitionNode> {
-  function copyDefNodeWitoutFilteredOutRefs(node: DefinitionNode): DefinitionNode {
-    const newChildren = node.children.filter((child) => !filteredOutNodes.includes(child.symbol));
+): Record<string, CallGraphNode> {
+  function copyDefNodeWitoutFilteredOutRefs(node: CallGraphNode): CallGraphNode {
+    const newChildren = node.calls.filter((child) => !filteredOutNodes.includes(child.symbol));
     return {
       ...node,
-      children: newChildren,
+      calls: newChildren,
     };
   }
   const visitedNodes = new Set<string>();
-  const callGraphItems: Record<string, DefinitionNode> = {};
-  const queue: DefinitionNode[] = [copyDefNodeWitoutFilteredOutRefs(callGraph.definitionNodes[topLevelFunctionSymbol])];
+  const callGraphItems: Record<string, CallGraphNode> = {};
+  const startNode = callGraph.nodes.get(topLevelFunctionSymbol);
+  if (!startNode) return callGraphItems;
+  const queue: CallGraphNode[] = [copyDefNodeWitoutFilteredOutRefs(startNode)];
   while (queue.length > 0) {
     const node = queue.shift()!;
     if (!filteredOutNodes.includes(node.symbol) && !visitedNodes.has(node.symbol)) {
       callGraphItems[node.symbol] = node;
-      node.children.forEach((child) => {
-        queue.push(copyDefNodeWitoutFilteredOutRefs(callGraph.definitionNodes[child.symbol]));
+      node.calls.forEach((child) => {
+        const childNode = callGraph.nodes.get(child.symbol);
+        if (childNode) {
+          queue.push(copyDefNodeWitoutFilteredOutRefs(childNode));
+        }
       });
       visitedNodes.add(node.symbol);
     }
