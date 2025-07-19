@@ -1,3 +1,6 @@
+# Coding Guidelines
+
+- In Typescript, use snake_case for names (variables, functions, files etc.) except classes, which should be PascalCase.
 
 <!-- BACKLOG.MD GUIDELINES START -->
 # Instructions for the usage of Backlog.md CLI Tool
