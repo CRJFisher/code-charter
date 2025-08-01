@@ -2,9 +2,13 @@
 export * from "./backends";
 export * from "./hooks";
 
-// Main UI component (to be implemented)
-export const CodeCharterUI = () => {
-  return <div>Code Charter UI</div>
-}
+// Export components
+export { CodeCharterUI } from "./components/code_charter_ui";
+export { App } from "./components/App";
 
-export default CodeCharterUI
+// Re-export types that consumers might need
+export type { CodeIndexStatus } from "./components/loading_status";
+
+// Default export
+import { CodeCharterUI } from "./components/code_charter_ui";
+export default CodeCharterUI;
