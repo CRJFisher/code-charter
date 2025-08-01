@@ -1,7 +1,3 @@
-# Coding Guidelines
-
-- In Typescript, adopt the python naming style: use snake_case for names (variables, functions, files etc.) except classes, which should be PascalCase.
-
 <!-- BACKLOG.MD GUIDELINES START -->
 # Instructions for the usage of Backlog.md CLI Tool
 

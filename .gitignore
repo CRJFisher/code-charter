@@ -172,3 +172,7 @@ cython_debug/
 .claude/
 .codex/
 .cursorrules
+
+# Turbo
+.turbo/
+CLAUDE.local.md

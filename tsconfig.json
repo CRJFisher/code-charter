@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@code-charter/ui": ["packages/ui/src"],
+      "@code-charter/ui/*": ["packages/ui/src/*"]
+    }
+  },
+  "references": [
+    { "path": "./packages/ui" },
+    { "path": "./packages/vscode" }
+  ]
+}

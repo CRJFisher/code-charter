@@ -1,5 +1,5 @@
 {
-  "name": "code-charter-vscode",
+  "name": "@code-charter/vscode",
   "displayName": "Code Charter",
   "description": "",
   "version": "0.0.1",
@@ -44,11 +44,15 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p ./",
     "compile": "tsc -p ./",
+    "dev": "tsc -watch -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf out"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
