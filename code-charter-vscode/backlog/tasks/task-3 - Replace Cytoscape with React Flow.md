@@ -1,5 +1,10 @@
 # task-3 - Replace Cytoscape visualisation library with React Flow
 
+## N.B
+
+- this task should be done after ../backlog/tasks/task-6-Extract-web-component-into-standalone-@code-charter-ui-package.md is complete.
+- (as a sub-task and extension of existing functionality, we also want to render code flow charts - this might involve some changes to @ariadne/core in order to detect control flow)
+
 ## Description (the why)
 
 The current front-end graph visualisation is implemented with **Cytoscape.js**.  
