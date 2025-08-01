@@ -1,6 +1,4 @@
 import React, { useState } from "react";
-import { AiOutlineMenu } from "react-icons/ai";
-import { MdKeyboardDoubleArrowLeft, MdSettings } from "react-icons/md";
 import TextOverflow from "react-text-overflow";
 import { useBackend } from "../hooks/use_backend";
 import type { CallGraph, CallGraphNode } from "@code-charter/types";
@@ -54,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
         <div className="flex items-center p-2 bg-vscodeBg">
           <div className="flex-grow">
             <button onClick={toggle_sidebar} className="p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none">
-              {is_sidebar_open ? <MdKeyboardDoubleArrowLeft size={20} /> : <AiOutlineMenu size={20} />}
+              {is_sidebar_open ? '◀' : '☰'}
             </button>
           </div>
           {is_sidebar_open && (
@@ -62,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
               onClick={toggle_sidebar}
               className="ml-auto p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none"
             >
-              <MdSettings size={20} />
+              ⚙️
             </button>
           )}
         </div>

@@ -8,6 +8,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { getClusterDescriptions } from "./summarise/summariseClusters";
 import { CallGraph, get_call_graph } from "@ariadnejs/core";
 import { TreeAndContextSummaries } from "@shared/codeGraph";
+import { getWebviewContent } from "./webview_template";
 
 const extensionFolder = ".code-charter";
 
@@ -64,67 +65,8 @@ async function showWebviewDiagram(
     webviewColumn = panel.viewColumn;
   });
 
-  const scriptSrc = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, "web", "dist", "bundle.js"));
-
   const colorCustomizations = vscode.workspace.getConfiguration().get("workbench.colorCustomizations") || {};
-
-  const editorColors = `
-  --vscode-editor-background: ${colorCustomizations["editor.background"] || "#1e1e1e"};
-  --vscode-editor-foreground: ${colorCustomizations["editor.foreground"] || "#d4d4d4"};
-  --vscode-editor-selectionBackground: ${colorCustomizations["editor.selectionBackground"] || "#264f78"};
-  --vscode-editor-selectionForeground: ${colorCustomizations["editor.selectionForeground"] || "#ffffff"};
-  --vscode-editor-lineHighlightBackground: ${colorCustomizations["editor.lineHighlightBackground"] || "#2b2b2b"};
-  --vscode-editor-inactiveSelectionBackground: ${
-    colorCustomizations["editor.inactiveSelectionBackground"] || "#3a3d41"
-  };
-  --vscode-editor-widget-border: ${colorCustomizations["editorWidget.border"] || "#454545"};
-  --vscode-editorLineNumber-foreground: ${colorCustomizations["editorLineNumber.foreground"] || "#858585"};
-  --vscode-editorLineNumber-activeForeground: ${colorCustomizations["editorLineNumber.activeForeground"] || "#c6c6c6"};
-  --vscode-gutter-background: ${colorCustomizations["gutter.background"] || "#252526"};
-  --vscode-gutter-border: ${colorCustomizations["gutter.border"] || "#454545"};
-  --vscode-editor-rulerForeground: ${colorCustomizations["editorRuler.foreground"] || "#5a5a5a"};
-  --vscode-editorCursor-foreground: ${colorCustomizations["editorCursor.foreground"] || "#aeafad"};
-  --vscode-editorWhitespace-foreground: ${colorCustomizations["editorWhitespace.foreground"] || "#3b3a32"};
-  --vscode-editorComments-foreground: ${colorCustomizations["editorComments.foreground"] || "#6a9955"};
-  --vscode-editor-selectionHighlightBackground: ${
-    colorCustomizations["editor.selectionHighlightBackground"] || "#add6ff26"
-  };
-  --vscode-editorHoverHighlight-background: ${colorCustomizations["editorHoverHighlight.background"] || "#264f78"};
-  --vscode-editor-findMatchHighlightBackground: ${
-    colorCustomizations["editor.findMatchHighlightBackground"] || "#ffd33d44"
-  };
-  --vscode-editor-findMatchBackground: ${colorCustomizations["editor.findMatchBackground"] || "#ffd33d22"};
-  --vscode-editorBracketMatch-background: ${colorCustomizations["editorBracketMatch.background"] || "#a0a0a0"};
-  --vscode-editorBracketMatch-border: ${colorCustomizations["editorBracketMatch.border"] || "#555555"};
-  --vscode-editorOverviewRuler-border: ${colorCustomizations["editorOverviewRuler.border"] || "#282828"};
-  --vscode-editorOverviewRuler-background: ${colorCustomizations["editorOverviewRuler.background"] || "#1e1e1e"};
-  --vscode-editor-keyword-foreground: ${colorCustomizations["editor.keyword.foreground"] || "#569cd6"};
-  --vscode-editor-function-foreground: ${colorCustomizations["editor.function.foreground"] || "#dcdcaa"};
-  --vscode-editor-variable-foreground: ${colorCustomizations["editor.variable.foreground"] || "#9cdcfe"};
-  --vscode-editor-string-foreground: ${colorCustomizations["editor.string.foreground"] || "#ce9178"};
-  --vscode-editor-number-foreground: ${colorCustomizations["editor.number.foreground"] || "#b5cea8"};
-  --vscode-editor-boolean-foreground: ${colorCustomizations["editor.boolean.foreground"] || "#569cd6"};
-  --vscode-editor-constant-foreground: ${colorCustomizations["editor.constant.foreground"] || "#4ec9b0"};
-  --vscode-editor-type-foreground: ${colorCustomizations["editor.type.foreground"] || "#4ec9b0"};
-  --vscode-editor-operator-foreground: ${colorCustomizations["editor.operator.foreground"] || "#d4d4d4"};
-  --vscode-editor-comment-foreground: ${colorCustomizations["editor.comment.foreground"] || "#6a9955"};
-`;
-  const htmlContent = `<!DOCTYPE html>
-        <html lang="en">
-          <head>
-		  <style>
-			:root {
-			${editorColors}
-			}
-		</style>
-          </head>
-          <body>
-            <noscript>You need to enable JavaScript to run this app.</noscript>
-            <div id="root"></div>
-            <script src="${scriptSrc}"></script>
-          </body>
-        </html>
-        `;
+  const htmlContent = getWebviewContent(panel.webview, context.extensionUri, colorCustomizations);
 
   let callGraph: CallGraph | undefined;
   let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};

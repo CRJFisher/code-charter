@@ -23,7 +23,6 @@ Create a theme system that works with VSCode CSS variables in webview context an
 - [x] Theme switching functionality in standalone mode
 - [x] All components properly styled in all contexts
 
-
 ## Implementation Plan
 
 1. Create theme provider interface and types
@@ -33,6 +32,7 @@ Create a theme system that works with VSCode CSS variables in webview context an
 5. Add theme switching UI for standalone mode
 6. Update all components to use theme system
 7. Test in both VSCode and standalone contexts
+
 ## Technical Details
 
 ### Current Theme Implementation
