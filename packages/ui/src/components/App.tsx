@@ -5,6 +5,7 @@ import { CodeChartArea } from "./code_chart_area/code_chart_area_simple";
 import { useBackend } from "../hooks/use_backend";
 import { TreeAndContextSummaries, NodeGroup, CallGraph, CallGraphNode } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
+import { ThemeSwitcher } from "../theme";
 
 async function detect_entry_points(
   backend: any,
@@ -49,9 +50,10 @@ async function fetch_summaries(
 
 export interface AppProps {
   className?: string;
+  forceStandalone?: boolean; // For testing standalone mode
 }
 
-export const App: React.FC<AppProps> = ({ className = "" }) => {
+export const App: React.FC<AppProps> = ({ className = "", forceStandalone = false }) => {
   const { backend, isConnected } = useBackend();
   const [call_graph, set_call_graph] = useState<CallGraph | null>(null);
   const [selected_entry_point, set_selected_entry_point] = useState<CallGraphNode | null>(null);
@@ -82,7 +84,11 @@ export const App: React.FC<AppProps> = ({ className = "" }) => {
 
   return (
     <div className={`flex flex-col h-screen bg-vscodeBg text-vscodeFg ${className}`}>
-      <div className="flex flex-1 overflow-hidden border-t border-vscodeBorder">
+      <div className="flex items-center justify-between p-2 border-b border-vscodeBorder">
+        <h1 className="text-lg font-semibold">Code Charter</h1>
+        <ThemeSwitcher />
+      </div>
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar
           call_graph={call_graph || { nodes: new Map(), top_level_nodes: [], edges: [] }}
           on_select={set_selected_entry_point}

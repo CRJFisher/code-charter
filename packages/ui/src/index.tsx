@@ -5,6 +5,11 @@ export * from "./hooks";
 // Export components
 export { CodeCharterUI } from "./components/code_charter_ui";
 export { App } from "./components/App";
+export { ThemedApp } from "./components/themed_app";
+export type { ThemedAppProps } from "./components/themed_app";
+
+// Export theme functionality
+export * from "./theme";
 
 // Re-export types that consumers might need
 export type { CodeIndexStatus } from "./components/loading_status";

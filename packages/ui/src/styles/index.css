@@ -6,43 +6,13 @@ body {
   @apply p-0;
 }
 
+/* Theme variables will be set dynamically by the theme provider */
+/* These are just fallback values in case CSS variables are not set */
 :root {
-  /* General Editor Colors */
+  /* Fallback to dark theme colors */
   --vscode-editor-background: #1e1e1e;
   --vscode-editor-foreground: #d4d4d4;
-  --vscode-editor-selectionBackground: #264f78;
-  --vscode-editor-selectionForeground: #ffffff;
-  --vscode-editor-lineHighlightBackground: #2b2b2b;
-  --vscode-editor-inactiveSelectionBackground: #3a3d41;
-  --vscode-editor-widget-border: #454545;
-  --vscode-editorLineNumber-foreground: #858585;
-  --vscode-editorLineNumber-activeForeground: #c6c6c6;
-  --vscode-gutter-background: #252526;
-  --vscode-gutter-border: #454545;
-  --vscode-editor-rulerForeground: #5a5a5a;
-  --vscode-editorCursor-foreground: #aeafad;
-  --vscode-editorWhitespace-foreground: #3b3a32;
-  --vscode-editorComments-foreground: #6a9955;
-  --vscode-editor-selectionHighlightBackground: #add6ff26;
-  --vscode-editorHoverHighlight-background: #264f78;
-  --vscode-editor-findMatchHighlightBackground: #ffd33d44;
-  --vscode-editor-findMatchBackground: #ffd33d22;
-  --vscode-editorBracketMatch-background: #a0a0a0;
-  --vscode-editorBracketMatch-border: #555555;
-  --vscode-editorOverviewRuler-border: #282828;
-  --vscode-editorOverviewRuler-background: #1e1e1e;
-
-  /* Syntax Highlighting Colors */
-  --vscode-editor-keyword-foreground: #569cd6; /* Keywords */
-  --vscode-editor-function-foreground: #dcdcaa; /* Functions */
-  --vscode-editor-variable-foreground: #9cdcfe; /* Variables */
-  --vscode-editor-string-foreground: #ce9178; /* Strings */
-  --vscode-editor-number-foreground: #b5cea8; /* Numbers */
-  --vscode-editor-boolean-foreground: #569cd6; /* Booleans */
-  --vscode-editor-constant-foreground: #4ec9b0; /* Constants */
-  --vscode-editor-type-foreground: #4ec9b0; /* Types */
-  --vscode-editor-operator-foreground: #d4d4d4; /* Operators */
-  --vscode-editor-comment-foreground: #6a9955; /* Comments */
+  --vscode-panel-border: #454545;
 }
 
 body {
