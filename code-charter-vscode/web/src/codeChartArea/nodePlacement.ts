@@ -1,5 +1,5 @@
 import { FcoseRelativePlacementConstraint } from "cytoscape-fcose";
-import { CallGraphNode } from "refscope-types";
+import { CallGraphNode } from "@ariadnejs/core";
 import type { NodeGroup, TreeAndContextSummaries } from "../vscodeApi";
 import { symbolDisplayName } from "../../../shared/symbols";
 

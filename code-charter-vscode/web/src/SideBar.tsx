@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CallGraph, CallGraphNode } from "refscope-types";
+import { CallGraph, CallGraphNode } from "@ariadnejs/core";
 import { countNodes } from "../../shared/codeGraph";
 import { symbolDisplayName } from "../../shared/symbols";
 import { AiOutlineMenu } from "react-icons/ai";
@@ -13,7 +13,6 @@ interface SidebarProps {
   selectedNode: CallGraphNode | null;
   onSelect: (entryPoint: CallGraphNode) => void;
   areNodeSummariesLoading: (nodeSymbol: string) => boolean;
-
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, areNodeSummariesLoading }) => {
@@ -42,7 +41,10 @@ const Sidebar: React.FC<SidebarProps> = ({ callGraph, onSelect, selectedNode, ar
             </button>
           </div>
           {isSidebarOpen && (
-            <button onClick={toggleSidebar} className="ml-auto p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none">
+            <button
+              onClick={toggleSidebar}
+              className="ml-auto p-1 bg-vscodeFg text-vscodeBg rounded-full focus:outline-none"
+            >
               <MdSettings size={20} />
             </button>
           )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CallGraphNode } from "refscope-types";
+import { CallGraphNode } from "@ariadnejs/core";
 import type { NodeGroup, TreeAndContextSummaries } from "../vscodeApi";
 import { navigateToDoc } from "../vscodeApi";
 

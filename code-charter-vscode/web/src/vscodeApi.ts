@@ -1,4 +1,4 @@
-import { CallGraph, CallGraphNode } from 'refscope-types';
+import { CallGraph, CallGraphNode } from "@ariadnejs/core";
 
 // Local types
 export interface TreeAndContextSummaries {
@@ -14,84 +14,85 @@ export interface NodeGroup {
 }
 
 interface VsCodeApi {
-    postMessage(message: any): void;
-    // Add other methods and properties as needed
+  postMessage(message: any): void;
+  // Add other methods and properties as needed
 }
 declare function acquireVsCodeApi(): VsCodeApi;
 const vscode = acquireVsCodeApi();
 
 // Define a type for the response messages
 type ResponseMessage = {
-    id: string;
-    command: string;
-    data?: any;
-    [key: string]: any;
+  id: string;
+  command: string;
+  data?: any;
+  [key: string]: any;
 };
 
 const messageQueue: Map<string, (response: ResponseMessage) => void> = new Map();
 
-window.addEventListener('message', (event) => {
-    const message: ResponseMessage = event.data;
-    const { id } = message;
+window.addEventListener("message", (event) => {
+  const message: ResponseMessage = event.data;
+  const { id } = message;
 
-    if (messageQueue.has(id)) {
-        const resolve = messageQueue.get(id)!;
-        resolve(message);
-        messageQueue.delete(id);
-    } else {
-        // console.error('Message not handled:', message);
-    }
+  if (messageQueue.has(id)) {
+    const resolve = messageQueue.get(id)!;
+    resolve(message);
+    messageQueue.delete(id);
+  } else {
+    // console.error('Message not handled:', message);
+  }
 });
 
 function sendMessageWithResponse(command: string, payload: any = {}): Promise<ResponseMessage> {
-    return new Promise((resolve) => {
-        const messageId = Math.random().toString(36).substring(7);
-        messageQueue.set(messageId, resolve);
-        vscode.postMessage({ id: messageId, command, ...payload });
-    });
+  return new Promise((resolve) => {
+    const messageId = Math.random().toString(36).substring(7);
+    messageQueue.set(messageId, resolve);
+    vscode.postMessage({ id: messageId, command, ...payload });
+  });
 }
 
 // TODO: create a Stream version of this using RxJS
 
-
 async function clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
-    try {
-        const response = await sendMessageWithResponse('clusterCodeTree', {topLevelFunctionSymbol});
-        return response.data;
-    } catch (error) {
-        console.error('Error clustering:', error);
-        return [];
-    }
+  try {
+    const response = await sendMessageWithResponse("clusterCodeTree", { topLevelFunctionSymbol });
+    return response.data;
+  } catch (error) {
+    console.error("Error clustering:", error);
+    return [];
+  }
 }
 
 async function getCallGraph(): Promise<CallGraph | undefined> {
-    try {
-        const response = await sendMessageWithResponse('getCallGraph');
-        return response.data;
-    } catch (error) {
-        console.error('Error getting call graph:', error);
-    }
+  try {
+    const response = await sendMessageWithResponse("getCallGraph");
+    return response.data;
+  } catch (error) {
+    console.error("Error getting call graph:", error);
+  }
 }
 
 async function summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
-    try {
-        const response = await sendMessageWithResponse('summariseCodeTree', { topLevelFunctionSymbol });
-        return response.data;
-    } catch (error) {
-        console.error('Error summarising code tree:', error);
-    }
+  try {
+    const response = await sendMessageWithResponse("summariseCodeTree", { topLevelFunctionSymbol });
+    return response.data;
+  } catch (error) {
+    console.error("Error summarising code tree:", error);
+  }
 }
 
 async function navigateToDoc(relativeDocPath: string, lineNumber: number) {
-    try {
-        const response = await sendMessageWithResponse('navigateToDoc', { relativeDocPath, lineNumber });
-        const { data: { success } } = response;
-        if (!success) {
-            console.error('Error navigating to document:', response.message);
-        }
-    } catch (error) {
-        console.error('Error navigating to document:', error);
+  try {
+    const response = await sendMessageWithResponse("navigateToDoc", { relativeDocPath, lineNumber });
+    const {
+      data: { success },
+    } = response;
+    if (!success) {
+      console.error("Error navigating to document:", response.message);
     }
+  } catch (error) {
+    console.error("Error navigating to document:", error);
+  }
 }
 
 // async function runCommand(command: string): Promise<string> {
@@ -211,18 +212,18 @@ async function navigateToDoc(relativeDocPath: string, lineNumber: number) {
 // }
 
 export {
-    // readFile,
-    // writeFile,
-    // doesFileExist,
-    // getExtensionFilePaths,
-    // getWorkspaceDirs,
-    // getFilesAtPath,
-    // getBottomLevelFolder,
-    // runCommand,
-    // getFileVersionHash,
-    // getPythonPath,
-    getCallGraph,
-    summariseCodeTree,
-    navigateToDoc,
-    clusterCodeTree,
+  // readFile,
+  // writeFile,
+  // doesFileExist,
+  // getExtensionFilePaths,
+  // getWorkspaceDirs,
+  // getFilesAtPath,
+  // getBottomLevelFolder,
+  // runCommand,
+  // getFileVersionHash,
+  // getPythonPath,
+  getCallGraph,
+  summariseCodeTree,
+  navigateToDoc,
+  clusterCodeTree,
 };

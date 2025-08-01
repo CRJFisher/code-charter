@@ -3,7 +3,7 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { Runnable, RunnableMap, RunnableConfig } from "@langchain/core/runnables";
 import { TreeAndContextSummaries, CallGraph } from "@shared/codeGraph";
-import { CallGraphNode } from "refscope";
+import { CallGraphNode } from "@ariadnejs/core";
 import PouchDB from "pouchdb";
 import { hashText } from "../hashing";
 import { symbolRepoLocalName } from "../../shared/symbols";

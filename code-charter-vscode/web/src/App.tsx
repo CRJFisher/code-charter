@@ -3,12 +3,8 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Sidebar from "./SideBar";
 import { CodeChartArea } from "./codeChartArea/CodeChartArea";
-import {
-  clusterCodeTree as clusterAndSummariseCodeTree,
-  getCallGraph,
-  summariseCodeTree,
-} from "./vscodeApi";
-import { CallGraph, CallGraphNode } from "refscope-types";
+import { clusterCodeTree as clusterAndSummariseCodeTree, getCallGraph, summariseCodeTree } from "./vscodeApi";
+import { CallGraph, CallGraphNode } from "@ariadnejs/core";
 
 // Import local types from vscodeApi where they are now defined
 import type { NodeGroup, TreeAndContextSummaries } from "./vscodeApi";

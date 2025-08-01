@@ -6,7 +6,7 @@ import { ModelDetails, ModelProvider } from "./model";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { getClusterDescriptions } from "./summarise/summariseClusters";
-import { CallGraph, get_call_graph } from "refscope";
+import { CallGraph, get_call_graph } from "@ariadnejs/core";
 import { TreeAndContextSummaries } from "@shared/codeGraph";
 
 const extensionFolder = ".code-charter";
@@ -138,15 +138,18 @@ async function showWebviewDiagram(
         getCallGraph: async () => {
           // Use the first workspace folder directly
           const workspacePath = workspaceFolders[0].uri.fsPath;
-          callGraph = await get_call_graph(workspacePath, {
+          callGraph = get_call_graph(workspacePath, {
             include_external: false,
             file_filter: (path) => {
               // Filter out test files and common non-source directories
-              return !path.includes('test') && 
-                     !path.includes('node_modules') && 
-                     !path.includes('__pycache__') &&
-                     !path.includes('.git');
-            }
+              // TODO: do filtering with ariadnejs/core, not here
+              return (
+                !path.includes("test") &&
+                !path.includes("node_modules") &&
+                !path.includes("__pycache__") &&
+                !path.includes(".git")
+              );
+            },
           });
           if (!callGraph) {
             throw new Error("Call graph not found");
