@@ -8,9 +8,12 @@ export function getWebviewContent(
   extensionUri: vscode.Uri,
   colorCustomizations: any
 ): string {
-  // For now, we'll use the existing web bundle until we configure proper standalone builds
+  // Load the standalone UI build
   const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'web', 'dist', 'bundle.js')
+    vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.global.js')
+  );
+  const styleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.css')
   );
 
   // Generate CSS variables for VSCode theme colors
@@ -25,6 +28,7 @@ export function getWebviewContent(
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+      <link href="${styleUri}" rel="stylesheet">
       <title>Code Charter</title>
       <style>
         :root {
@@ -43,6 +47,12 @@ export function getWebviewContent(
     <body>
       <div id="root"></div>
       <script nonce="${nonce}" src="${scriptUri}"></script>
+      <script nonce="${nonce}">
+        // Initialize the UI
+        if (window.CodeCharterUI) {
+          window.CodeCharterUI.init();
+        }
+      </script>
     </body>
     </html>`;
 }

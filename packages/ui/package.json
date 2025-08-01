@@ -10,7 +10,10 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:lib": "tsup --config tsup.config.ts --no-config",
+    "build:standalone": "tsup --config tsup.config.ts --no-config",
     "dev": "tsup --watch",
+    "dev:standalone": "NODE_ENV=development tsup --watch",
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
@@ -22,8 +25,7 @@
     "cytoscape-fcose": "^2.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-icons": "^4.11.0",
-    "react-text-overflow": "^1.0.2"
+    "react-icons": "^4.11.0"
   },
   "devDependencies": {
     "@types/cytoscape": "^3.19.0",

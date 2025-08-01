@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import TextOverflow from "react-text-overflow";
 import { useBackend } from "../hooks/use_backend";
 import type { CallGraph, CallGraphNode } from "@code-charter/types";
 
@@ -122,7 +121,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
             onClick={() => on_click_item(node)}
           >
             <div className="flex flex-wrap">
-              <TextOverflow text={display_name} truncatePosition="start" />
+              <span className="truncate" title={display_name}>{display_name}</span>
             </div>
             <div className="flex items-center text-xs text-vscodeLineNumber h-5">
               {is_loading ? (

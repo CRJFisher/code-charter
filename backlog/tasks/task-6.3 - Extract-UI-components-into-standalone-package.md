@@ -1,7 +1,7 @@
 ---
 id: task-6.3
 title: Extract UI components into standalone package
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2025-08-01'
