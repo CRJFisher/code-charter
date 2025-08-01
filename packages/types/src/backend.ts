@@ -1,11 +1,12 @@
+import type { CallGraph, CallGraphNode } from "@ariadnejs/types";
+
 /**
  * Represents a summary of a code tree with function-level details
- * Note: CallGraphNode is from @ariadnejs/core
  */
 export interface TreeAndContextSummaries {
   functionSummaries: Record<string, string>;
   refinedFunctionSummaries: Record<string, string>;
-  callTreeWithFilteredOutNodes: Record<string, any>; // CallGraphNode from ariadnejs/core
+  callTreeWithFilteredOutNodes: Record<string, CallGraphNode>;
   contextSummary: string;
 }
 
@@ -57,7 +58,7 @@ export interface CodeCharterBackend {
   /**
    * Get the call graph for the current project
    */
-  getCallGraph(): Promise<any | undefined>; // CallGraph from @ariadnejs/core
+  getCallGraph(): Promise<CallGraph | undefined>;
 
   /**
    * Cluster code tree nodes into logical groups

@@ -3,12 +3,8 @@ import "./App.css";
 import Sidebar from "./side_bar";
 import { CodeChartArea } from "./code_chart_area/code_chart_area_simple";
 import { useBackend } from "../hooks/use_backend";
-import { TreeAndContextSummaries, NodeGroup } from "../backends/types";
+import { TreeAndContextSummaries, NodeGroup, CallGraph, CallGraphNode } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
-
-// Note: CallGraph and CallGraphNode types from ariadnejs/core
-type CallGraph = any;
-type CallGraphNode = any;
 
 async function detect_entry_points(
   backend: any,

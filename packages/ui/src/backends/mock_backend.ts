@@ -1,11 +1,12 @@
-import { CallGraph } from "@ariadnejs/core";
 import {
   CodeCharterBackend,
   BackendState,
   ConnectionStatus,
   NodeGroup,
-  TreeAndContextSummaries
-} from "./types";
+  TreeAndContextSummaries,
+  CallGraph,
+  CallGraphNode
+} from "@code-charter/types";
 
 /**
  * Mock backend implementation for testing and demos
@@ -31,55 +32,58 @@ export class MockBackend implements CodeCharterBackend {
     this.updateState({ status: ConnectionStatus.DISCONNECTED });
   }
 
-  async getCallGraph(): Promise<any | undefined> {
+  async getCallGraph(): Promise<CallGraph | undefined> {
     // Return a sample call graph with correct types
     const nodes = new Map();
     
     // Create nodes with the correct structure
-    const mainNode = {
+    const mainNode: CallGraphNode = {
+      symbol: "main.ts:main",
       definition: {
         symbol: "main.ts:main",
         name: "main",
         file_path: "main.ts",
         range: { start: { row: 0, column: 0 }, end: { row: 9, column: 0 } }
-      },
-      references: [],
+      } as any,
+      calls: [
+        {
+          symbol: "utils.ts:processData",
+          location: { start: { row: 4, column: 0 }, end: { row: 4, column: 20 } }
+        } as any,
+        {
+          symbol: "api.ts:fetchData",
+          location: { start: { row: 5, column: 0 }, end: { row: 5, column: 15 } }
+        } as any
+      ],
       called_by: []
     };
     
-    const processDataNode = {
+    const processDataNode: CallGraphNode = {
+      symbol: "utils.ts:processData",
       definition: {
         symbol: "utils.ts:processData",
         name: "processData",
         file_path: "utils.ts",
         range: { start: { row: 9, column: 0 }, end: { row: 19, column: 0 } }
-      },
-      references: [
+      } as any,
+      calls: [
         {
-          symbol: "main.ts:main",
-          location: { path: "main.ts", range: { start: { row: 4, column: 0 }, end: { row: 4, column: 20 } } }
-        }
+          symbol: "api.ts:fetchData",
+          location: { start: { row: 14, column: 0 }, end: { row: 14, column: 15 } }
+        } as any
       ],
       called_by: ["main.ts:main"]
     };
     
-    const fetchDataNode = {
+    const fetchDataNode: CallGraphNode = {
+      symbol: "api.ts:fetchData",
       definition: {
         symbol: "api.ts:fetchData",
         name: "fetchData",
         file_path: "api.ts",
         range: { start: { row: 4, column: 0 }, end: { row: 14, column: 0 } }
-      },
-      references: [
-        {
-          symbol: "main.ts:main",
-          location: { path: "main.ts", range: { start: { row: 5, column: 0 }, end: { row: 5, column: 15 } } }
-        },
-        {
-          symbol: "utils.ts:processData",
-          location: { path: "utils.ts", range: { start: { row: 14, column: 0 }, end: { row: 14, column: 15 } } }
-        }
-      ],
+      } as any,
+      calls: [],
       called_by: ["main.ts:main", "utils.ts:processData"]
     };
 
@@ -133,11 +137,16 @@ export class MockBackend implements CodeCharterBackend {
   async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
     // Return sample summaries
     // Create a mock node that matches the CallGraphNode structure
-    const mockNode: any = {
+    const mockNode: CallGraphNode = {
       symbol: topLevelFunctionSymbol,
+      definition: {
+        symbol: topLevelFunctionSymbol,
+        name: topLevelFunctionSymbol.split(':').pop() || topLevelFunctionSymbol,
+        file_path: "main.ts",
+        range: { start: { row: 0, column: 0 }, end: { row: 10, column: 0 } }
+      } as any,
       calls: [],
-      location: { path: "main.ts", line: 1 },
-      file_path: "main.ts"
+      called_by: []
     };
 
     return {

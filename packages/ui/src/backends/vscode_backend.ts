@@ -3,8 +3,9 @@ import {
   BackendState,
   ConnectionStatus,
   NodeGroup,
-  TreeAndContextSummaries
-} from "./types";
+  TreeAndContextSummaries,
+  CallGraph
+} from "@code-charter/types";
 
 interface VsCodeApi {
   postMessage(message: any): void;
@@ -79,7 +80,7 @@ export class VSCodeBackend implements CodeCharterBackend {
     this.updateState({ status: ConnectionStatus.DISCONNECTED });
   }
 
-  async getCallGraph(): Promise<any | undefined> {
+  async getCallGraph(): Promise<CallGraph | undefined> {
     try {
       const response = await this.sendMessageWithResponse("getCallGraph");
       return response.data;

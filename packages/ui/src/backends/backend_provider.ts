@@ -1,4 +1,4 @@
-import { CodeCharterBackend } from "./types";
+import { CodeCharterBackend } from "@code-charter/types";
 import { VSCodeBackend } from "./vscode_backend";
 import { MockBackend } from "./mock_backend";
 

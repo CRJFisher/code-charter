@@ -3,10 +3,7 @@ import { AiOutlineMenu } from "react-icons/ai";
 import { MdKeyboardDoubleArrowLeft, MdSettings } from "react-icons/md";
 import TextOverflow from "react-text-overflow";
 import { useBackend } from "../hooks/use_backend";
-
-// Types from ariadnejs/core
-type CallGraph = any;
-type CallGraphNode = any;
+import type { CallGraph, CallGraphNode } from "@code-charter/types";
 
 // TODO: Move these utilities to a shared location
 function count_nodes(top_level_node: string, graph: CallGraph, visited_nodes: Set<string> = new Set<string>()): number {

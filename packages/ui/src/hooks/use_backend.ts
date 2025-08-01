@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { 
   CodeCharterBackend, 
   BackendState, 
-  ConnectionStatus,
+  ConnectionStatus
+} from "@code-charter/types";
+import {
   BackendProvider,
   BackendConfig
 } from "../backends";

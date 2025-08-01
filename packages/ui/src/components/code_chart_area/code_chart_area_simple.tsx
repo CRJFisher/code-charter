@@ -1,9 +1,6 @@
 import React from "react";
-import { TreeAndContextSummaries, NodeGroup } from "../../backends/types";
+import { TreeAndContextSummaries, NodeGroup, CallGraphNode } from "@code-charter/types";
 import { CodeIndexStatus } from "../loading_status";
-
-// Simplified types for now
-type CallGraphNode = any;
 
 interface CodeChartAreaProps {
   selected_entry_point: CallGraphNode | null;

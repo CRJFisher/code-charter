@@ -24,11 +24,13 @@ Create a theme system that works with VSCode CSS variables in webview context an
 ## Technical Details
 
 ### Current Theme Implementation
+
 - Uses VSCode CSS variables (--vscode-editor-*) throughout
 - Tailwind config references these variables for consistency
 - colorTheme.ts reads CSS variables at runtime
 
 ### Required Abstraction
+
 - Theme provider that can switch between:
   - VSCode CSS variables when in webview
   - Custom theme implementation for standalone
