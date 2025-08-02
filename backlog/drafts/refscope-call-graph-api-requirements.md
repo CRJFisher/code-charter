@@ -1,14 +1,14 @@
-# RefScope Call Graph API Requirements
+# Ariadne Call Graph API Requirements
 
 ## Overview
 
-This document outlines the proposed API additions to RefScope to support native call graph analysis. These additions would enable RefScope to provide call graph functionality as a core feature, benefiting both the Code Charter VSCode extension and the broader RefScope ecosystem.
+This document outlines the proposed API additions to Ariadne to support native call graph analysis. These additions would enable Ariadne to provide call graph functionality as a core feature, benefiting both the Code Charter VSCode extension and the broader Ariadne ecosystem.
 
 ## Motivation
 
-Currently, Code Charter relies on a Docker-based SCIP parser and Golang call graph detector. To eliminate the Docker dependency and provide native TypeScript execution, we need RefScope to expose call graph analysis capabilities. Rather than implementing this in each consumer, adding it to RefScope provides:
+Currently, Code Charter relies on a Docker-based SCIP parser and Golang call graph detector. To eliminate the Docker dependency and provide native TypeScript execution, we need Ariadne to expose call graph analysis capabilities. Rather than implementing this in each consumer, adding it to Ariadne provides:
 
-- **Reusability**: Common functionality available to all RefScope users
+- **Reusability**: Common functionality available to all Ariadne users
 - **Performance**: Direct access to AST and symbol information already in memory
 - **Consistency**: Uniform call graph quality across all supported languages
 - **Maintenance**: Analysis logic stays close to parsing logic
@@ -105,9 +105,9 @@ interface CallGraphEdge {
 
 ## Data Type Recommendations
 
-### 1. Align with RefScope's Existing Types
+### 1. Align with Ariadne's Existing Types
 
-Use RefScope's existing `Range`, `Position`, and file path conventions for consistency.
+Use Ariadne's existing `Range`, `Position`, and file path conventions for consistency.
 
 ### 2. Symbol Naming Convention
 
@@ -148,14 +148,14 @@ Different languages may require different approaches:
 
 ## Migration Path for Code Charter
 
-1. **Phase 1**: Implement basic APIs in RefScope
+1. **Phase 1**: Implement basic APIs in Ariadne
    - `get_definitions()`
    - `get_calls_from_definition()`
 2. **Phase 2**: Add high-level call graph API
    - `get_call_graph()`
 3. **Phase 3**: Update Code Charter to use new APIs
    - Replace Docker-based SCIP/Golang solution
-   - Adapt data structures to match RefScope format
+   - Adapt data structures to match Ariadne format
 4. **Phase 4**: Remove legacy code
    - Delete Docker dependencies
    - Remove SCIP parsing code
@@ -173,7 +173,7 @@ These APIs would enable:
 
 ## Open Questions
 
-1. Should RefScope provide visualization helpers or just raw graph data?
+1. Should Ariadne provide visualization helpers or just raw graph data?
 2. How should external/library calls be represented?
 3. Should the API support streaming for large graphs?
 4. What caching strategy should be used for call graphs?

@@ -13,7 +13,7 @@ parent_task_id: task-1.1
 
 ## Description
 
-The ProjectEnvironment abstraction was needed for the old SCIP parser to access device-specific environments (e.g., Python virtual environments). With refscope using tree-sitter, we parse code statically and don't need environment detection. Remove all ProjectEnvironment-related code and simplify the API.
+The ProjectEnvironment abstraction was needed for the old SCIP parser to access device-specific environments (e.g., Python virtual environments). With ariadne using tree-sitter, we parse code statically and don't need environment detection. Remove all ProjectEnvironment-related code and simplify the API.
 
 ## Acceptance Criteria
 
@@ -72,4 +72,4 @@ The ProjectEnvironment abstraction was needed for the old SCIP parser to access 
 ### Note
 
 - There are TypeScript compilation errors in the summarization code that expects the old CallGraph structure
-- These will be addressed in task 1.1.2 when migrating to refscope types
+- These will be addressed in task 1.1.2 when migrating to ariadne types

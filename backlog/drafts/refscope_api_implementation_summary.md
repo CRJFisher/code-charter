@@ -1,6 +1,6 @@
-# RefScope API Implementation Summary
+# Ariadne API Implementation Summary
 
-This document summarizes the API enhancements implemented in RefScope based on the Code Charter enhancement proposal, detailing what was built and confirming the API signatures.
+This document summarizes the API enhancements implemented in Ariadne based on the Code Charter enhancement proposal, detailing what was built and confirming the API signatures.
 
 ## Overview
 
@@ -11,12 +11,14 @@ All six proposed API enhancements from the Code Charter proposal have been succe
 ### 1. Public Access to ScopeGraph ✅ (Task 17)
 
 **Proposed API:**
+
 ```typescript
 get_scope_graph(file_path: string): ScopeGraph | null;
 get_all_scope_graphs(): Map<string, ScopeGraph>;
 ```
 
 **Implemented API:** ✅ Exactly as proposed
+
 ```typescript
 class Project {
     get_scope_graph(file_path: string): ScopeGraph | null;
@@ -25,6 +27,7 @@ class Project {
 ```
 
 **Key Features:**
+
 - Returns null for non-existent files
 - Returns a copy of the map to prevent external modifications
 - ScopeGraph class exported from public API
@@ -33,12 +36,14 @@ class Project {
 ### 2. Function-Focused Definition Discovery ✅ (Task 18)
 
 **Proposed API:**
+
 ```typescript
 get_functions_in_file(file_path: string): Def[];
 get_all_functions(options?: {...}): Map<string, Def[]>;
 ```
 
 **Implemented API:** ✅ Exactly as proposed
+
 ```typescript
 class Project {
     get_functions_in_file(file_path: string): Def[];
@@ -52,6 +57,7 @@ class Project {
 ```
 
 **Key Features:**
+
 - Filters by privacy (underscore prefix detection)
 - Test function detection using naming patterns
 - Support for multiple symbol kinds
@@ -60,6 +66,7 @@ class Project {
 ### 3. Call Graph Extraction ✅ (Task 19, 19.1, 19.2, 19.3)
 
 **Proposed API:**
+
 ```typescript
 interface FunctionCall {
     caller_def: Def;
@@ -72,6 +79,7 @@ extract_call_graph(): {...};
 ```
 
 **Implemented API:** ✅ Exactly as proposed
+
 ```typescript
 // In graph.ts
 interface FunctionCall {
@@ -93,6 +101,7 @@ class Project {
 ```
 
 **Key Features:**
+
 - Method call detection for `this.method()` and `self.method()`
 - Cross-file call resolution
 - Recursive call handling
@@ -102,12 +111,14 @@ class Project {
 ### 4. Source Code Extraction ✅ (Task 20)
 
 **Proposed API:**
+
 ```typescript
 get_source_code(def: Def): string;
 get_source_with_context(def: Def, context_lines?: number): {...};
 ```
 
 **Implemented API:** ✅ With slight parameter difference
+
 ```typescript
 class Project {
     // Note: file_path parameter added for consistency
@@ -122,6 +133,7 @@ class Project {
 ```
 
 **Key Features:**
+
 - AST-based source extraction
 - Python docstring extraction (single/multi-line)
 - JSDoc extraction for TypeScript/JavaScript
@@ -132,6 +144,7 @@ class Project {
 ### 5. Function Metadata ✅ (Task 21)
 
 **Proposed API:**
+
 ```typescript
 interface FunctionMetadata {...}
 interface FunctionDef extends Def {
@@ -140,6 +153,7 @@ interface FunctionDef extends Def {
 ```
 
 **Implemented API:** ✅ Integrated into Def interface
+
 ```typescript
 interface FunctionMetadata {
     is_async?: boolean;
@@ -160,6 +174,7 @@ interface Def {
 ```
 
 **Key Features:**
+
 - Language-specific metadata extraction
 - Async function detection
 - Test function detection (framework-aware)
@@ -174,6 +189,7 @@ interface Def {
 ### 6. Cross-File Import Resolution ✅ (Task 22)
 
 **Proposed API:**
+
 ```typescript
 interface ImportInfo {
     imported_function: Def;
@@ -185,6 +201,7 @@ get_exported_functions(module_path: string): Def[];
 ```
 
 **Implemented API:** ✅ Exactly as proposed
+
 ```typescript
 // In graph.ts
 interface ImportInfo {
@@ -201,6 +218,7 @@ class Project {
 ```
 
 **Key Features:**
+
 - Resolves imports to their actual function definitions
 - Handles renamed imports correctly
 - Works across TypeScript/JavaScript and Python files
@@ -208,6 +226,7 @@ class Project {
 - Enables two-step resolution for cross-file call graphs
 
 **Known Limitations:**
+
 - Module path resolution uses brute-force search (planned enhancement)
 - All root-level functions treated as exported (export keyword not detected)
 - No circular import detection yet (planned enhancement)

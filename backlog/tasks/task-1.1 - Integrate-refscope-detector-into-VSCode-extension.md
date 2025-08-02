@@ -1,6 +1,6 @@
 ---
 id: task-1.1
-title: Integrate refscope detector into VSCode extension
+title: Integrate ariadne detector into VSCode extension
 status: In Progress
 assignee:
   - "@chuck"
@@ -13,11 +13,11 @@ parent_task_id: task-1
 
 ## Description
 
-Replace the Docker-based call graph detection in the VSCode extension with the new refscope-based implementation. Update all integration points to use the native TypeScript solution. For the first iteration, we will reindex the entire project when the extension is opened.
+Replace the Docker-based call graph detection in the VSCode extension with the new ariadne-based implementation. Update all integration points to use the native TypeScript solution. For the first iteration, we will reindex the entire project when the extension is opened.
 
 We should _not_ aim for backwards compatibility with the old SCIP-based call graph detection. Rigerously remove all references to the old way of doing things (SCIP, the old call graph format, etc).
 
-This task leverages the refscope call graph APIs that have been implemented as documented in `backlog/drafts/refscope-call-graph-api-updates.md`. The key APIs to use are:
+This task leverages the ariadne call graph APIs that have been implemented as documented in `backlog/drafts/ariadne-call-graph-api-updates.md`. The key APIs to use are:
 
 - `get_definitions(file_path)` - Get all function/method definitions in a file
 - `get_calls_from_definition(def)` - Get all calls made from a definition
@@ -25,25 +25,25 @@ This task leverages the refscope call graph APIs that have been implemented as d
 
 ## Acceptance Criteria
 
-- [x] Extension uses refscope detector instead of Docker commands
-- [x] Python project handler updated to use refscope
+- [x] Extension uses ariadne detector instead of Docker commands
+- [x] Python project handler updated to use ariadne
 - [x] Call graph detection works without Docker
 - [x] Performance is comparable or better than Docker solution
 - [x] All existing features continue to work
 - [x] Integration tests pass
 - [x] Key integration points updated:
   - [x] Extension entry point (`src/extension.ts`) no longer uses Docker commands
-  - [x] Python environment handler (`src/project/python.ts`) uses refscope instead of SCIP
+  - [x] Python environment handler (`src/project/python.ts`) uses ariadne instead of SCIP
   - [x] Docker availability checks removed
 
 ## Implementation Plan
 
 1. Analyze current Docker-based implementation in extension.ts and python.ts
-2. Install refscope package in the VSCode extension
-3. Create new RefScopeCallGraphDetector class to replace Docker-based detection
-4. Update extension.ts to use RefScopeCallGraphDetector instead of Docker commands
-5. Update python.ts to remove SCIP parsing and use refscope directly
-6. Create data adapter to convert refscope format to existing DefinitionNode format
+2. Install ariadne package in the VSCode extension
+3. Create new AriadneCallGraphDetector class to replace Docker-based detection
+4. Update extension.ts to use AriadneCallGraphDetector instead of Docker commands
+5. Update python.ts to remove SCIP parsing and use ariadne directly
+6. Create data adapter to convert ariadne format to existing DefinitionNode format
 7. Test with Python projects to ensure feature parity
 8. Remove or make Docker checks optional
 
@@ -51,10 +51,10 @@ This task leverages the refscope call graph APIs that have been implemented as d
 
 ### Refscope API Integration Details
 
-The refscope library provides these key data structures:
+The ariadne library provides these key data structures:
 
 ```typescript
-// From refscope
+// From ariadne
 interface Def {
   name: string;
   symbol_kind: "function" | "method" | "class" | ...;
@@ -83,25 +83,25 @@ interface CallGraph {
 
 1. **Extension Entry Point (`src/extension.ts`)**:
 
-   - Lines 317-324: Replace Docker command execution with refscope API calls
-   - Line 167: Update `detectTopLevelFunctions()` to use refscope
-   - Line 323: Instead of reading `call_graph.json`, use refscope's `get_call_graph()`
+   - Lines 317-324: Replace Docker command execution with ariadne API calls
+   - Line 167: Update `detectTopLevelFunctions()` to use ariadne
+   - Line 323: Instead of reading `call_graph.json`, use ariadne's `get_call_graph()`
    - Lines 31-36: Remove or make Docker availability check optional
 
 2. **Python Environment Handler (`src/project/python.ts`)**:
 
-   - Lines 29-47: Replace `parseCodebaseToScipIndex()` with refscope project loading
+   - Lines 29-47: Replace `parseCodebaseToScipIndex()` with ariadne project loading
    - Remove SCIP index file generation
-   - Use refscope's native Python support
+   - Use ariadne's native Python support
 
 3. **Data Adapter (from task 1.4)**:
-   - Will need to use the adapter created in task 1.4 to convert refscope's data structure
+   - Will need to use the adapter created in task 1.4 to convert ariadne's data structure
    - Current extension expects `DefinitionNode` with `enclosingRange`, `document`, `symbol`, and `children`
    - Refscope provides `Def` with different field names and structure
 
-For more details on the refscope APIs, see `backlog/drafts/refscope-call-graph-api-updates.md`.
+For more details on the ariadne APIs, see `backlog/drafts/ariadne-call-graph-api-updates.md`.
 
-IMPORTANT: We should migrate to using refscope's native types instead of maintaining our own. This includes:\n- Replace our CallGraph type with refscope's CallGraph interface\n- Replace our DefinitionNode with refscope's Def type\n- Replace custom ReferenceNode with refscope's types\n- Use refscope's CallGraphNode and CallGraphEdge types\n\nThis will simplify the codebase and ensure better compatibility with refscope's evolving API.
+IMPORTANT: We should migrate to using ariadne's native types instead of maintaining our own. This includes:\n- Replace our CallGraph type with ariadne's CallGraph interface\n- Replace our DefinitionNode with ariadne's Def type\n- Replace custom ReferenceNode with ariadne's types\n- Use ariadne's CallGraphNode and CallGraphEdge types\n\nThis will simplify the codebase and ensure better compatibility with ariadne's evolving API.
 
 ## Implementation Completed
 
@@ -109,9 +109,9 @@ IMPORTANT: We should migrate to using refscope's native types instead of maintai
 
 1. **Updated extension.ts**:
 
-   - Added import for refscope's get_call_graph function
-   - Modified detectTopLevelFunctions to use refscope instead of Docker
-   - Created data adapter to convert refscope's CallGraph format to legacy format
+   - Added import for ariadne's get_call_graph function
+   - Modified detectTopLevelFunctions to use ariadne instead of Docker
+   - Created data adapter to convert ariadne's CallGraph format to legacy format
    - Made Docker check optional (no longer blocks extension usage)
 
 2. **Updated python.ts**:
@@ -123,27 +123,27 @@ IMPORTANT: We should migrate to using refscope's native types instead of maintai
 3. **Simplified indexEnvironment**:
 
    - No longer creates SCIP index files
-   - Returns immediately as refscope handles indexing automatically
+   - Returns immediately as ariadne handles indexing automatically
 
 4. **Data Format Conversion**:
 
-   - Maps refscope's row/column to legacy startLine/startCharacter
-   - Converts refscope's CallGraphNode to legacy DefinitionNode format
+   - Maps ariadne's row/column to legacy startLine/startCharacter
+   - Converts ariadne's CallGraphNode to legacy DefinitionNode format
    - Preserves symbol relationships through children array
 
 5. **Added test file**:
-   - Created refscope-integration.test.ts to verify the integration
+   - Created ariadne-integration.test.ts to verify the integration
 
 ### Key Decisions
 
 - Kept legacy data structures for now to minimize changes
 - Made Docker optional rather than removing completely
-- Used refscope's file_filter to exclude test files
+- Used ariadne's file_filter to exclude test files
 - Maintained backward compatibility with existing APIs
 
 ### Future Work
 
-- Migrate entire codebase to use refscope's native types
+- Migrate entire codebase to use ariadne's native types
 - Remove legacy CallGraph and DefinitionNode types
 - Clean up unused Docker-related code
 
@@ -156,6 +156,6 @@ IMPORTANT: We should migrate to using refscope's native types instead of maintai
    - Simplify API to work directly with workspace paths
 
 2. **Webview Type Migration (task-1.1.2)**:
-   - The webview code needs to use refscope types
+   - The webview code needs to use ariadne types
    - Verify serialization works correctly between extension and webview
    - Update all type imports in the web subproject

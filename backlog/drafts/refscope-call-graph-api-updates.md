@@ -1,8 +1,8 @@
-# RefScope Call Graph API Requirements
+# Ariadne Call Graph API Requirements
 
 ## Overview
 
-This document outlines the call graph API that was implemented in RefScope to support native call graph analysis. These additions enable RefScope to provide call graph functionality as a core feature, benefiting both the Code Charter VSCode extension and the broader RefScope ecosystem.
+This document outlines the call graph API that was implemented in Ariadne to support native call graph analysis. These additions enable Ariadne to provide call graph functionality as a core feature, benefiting both the Code Charter VSCode extension and the broader Ariadne ecosystem.
 
 ## Status: IMPLEMENTED ✅
 
@@ -16,9 +16,9 @@ The APIs described in this document have been implemented as of July 2025 throug
 
 ## Motivation
 
-Currently, Code Charter relies on a Docker-based SCIP parser and Golang call graph detector. To eliminate the Docker dependency and provide native TypeScript execution, RefScope now exposes call graph analysis capabilities. This provides:
+Currently, Code Charter relies on a Docker-based SCIP parser and Golang call graph detector. To eliminate the Docker dependency and provide native TypeScript execution, Ariadne now exposes call graph analysis capabilities. This provides:
 
-- **Reusability**: Common functionality available to all RefScope users
+- **Reusability**: Common functionality available to all Ariadne users
 - **Performance**: Direct access to AST and symbol information already in memory
 - **Consistency**: Uniform call graph quality across all supported languages
 - **Maintenance**: Analysis logic stays close to parsing logic
@@ -259,7 +259,7 @@ const callGraph = project.get_call_graph({
 
 Code Charter can now:
 
-1. Replace Docker-based SCIP/Golang solution with native RefScope APIs
+1. Replace Docker-based SCIP/Golang solution with native Ariadne APIs
 2. Use `get_call_graph()` for complete project analysis
 3. Leverage symbol IDs for consistent node identification
 4. Apply filters for targeted analysis
