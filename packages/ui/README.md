@@ -2,6 +2,55 @@
 
 A reusable UI package for the Code Charter visualization tool that works in multiple contexts including VS Code webviews and standalone web applications.
 
+## Installation
+
+```bash
+npm install @code-charter/ui
+```
+
+## Documentation
+
+- [API Documentation](./API.md) - Complete API reference and usage examples
+- [Migration Guide](./MIGRATION.md) - Migrate from embedded to package-based UI
+- [Development Guide](../../docs/DEVELOPMENT.md) - Development setup and workflows
+
+## Quick Start
+
+### VS Code Extension
+
+```typescript
+import { getWebviewContent } from './webview_template';
+
+const panel = vscode.window.createWebviewPanel(...);
+panel.webview.html = getWebviewContent(panel.webview, context.extensionUri);
+```
+
+### Standalone Web App
+
+```html
+<script src="node_modules/@code-charter/ui/dist/standalone.global.js"></script>
+<script>
+  window.CodeCharterUI.init({
+    rootElement: document.getElementById('root'),
+    backend: { type: window.CodeCharterUI.BackendType.MOCK }
+  });
+</script>
+```
+
+### React Application
+
+```tsx
+import { CodeCharterUI, BackendProvider, MockBackend } from '@code-charter/ui';
+
+function App() {
+  return (
+    <BackendProvider backend={new MockBackend()}>
+      <CodeCharterUI />
+    </BackendProvider>
+  );
+}
+```
+
 ## Development
 
 ### Hot Reload Workflow
