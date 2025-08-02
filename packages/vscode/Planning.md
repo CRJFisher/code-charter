@@ -16,7 +16,7 @@
 ## TODO before release:
 
 - Clustering
-  - [ ] Containerise the clustering server. Manage lifecyle
+  - [x] ~~Containerise the clustering server. Manage lifecyle~~ Migrated to TypeScript using clustering-tfjs library
   - UX
     - [ ] Add caching for clusters and their summaries
     - How to trigger clustering?

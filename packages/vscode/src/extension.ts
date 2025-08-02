@@ -10,6 +10,7 @@ import { CallGraph, get_call_graph } from "@ariadnejs/core";
 import { TreeAndContextSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
+import { ClusteringService } from "./clustering/clustering_service";
 
 const extensionFolder = ".code-charter";
 
@@ -134,9 +135,28 @@ async function showWebviewDiagram(
         },
         clusterCodeTree: async () => {
           const { topLevelFunctionSymbol } = otherFields;
-          const clusters = await clusterCodeTree(topLevelFunctionToSummaries[topLevelFunctionSymbol]);
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
+          
+          // Create clustering service with OpenAI API key
+          let clusteringService: ClusteringService;
+          if (modelDetails.provider === ModelProvider.OpenAI) {
+            const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
+            const apiKey = configuration.get("APIKey");
+            if (!apiKey || typeof apiKey !== "string") {
+              throw new Error("OpenAI API Key not set for clustering");
+            }
+            clusteringService = new ClusteringService(apiKey, workFolder);
+          } else {
+            throw new Error("Clustering requires OpenAI provider for embeddings");
+          }
+          
+          // Perform clustering
+          const clusters = await clusteringService.cluster(
+            summaries.refinedFunctionSummaries,
+            summaries.callTreeWithFilteredOutNodes
+          );
+          
           const descriptions = await getClusterDescriptions(
             clusters.map((cluster) =>
               cluster.map((memberSymbol) => {
@@ -238,19 +258,5 @@ async function getModelDetails(): Promise<ModelDetails> {
   }
 }
 
-async function clusterCodeTree(summaries: TreeAndContextSummaries): Promise<string[][]> {
-  const response = await fetch("http://127.0.0.1:5000/cluster", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      refinedFunctionSummaries: summaries.refinedFunctionSummaries,
-      callGraphItems: summaries.callTreeWithFilteredOutNodes,
-    }),
-  });
-  const clusters = await response.json();
-  return clusters;
-}
 
 export function deactivate() {}
