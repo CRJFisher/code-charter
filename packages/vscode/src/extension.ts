@@ -9,6 +9,7 @@ import { getClusterDescriptions } from "./summarise/summariseClusters";
 import { CallGraph, get_call_graph } from "@ariadnejs/core";
 import { TreeAndContextSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
+import { UIDevWatcher } from "./dev_watcher";
 
 const extensionFolder = ".code-charter";
 
@@ -58,6 +59,11 @@ async function showWebviewDiagram(
       vscode.Uri.file(context.extensionPath),
       vscode.Uri.joinPath(context.extensionUri, "node_modules"),
     ],
+    // Enable Chrome DevTools debugging in development
+    ...(process.env.CODE_CHARTER_DEV_MODE === "true" ? { 
+      enableCommandUris: true,
+      enableFindWidget: true 
+    } : {})
   });
   webviewColumn = panel.viewColumn;
 
@@ -66,7 +72,17 @@ async function showWebviewDiagram(
   });
 
   const colorCustomizations = vscode.workspace.getConfiguration().get("workbench.colorCustomizations") || {};
-  const htmlContent = getWebviewContent(panel.webview, context.extensionUri, colorCustomizations);
+  const codeCharterConfig = vscode.workspace.getConfiguration("code-charter-vscode");
+  const isDevelopment = process.env.CODE_CHARTER_DEV_MODE === "true" || codeCharterConfig.get("devMode", false);
+  const devServerUrl = codeCharterConfig.get("devServerUrl", "http://localhost:3000");
+  
+  const htmlContent = getWebviewContent(
+    panel.webview, 
+    context.extensionUri, 
+    colorCustomizations,
+    isDevelopment,
+    devServerUrl
+  );
 
   let callGraph: CallGraph | undefined;
   let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};
@@ -170,6 +186,21 @@ async function showWebviewDiagram(
   );
 
   panel.webview.html = htmlContent;
+
+  // Set up dev watcher if in development mode
+  if (isDevelopment) {
+    const devWatcher = new UIDevWatcher(context, () => {
+      // Reload the webview when UI changes
+      panel.webview.html = getWebviewContent(
+        panel.webview,
+        context.extensionUri,
+        colorCustomizations,
+        isDevelopment,
+        devServerUrl
+      );
+    });
+    devWatcher.start();
+  }
 }
 
 async function getModelDetails(): Promise<ModelDetails> {

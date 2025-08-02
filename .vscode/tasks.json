@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build All Packages",
+            "type": "npm",
+            "script": "build",
+            "path": "",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$tsc",
+            "isBackground": false,
+            "presentation": {
+                "reveal": "never"
+            }
+        },
+        {
+            "label": "Build VS Code Extension",
+            "type": "npm",
+            "script": "build",
+            "path": "packages/vscode",
+            "group": "build",
+            "problemMatcher": "$tsc",
+            "isBackground": false,
+            "presentation": {
+                "reveal": "never"
+            },
+            "dependsOn": ["Build UI Package"]
+        },
+        {
+            "label": "Build UI Package",
+            "type": "npm",
+            "script": "build",
+            "path": "packages/ui",
+            "group": "build",
+            "problemMatcher": "$tsc",
+            "isBackground": false,
+            "presentation": {
+                "reveal": "never"
+            }
+        }
+    ]
+}

@@ -39,6 +39,18 @@
           "type": "string",
           "default": null,
           "description": "(if required) API key for language model provider"
+        },
+        "code-charter-vscode.devMode": {
+          "order": 3,
+          "type": "boolean",
+          "default": false,
+          "description": "Enable development mode to load UI from dev server"
+        },
+        "code-charter-vscode.devServerUrl": {
+          "order": 4,
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "URL of the UI development server"
         }
       }
     }

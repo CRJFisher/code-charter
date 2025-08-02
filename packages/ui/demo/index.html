@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Charter UI - Dev Server</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #1e1e1e;
+      color: #cccccc;
+    }
+    #root {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="../dist/standalone.global.js"></script>
+  <script>
+    // Mock call graph data for development
+    const mockCallGraph = {
+      nodes: {
+        "main": {
+          symbol: "main",
+          label: "main",
+          file_path: "src/index.ts",
+          line_number: 1,
+          docstring: "Entry point"
+        },
+        "helper": {
+          symbol: "helper",
+          label: "helper",
+          file_path: "src/helper.ts", 
+          line_number: 10,
+          docstring: "Helper function"
+        }
+      },
+      edges: [
+        {
+          source: "main",
+          target: "helper"
+        }
+      ]
+    };
+
+    // Initialize the UI
+    window.CodeCharterUI.init({
+      rootElement: document.getElementById('root'),
+      backend: {
+        type: window.CodeCharterUI.BackendType.MOCK,
+        getCallGraph: async () => mockCallGraph,
+        summariseCodeTree: async () => ({
+          refinedFunctionSummaries: {
+            "main": "Main entry point of the application",
+            "helper": "Helper utility function"
+          },
+          contextSummary: "A simple demo application",
+          callTreeWithFilteredOutNodes: []
+        }),
+        clusterCodeTree: async () => [],
+        functionSummaryStatus: async () => ({}),
+        navigateToDoc: async () => ({ success: true })
+      }
+    });
+  </script>
+</body>
+</html>

@@ -6,15 +6,22 @@ import * as vscode from 'vscode';
 export function getWebviewContent(
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
-  colorCustomizations: any
+  colorCustomizations: any,
+  isDevelopment: boolean = false,
+  devServerUrl: string = 'http://localhost:3000'
 ): string {
-  // Load the standalone UI build
-  const scriptUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.global.js')
-  );
-  const styleUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.css')
-  );
+  // Load from dev server in development mode, or from built files in production
+  const scriptUri = isDevelopment
+    ? `${devServerUrl}/standalone.global.js`
+    : webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.global.js')
+      );
+  
+  const styleUri = isDevelopment
+    ? `${devServerUrl}/standalone.css`
+    : webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.css')
+      );
 
   // Generate CSS variables for VSCode theme colors
   const editorColors = generateEditorColors(colorCustomizations);
@@ -27,7 +34,7 @@ export function getWebviewContent(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} ${isDevelopment ? devServerUrl : ''} 'unsafe-inline'; script-src 'nonce-${nonce}' ${isDevelopment ? devServerUrl : ''}; connect-src ${isDevelopment ? devServerUrl : ''};">
       <link href="${styleUri}" rel="stylesheet">
       <title>Code Charter</title>
       <style>

@@ -28,7 +28,7 @@ Once installed and configured, you can start using Code Charter to visualise and
 
 ## Capabilities
 
-- Detect call graphs in a codebase. 
+- Detect call graphs in a codebase.
   - Present these call graphs by node count, assuming the higher nocount call graphs are more important.
 - Create summaries of functions and render in a diagram.
 - Click on diagram node to navigate to the function in the codebase.
@@ -66,6 +66,32 @@ This is based on the availability of [SCIP](https://github.com/sourcegraph/scip)
 2. Parse the scip index and detect call graphs, output a JSON file containing the call graphs
 3. Summarise all the individual functions in the call graphs by via LLM, focusing on business logic.
 4. Re-summarise functions alongside their child-node functions to reduce repetition and improve the narrative flow of the diagram.
+
+## Development
+
+### Monorepo Structure
+
+Code Charter is organized as a monorepo with the following packages:
+
+- `packages/vscode` - VS Code extension
+- `packages/ui` - Reusable UI components
+- `packages/types` - Shared TypeScript types
+
+### Development Setup
+
+For comprehensive development setup and workflows, see the [Development Guide](docs/DEVELOPMENT.md).
+
+### Quick Start
+
+1. Install dependencies: `npm install`
+2. Build all packages: `npm run build`
+3. Start UI dev server: `cd packages/ui && npm run dev:all`
+4. Debug: Press F5 in VS Code
+
+### Documentation
+
+- [Development Guide](docs/DEVELOPMENT.md) - Complete development setup and workflows
+- [Debugging Guide](docs/DEBUGGING.md) - Debugging with breakpoints in both packages
 
 ## License
 

@@ -1,30 +1,100 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    // 1712769721799/py-index.scip
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "main.go",
-            "type": "go",
+            "name": "Debug VS Code Extension",
+            "type": "extensionHost",
             "request": "launch",
-            "mode": "debug",
-            "program": "${workspaceFolder}/cmd/main.go",
             "args": [
-                "--input_file=/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/py-index.scip",
-                "--output_file=/Users/chuck/workspace/repo_analysis/crewAI/.code-charter/1712917443062/call_graph.json"
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/packages/vscode/out/**/*.js"
+            ],
+            "preLaunchTask": "Build All Packages",
+            "env": {
+                "CODE_CHARTER_DEV_MODE": "true"
+            }
+        },
+        {
+            "name": "Debug UI Package (Node)",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/packages/ui",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "debug:watch"
+            ],
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "outFiles": [
+                "${workspaceFolder}/packages/ui/src/**/*.ts",
+                "${workspaceFolder}/packages/ui/src/**/*.tsx"
+            ],
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/packages/ui/**",
+                "!**/node_modules/**"
             ]
         },
         {
-            "name": "Shell Script: build_call_graph_image.sh",
+            "name": "Start UI Dev Server",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "/bin/bash",
-            "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/dev/build_call_graph_image.sh",
-            "args": [],
-            "console": "integratedTerminal"
+            "cwd": "${workspaceFolder}/packages/ui",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev:all"
+            ],
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "Attach to UI Dev Server",
+            "type": "chrome",
+            "request": "attach",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}/packages/ui",
+            "sourceMaps": true,
+            "sourceMapPathOverrides": {
+                "webpack:///./*": "${webRoot}/*"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Both (Separate Terminals)",
+            "configurations": [
+                "Start UI Dev Server",
+                "Debug VS Code Extension"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "1_debug",
+                "order": 1
+            }
+        },
+        {
+            "name": "Debug UI in Node + Extension",
+            "configurations": [
+                "Debug UI Package (Node)",
+                "Start UI Dev Server",
+                "Debug VS Code Extension"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "1_debug",
+                "order": 2
+            }
         }
     ]
 }
