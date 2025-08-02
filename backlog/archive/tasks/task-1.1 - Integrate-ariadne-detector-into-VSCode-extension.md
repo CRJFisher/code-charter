@@ -1,11 +1,11 @@
 ---
 id: task-1.1
 title: Integrate ariadne detector into VSCode extension
-status: In Progress
+status: Done
 assignee:
-  - "@chuck"
-created_date: "2025-07-19"
-updated_date: "2025-07-19"
+  - '@chuck'
+created_date: '2025-07-19'
+updated_date: '2025-08-02'
 labels: []
 dependencies: []
 parent_task_id: task-1

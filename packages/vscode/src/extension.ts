@@ -6,11 +6,12 @@ import { ModelDetails, ModelProvider } from "./model";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { getClusterDescriptions } from "./summarise/summariseClusters";
-import { CallGraph, get_call_graph } from "@ariadnejs/core";
+import { CallGraph } from "@ariadnejs/core";
 import { TreeAndContextSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { ClusteringService } from "./clustering/clustering_service";
+import { AriadneProjectManager } from "./ariadne/project_manager";
 
 const extensionFolder = ".code-charter";
 
@@ -87,6 +88,7 @@ async function showWebviewDiagram(
 
   let callGraph: CallGraph | undefined;
   let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};
+  let projectManager: AriadneProjectManager | undefined;
 
   panel.webview.onDidReceiveMessage(
     async (message) => {
@@ -97,19 +99,36 @@ async function showWebviewDiagram(
         getCallGraph: async () => {
           // Use the first workspace folder directly
           const workspacePath = workspaceFolders[0].uri.fsPath;
-          callGraph = get_call_graph(workspacePath, {
-            include_external: false,
-            file_filter: (path) => {
+          
+          // Initialize project manager if not already done
+          if (!projectManager) {
+            projectManager = new AriadneProjectManager(workspacePath, (path) => {
               // Filter out test files and common non-source directories
-              // TODO: do filtering with ariadnejs/core, not here
               return (
                 !path.includes("test") &&
                 !path.includes("node_modules") &&
                 !path.includes("__pycache__") &&
                 !path.includes(".git")
               );
-            },
-          });
+            });
+            
+            // Set up listener for call graph changes
+            projectManager.onCallGraphChanged((newCallGraph) => {
+              callGraph = newCallGraph;
+              // Notify the webview that the call graph has been updated
+              panel.webview.postMessage({ 
+                command: "callGraphUpdated", 
+                data: newCallGraph 
+              });
+            });
+            
+            // Initialize and get the initial call graph
+            callGraph = await projectManager.initialize();
+          } else {
+            // Get current call graph from project manager
+            callGraph = projectManager.getCallGraph();
+          }
+          
           if (!callGraph) {
             throw new Error("Call graph not found");
           }
@@ -206,6 +225,12 @@ async function showWebviewDiagram(
   );
 
   panel.webview.html = htmlContent;
+  
+  // Clean up project manager when panel is disposed
+  panel.onDidDispose(() => {
+    projectManager?.dispose();
+    projectManager = undefined;
+  }, null, context.subscriptions);
 
   // Set up dev watcher if in development mode
   if (isDevelopment) {
