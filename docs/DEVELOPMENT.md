@@ -14,7 +14,12 @@ This guide provides comprehensive information for developing Code Charter, inclu
 
 ## Architecture Overview
 
-Code Charter is organized as a monorepo with three main packages:
+Code Charter is organized as a monorepo using:
+- **NPM Workspaces** for package management and linking
+- **Turborepo** for build orchestration and caching
+- **Changesets** for version management and publishing
+
+The monorepo contains three main packages:
 
 ```
 code-charter/
@@ -41,6 +46,44 @@ graph TD
 2. **Backend Abstraction**: UI communicates through abstract backend interfaces, not direct VS Code APIs
 3. **Theme Flexibility**: Automatic detection and adaptation to VS Code themes or standalone themes
 4. **Hot Reload Development**: Fast iteration with automatic rebuilds and reloads
+
+### Monorepo Tooling
+
+Our monorepo uses three complementary tools:
+
+#### NPM Workspaces
+- **Purpose**: Package management and dependency resolution
+- **Configuration**: Root `package.json` with `"workspaces": ["packages/*"]`
+- **Benefits**: 
+  - Automatically symlinks local packages for development
+  - Shared dependencies installed at root level
+  - Single `npm install` for entire project
+
+#### Turborepo
+- **Purpose**: Build orchestration and task running
+- **Configuration**: `turbo.json`
+- **Benefits**:
+  - Smart caching of build outputs
+  - Parallel execution of tasks
+  - Dependency-aware task ordering
+- **Usage**: All npm scripts use Turborepo under the hood:
+  ```bash
+  npm run build  # Actually runs: turbo run build
+  npm run test   # Actually runs: turbo run test
+  ```
+
+#### Changesets
+- **Purpose**: Version management and package publishing
+- **Configuration**: `.changeset/config.json`
+- **Workflow**:
+  1. Make changes to packages
+  2. Create a changeset: `npm run changeset`
+  3. Version packages: `npm run version`
+  4. Publish: `npm run release`
+- **Benefits**:
+  - Automated version bumping
+  - Changelog generation
+  - Coordinated npm publishing
 
 ## Development Setup
 
@@ -75,6 +118,25 @@ graph TD
    ```
 
 ## Development Workflows
+
+### Common Monorepo Commands
+
+```bash
+# Install dependencies for all packages
+npm install
+
+# Add dependency to specific package
+npm install <package-name> -w @code-charter/ui
+
+# Run script in specific package
+npm run build -w @code-charter/vscode
+
+# Clean all build outputs
+npm run clean
+
+# See Turborepo cache status
+npx turbo run build --dry-run
+```
 
 ### Daily Development Flow
 
@@ -268,14 +330,39 @@ npm run package
 # Creates: code-charter-x.x.x.vsix
 ```
 
+### Version Management with Changesets
+
+1. **Create a changeset** after making changes:
+   ```bash
+   npm run changeset
+   # Select changed packages
+   # Choose version bump type (patch/minor/major)
+   # Write summary of changes
+   ```
+
+2. **Update versions** before release:
+   ```bash
+   npm run version
+   # This consumes changesets and updates package.json files
+   # Also updates CHANGELOG.md files
+   ```
+
+3. **Publish packages**:
+   ```bash
+   npm run release
+   # Builds all packages (via Turborepo)
+   # Publishes to npm (via Changesets)
+   ```
+
 ### Pre-release Checklist
 
-1. **Update versions**
+1. **Create changesets** for all changes
+2. **Update versions**
    ```bash
    npm run version
    ```
 
-2. **Run all checks**
+3. **Run all checks**
    ```bash
    npm run lint
    npm run typecheck
@@ -291,14 +378,30 @@ npm run package
 ### Publishing
 
 ```bash
-# Publish to VS Code Marketplace
+# Publish all packages via changesets
+npm run release
+# This will:
+# 1. Build all packages (Turborepo)
+# 2. Publish changed packages to npm (Changesets)
+
+# Publish VS Code extension separately
 cd packages/vscode
 vsce publish
-
-# Publish to npm (UI package)
-cd packages/ui
-npm publish
+# Note: VS Code marketplace uses different publishing system
 ```
+
+### How the Tools Work Together
+
+1. **Development Flow**:
+   - NPM Workspaces links packages → Make changes → Turborepo builds efficiently
+
+2. **Release Flow**:
+   - Create changesets → Version with changesets → Build with Turborepo → Publish with changesets
+
+3. **Why all three?**:
+   - **NPM Workspaces**: Foundation for monorepo structure
+   - **Turborepo**: Makes development fast with caching and parallel builds
+   - **Changesets**: Professional release management with proper versioning
 
 ## Contributing
 
