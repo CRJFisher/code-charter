@@ -21,6 +21,7 @@ import { symbolDisplayName } from "./symbol_utils";
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
 import { zoomAwareNodeTypes } from "./zoom_aware_node";
 import { generateReactFlowElements } from "./react_flow_data_transform";
+import { LoadingIndicator } from "./loading_indicator";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -44,6 +45,7 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
   const [callGraphNodes, setCallChart] = useState<Record<string, CallGraphNode> | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
+  const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   
@@ -65,30 +67,37 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
     }
 
     const fetchData = async () => {
-      setSummaryStatus(SummarisationStatus.SummarisingFunctions);
-      const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
-      if (!summariesAndFilteredCallTree) {
-        return;
+      try {
+        setError(null);
+        setSummaryStatus(SummarisationStatus.SummarisingFunctions);
+        
+        const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
+        if (!summariesAndFilteredCallTree) {
+          throw new Error("Failed to load function summaries");
+        }
+        setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
+        
+        setSummaryStatus(SummarisationStatus.DetectingModules);
+        const nodeGroups = await detectModules();
+        nodeGroupsRef.current = nodeGroups;
+        
+        // Generate all nodes and edges from the call tree
+        const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
+          selectedEntryPoint,
+          summariesAndFilteredCallTree,
+          nodeGroups
+        );
+        
+        // Apply hierarchical layout
+        const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
+        
+        setNodes(layoutedNodes);
+        setEdges(flowEdges);
+        setSummaryStatus(SummarisationStatus.Ready);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+        setSummaryStatus(SummarisationStatus.Error);
       }
-      setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
-      
-      setSummaryStatus(SummarisationStatus.DetectingModules);
-      const nodeGroups = await detectModules();
-      nodeGroupsRef.current = nodeGroups;
-      
-      // Generate all nodes and edges from the call tree
-      const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
-        selectedEntryPoint,
-        summariesAndFilteredCallTree,
-        nodeGroups
-      );
-      
-      // Apply hierarchical layout
-      const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
-      
-      setNodes(layoutedNodes);
-      setEdges(flowEdges);
-      setSummaryStatus(SummarisationStatus.Ready);
     };
     
     fetchData();
@@ -110,10 +119,10 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
           alignItems: "center",
         }}
       >
-        <div className="loading-content" style={{ textAlign: "center" }}>
-          <div className="loading-spinner">Loading...</div>
-          <p style={{ marginTop: "16px" }}>Indexing...</p>
-        </div>
+        <LoadingIndicator 
+          status="Indexing Code"
+          message="Parsing your codebase to build the call graph..."
+        />
       </div>
     );
   }
@@ -141,11 +150,31 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
           zIndex: 10,
         }}
       >
-        <div className="loading-spinner">Loading...</div>
-        <p style={{ marginTop: "16px" }}>
-          {summaryStatus === SummarisationStatus.SummarisingFunctions && "Summarising functions..."}
-          {summaryStatus === SummarisationStatus.DetectingModules && "Detecting modules..."}
-        </p>
+        {summaryStatus === SummarisationStatus.SummarisingFunctions && (
+          <LoadingIndicator 
+            status="Summarizing Functions"
+            message="Generating AI summaries for each function..."
+          />
+        )}
+        {summaryStatus === SummarisationStatus.DetectingModules && (
+          <LoadingIndicator 
+            status="Detecting Modules"
+            message="Analyzing code structure to identify logical modules..."
+          />
+        )}
+        {summaryStatus === SummarisationStatus.Error && error && (
+          <div style={{
+            padding: "20px",
+            backgroundColor: "#fee",
+            border: "1px solid #fcc",
+            borderRadius: "4px",
+            color: "#c00",
+            maxWidth: "400px",
+          }}>
+            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>Error</div>
+            <div>{error}</div>
+          </div>
+        )}
       </div>
       
       <div className={getVisibilityClassNames(showElements)} style={{ width: "100%", height: "100%" }}>
