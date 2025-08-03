@@ -25,6 +25,9 @@ import { generateReactFlowElements } from "./react_flow_data_transform";
 import { LoadingIndicator } from "./loading_indicator";
 import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } from "./state_persistence";
 import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
+import { useDebounce, useThrottle, getVisibleNodes, PerformanceMonitor } from "./performance_utils";
+import { clearLayoutCaches } from "./elk_layout";
+import { useVirtualNodes, useZoomCulling, ViewportIndicator } from "./virtual_renderer";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -60,6 +63,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
+  const perfMonitor = useRef(new PerformanceMonitor());
   
   // Use keyboard navigation hook
   const { selectedNodeId } = useKeyboardNavigation({
@@ -77,9 +81,17 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     },
   });
   
-  // Monitor zoom level
+  // Monitor zoom level and viewport
   const zoom = useStore((state: XYFlowState) => state.transform[2]);
+  const viewport = useStore((state: XYFlowState) => ({
+    x: state.transform[0],
+    y: state.transform[1],
+    zoom: state.transform[2],
+  }));
   const ZOOM_THRESHOLD = 0.45;
+  
+  // Debounce viewport changes for performance
+  const debouncedViewport = useDebounce(viewport, 100);
 
   // Update zoom mode based on zoom level
   useEffect(() => {
@@ -89,6 +101,38 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     }
   }, [zoom, zoomMode]);
 
+  // Memoize visible nodes for virtualization
+  const visibleNodeIds = useMemo(() => {
+    if (!containerRef.current || nodes.length === 0) {
+      return new Set<string>();
+    }
+    
+    return getVisibleNodes(
+      nodes,
+      debouncedViewport,
+      containerRef.current.clientWidth,
+      containerRef.current.clientHeight
+    );
+  }, [nodes, debouncedViewport]);
+  
+  // Apply zoom-based culling for performance
+  const culledNodes = useZoomCulling(nodes, zoom, 0.3);
+  
+  // Apply virtual rendering for large graphs
+  const { virtualNodes, virtualEdges, hiddenNodeCount } = useVirtualNodes({
+    nodes: nodes.length > 200 ? culledNodes : nodes,
+    edges,
+    visibleNodeIds: nodes.length > 200 ? visibleNodeIds : new Set(),
+    renderBuffer: 25,
+  });
+  
+  // Clear caches when entry point changes
+  useEffect(() => {
+    if (selectedEntryPoint) {
+      clearLayoutCaches();
+    }
+  }, [selectedEntryPoint?.symbol]);
+  
   useEffect(() => {
     if (!selectedEntryPoint) {
       return;
@@ -98,6 +142,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       try {
         setError(null);
         setSummaryStatus(SummarisationStatus.SummarisingFunctions);
+        perfMonitor.current.startMeasure('data-fetch');
         
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol);
@@ -132,6 +177,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         setNodes(layoutedNodes);
         setEdges(flowEdges);
         setSummaryStatus(SummarisationStatus.Ready);
+        perfMonitor.current.endMeasure('data-fetch', nodes.length, edges.length);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
         setSummaryStatus(SummarisationStatus.Error);
@@ -145,13 +191,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     return show ? "visible" : "invisible";
   };
   
-  // Save current state
-  const handleSaveState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
+  // Throttle save operations for performance
+  const handleSaveState = useThrottle(useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint || !reactFlowInstance) return;
     
     const viewport = reactFlowInstance.getViewport();
     saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol);
-  }, [nodes, edges, selectedEntryPoint]);
+  }, [nodes, edges, selectedEntryPoint]), 1000);
   
   // Export state to file
   const handleExportState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
@@ -249,8 +295,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       
       <div className={getVisibilityClassNames(showElements)} style={{ width: "100%", height: "100%" }}>
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={virtualNodes}
+          edges={virtualEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={zoomAwareNodeTypes}
@@ -266,6 +312,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           edgesFocusable={true}
           autoPanOnNodeFocus={true}
           ariaLabelConfig={ariaLabelConfig}
+          onlyRenderVisibleElements={true}
+          minZoom={0.1}
+          maxZoom={2.5}
           defaultEdgeOptions={{
             animated: true,
             style: {
@@ -313,6 +362,36 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             >
               {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
             </div>
+            
+            {/* Performance info */}
+            {nodes.length > 100 && (
+              <div
+                style={{
+                  padding: "4px 8px",
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: "11px",
+                  color: "#666",
+                  marginBottom: "4px",
+                }}
+              >
+                {nodes.length} nodes • {virtualNodes.length} rendered • {hiddenNodeCount} hidden
+              </div>
+            )}
+            
+            {/* Show indicators for hidden nodes */}
+            {hiddenNodeCount > 50 && (
+              <ViewportIndicator 
+                direction="top" 
+                count={Math.floor(hiddenNodeCount / 4)}
+                onClick={() => {
+                  if (reactFlowInstance.current) {
+                    reactFlowInstance.current.fitView({ padding: 0.2 });
+                  }
+                }}
+              />
+            )}
             
             {/* Persistence controls */}
             <div

@@ -11,7 +11,7 @@ export interface CodeNodeData extends Record<string, unknown> {
   symbol: string;
 }
 
-export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data, selected }) => {
+const CodeFunctionNodeComponent: React.FC<NodeProps<CodeNodeData>> = ({ data, selected }) => {
   const handleClick = (e: React.MouseEvent) => {
     // Prevent node selection/dragging
     e.stopPropagation();
@@ -111,6 +111,20 @@ export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data, sele
     </div>
   );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps, nextProps) => {
+  // Only re-render if data or selected state changes
+  return (
+    prevProps.data.function_name === nextProps.data.function_name &&
+    prevProps.data.summary === nextProps.data.summary &&
+    prevProps.data.file_path === nextProps.data.file_path &&
+    prevProps.data.line_number === nextProps.data.line_number &&
+    prevProps.data.is_entry_point === nextProps.data.is_entry_point &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.id === nextProps.id
+  );
+});
 
 // Node types mapping for React Flow
 export const nodeTypes = {

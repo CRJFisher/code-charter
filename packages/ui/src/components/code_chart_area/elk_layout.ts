@@ -79,11 +79,16 @@ export async function applyHierarchicalLayout(
       };
     });
 
+    // Cache the result
+    layoutCache.set(cacheKey, layoutedNodes);
+    
     return layoutedNodes;
   } catch (error) {
     console.error('Error applying ELK layout:', error);
     // Return original nodes if layout fails
     return nodes;
+  } finally {
+    perfMonitor.endMeasure('elk-layout', nodes.length, edges.length);
   }
 }
 

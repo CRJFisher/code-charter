@@ -6,7 +6,7 @@ import { navigateToFile } from "./navigation_utils";
 
 const ZOOM_THRESHOLD = 0.45;
 
-export const ZoomAwareNode: React.FC<NodeProps> = (props) => {
+const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
   const data = props.data as CodeNodeData;
@@ -101,7 +101,7 @@ export interface ModuleNodeData extends Record<string, unknown> {
   is_expanded?: boolean;
 }
 
-export const ModuleGroupNode: React.FC<NodeProps> = (props) => {
+const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
   const data = props.data as ModuleNodeData;
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
@@ -182,6 +182,33 @@ export const ModuleGroupNode: React.FC<NodeProps> = (props) => {
     </div>
   );
 };
+
+// Memoize components for performance
+export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prevProps, nextProps) => {
+  const prevData = prevProps.data as CodeNodeData;
+  const nextData = nextProps.data as CodeNodeData;
+  
+  return (
+    prevData.function_name === nextData.function_name &&
+    prevData.summary === nextData.summary &&
+    prevData.is_entry_point === nextData.is_entry_point &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.id === nextProps.id
+  );
+});
+
+export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prevProps, nextProps) => {
+  const prevData = prevProps.data as ModuleNodeData;
+  const nextData = nextProps.data as ModuleNodeData;
+  
+  return (
+    prevData.module_name === nextData.module_name &&
+    prevData.description === nextData.description &&
+    prevData.member_count === nextData.member_count &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.id === nextProps.id
+  );
+});
 
 // Updated node types mapping
 export const zoomAwareNodeTypes = {
