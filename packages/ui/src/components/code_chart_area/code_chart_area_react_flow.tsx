@@ -20,6 +20,7 @@ import { CodeNodeData } from "./code_function_node";
 import { symbolDisplayName } from "./symbol_utils";
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
 import { zoomAwareNodeTypes } from "./zoom_aware_node";
+import { generateReactFlowElements } from "./react_flow_data_transform";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -75,34 +76,18 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
       const nodeGroups = await detectModules();
       nodeGroupsRef.current = nodeGroups;
       
-      // Create initial node with custom type
-      const function_name = symbolDisplayName(selectedEntryPoint.symbol);
-      const summary = summariesAndFilteredCallTree.summaries?.[selectedEntryPoint.symbol] || "";
-      
-      const initialNode: Node<CodeNodeData> = {
-        id: selectedEntryPoint.symbol,
-        type: "code_function",
-        position: { x: 100, y: 100 },
-        data: { 
-          function_name,
-          summary,
-          file_path: selectedEntryPoint.definition.file_path,
-          line_number: selectedEntryPoint.definition.range.start.row,
-          is_entry_point: true,
-          symbol: selectedEntryPoint.symbol,
-        },
-      };
-      
-      // Calculate node dimensions
-      const dimensions = calculateNodeDimensions(initialNode);
-      initialNode.width = dimensions.width;
-      initialNode.height = dimensions.height;
+      // Generate all nodes and edges from the call tree
+      const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
+        selectedEntryPoint,
+        summariesAndFilteredCallTree,
+        nodeGroups
+      );
       
       // Apply hierarchical layout
-      const layoutedNodes = await applyHierarchicalLayout([initialNode], []);
+      const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
       
       setNodes(layoutedNodes);
-      setEdges([]);
+      setEdges(flowEdges);
       setSummaryStatus(SummarisationStatus.Ready);
     };
     
