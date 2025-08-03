@@ -11,12 +11,15 @@ import {
   Background,
   BackgroundVariant,
   ReactFlowProvider,
+  useStore,
+  ReactFlowState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
-import { nodeTypes, CodeNodeData } from "./code_function_node";
+import { CodeNodeData } from "./code_function_node";
 import { symbolDisplayName } from "./symbol_utils";
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
+import { zoomAwareNodeTypes } from "./zoom_aware_node";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -42,6 +45,18 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
+  
+  // Monitor zoom level
+  const zoom = useStore((state: ReactFlowState) => state.transform[2]);
+  const ZOOM_THRESHOLD = 0.45;
+
+  // Update zoom mode based on zoom level
+  useEffect(() => {
+    const newZoomMode = zoom < ZOOM_THRESHOLD ? "zoomedOut" : "zoomedIn";
+    if (newZoomMode !== zoomMode) {
+      setZoomMode(newZoomMode);
+    }
+  }, [zoom, zoomMode]);
 
   useEffect(() => {
     if (!selectedEntryPoint) {
@@ -154,12 +169,13 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
+          nodeTypes={zoomAwareNodeTypes}
           fitView
           fitViewOptions={{
             padding: 0.2,
             duration: 500,
           }}
+          nodesDraggable={false}
           defaultEdgeOptions={{
             animated: true,
             style: {
@@ -170,6 +186,24 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
         >
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           <Controls />
+          
+          {/* Zoom mode indicator */}
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              padding: "5px 10px",
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              fontSize: "12px",
+              color: "#666",
+              zIndex: 5,
+            }}
+          >
+            {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
+          </div>
         </ReactFlow>
       </div>
     </div>
