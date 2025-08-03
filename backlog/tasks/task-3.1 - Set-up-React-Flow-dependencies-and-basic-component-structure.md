@@ -34,6 +34,7 @@ Install React Flow and create the basic CodeChartArea component using React Flow
 Created code_chart_area_react_flow.tsx alongside the existing Cytoscape component. Installed @xyflow/react dependency. Set up basic ReactFlow component with proper TypeScript types from @code-charter/types. Component renders with loading states and basic node display. Build passes successfully.
 
 Key files created/modified:
+
 - packages/ui/src/components/code_chart_area/code_chart_area_react_flow.tsx - New React Flow component
 - packages/ui/src/components/code_chart_area/test_react_flow.tsx - Test component to verify integration
 - packages/ui/package.json - Added @xyflow/react dependency
