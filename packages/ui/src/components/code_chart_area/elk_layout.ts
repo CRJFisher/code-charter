@@ -1,5 +1,8 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { Node, Edge } from '@xyflow/react';
+import { CodeChartNode, CodeChartEdge, isCodeNode, isModuleNode } from './react_flow_types';
+import { CodeNodeData } from './code_function_node';
+import { ModuleNodeData } from './zoom_aware_node';
 
 const elk = new ELK();
 
@@ -28,10 +31,10 @@ export interface LayoutConstraint {
 }
 
 export async function applyHierarchicalLayout(
-  nodes: Node[],
-  edges: Edge[],
+  nodes: CodeChartNode[],
+  edges: CodeChartEdge[],
   options: LayoutOptions = {}
-): Promise<Node[]> {
+): Promise<CodeChartNode[]> {
   // If no nodes, return empty array
   if (nodes.length === 0) {
     return [];
@@ -85,16 +88,25 @@ export async function applyHierarchicalLayout(
 }
 
 // Helper function to calculate node dimensions based on content
-export function calculateNodeDimensions(node: Node): { width: number; height: number } {
+export function calculateNodeDimensions(node: CodeChartNode): { width: number; height: number } {
   // Base dimensions
   const basePadding = 20;
   const charWidth = 8; // Average character width
   const lineHeight = 20;
   
   // Calculate based on content
-  const data = node.data as any;
-  const functionNameLength = (data.function_name || '').length;
-  const summaryLength = (data.summary || '').length;
+  let functionNameLength = 0;
+  let summaryLength = 0;
+  
+  if (isCodeNode(node)) {
+    const data = node.data as CodeNodeData;
+    functionNameLength = (data.function_name || '').length;
+    summaryLength = (data.summary || '').length;
+  } else if (isModuleNode(node)) {
+    const data = node.data as ModuleNodeData;
+    functionNameLength = (data.module_name || '').length;
+    summaryLength = (data.description || '').length;
+  }
   
   // Width calculation (with max/min constraints)
   const minWidth = 200;

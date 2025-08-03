@@ -9,30 +9,47 @@ const ZOOM_THRESHOLD = 0.45;
 export const ZoomAwareNode: React.FC<NodeProps> = (props) => {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
+  const data = props.data as CodeNodeData;
+  const { selected } = props;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     navigateToFile({
-      file_path: (props.data as CodeNodeData).file_path,
-      line_number: (props.data as CodeNodeData).line_number,
+      file_path: data.file_path,
+      line_number: data.line_number,
     });
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToFile({
+        file_path: data.file_path,
+        line_number: data.line_number,
+      });
+    }
   };
 
   if (isZoomedOut) {
+    const simplifiedAriaLabel = `${data.is_entry_point ? 'Entry point' : 'Function'}: ${data.function_name}. Press Enter to open source code.`;
+    
     // Simplified view when zoomed out
     return (
       <div
         style={{
           padding: "15px 20px",
           borderRadius: "8px",
-          backgroundColor: (props.data as CodeNodeData).is_entry_point ? "#e8f5e9" : "#f5f5f5",
-          border: `2px solid ${(props.data as CodeNodeData).is_entry_point ? "#4caf50" : "#e0e0e0"}`,
+          backgroundColor: data.is_entry_point ? "#e8f5e9" : "#f5f5f5",
+          border: `${selected ? 3 : 2}px solid ${selected ? '#0096FF' : data.is_entry_point ? "#4caf50" : "#e0e0e0"}`,
           minWidth: "150px",
           textAlign: "center",
           transition: "all 0.3s ease",
           cursor: "pointer",
+          outline: "none",
         }}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "scale(1.05)";
           e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
@@ -41,6 +58,10 @@ export const ZoomAwareNode: React.FC<NodeProps> = (props) => {
           e.currentTarget.style.transform = "scale(1)";
           e.currentTarget.style.boxShadow = "none";
         }}
+        role="button"
+        tabIndex={0}
+        aria-label={simplifiedAriaLabel}
+        aria-selected={selected}
       >
         <Handle
           type="target"
@@ -52,11 +73,11 @@ export const ZoomAwareNode: React.FC<NodeProps> = (props) => {
           style={{
             fontWeight: "bold",
             fontSize: "16px",
-            color: (props.data as CodeNodeData).is_entry_point ? "#2e7d32" : "#333333",
+            color: data.is_entry_point ? "#2e7d32" : "#333333",
           }}
         >
-          {(props.data as CodeNodeData).is_entry_point && <span>⮕ </span>}
-          {(props.data as CodeNodeData).function_name}
+          {data.is_entry_point && <span aria-label="Entry point">⮕ </span>}
+          {data.function_name}
         </div>
         
         <Handle
@@ -69,7 +90,7 @@ export const ZoomAwareNode: React.FC<NodeProps> = (props) => {
   }
 
   // Full detail view when zoomed in
-  return <CodeFunctionNode {...props} data={props.data as CodeNodeData} />;
+  return <CodeFunctionNode {...props} />;
 };
 
 // Module group node for when clustering is implemented
@@ -84,6 +105,7 @@ export const ModuleGroupNode: React.FC<NodeProps> = (props) => {
   const data = props.data as ModuleNodeData;
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
+  const { selected } = props;
   
   // Only show module groups when zoomed out
   if (!isZoomedOut) {
@@ -94,13 +116,14 @@ export const ModuleGroupNode: React.FC<NodeProps> = (props) => {
     padding: "20px",
     borderRadius: "15px",
     backgroundColor: "rgba(245, 245, 245, 0.9)",
-    border: "2px dashed #999999",
+    border: `${selected ? 3 : 2}px ${selected ? 'solid' : 'dashed'} ${selected ? '#0096FF' : '#999999'}`,
     width: "100%",
     height: "100%",
     transition: "all 0.3s ease",
     display: "flex",
     flexDirection: "column",
     boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)",
+    outline: "none",
   };
 
   const headerStyles: React.CSSProperties = {
@@ -121,8 +144,16 @@ export const ModuleGroupNode: React.FC<NodeProps> = (props) => {
     color: "#999999",
   };
 
+  const moduleAriaLabel = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.`;
+  
   return (
-    <div style={moduleStyles}>
+    <div 
+      style={moduleStyles}
+      role="group"
+      tabIndex={0}
+      aria-label={moduleAriaLabel}
+      aria-selected={selected}
+    >
       <Handle
         type="target"
         position={Position.Top}

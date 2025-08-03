@@ -3,8 +3,6 @@ import { CallGraphNode } from "@ariadnejs/core";
 import { NodeGroup, TreeAndContextSummaries } from "@code-charter/types";
 import {
   ReactFlow,
-  Node,
-  Edge,
   useNodesState,
   useEdgesState,
   Controls,
@@ -12,9 +10,11 @@ import {
   BackgroundVariant,
   ReactFlowProvider,
   useStore,
-  ReactFlowState,
+  ReactFlowState as XYFlowState,
   useReactFlow,
+  type ReactFlowInstance,
 } from "@xyflow/react";
+import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
@@ -24,6 +24,7 @@ import { zoomAwareNodeTypes } from "./zoom_aware_node";
 import { generateReactFlowElements } from "./react_flow_data_transform";
 import { LoadingIndicator } from "./loading_indicator";
 import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } from "./state_persistence";
+import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -35,25 +36,49 @@ interface CodeChartAreaProps {
   indexingStatus: CodeIndexStatus;
 }
 
-export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
+// ARIA label configuration for accessibility
+const ariaLabelConfig = {
+  'node.a11yDescription.default': 'Press Enter to select this node. Use arrow keys to navigate.',
+  'node.a11yDescription.keyboardDisabled': 'Keyboard navigation is disabled',
+  'edge.a11yDescription.default': 'Connection between functions. Press Enter to focus.',
+  'canvas.a11yDescription': 'Code flow visualization canvas. Use Tab to navigate nodes.',
+};
+
+const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   selectedEntryPoint,
   screenWidthFraction,
   getSummaries,
   detectModules,
   indexingStatus,
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<CodeChartNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<CodeChartEdge>([]);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
   const [callGraphNodes, setCallChart] = useState<Record<string, CallGraphNode> | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
-  const reactFlowInstance = useRef<any>(null);
+  const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
+  
+  // Use keyboard navigation hook
+  const { selectedNodeId } = useKeyboardNavigation({
+    onNodeNavigate: (nodeId) => {
+      // Auto-pan to the selected node
+      if (reactFlowInstance.current) {
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+          reactFlowInstance.current.setCenter(node.position.x, node.position.y, {
+            duration: 300,
+            zoom: reactFlowInstance.current.getZoom(),
+          });
+        }
+      }
+    },
+  });
   
   // Monitor zoom level
-  const zoom = useStore((state: ReactFlowState) => state.transform[2]);
+  const zoom = useStore((state: XYFlowState) => state.transform[2]);
   const ZOOM_THRESHOLD = 0.45;
 
   // Update zoom mode based on zoom level
@@ -77,8 +102,8 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol);
         if (savedState) {
-          setNodes(savedState.nodes as any);
-          setEdges(savedState.edges as any);
+          setNodes(savedState.nodes);
+          setEdges(savedState.edges);
           // Note: viewport will be set via onInit callback
           setSummaryStatus(SummarisationStatus.Ready);
           return;
@@ -104,8 +129,8 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
         // Apply hierarchical layout
         const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
         
-        setNodes(layoutedNodes as any);
-        setEdges(flowEdges as any);
+        setNodes(layoutedNodes);
+        setEdges(flowEdges);
         setSummaryStatus(SummarisationStatus.Ready);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -121,7 +146,7 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   };
   
   // Save current state
-  const handleSaveState = useCallback((reactFlowInstance: any) => {
+  const handleSaveState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint || !reactFlowInstance) return;
     
     const viewport = reactFlowInstance.getViewport();
@@ -129,7 +154,7 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   }, [nodes, edges, selectedEntryPoint]);
   
   // Export state to file
-  const handleExportState = useCallback((reactFlowInstance: any) => {
+  const handleExportState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint || !reactFlowInstance) return;
     
     const viewport = reactFlowInstance.getViewport();
@@ -137,7 +162,7 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   }, [nodes, edges, selectedEntryPoint]);
   
   // Handle React Flow initialization
-  const onInit = useCallback((instance: any) => {
+  const onInit = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint) return;
     
     reactFlowInstance.current = instance;
@@ -172,15 +197,18 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   const showElements = selectedEntryPoint !== null && summaryStatus === SummarisationStatus.Ready;
 
   return (
-    <div
-      ref={containerRef}
-      className="chart-container"
-      style={{
-        width: `${screenWidthFraction * 100}%`,
-        height: "100vh",
-        position: "relative",
-      }}
-    >
+    <>
+      <SkipToGraph />
+      <div
+        ref={containerRef}
+        className="chart-container"
+        style={{
+          width: `${screenWidthFraction * 100}%`,
+          height: "100vh",
+          position: "relative",
+        }}
+        id="code-flow-graph"
+      >
       <div
         className={`loading-container ${getVisibilityClassNames(summaryStatus !== SummarisationStatus.Ready)}`}
         style={{
@@ -231,15 +259,20 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
             padding: 0.2,
             duration: 500,
           }}
-          nodesDraggable={false}
+          nodesDraggable={true}
           nodesConnectable={false}
           elementsSelectable={true}
+          nodesFocusable={true}
+          edgesFocusable={true}
+          autoPanOnNodeFocus={true}
+          ariaLabelConfig={ariaLabelConfig}
           defaultEdgeOptions={{
             animated: true,
             style: {
               stroke: '#b1b1b7',
               strokeWidth: 2,
             },
+            ariaLabel: 'Function call',
           }}
           onInit={onInit}
           onNodeDragStop={() => {
@@ -250,6 +283,8 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
               }
             }, 100);
           }}
+          aria-label="Code flow diagram showing function calls and dependencies"
+          role="application"
         >
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           <Controls />
@@ -347,14 +382,18 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
         </ReactFlow>
       </div>
     </div>
+    </>
   );
 };
+
+// Export the component with proper naming
+export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;
 
 // Wrap the component with ReactFlowProvider
 export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (props) => {
   return (
     <ReactFlowProvider>
-      <CodeChartAreaReactFlow {...props} />
+      <CodeChartAreaReactFlowInner {...props} />
     </ReactFlowProvider>
   );
 };

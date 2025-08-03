@@ -11,7 +11,7 @@ export interface CodeNodeData extends Record<string, unknown> {
   symbol: string;
 }
 
-export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data }) => {
+export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data, selected }) => {
   const handleClick = (e: React.MouseEvent) => {
     // Prevent node selection/dragging
     e.stopPropagation();
@@ -21,16 +21,30 @@ export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data }) =>
       line_number: data.line_number,
     });
   };
+  
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToFile({
+        file_path: data.file_path,
+        line_number: data.line_number,
+      });
+    }
+  };
 
   const nodeStyles: React.CSSProperties = {
     padding: "10px",
     borderRadius: "5px",
     backgroundColor: data.is_entry_point ? "#e8f5e9" : "#ffffff",
-    border: `${data.is_entry_point ? 2 : 1}px solid #e0e0e0`,
+    border: `${data.is_entry_point ? 2 : 1}px solid ${selected ? '#0096FF' : '#e0e0e0'}`,
+    borderWidth: selected ? "3px" : data.is_entry_point ? "2px" : "1px",
     minWidth: "200px",
     maxWidth: "350px",
     cursor: "pointer",
     transition: "all 0.2s ease",
+    outline: "none",
+    position: "relative",
   };
 
   const headerStyles: React.CSSProperties = {
@@ -51,10 +65,14 @@ export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data }) =>
     wordBreak: "break-word",
   };
 
+  // Create accessible label
+  const ariaLabel = `${data.is_entry_point ? 'Entry point function' : 'Function'}: ${data.function_name}. ${data.summary || 'No description available'}. Located at ${data.file_path} line ${data.line_number}. Press Enter to navigate to source code.`;
+  
   return (
     <div 
       style={nodeStyles}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "scale(1.02)";
         e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
@@ -63,6 +81,10 @@ export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data }) =>
         e.currentTarget.style.transform = "scale(1)";
         e.currentTarget.style.boxShadow = "none";
       }}
+      role="button"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      aria-selected={selected}
     >
       <Handle
         type="target"
@@ -71,7 +93,7 @@ export const CodeFunctionNode: React.FC<NodeProps<CodeNodeData>> = ({ data }) =>
       />
       
       <div style={headerStyles}>
-        {data.is_entry_point && <span>⮕</span>}
+        {data.is_entry_point && <span aria-label="Entry point">⮕</span>}
         <span>{data.function_name}</span>
       </div>
       

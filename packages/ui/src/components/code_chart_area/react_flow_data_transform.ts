@@ -5,10 +5,11 @@ import { symbolDisplayName } from "./symbol_utils";
 import { CodeNodeData } from "./code_function_node";
 import { ModuleNodeData } from "./zoom_aware_node";
 import { calculateNodeDimensions } from "./elk_layout";
+import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 
 export interface ReactFlowElements {
-  nodes: Node[];
-  edges: Edge[];
+  nodes: CodeChartNode[];
+  edges: CodeChartEdge[];
 }
 
 export function generateReactFlowElements(
@@ -16,8 +17,8 @@ export function generateReactFlowElements(
   summariesAndFilteredCallTree: TreeAndContextSummaries,
   nodeGroups: NodeGroup[] | undefined
 ): ReactFlowElements {
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
+  const nodes: CodeChartNode[] = [];
+  const edges: CodeChartEdge[] = [];
   const visited = new Set<string>();
   
   // Define the mappings for module clustering
@@ -47,7 +48,7 @@ export function generateReactFlowElements(
     const parentModuleId = symbolToCompoundId[node.symbol];
     
     // Create the React Flow node
-    const functionNode: Node = {
+    const functionNode: CodeChartNode = {
       id: node.symbol,
       type: "code_function",
       position,
@@ -81,6 +82,7 @@ export function generateReactFlowElements(
         target: call.symbol,
         type: "default",
         animated: false,
+        ariaLabel: `Call from ${symbolDisplayName(node.symbol)} to ${symbolDisplayName(call.symbol)}`,
       });
       
       // Track module connections
@@ -139,7 +141,7 @@ export function generateReactFlowElements(
       }
       
       const padding = 40;
-      const moduleNode: Node = {
+      const moduleNode: CodeChartNode = {
         id: moduleId,
         type: "module_group",
         position: { x: minX - padding, y: minY - padding },
@@ -162,7 +164,7 @@ export function generateReactFlowElements(
     });
     
     // Add module nodes at the beginning so they render behind
-    nodes.unshift(...moduleNodes);
+    nodes.unshift(...moduleNodes as CodeChartNode[]);
     
     // Add edges between modules after all connections are tracked
     moduleConnections.forEach((targets, source) => {
@@ -178,6 +180,7 @@ export function generateReactFlowElements(
             stroke: "#cccccc",
             strokeWidth: 3,
           },
+          ariaLabel: `Module connection from ${source} to ${target}`,
         });
       });
     });

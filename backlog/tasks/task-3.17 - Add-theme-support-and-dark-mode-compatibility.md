@@ -11,7 +11,7 @@ parent_task_id: task-3
 
 ## Description
 
-Implement comprehensive theming system with dark mode support to provide better user experience and visual consistency across different lighting conditions
+Implement comprehensive theming system with dark mode support to provide better user experience and visual consistency across different lighting conditions. If the backend is vscode (or derivative IDE), it should use the vscode theme. If the backend is not vscode, it should use of two default themes: light and dark.
 
 ## Acceptance Criteria
 

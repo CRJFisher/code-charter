@@ -1,8 +1,9 @@
-import { Node, Edge, Viewport } from '@xyflow/react';
+import { Viewport } from '@xyflow/react';
+import { CodeChartNode, CodeChartEdge } from './react_flow_types';
 
 export interface GraphState {
-  nodes: Node[];
-  edges: Edge[];
+  nodes: CodeChartNode[];
+  edges: CodeChartEdge[];
   viewport: Viewport;
   timestamp: number;
   entryPoint: string;
@@ -11,8 +12,8 @@ export interface GraphState {
 const STORAGE_KEY = 'code-charter-react-flow-state';
 
 export function saveGraphState(
-  nodes: Node[],
-  edges: Edge[],
+  nodes: CodeChartNode[],
+  edges: CodeChartEdge[],
   viewport: Viewport,
   entryPoint: string
 ): void {
@@ -66,8 +67,8 @@ export function clearGraphState(): void {
 
 // Export graph state to JSON file
 export function exportGraphState(
-  nodes: Node[],
-  edges: Edge[],
+  nodes: CodeChartNode[],
+  edges: CodeChartEdge[],
   viewport: Viewport,
   entryPoint: string
 ): void {
