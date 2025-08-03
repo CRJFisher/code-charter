@@ -23,7 +23,7 @@ Replacing Cytoscape with React Flow will
 - [x] Custom React components can be used as nodes and are demonstrated in at least one view (e.g. node shows file path + "open in IDE" link).
 - [x] No runtime dependency on `cytoscape`, `react-cytoscapejs`, or any Cytoscape plugin remains in the codebase.
 - [x] All new dependencies (`react-flow`, `@react-flow/core`, etc.) are MIT-licensed and listed in `package.json`.
-- [ ] Unit / component tests are updated or added to cover the new React Flow implementation.
+- [x] Unit / component tests are updated or added to cover the new React Flow implementation.
 - [x] Documentation in `backlog/docs/` is updated: migration rationale, API snippets, and examples.
 
 ## Implementation Plan (the how)
@@ -91,4 +91,4 @@ Successfully migrated from Cytoscape.js to React Flow through 10 sub-tasks:
 - cytoscapeStyles.ts
 - node_placement.ts
 
-The migration is complete except for unit tests, which should be added as a follow-up task.
+The migration is complete including comprehensive unit tests for all business logic functionality.
