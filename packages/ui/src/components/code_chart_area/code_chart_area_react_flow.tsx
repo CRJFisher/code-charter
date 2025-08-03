@@ -13,6 +13,7 @@ import {
   ReactFlowState as XYFlowState,
   useReactFlow,
   type ReactFlowInstance,
+  MiniMap,
 } from "@xyflow/react";
 import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
@@ -28,6 +29,7 @@ import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
 import { useDebounce, useThrottle, getVisibleNodes, PerformanceMonitor } from "./performance_utils";
 import { clearLayoutCaches } from "./elk_layout";
 import { useVirtualNodes, useZoomCulling, ViewportIndicator } from "./virtual_renderer";
+import { SearchPanel } from "./search_panel";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -60,6 +62,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const [callGraphNodes, setCallChart] = useState<Record<string, CallGraphNode> | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
   const [error, setError] = useState<string | null>(null);
+  const [showMiniMap, setShowMiniMap] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
@@ -338,6 +341,28 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           <Controls />
           
+          {/* Mini Map */}
+          {showMiniMap && (
+            <MiniMap 
+              nodeColor={miniMapNodeColor}
+              nodeStrokeWidth={3}
+              pannable
+              zoomable
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                border: '1px solid #ddd',
+              }}
+            />
+          )}
+          
+          {/* Search Panel */}
+          <SearchPanel 
+            onNodeSelect={(nodeId) => {
+              // Additional handling if needed when node is selected
+              console.log('Node selected:', nodeId);
+            }}
+          />
+          
           {/* Zoom mode indicator and controls */}
           <div
             style={{
@@ -392,6 +417,24 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 }}
               />
             )}
+            
+            {/* MiniMap Toggle */}
+            <button
+              onClick={() => setShowMiniMap(!showMiniMap)}
+              style={{
+                padding: "4px 8px",
+                fontSize: "11px",
+                backgroundColor: showMiniMap ? "#4CAF50" : "#999",
+                color: "white",
+                border: "none",
+                borderRadius: "3px",
+                cursor: "pointer",
+                marginBottom: "4px",
+              }}
+              aria-label={showMiniMap ? "Hide mini-map" : "Show mini-map"}
+            >
+              {showMiniMap ? "🗺️ Hide Map" : "🗺️ Show Map"}
+            </button>
             
             {/* Persistence controls */}
             <div
@@ -464,6 +507,20 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     </>
   );
 };
+
+// MiniMap node color function
+function miniMapNodeColor(node: CodeChartNode): string {
+  if (node.type === 'module_group') {
+    return '#e0e0e0';
+  }
+  if (node.data?.is_entry_point) {
+    return '#4caf50';
+  }
+  if (node.selected) {
+    return '#0096FF';
+  }
+  return '#ff0072';
+}
 
 // Export the component with proper naming
 export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;

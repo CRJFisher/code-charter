@@ -75,14 +75,8 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
         break;
 
       case '/':
-        // Focus search (to be implemented in task 3.14)
-        if (!event.ctrlKey && !event.metaKey && !event.altKey) {
-          event.preventDefault();
-          const searchInput = document.getElementById('code-flow-search');
-          if (searchInput instanceof HTMLInputElement) {
-            searchInput.focus();
-          }
-        }
+        // Focus search - handled by SearchPanel component
+        // SearchPanel listens for the '/' key globally
         break;
 
       case 'Escape':
