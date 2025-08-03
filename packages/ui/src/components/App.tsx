@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 import Sidebar from "./side_bar";
-import { CodeChartArea } from "./code_chart_area/code_chart_area_simple";
+import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area_react_flow";
 import { useBackend } from "../hooks/use_backend";
 import { TreeAndContextSummaries, NodeGroup, CallGraph, CallGraphNode } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
@@ -97,11 +97,11 @@ export const App: React.FC<AppProps> = ({ className = "", forceStandalone = fals
         />
         <div className="flex flex-1 bg-vscodeBg">
           <CodeChartArea
-            selected_entry_point={selected_entry_point}
-            screen_width_fraction={0.8}
-            get_summaries={get_summaries}
-            detect_modules={() => detect_modules(selected_entry_point?.symbol)}
-            indexing_status={status_message}
+            selectedEntryPoint={selected_entry_point}
+            screenWidthFraction={0.8}
+            getSummaries={get_summaries}
+            detectModules={() => detect_modules(selected_entry_point?.symbol)}
+            indexingStatus={status_message}
           />
         </div>
       </div>

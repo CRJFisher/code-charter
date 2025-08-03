@@ -13,6 +13,7 @@ import {
   ReactFlowProvider,
   useStore,
   ReactFlowState,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
@@ -22,6 +23,7 @@ import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
 import { zoomAwareNodeTypes } from "./zoom_aware_node";
 import { generateReactFlowElements } from "./react_flow_data_transform";
 import { LoadingIndicator } from "./loading_indicator";
+import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } from "./state_persistence";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -48,6 +50,7 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
+  const reactFlowInstance = useRef<any>(null);
   
   // Monitor zoom level
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
@@ -71,6 +74,16 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
         setError(null);
         setSummaryStatus(SummarisationStatus.SummarisingFunctions);
         
+        // Check for saved state first
+        const savedState = loadGraphState(selectedEntryPoint.symbol);
+        if (savedState) {
+          setNodes(savedState.nodes as any);
+          setEdges(savedState.edges as any);
+          // Note: viewport will be set via onInit callback
+          setSummaryStatus(SummarisationStatus.Ready);
+          return;
+        }
+        
         const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
         if (!summariesAndFilteredCallTree) {
           throw new Error("Failed to load function summaries");
@@ -91,8 +104,8 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
         // Apply hierarchical layout
         const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
         
-        setNodes(layoutedNodes);
-        setEdges(flowEdges);
+        setNodes(layoutedNodes as any);
+        setEdges(flowEdges as any);
         setSummaryStatus(SummarisationStatus.Ready);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -106,6 +119,35 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   const getVisibilityClassNames = (show: boolean): string => {
     return show ? "visible" : "invisible";
   };
+  
+  // Save current state
+  const handleSaveState = useCallback((reactFlowInstance: any) => {
+    if (!selectedEntryPoint || !reactFlowInstance) return;
+    
+    const viewport = reactFlowInstance.getViewport();
+    saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol);
+  }, [nodes, edges, selectedEntryPoint]);
+  
+  // Export state to file
+  const handleExportState = useCallback((reactFlowInstance: any) => {
+    if (!selectedEntryPoint || !reactFlowInstance) return;
+    
+    const viewport = reactFlowInstance.getViewport();
+    exportGraphState(nodes, edges, viewport, selectedEntryPoint.symbol);
+  }, [nodes, edges, selectedEntryPoint]);
+  
+  // Handle React Flow initialization
+  const onInit = useCallback((instance: any) => {
+    if (!selectedEntryPoint) return;
+    
+    reactFlowInstance.current = instance;
+    
+    // Check for saved viewport
+    const savedState = loadGraphState(selectedEntryPoint.symbol);
+    if (savedState?.viewport) {
+      instance.setViewport(savedState.viewport);
+    }
+  }, [selectedEntryPoint]);
 
   if (indexingStatus !== CodeIndexStatus.Ready) {
     return (
@@ -199,26 +241,108 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
               strokeWidth: 2,
             },
           }}
+          onInit={onInit}
+          onNodeDragStop={() => {
+            // Auto-save on node position change
+            setTimeout(() => {
+              if (reactFlowInstance.current) {
+                handleSaveState(reactFlowInstance.current);
+              }
+            }, 100);
+          }}
         >
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           <Controls />
           
-          {/* Zoom mode indicator */}
+          {/* Zoom mode indicator and controls */}
           <div
             style={{
               position: "absolute",
               top: "10px",
               right: "10px",
-              padding: "5px 10px",
-              backgroundColor: "rgba(255, 255, 255, 0.9)",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: "12px",
-              color: "#666",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
               zIndex: 5,
             }}
           >
-            {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
+            <div
+              style={{
+                padding: "5px 10px",
+                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                fontSize: "12px",
+                color: "#666",
+              }}
+            >
+              {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
+            </div>
+            
+            {/* Persistence controls */}
+            <div
+              style={{
+                display: "flex",
+                gap: "4px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  if (reactFlowInstance.current) {
+                    handleSaveState(reactFlowInstance.current);
+                    alert("Graph state saved!");
+                  }
+                }}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "11px",
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  if (reactFlowInstance.current) {
+                    handleExportState(reactFlowInstance.current);
+                  }
+                }}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "11px",
+                  backgroundColor: "#2196F3",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                }}
+              >
+                Export
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Clear saved state?")) {
+                    clearGraphState();
+                    alert("Saved state cleared!");
+                  }
+                }}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "11px",
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                }}
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </ReactFlow>
       </div>

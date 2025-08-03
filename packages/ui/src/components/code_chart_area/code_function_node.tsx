@@ -2,7 +2,7 @@ import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { navigateToFile } from "./navigation_utils";
 
-export interface CodeNodeData {
+export interface CodeNodeData extends Record<string, unknown> {
   function_name: string;
   summary: string;
   file_path: string;

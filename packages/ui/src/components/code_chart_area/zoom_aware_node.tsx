@@ -6,15 +6,15 @@ import { navigateToFile } from "./navigation_utils";
 
 const ZOOM_THRESHOLD = 0.45;
 
-export const ZoomAwareNode: React.FC<NodeProps<CodeNodeData>> = (props) => {
+export const ZoomAwareNode: React.FC<NodeProps> = (props) => {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     navigateToFile({
-      file_path: props.data.file_path,
-      line_number: props.data.line_number,
+      file_path: (props.data as CodeNodeData).file_path,
+      line_number: (props.data as CodeNodeData).line_number,
     });
   };
 
@@ -25,8 +25,8 @@ export const ZoomAwareNode: React.FC<NodeProps<CodeNodeData>> = (props) => {
         style={{
           padding: "15px 20px",
           borderRadius: "8px",
-          backgroundColor: props.data.is_entry_point ? "#e8f5e9" : "#f5f5f5",
-          border: `2px solid ${props.data.is_entry_point ? "#4caf50" : "#e0e0e0"}`,
+          backgroundColor: (props.data as CodeNodeData).is_entry_point ? "#e8f5e9" : "#f5f5f5",
+          border: `2px solid ${(props.data as CodeNodeData).is_entry_point ? "#4caf50" : "#e0e0e0"}`,
           minWidth: "150px",
           textAlign: "center",
           transition: "all 0.3s ease",
@@ -52,11 +52,11 @@ export const ZoomAwareNode: React.FC<NodeProps<CodeNodeData>> = (props) => {
           style={{
             fontWeight: "bold",
             fontSize: "16px",
-            color: props.data.is_entry_point ? "#2e7d32" : "#333333",
+            color: (props.data as CodeNodeData).is_entry_point ? "#2e7d32" : "#333333",
           }}
         >
-          {props.data.is_entry_point && <span>⮕ </span>}
-          {props.data.function_name}
+          {(props.data as CodeNodeData).is_entry_point && <span>⮕ </span>}
+          {(props.data as CodeNodeData).function_name}
         </div>
         
         <Handle
@@ -69,18 +69,19 @@ export const ZoomAwareNode: React.FC<NodeProps<CodeNodeData>> = (props) => {
   }
 
   // Full detail view when zoomed in
-  return <CodeFunctionNode {...props} />;
+  return <CodeFunctionNode {...props} data={props.data as CodeNodeData} />;
 };
 
 // Module group node for when clustering is implemented
-export interface ModuleNodeData {
+export interface ModuleNodeData extends Record<string, unknown> {
   module_name: string;
   description: string;
   member_count: number;
   is_expanded?: boolean;
 }
 
-export const ModuleGroupNode: React.FC<NodeProps<ModuleNodeData>> = ({ data }) => {
+export const ModuleGroupNode: React.FC<NodeProps> = (props) => {
+  const data = props.data as ModuleNodeData;
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
   

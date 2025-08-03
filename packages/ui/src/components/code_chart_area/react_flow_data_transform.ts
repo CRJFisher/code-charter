@@ -43,11 +43,11 @@ export function generateReactFlowElements(
     }
     visited.add(node.symbol);
     
-    const summary = summariesAndFilteredCallTree.summaries?.[node.symbol]?.trimStart() || "";
+    const summary = summariesAndFilteredCallTree.functionSummaries?.[node.symbol]?.trimStart() || "";
     const parentModuleId = symbolToCompoundId[node.symbol];
     
     // Create the React Flow node
-    const functionNode: Node<CodeNodeData> = {
+    const functionNode: Node = {
       id: node.symbol,
       type: "code_function",
       position,
@@ -59,7 +59,7 @@ export function generateReactFlowElements(
         is_entry_point: isTopLevel,
         symbol: node.symbol,
       },
-      parentNode: parentModuleId,
+      parentId: parentModuleId,
       extent: parentModuleId ? "parent" : undefined,
     };
     
@@ -71,7 +71,7 @@ export function generateReactFlowElements(
     nodes.push(functionNode);
     
     // Process child calls
-    let childY = position.y + 150;
+    const childY = position.y + 150;
     node.calls.forEach((call, index) => {
       // Add edge
       const edgeId = `${node.symbol}-${call.symbol}`;
@@ -135,7 +135,7 @@ export function generateReactFlowElements(
       const moduleId = `module_${index}`;
       
       // Calculate module bounds based on member nodes
-      const memberNodes = nodes.filter(n => n.parentNode === moduleId);
+      const memberNodes = nodes.filter(n => n.parentId === moduleId);
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       
       if (memberNodes.length > 0) {
@@ -159,7 +159,7 @@ export function generateReactFlowElements(
       }
       
       const padding = 40;
-      const moduleNode: Node<ModuleNodeData> = {
+      const moduleNode: Node = {
         id: moduleId,
         type: "module_group",
         position: { x: minX - padding, y: minY - padding },
