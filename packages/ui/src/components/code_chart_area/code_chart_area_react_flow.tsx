@@ -161,6 +161,8 @@ export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
             duration: 500,
           }}
           nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={true}
           defaultEdgeOptions={{
             animated: true,
             style: {

@@ -101,31 +101,8 @@ export function generateReactFlowElements(
     });
   };
   
-  // Add module group nodes if clustering is enabled
+  // Add edges between modules after all connections are tracked
   if (nodeGroups && nodeGroups.length > 0) {
-    nodeGroups.forEach((group, index) => {
-      const moduleId = `module_${index}`;
-      const moduleNode: Node<ModuleNodeData> = {
-        id: moduleId,
-        type: "module_group",
-        position: { x: index * 400, y: 0 },
-        data: {
-          module_name: `Module ${index + 1}`,
-          description: group.description || "",
-          member_count: group.memberSymbols.length,
-        },
-        style: {
-          width: 350,
-          height: 300,
-          backgroundColor: "rgba(240, 240, 240, 0.5)",
-          borderRadius: "10px",
-          padding: "20px",
-        },
-      };
-      nodes.push(moduleNode);
-    });
-    
-    // Add edges between modules
     moduleConnections.forEach((targets, source) => {
       targets.forEach(target => {
         const moduleEdgeId = `module-edge-${source}-${target}`;
@@ -148,6 +125,64 @@ export function generateReactFlowElements(
   const entryPointInTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
   if (entryPointInTree) {
     addFunctionNode(entryPointInTree, true, { x: 0, y: 0 });
+  }
+  
+  // After all function nodes are added, add module group nodes
+  if (nodeGroups && nodeGroups.length > 0) {
+    const moduleNodes: Node[] = [];
+    
+    nodeGroups.forEach((group, index) => {
+      const moduleId = `module_${index}`;
+      
+      // Calculate module bounds based on member nodes
+      const memberNodes = nodes.filter(n => n.parentNode === moduleId);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      
+      if (memberNodes.length > 0) {
+        memberNodes.forEach(node => {
+          const x = node.position.x;
+          const y = node.position.y;
+          const width = node.width || 200;
+          const height = node.height || 100;
+          
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x + width);
+          maxY = Math.max(maxY, y + height);
+        });
+      } else {
+        // Default positioning if no members
+        minX = index * 500;
+        minY = 0;
+        maxX = minX + 400;
+        maxY = minY + 300;
+      }
+      
+      const padding = 40;
+      const moduleNode: Node<ModuleNodeData> = {
+        id: moduleId,
+        type: "module_group",
+        position: { x: minX - padding, y: minY - padding },
+        data: {
+          module_name: `Module ${index + 1}`,
+          description: group.description || "",
+          member_count: group.memberSymbols.length,
+        },
+        style: {
+          width: maxX - minX + padding * 2,
+          height: maxY - minY + padding * 2,
+          backgroundColor: "rgba(240, 240, 240, 0.3)",
+          border: "2px dashed #cccccc",
+          borderRadius: "15px",
+          padding: "20px",
+          zIndex: -1,
+        },
+      };
+      moduleNodes.push(moduleNode);
+    });
+    
+    // Add module nodes at the beginning so they render behind
+    nodes.unshift(...moduleNodes);
   }
   
   return { nodes, edges };

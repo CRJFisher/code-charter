@@ -81,14 +81,25 @@ export interface ModuleNodeData {
 }
 
 export const ModuleGroupNode: React.FC<NodeProps<ModuleNodeData>> = ({ data }) => {
+  const zoom = useStore((state: ReactFlowState) => state.transform[2]);
+  const isZoomedOut = zoom < ZOOM_THRESHOLD;
+  
+  // Only show module groups when zoomed out
+  if (!isZoomedOut) {
+    return null;
+  }
+  
   const moduleStyles: React.CSSProperties = {
     padding: "20px",
-    borderRadius: "10px",
-    backgroundColor: "rgba(240, 240, 240, 0.8)",
-    border: "2px solid #cccccc",
-    minWidth: "250px",
-    minHeight: "100px",
+    borderRadius: "15px",
+    backgroundColor: "rgba(245, 245, 245, 0.9)",
+    border: "2px dashed #999999",
+    width: "100%",
+    height: "100%",
     transition: "all 0.3s ease",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)",
   };
 
   const headerStyles: React.CSSProperties = {
