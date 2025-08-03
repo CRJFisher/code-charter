@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { CallGraphNode } from "@ariadnejs/core";
 import { NodeGroup, TreeAndContextSummaries } from "@code-charter/types";
 import {
@@ -30,6 +30,9 @@ import { useDebounce, useThrottle, getVisibleNodes, PerformanceMonitor } from ".
 import { clearLayoutCaches } from "./elk_layout";
 import { useVirtualNodes, useZoomCulling, ViewportIndicator } from "./virtual_renderer";
 import { SearchPanel } from "./search_panel";
+import { ErrorBoundary } from "./error_boundary";
+import { ErrorNotifications, useErrorNotification } from "./error_notifications";
+import { handleReactFlowError, errorLogger } from "./error_handling";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -67,6 +70,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
   const perfMonitor = useRef(new PerformanceMonitor());
+  const { notify } = useErrorNotification();
   
   // Use keyboard navigation hook
   const { selectedNodeId } = useKeyboardNavigation({
@@ -182,8 +186,21 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         setSummaryStatus(SummarisationStatus.Ready);
         perfMonitor.current.endMeasure('data-fetch', nodes.length, edges.length);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+        const error = err instanceof Error ? err : new Error("An error occurred");
+        setError(error.message);
         setSummaryStatus(SummarisationStatus.Error);
+        errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol });
+        handleReactFlowError(error);
+        
+        // Show notification with retry option
+        notify(
+          'Failed to load visualization data',
+          'error',
+          [
+            { label: 'Retry', action: () => fetchData() },
+            { label: 'Dismiss', action: () => {} },
+          ]
+        );
       }
     };
     
@@ -525,11 +542,20 @@ function miniMapNodeColor(node: CodeChartNode): string {
 // Export the component with proper naming
 export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;
 
-// Wrap the component with ReactFlowProvider
+// Wrap the component with ReactFlowProvider and ErrorBoundary
 export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (props) => {
   return (
-    <ReactFlowProvider>
-      <CodeChartAreaReactFlowInner {...props} />
-    </ReactFlowProvider>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        errorLogger.log(error, 'critical', { errorInfo });
+        handleReactFlowError(error);
+      }}
+      maxRetries={3}
+    >
+      <ReactFlowProvider>
+        <CodeChartAreaReactFlowInner {...props} />
+        <ErrorNotifications position="bottom" maxNotifications={3} />
+      </ReactFlowProvider>
+    </ErrorBoundary>
   );
 };
