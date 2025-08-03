@@ -101,26 +101,6 @@ export function generateReactFlowElements(
     });
   };
   
-  // Add edges between modules after all connections are tracked
-  if (nodeGroups && nodeGroups.length > 0) {
-    moduleConnections.forEach((targets, source) => {
-      targets.forEach(target => {
-        const moduleEdgeId = `module-edge-${source}-${target}`;
-        edges.push({
-          id: moduleEdgeId,
-          source,
-          target,
-          type: "default",
-          animated: false,
-          style: {
-            stroke: "#cccccc",
-            strokeWidth: 3,
-          },
-        });
-      });
-    });
-  }
-  
   // Start processing from the entry point
   const entryPointInTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
   if (entryPointInTree) {
@@ -183,6 +163,24 @@ export function generateReactFlowElements(
     
     // Add module nodes at the beginning so they render behind
     nodes.unshift(...moduleNodes);
+    
+    // Add edges between modules after all connections are tracked
+    moduleConnections.forEach((targets, source) => {
+      targets.forEach(target => {
+        const moduleEdgeId = `module-edge-${source}-${target}`;
+        edges.push({
+          id: moduleEdgeId,
+          source,
+          target,
+          type: "default",
+          animated: false,
+          style: {
+            stroke: "#cccccc",
+            strokeWidth: 3,
+          },
+        });
+      });
+    });
   }
   
   return { nodes, edges };
