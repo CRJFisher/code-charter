@@ -33,6 +33,7 @@ import { SearchPanel } from "./search_panel";
 import { ErrorBoundary } from "./error_boundary";
 import { ErrorNotifications, useErrorNotification } from "./error_notifications";
 import { handleReactFlowError, errorLogger } from "./error_handling";
+import { CONFIG } from "./config";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -80,7 +81,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         const node = nodes.find(n => n.id === nodeId);
         if (node) {
           reactFlowInstance.current.setCenter(node.position.x, node.position.y, {
-            duration: 300,
+            duration: CONFIG.animation.duration.panToNode,
             zoom: reactFlowInstance.current.getZoom(),
           });
         }
@@ -95,10 +96,10 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     y: state.transform[1],
     zoom: state.transform[2],
   }));
-  const ZOOM_THRESHOLD = 0.45;
+  const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
   
   // Debounce viewport changes for performance
-  const debouncedViewport = useDebounce(viewport, 100);
+  const debouncedViewport = useDebounce(viewport, CONFIG.animation.debounce.viewport);
 
   // Update zoom mode based on zoom level
   useEffect(() => {
@@ -123,14 +124,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   }, [nodes, debouncedViewport]);
   
   // Apply zoom-based culling for performance
-  const culledNodes = useZoomCulling(nodes, zoom, 0.3);
+  const culledNodes = useZoomCulling(nodes, zoom, CONFIG.zoom.culling.threshold);
   
   // Apply virtual rendering for large graphs
   const { virtualNodes, virtualEdges, hiddenNodeCount } = useVirtualNodes({
-    nodes: nodes.length > 200 ? culledNodes : nodes,
+    nodes: nodes.length > CONFIG.performance.nodes.largeGraph ? culledNodes : nodes,
     edges,
-    visibleNodeIds: nodes.length > 200 ? visibleNodeIds : new Set(),
-    renderBuffer: 25,
+    visibleNodeIds: nodes.length > CONFIG.performance.nodes.largeGraph ? visibleNodeIds : new Set(),
+    renderBuffer: CONFIG.performance.virtualRender.renderBuffer,
   });
   
   // Clear caches when entry point changes
@@ -217,7 +218,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     
     const viewport = reactFlowInstance.getViewport();
     saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol);
-  }, [nodes, edges, selectedEntryPoint]), 1000);
+  }, [nodes, edges, selectedEntryPoint]), CONFIG.animation.debounce.save);
   
   // Export state to file
   const handleExportState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
@@ -283,7 +284,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           left: "50%",
           transform: "translate(-50%, -50%)",
           textAlign: "center",
-          zIndex: 10,
+          zIndex: CONFIG.zIndex.overlay,
         }}
       >
         {summaryStatus === SummarisationStatus.SummarisingFunctions && (
@@ -322,8 +323,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           nodeTypes={zoomAwareNodeTypes}
           fitView
           fitViewOptions={{
-            padding: 0.2,
-            duration: 500,
+            padding: CONFIG.viewport.fitView.padding,
+            duration: CONFIG.animation.duration.fitView,
           }}
           nodesDraggable={true}
           nodesConnectable={false}
@@ -333,13 +334,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           autoPanOnNodeFocus={true}
           ariaLabelConfig={ariaLabelConfig}
           onlyRenderVisibleElements={true}
-          minZoom={0.1}
-          maxZoom={2.5}
+          minZoom={CONFIG.zoom.levels.min}
+          maxZoom={CONFIG.zoom.levels.max}
           defaultEdgeOptions={{
             animated: true,
             style: {
-              stroke: '#b1b1b7',
-              strokeWidth: 2,
+              stroke: CONFIG.color.edge.stroke,
+              strokeWidth: CONFIG.color.edge.strokeWidth,
             },
             ariaLabel: 'Function call',
           }}
@@ -350,24 +351,24 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               if (reactFlowInstance.current) {
                 handleSaveState(reactFlowInstance.current);
               }
-            }, 100);
+            }, CONFIG.animation.duration.saveDelay);
           }}
           aria-label="Code flow diagram showing function calls and dependencies"
           role="application"
         >
-          <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+          <Background variant={BackgroundVariant.Dots} gap={CONFIG.background.gap} size={CONFIG.background.size} />
           <Controls />
           
           {/* Mini Map */}
           {showMiniMap && (
             <MiniMap 
               nodeColor={miniMapNodeColor}
-              nodeStrokeWidth={3}
+              nodeStrokeWidth={CONFIG.minimap.nodeStrokeWidth}
               pannable
               zoomable
               style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                border: '1px solid #ddd',
+                backgroundColor: CONFIG.color.ui.background.minimap,
+                border: `1px solid ${CONFIG.color.ui.border}`,
               }}
             />
           )}
@@ -389,33 +390,33 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               display: "flex",
               flexDirection: "column",
               gap: "8px",
-              zIndex: 5,
+              zIndex: CONFIG.zIndex.controls,
             }}
           >
             <div
               style={{
                 padding: "5px 10px",
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-                fontSize: "12px",
-                color: "#666",
+                backgroundColor: CONFIG.color.ui.background.overlay,
+                border: `1px solid ${CONFIG.color.ui.border}`,
+                borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
+                fontSize: `${CONFIG.spacing.fontSize.medium}px`,
+                color: CONFIG.color.ui.text.secondary,
               }}
             >
               {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
             </div>
             
             {/* Performance info */}
-            {nodes.length > 100 && (
+            {nodes.length > CONFIG.performance.nodes.showStats && (
               <div
                 style={{
                   padding: "4px 8px",
-                  backgroundColor: "rgba(255, 255, 255, 0.9)",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  fontSize: "11px",
-                  color: "#666",
-                  marginBottom: "4px",
+                  backgroundColor: CONFIG.color.ui.background.overlay,
+                  border: `1px solid ${CONFIG.color.ui.border}`,
+                  borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
+                  fontSize: `${CONFIG.spacing.fontSize.small}px`,
+                  color: CONFIG.color.ui.text.secondary,
+                  marginBottom: `${CONFIG.spacing.margin.small}px`,
                 }}
               >
                 {nodes.length} nodes • {virtualNodes.length} rendered • {hiddenNodeCount} hidden
@@ -423,13 +424,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             )}
             
             {/* Show indicators for hidden nodes */}
-            {hiddenNodeCount > 50 && (
+            {hiddenNodeCount > CONFIG.performance.nodes.hideIndicator && (
               <ViewportIndicator 
                 direction="top" 
                 count={Math.floor(hiddenNodeCount / 4)}
                 onClick={() => {
                   if (reactFlowInstance.current) {
-                    reactFlowInstance.current.fitView({ padding: 0.2 });
+                    reactFlowInstance.current.fitView({ padding: CONFIG.viewport.fitView.padding });
                   }
                 }}
               />
@@ -439,14 +440,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             <button
               onClick={() => setShowMiniMap(!showMiniMap)}
               style={{
-                padding: "4px 8px",
-                fontSize: "11px",
-                backgroundColor: showMiniMap ? "#4CAF50" : "#999",
-                color: "white",
+                padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
+                fontSize: `${CONFIG.spacing.fontSize.small}px`,
+                backgroundColor: showMiniMap ? CONFIG.color.ui.button.primary : CONFIG.color.ui.button.disabled,
+                color: CONFIG.color.ui.text.white,
                 border: "none",
-                borderRadius: "3px",
+                borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
                 cursor: "pointer",
-                marginBottom: "4px",
+                marginBottom: `${CONFIG.spacing.margin.small}px`,
               }}
               aria-label={showMiniMap ? "Hide mini-map" : "Show mini-map"}
             >
@@ -457,7 +458,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             <div
               style={{
                 display: "flex",
-                gap: "4px",
+                gap: `${CONFIG.spacing.margin.small}px`,
               }}
             >
               <button
@@ -468,13 +469,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                   }
                 }}
                 style={{
-                  padding: "4px 8px",
-                  fontSize: "11px",
-                  backgroundColor: "#4CAF50",
-                  color: "white",
+                  padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
+                  fontSize: `${CONFIG.spacing.fontSize.small}px`,
+                  backgroundColor: CONFIG.color.ui.button.primary,
+                  color: CONFIG.color.ui.text.white,
                   border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer",
+                  borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
+                  cursor: "pointer`,
                 }}
               >
                 Save
@@ -486,13 +487,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                   }
                 }}
                 style={{
-                  padding: "4px 8px",
-                  fontSize: "11px",
-                  backgroundColor: "#2196F3",
-                  color: "white",
+                  padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
+                  fontSize: `${CONFIG.spacing.fontSize.small}px`,
+                  backgroundColor: CONFIG.color.ui.button.secondary,
+                  color: CONFIG.color.ui.text.white,
                   border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer",
+                  borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
+                  cursor: "pointer`,
                 }}
               >
                 Export
@@ -505,13 +506,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                   }
                 }}
                 style={{
-                  padding: "4px 8px",
-                  fontSize: "11px",
-                  backgroundColor: "#f44336",
-                  color: "white",
+                  padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
+                  fontSize: `${CONFIG.spacing.fontSize.small}px`,
+                  backgroundColor: CONFIG.color.ui.button.danger,
+                  color: CONFIG.color.ui.text.white,
                   border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer",
+                  borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
+                  cursor: "pointer`,
                 }}
               >
                 Clear
@@ -528,15 +529,15 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 // MiniMap node color function
 function miniMapNodeColor(node: CodeChartNode): string {
   if (node.type === 'module_group') {
-    return '#e0e0e0';
+    return CONFIG.minimap.colors.moduleGroup;
   }
   if (node.data?.is_entry_point) {
-    return '#4caf50';
+    return CONFIG.minimap.colors.entryPoint;
   }
   if (node.selected) {
-    return '#0096FF';
+    return CONFIG.minimap.colors.selected;
   }
-  return '#ff0072';
+  return CONFIG.minimap.colors.default;
 }
 
 // Export the component with proper naming
@@ -550,11 +551,11 @@ export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (prop
         errorLogger.log(error, 'critical', { errorInfo });
         handleReactFlowError(error);
       }}
-      maxRetries={3}
+      maxRetries={CONFIG.error.retry.maxRetries}
     >
       <ReactFlowProvider>
         <CodeChartAreaReactFlowInner {...props} />
-        <ErrorNotifications position="bottom" maxNotifications={3} />
+        <ErrorNotifications position="bottom" maxNotifications={CONFIG.error.notifications.maxNotifications} />
       </ReactFlowProvider>
     </ErrorBoundary>
   );

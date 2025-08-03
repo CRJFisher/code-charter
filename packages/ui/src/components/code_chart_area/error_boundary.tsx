@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { CONFIG } from './config';
 
 export interface ErrorBoundaryState {
   hasError: boolean;
@@ -99,39 +100,39 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   return (
     <div
       style={{
-        padding: '20px',
-        margin: '20px',
-        backgroundColor: '#fee',
-        border: '1px solid #fcc',
-        borderRadius: '8px',
+        padding: `${CONFIG.spacing.padding.xlarge}px`,
+        margin: `${CONFIG.spacing.margin.xlarge}px`,
+        backgroundColor: CONFIG.color.ui.error.background,
+        border: `1px solid ${CONFIG.color.ui.error.border}`,
+        borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
         maxWidth: '600px',
-        margin: '20px auto',
+        margin: `${CONFIG.spacing.margin.xlarge}px auto`,
       }}
       role="alert"
       aria-live="assertive"
     >
-      <h2 style={{ color: '#c00', marginBottom: '10px', fontSize: '18px' }}>
+      <h2 style={{ color: CONFIG.color.ui.error.text, marginBottom: '10px', fontSize: `${CONFIG.spacing.fontSize.xlarge}px` }}>
         ⚠️ Something went wrong
       </h2>
       
-      <p style={{ marginBottom: '15px', color: '#666' }}>
+      <p style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: CONFIG.color.ui.text.secondary }}>
         The code visualization encountered an error. This might be temporary.
       </p>
 
-      <div style={{ marginBottom: '15px' }}>
+      <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px` }}>
         <strong>Error:</strong> {error.message}
       </div>
 
       {onRetry && (
-        <div style={{ marginBottom: '15px' }}>
+        <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px` }}>
           <button
             onClick={onRetry}
             style={{
-              padding: '8px 16px',
+              padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.large}px`,
               backgroundColor: '#0066cc',
-              color: 'white',
+              color: CONFIG.color.ui.text.white,
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
               cursor: 'pointer',
               marginRight: '10px',
             }}
@@ -142,11 +143,11 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
           <button
             onClick={() => window.location.reload()}
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#666',
-              color: 'white',
+              padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.large}px`,
+              backgroundColor: CONFIG.color.ui.text.secondary,
+              color: CONFIG.color.ui.text.white,
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
               cursor: 'pointer',
             }}
           >
@@ -156,7 +157,7 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
       )}
 
       {!onRetry && retryCount > maxRetries && (
-        <div style={{ marginBottom: '15px', color: '#c00' }}>
+        <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: CONFIG.color.ui.error.text }}>
           Maximum retry attempts reached. Please reload the page.
         </div>
       )}
@@ -178,8 +179,8 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
             marginTop: '10px',
             padding: '10px',
             backgroundColor: '#f5f5f5',
-            borderRadius: '4px',
-            fontSize: '12px',
+            borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
+            fontSize: `${CONFIG.spacing.fontSize.medium}px`,
             fontFamily: 'monospace',
             overflowX: 'auto',
           }}

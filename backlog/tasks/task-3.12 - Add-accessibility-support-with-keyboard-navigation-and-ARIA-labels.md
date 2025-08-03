@@ -36,6 +36,7 @@ Implement comprehensive accessibility features for React Flow visualization to e
 ## Implementation Notes
 
 Implemented comprehensive accessibility features for React Flow visualization:
+
 - Added ARIA labels and roles to all nodes, edges, and the main diagram
 - Implemented keyboard navigation with Tab, Arrow keys, Enter/Space for activation
 - Created useKeyboardNavigation hook for managing keyboard interactions

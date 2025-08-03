@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { errorNotificationManager, ErrorNotification } from './error_handling';
+import { CONFIG } from './config';
 
 export interface ErrorNotificationsProps {
   position?: 'top' | 'bottom';
@@ -30,12 +31,12 @@ export const ErrorNotifications: React.FC<ErrorNotificationsProps> = ({
 
   const containerStyles: React.CSSProperties = {
     position: 'fixed',
-    [position]: '20px',
-    right: '20px',
-    zIndex: 1000,
+    [position]: `${CONFIG.spacing.padding.xlarge}px`,
+    right: `${CONFIG.spacing.padding.xlarge}px`,
+    zIndex: CONFIG.zIndex.notifications,
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: `${CONFIG.spacing.margin.medium + 2}px`,
     maxWidth: '400px',
   };
 
@@ -72,7 +73,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
       case 'warning':
         return '#fff3e0';
       case 'error':
-        return '#ffebee';
+        return CONFIG.color.ui.error.background;
       default:
         return '#f5f5f5';
     }
@@ -81,13 +82,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
   const getBorderColor = () => {
     switch (notification.severity) {
       case 'info':
-        return '#2196F3';
+        return CONFIG.color.ui.button.secondary;
       case 'warning':
         return '#ff9800';
       case 'error':
-        return '#f44336';
+        return CONFIG.color.ui.button.danger;
       default:
-        return '#ccc';
+        return CONFIG.color.ui.border;
     }
   };
 
@@ -105,14 +106,14 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
   };
 
   const itemStyles: React.CSSProperties = {
-    padding: '12px 16px',
+    padding: `${CONFIG.spacing.padding.medium + 4}px ${CONFIG.spacing.padding.large}px`,
     backgroundColor: getBackgroundColor(),
     border: `1px solid ${getBorderColor()}`,
-    borderRadius: '8px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
+    boxShadow: CONFIG.color.shadow.default,
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '12px',
+    gap: `${CONFIG.spacing.padding.medium + 4}px`,
     opacity: isExiting ? 0 : 1,
     transform: isExiting ? 'translateX(100%)' : 'translateX(0)',
     transition: 'all 0.3s ease',
@@ -120,15 +121,15 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
 
   return (
     <div style={itemStyles}>
-      <span style={{ fontSize: '20px', flexShrink: 0 }}>{getIcon()}</span>
+      <span style={{ fontSize: `${CONFIG.spacing.fontSize.xlarge + 2}px`, flexShrink: 0 }}>{getIcon()}</span>
       
       <div style={{ flex: 1 }}>
-        <div style={{ marginBottom: notification.actions ? '8px' : 0 }}>
+        <div style={{ marginBottom: notification.actions ? `${CONFIG.spacing.margin.medium}px` : 0 }}>
           {notification.message}
         </div>
         
         {notification.actions && (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: `${CONFIG.spacing.margin.medium}px` }}>
             {notification.actions.map((action, index) => (
               <button
                 key={index}
@@ -137,12 +138,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
                   handleDismiss();
                 }}
                 style={{
-                  padding: '4px 12px',
+                  padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium + 4}px`,
                   backgroundColor: 'transparent',
                   border: `1px solid ${getBorderColor()}`,
-                  borderRadius: '4px',
+                  borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: `${CONFIG.spacing.fontSize.medium}px`,
                   color: getBorderColor(),
                   transition: 'background-color 0.2s',
                 }}
@@ -168,9 +169,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          padding: '4px',
-          fontSize: '16px',
-          color: '#666',
+          padding: `${CONFIG.spacing.padding.small}px`,
+          fontSize: `${CONFIG.spacing.fontSize.large}px`,
+          color: CONFIG.color.ui.text.secondary,
           flexShrink: 0,
         }}
         aria-label="Dismiss notification"

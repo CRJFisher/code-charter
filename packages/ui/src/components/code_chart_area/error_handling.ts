@@ -1,4 +1,5 @@
 import { PerformanceMonitor } from './performance_utils';
+import { CONFIG } from './config';
 
 export interface RetryOptions {
   maxAttempts?: number;
@@ -30,9 +31,9 @@ export class ErrorLogger {
     const consoleMethod = severity === 'info' ? 'log' : severity === 'warning' ? 'warn' : 'error';
     console[consoleMethod](`[${severity.toUpperCase()}]`, error.message, context || '');
     
-    // Keep only last 100 errors to prevent memory leak
-    if (this.errors.length > 100) {
-      this.errors = this.errors.slice(-100);
+    // Keep only last N errors to prevent memory leak
+    if (this.errors.length > CONFIG.error.errorLog.maxErrors) {
+      this.errors = this.errors.slice(-CONFIG.error.errorLog.maxErrors);
     }
   }
 
@@ -75,10 +76,10 @@ export async function withRetry<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const {
-    maxAttempts = 3,
+    maxAttempts = CONFIG.error.retry.maxRetries,
     delayMs = 1000,
     backoffMultiplier = 2,
-    timeout = 30000,
+    timeout = CONFIG.error.retry.timeout,
     onRetry,
   } = options;
 
@@ -221,9 +222,9 @@ export class ErrorNotificationManager {
     this.notifications.push(notification);
     this.notifyListeners();
     
-    // Auto-dismiss info notifications after 5 seconds
+    // Auto-dismiss info notifications after configured delay
     if (severity === 'info') {
-      setTimeout(() => this.dismiss(notification.id), 5000);
+      setTimeout(() => this.dismiss(notification.id), CONFIG.error.notifications.autoDismissDelay);
     }
     
     return notification.id;

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Node, Edge } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './react_flow_types';
+import { CONFIG } from './config';
 
 export interface VirtualRendererProps {
   nodes: CodeChartNode[];
@@ -17,7 +18,7 @@ export function useVirtualNodes({
   nodes,
   edges,
   visibleNodeIds,
-  renderBuffer = 50,
+  renderBuffer = CONFIG.performance.virtualRender.defaultBuffer,
 }: VirtualRendererProps): {
   virtualNodes: CodeChartNode[];
   virtualEdges: CodeChartEdge[];
@@ -89,12 +90,12 @@ export const ViewportIndicator: React.FC<ViewportIndicatorProps> = React.memo(({
   const positionStyles: React.CSSProperties = {
     position: 'absolute',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    color: 'white',
-    padding: '8px 12px',
-    borderRadius: '4px',
-    fontSize: '12px',
+    color: CONFIG.color.ui.text.white,
+    padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.medium + 4}px`,
+    borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
+    fontSize: `${CONFIG.spacing.fontSize.medium}px`,
     cursor: onClick ? 'pointer' : 'default',
-    zIndex: 10,
+    zIndex: CONFIG.zIndex.overlay,
     ...getPositionStyle(direction),
   };
   
@@ -114,13 +115,13 @@ export const ViewportIndicator: React.FC<ViewportIndicatorProps> = React.memo(({
 function getPositionStyle(direction: string): React.CSSProperties {
   switch (direction) {
     case 'top':
-      return { top: 20, left: '50%', transform: 'translateX(-50%)' };
+      return { top: CONFIG.viewport.indicators.position.offset, left: '50%', transform: CONFIG.viewport.indicators.position.transform.horizontal };
     case 'bottom':
-      return { bottom: 20, left: '50%', transform: 'translateX(-50%)' };
+      return { bottom: CONFIG.viewport.indicators.position.offset, left: '50%', transform: CONFIG.viewport.indicators.position.transform.horizontal };
     case 'left':
-      return { left: 20, top: '50%', transform: 'translateY(-50%)' };
+      return { left: CONFIG.viewport.indicators.position.offset, top: '50%', transform: CONFIG.viewport.indicators.position.transform.vertical };
     case 'right':
-      return { right: 20, top: '50%', transform: 'translateY(-50%)' };
+      return { right: CONFIG.viewport.indicators.position.offset, top: '50%', transform: CONFIG.viewport.indicators.position.transform.vertical };
     default:
       return {};
   }

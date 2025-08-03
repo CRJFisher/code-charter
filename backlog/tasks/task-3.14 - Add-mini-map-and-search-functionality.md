@@ -38,6 +38,7 @@ Enhance user navigation experience by adding a mini-map overview and search func
 ## Implementation Notes
 
 Implemented mini-map and search functionality for React Flow:
+
 - Integrated React Flow's built-in MiniMap component with custom styling
 - Created comprehensive SearchPanel component with fuzzy search capabilities
 - Added global keyboard shortcut (/) to open search

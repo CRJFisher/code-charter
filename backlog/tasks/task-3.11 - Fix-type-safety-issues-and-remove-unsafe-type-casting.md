@@ -36,6 +36,7 @@ Remove unsafe type assertions and improve TypeScript type safety in React Flow i
 ## Implementation Notes
 
 Fixed all type safety issues in React Flow components:
+
 - Added proper TypeScript types by importing ReactFlowInstance from @xyflow/react
 - Created react_flow_types.ts with CodeChartNode and CodeChartEdge type definitions
 - Updated all components to use typed hooks (useNodesState<CodeChartNode>, etc.)

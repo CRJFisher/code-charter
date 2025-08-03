@@ -1,4 +1,5 @@
 import React from "react";
+import { CONFIG } from "./config";
 
 interface LoadingIndicatorProps {
   status: string;
@@ -11,7 +12,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      gap: "16px",
+      gap: `${CONFIG.spacing.padding.large}px`,
     }}>
       <div className="react-flow-loading-spinner" style={{
         width: "40px",
@@ -26,16 +27,16 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
         textAlign: "center",
       }}>
         <div style={{
-          fontSize: "16px",
+          fontSize: `${CONFIG.spacing.fontSize.large}px`,
           fontWeight: "500",
-          color: "#333",
-          marginBottom: "4px",
+          color: CONFIG.color.ui.text.primary,
+          marginBottom: `${CONFIG.spacing.margin.small}px`,
         }}>
           {status}
         </div>
         <div style={{
           fontSize: "14px",
-          color: "#666",
+          color: CONFIG.color.ui.text.secondary,
         }}>
           {message}
         </div>

@@ -3,8 +3,9 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { useStore, ReactFlowState } from "@xyflow/react";
 import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
 import { navigateToFile } from "./navigation_utils";
+import { CONFIG } from "./config";
 
-const ZOOM_THRESHOLD = 0.45;
+const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
 const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
@@ -38,10 +39,10 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
     return (
       <div
         style={{
-          padding: "15px 20px",
-          borderRadius: "8px",
-          backgroundColor: data.is_entry_point ? "#e8f5e9" : "#f5f5f5",
-          border: `${selected ? 3 : 2}px solid ${selected ? '#0096FF' : data.is_entry_point ? "#4caf50" : "#e0e0e0"}`,
+          padding: `${CONFIG.spacing.padding.large}px ${CONFIG.spacing.padding.xlarge}px`,
+          borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
+          backgroundColor: data.is_entry_point ? "#e8f5e9" : CONFIG.color.node.background.default,
+          border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px solid ${selected ? CONFIG.color.node.border.selected : data.is_entry_point ? CONFIG.minimap.colors.entryPoint : CONFIG.color.node.background.module}`,
           minWidth: "150px",
           textAlign: "center",
           transition: "all 0.3s ease",
@@ -51,8 +52,8 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "scale(1.05)";
-          e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+          e.currentTarget.style.transform = `scale(${CONFIG.node.visual.scale.hover})`;
+          e.currentTarget.style.boxShadow = CONFIG.color.shadow.hover;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "scale(1)";
@@ -66,14 +67,14 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         <Handle
           type="target"
           position={Position.Top}
-          style={{ background: "#555" }}
+          style={{ background: CONFIG.color.ui.loading.spinner }}
         />
         
         <div
           style={{
             fontWeight: "bold",
-            fontSize: "16px",
-            color: data.is_entry_point ? "#2e7d32" : "#333333",
+            fontSize: `${CONFIG.spacing.fontSize.large}px`,
+            color: data.is_entry_point ? CONFIG.color.node.text.entryPoint : CONFIG.color.node.text.default,
           }}
         >
           {data.is_entry_point && <span aria-label="Entry point">⮕ </span>}
@@ -83,7 +84,7 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         <Handle
           type="source"
           position={Position.Bottom}
-          style={{ background: "#555" }}
+          style={{ background: CONFIG.color.ui.loading.spinner }}
         />
       </div>
     );
@@ -113,10 +114,10 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
   }
   
   const moduleStyles: React.CSSProperties = {
-    padding: "20px",
-    borderRadius: "15px",
-    backgroundColor: "rgba(245, 245, 245, 0.9)",
-    border: `${selected ? 3 : 2}px ${selected ? 'solid' : 'dashed'} ${selected ? '#0096FF' : '#999999'}`,
+    padding: `${CONFIG.spacing.padding.xlarge}px`,
+    borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
+    backgroundColor: CONFIG.color.node.background.default,
+    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? CONFIG.color.node.border.selected : CONFIG.color.node.border.default}`,
     width: "100%",
     height: "100%",
     transition: "all 0.3s ease",
@@ -128,20 +129,20 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
 
   const headerStyles: React.CSSProperties = {
     fontWeight: "bold",
-    fontSize: "18px",
+    fontSize: `${CONFIG.spacing.fontSize.xlarge}px`,
     marginBottom: "10px",
-    color: "#1a1a1a",
+    color: CONFIG.color.ui.text.primary,
   };
 
   const descriptionStyles: React.CSSProperties = {
     fontSize: "14px",
-    color: "#666666",
-    marginBottom: "8px",
+    color: CONFIG.color.node.text.secondary,
+    marginBottom: `${CONFIG.spacing.margin.medium}px`,
   };
 
   const countStyles: React.CSSProperties = {
-    fontSize: "12px",
-    color: "#999999",
+    fontSize: `${CONFIG.spacing.fontSize.medium}px`,
+    color: CONFIG.color.node.text.tertiary,
   };
 
   const moduleAriaLabel = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.`;
@@ -157,7 +158,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
       <Handle
         type="target"
         position={Position.Top}
-        style={{ background: "#888" }}
+        style={{ background: CONFIG.color.node.border.module }}
       />
       
       <div style={headerStyles}>
@@ -177,7 +178,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ background: "#888" }}
+        style={{ background: CONFIG.color.node.border.module }}
       />
     </div>
   );

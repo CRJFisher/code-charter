@@ -37,6 +37,7 @@ Optimize React Flow performance for large codebases by implementing layout cachi
 ## Implementation Notes
 
 Implemented comprehensive performance optimizations for React Flow:
+
 - Created LayoutCache with LRU eviction for memoizing ELK layout calculations
 - Added PerformanceMonitor class for tracking layout and render times
 - Implemented React.memo for all node components with custom comparison functions

@@ -5,6 +5,7 @@ import { CodeNodeData } from './code_function_node';
 import { ModuleNodeData } from './zoom_aware_node';
 import { LayoutCache, PerformanceMonitor } from './performance_utils';
 import { withRetry, LayoutError, ErrorRecovery, errorLogger } from './error_handling';
+import { LAYOUT_CONFIG, NODE_CONFIG } from './config';
 
 const elk = new ELK();
 
@@ -13,16 +14,16 @@ const layoutCache = new LayoutCache();
 const dimensionCache = new LayoutCache();
 const perfMonitor = new PerformanceMonitor();
 
-// ELK layout options for hierarchical call graph
+// ELK layout options from configuration
 const elkOptions = {
-  'elk.algorithm': 'layered',
-  'elk.direction': 'DOWN',
-  'elk.spacing.nodeNode': '50',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-  'elk.edgeRouting': 'ORTHOGONAL',
-  'elk.layered.unnecessaryBendpoints': 'true',
-  'elk.layered.spacing.edgeNodeBetweenLayers': '30',
-  'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+  'elk.algorithm': LAYOUT_CONFIG.elk.algorithm,
+  'elk.direction': LAYOUT_CONFIG.elk.direction,
+  'elk.spacing.nodeNode': String(LAYOUT_CONFIG.elk.spacing.nodeNode),
+  'elk.layered.spacing.nodeNodeBetweenLayers': String(LAYOUT_CONFIG.elk.spacing.nodeNodeBetweenLayers),
+  'elk.edgeRouting': LAYOUT_CONFIG.elk.edgeRouting,
+  'elk.layered.unnecessaryBendpoints': LAYOUT_CONFIG.elk.unnecessaryBendpoints,
+  'elk.layered.spacing.edgeNodeBetweenLayers': String(LAYOUT_CONFIG.elk.spacing.edgeNodeBetweenLayers),
+  'elk.layered.nodePlacement.strategy': LAYOUT_CONFIG.elk.nodePlacement.strategy,
 };
 
 export interface LayoutOptions {
@@ -60,8 +61,8 @@ export async function applyHierarchicalLayout(
   // Convert React Flow nodes to ELK nodes
   const elkNodes = nodes.map(node => ({
     id: node.id,
-    width: node.width || 250,
-    height: node.height || 120,
+    width: node.width || NODE_CONFIG.default.width,
+    height: node.height || NODE_CONFIG.default.height,
   }));
 
   // Convert React Flow edges to ELK edges
@@ -100,8 +101,8 @@ export async function applyHierarchicalLayout(
         });
       },
       {
-        maxAttempts: 2,
-        delayMs: 500,
+        maxAttempts: LAYOUT_CONFIG.retry.maxAttempts,
+        delayMs: LAYOUT_CONFIG.retry.delayMs,
         onRetry: (attempt, error) => {
           console.warn(`[Layout] Retry attempt ${attempt} after error:`, error.message);
         },
@@ -144,10 +145,10 @@ export function calculateNodeDimensions(node: CodeChartNode): { width: number; h
     return cached;
   }
 
-  // Base dimensions
-  const basePadding = 20;
-  const charWidth = 8; // Average character width
-  const lineHeight = 20;
+  // Base dimensions from configuration
+  const basePadding = NODE_CONFIG.text.basePadding;
+  const charWidth = NODE_CONFIG.text.charWidth;
+  const lineHeight = NODE_CONFIG.text.lineHeight;
   
   // Calculate based on content
   let functionNameLength = 0;
@@ -164,8 +165,8 @@ export function calculateNodeDimensions(node: CodeChartNode): { width: number; h
   }
   
   // Width calculation (with max/min constraints)
-  const minWidth = 200;
-  const maxWidth = 350;
+  const minWidth = NODE_CONFIG.constraints.minWidth;
+  const maxWidth = NODE_CONFIG.constraints.maxWidth;
   const calculatedWidth = Math.max(functionNameLength * charWidth, summaryLength * charWidth / 3) + basePadding * 2;
   const width = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
   
@@ -192,8 +193,8 @@ export function applyFallbackLayout(
 ): Promise<CodeChartNode[]> {
   console.log('[Layout] Using fallback grid layout');
   
-  const GRID_SPACING_X = 300;
-  const GRID_SPACING_Y = 200;
+  const GRID_SPACING_X = LAYOUT_CONFIG.grid.spacingX;
+  const GRID_SPACING_Y = LAYOUT_CONFIG.grid.spacingY;
   const NODES_PER_ROW = Math.ceil(Math.sqrt(nodes.length));
   
   // Group nodes by their connections
