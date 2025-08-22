@@ -11,6 +11,7 @@ dependencies: []
 ## Description
 
 Enable users to edit implementation plans directly within the code graph visualization interface. The system should use MCP (Model Context Protocol) tool calls to pass plan proposals to the UI and receive user-updated plans back. Integration should support both sampling API updates where available and manual trigger via user interface actions.
+One desirable outcome of this feature would be to be able to write inthorough 
 
 ## Acceptance Criteria
 
