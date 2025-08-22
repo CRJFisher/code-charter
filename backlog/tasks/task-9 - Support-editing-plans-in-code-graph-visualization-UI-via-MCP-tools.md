@@ -11,12 +11,6 @@ dependencies: []
 ## Description
 
 Enable users to edit implementation plans directly within the code graph visualization interface. The system should use MCP (Model Context Protocol) tool calls to pass plan proposals to the UI and receive user-updated plans back. Integration should support both sampling API updates where available and manual trigger via user interface actions.
-One desirable outcome of this feature would be to be able to write in-depth, thorough, deterministic task lists for the agent to execute.
-We could support two views: 
-1. Concept map (similar to the module detection mode currently in code-charter)
-   - Zoom interface shows conceptual hierarchy in the code base
-2. Flow chart showing the key logic flows. This would be editable for high-level functionality changes
-   - Zooming in would show the proposed changes to specific functions and features.
 
 ## Acceptance Criteria
 
@@ -28,3 +22,14 @@ We could support two views:
 - [ ] #6 Plan modifications are correctly persisted to task files
 - [ ] #7 UI displays clear visual feedback for plan editing status (editing, saving, saved)
 - [ ] #8 Error handling provides meaningful messages for failed MCP communications
+
+## Notes
+
+One desirable outcome of this feature would be to be able to write in-depth, thorough, deterministic task lists for the agent to execute.
+
+We could support two views: 
+1. Concept map (similar to the module detection mode currently in code-charter)
+   - Zoom interface shows conceptual hierarchy in the code base
+2. Flow chart showing the key logic flows. This would be editable for high-level functionality changes
+   - Zooming in would show the proposed changes to specific functions and features.
+But we should start with the minimal, most useful option. Given we don't have flow-chart functionality yet, we could use the module/functions view and show the before/after function/module descriptions.
