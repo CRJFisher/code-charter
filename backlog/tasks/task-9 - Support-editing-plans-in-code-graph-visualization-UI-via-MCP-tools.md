@@ -13,6 +13,12 @@ dependencies: []
 Enable users to edit implementation plans directly within the code graph visualization interface. The system should use MCP (Model Context Protocol) tool calls to pass plan proposals to the UI and receive user-updated plans back. Integration should support both sampling API updates where available and manual trigger via user interface actions.
 
 ## Acceptance Criteria
-<!-- AC:BEGIN -->
-- [ ] #1 Users can edit plans directly in the graph UI,MCP tool calls successfully pass plan proposals to UI,UI can return user-updated plans via MCP,System supports sampling API updates when available,Manual trigger option available for plan updates,Plan changes are persisted correctly,UI provides clear feedback on plan status
-<!-- AC:END -->
+
+- [ ] #1 Users can edit implementation plans directly within the graph visualization UI
+- [ ] #2 MCP tool calls successfully transmit plan proposals from agent to UI
+- [ ] #3 UI returns user-modified plans back to agent via MCP response
+- [ ] #4 System integrates with sampling API for automatic updates when available
+- [ ] #5 Manual trigger option exists for plan updates via user interface action (e.g., "update edited plan" button)
+- [ ] #6 Plan modifications are correctly persisted to task files
+- [ ] #7 UI displays clear visual feedback for plan editing status (editing, saving, saved)
+- [ ] #8 Error handling provides meaningful messages for failed MCP communications
