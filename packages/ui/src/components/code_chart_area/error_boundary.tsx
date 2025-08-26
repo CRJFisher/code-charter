@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CONFIG } from './config';
+import { useFlowThemeStyles } from './use_flow_theme_styles';
 
 export interface ErrorBoundaryState {
   hasError: boolean;
@@ -96,26 +97,25 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   maxRetries,
 }) => {
   const [showDetails, setShowDetails] = React.useState(false);
+  const themeStyles = useFlowThemeStyles();
 
   return (
     <div
       style={{
         padding: `${CONFIG.spacing.padding.xlarge}px`,
-        margin: `${CONFIG.spacing.margin.xlarge}px`,
-        backgroundColor: CONFIG.color.ui.error.background,
-        border: `1px solid ${CONFIG.color.ui.error.border}`,
+        margin: `${CONFIG.spacing.margin.xlarge}px auto`,
+        ...themeStyles.getErrorStyle(),
         borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
         maxWidth: '600px',
-        margin: `${CONFIG.spacing.margin.xlarge}px auto`,
       }}
       role="alert"
       aria-live="assertive"
     >
-      <h2 style={{ color: CONFIG.color.ui.error.text, marginBottom: '10px', fontSize: `${CONFIG.spacing.fontSize.xlarge}px` }}>
+      <h2 style={{ color: themeStyles.colors.ui.error.text, marginBottom: '10px', fontSize: `${CONFIG.spacing.fontSize.xlarge}px` }}>
         ⚠️ Something went wrong
       </h2>
       
-      <p style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: CONFIG.color.ui.text.secondary }}>
+      <p style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: themeStyles.colors.ui.text.secondary }}>
         The code visualization encountered an error. This might be temporary.
       </p>
 
@@ -128,12 +128,9 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
           <button
             onClick={onRetry}
             style={{
+              ...themeStyles.getButtonStyle('primary'),
               padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.large}px`,
-              backgroundColor: '#0066cc',
-              color: CONFIG.color.ui.text.white,
-              border: 'none',
               borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
-              cursor: 'pointer',
               marginRight: '10px',
             }}
           >
@@ -143,12 +140,9 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
           <button
             onClick={() => window.location.reload()}
             style={{
+              ...themeStyles.getButtonStyle('secondary'),
               padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.large}px`,
-              backgroundColor: CONFIG.color.ui.text.secondary,
-              color: CONFIG.color.ui.text.white,
-              border: 'none',
               borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
-              cursor: 'pointer',
             }}
           >
             🔃 Reload Page

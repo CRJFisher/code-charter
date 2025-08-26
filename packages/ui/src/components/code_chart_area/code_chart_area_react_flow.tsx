@@ -17,6 +17,7 @@ import {
 } from "@xyflow/react";
 import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
+import "./flow_theme.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
 import { symbolDisplayName } from "./symbol_utils";
@@ -34,6 +35,7 @@ import { ErrorBoundary } from "./error_boundary";
 import { ErrorNotifications, useErrorNotification } from "./error_notifications";
 import { handleReactFlowError, errorLogger } from "./error_handling";
 import { CONFIG } from "./config";
+import { useFlowThemeStyles } from "./use_flow_theme_styles";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -72,6 +74,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
   const perfMonitor = useRef(new PerformanceMonitor());
   const { notify } = useErrorNotification();
+  const themeStyles = useFlowThemeStyles();
+  const miniMapNodeColor = useMemo(() => createMiniMapNodeColor(themeStyles.colors), [themeStyles.colors]);
   
   // Use keyboard navigation hook
   const { selectedNodeId } = useKeyboardNavigation({
@@ -302,10 +306,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         {summaryStatus === SummarisationStatus.Error && error && (
           <div style={{
             padding: "20px",
-            backgroundColor: "#fee",
-            border: "1px solid #fcc",
+            ...themeStyles.getErrorStyle(),
             borderRadius: "4px",
-            color: "#c00",
             maxWidth: "400px",
           }}>
             <div style={{ fontWeight: "bold", marginBottom: "8px" }}>Error</div>
@@ -338,10 +340,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           maxZoom={CONFIG.zoom.levels.max}
           defaultEdgeOptions={{
             animated: true,
-            style: {
-              stroke: CONFIG.color.edge.stroke,
-              strokeWidth: CONFIG.color.edge.strokeWidth,
-            },
+            style: themeStyles.getEdgeStyle(false),
             ariaLabel: 'Function call',
           }}
           onInit={onInit}
@@ -356,7 +355,12 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           aria-label="Code flow diagram showing function calls and dependencies"
           role="application"
         >
-          <Background variant={BackgroundVariant.Dots} gap={CONFIG.background.gap} size={CONFIG.background.size} />
+          <Background 
+            variant={BackgroundVariant.Dots} 
+            gap={CONFIG.background.gap} 
+            size={CONFIG.background.size}
+            color={themeStyles.colors.background.dots}
+          />
           <Controls />
           
           {/* Mini Map */}
@@ -367,8 +371,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               pannable
               zoomable
               style={{
-                backgroundColor: CONFIG.color.ui.background.minimap,
-                border: `1px solid ${CONFIG.color.ui.border}`,
+                backgroundColor: themeStyles.colors.ui.background.minimap,
+                border: `1px solid ${themeStyles.colors.ui.border}`,
               }}
             />
           )}
@@ -396,11 +400,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             <div
               style={{
                 padding: "5px 10px",
-                backgroundColor: CONFIG.color.ui.background.overlay,
-                border: `1px solid ${CONFIG.color.ui.border}`,
-                borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
+                ...themeStyles.getOverlayStyle(),
                 fontSize: `${CONFIG.spacing.fontSize.medium}px`,
-                color: CONFIG.color.ui.text.secondary,
               }}
             >
               {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
@@ -411,11 +412,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               <div
                 style={{
                   padding: "4px 8px",
-                  backgroundColor: CONFIG.color.ui.background.overlay,
-                  border: `1px solid ${CONFIG.color.ui.border}`,
-                  borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
+                  ...themeStyles.getOverlayStyle(),
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  color: CONFIG.color.ui.text.secondary,
                   marginBottom: `${CONFIG.spacing.margin.small}px`,
                 }}
               >
@@ -442,11 +440,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               style={{
                 padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                 fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                backgroundColor: showMiniMap ? CONFIG.color.ui.button.primary : CONFIG.color.ui.button.disabled,
-                color: CONFIG.color.ui.text.white,
-                border: "none",
+                ...themeStyles.getButtonStyle(showMiniMap ? 'primary' : 'secondary'),
                 borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                cursor: "pointer",
+                opacity: showMiniMap ? 1 : 0.7,
                 marginBottom: `${CONFIG.spacing.margin.small}px`,
               }}
               aria-label={showMiniMap ? "Hide mini-map" : "Show mini-map"}
@@ -471,11 +467,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 style={{
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  backgroundColor: CONFIG.color.ui.button.primary,
-                  color: CONFIG.color.ui.text.white,
-                  border: "none",
+                  ...themeStyles.getButtonStyle('primary'),
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                  cursor: "pointer`,
                 }}
               >
                 Save
@@ -489,11 +482,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 style={{
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  backgroundColor: CONFIG.color.ui.button.secondary,
-                  color: CONFIG.color.ui.text.white,
-                  border: "none",
+                  ...themeStyles.getButtonStyle('secondary'),
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                  cursor: "pointer`,
                 }}
               >
                 Export
@@ -508,11 +498,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 style={{
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  backgroundColor: CONFIG.color.ui.button.danger,
-                  color: CONFIG.color.ui.text.white,
-                  border: "none",
+                  ...themeStyles.getButtonStyle('danger'),
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                  cursor: "pointer`,
                 }}
               >
                 Clear
@@ -526,24 +513,26 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   );
 };
 
-// MiniMap node color function
-function miniMapNodeColor(node: CodeChartNode): string {
-  if (node.type === 'module_group') {
-    return CONFIG.minimap.colors.moduleGroup;
-  }
-  if (node.data?.is_entry_point) {
-    return CONFIG.minimap.colors.entryPoint;
-  }
-  if (node.selected) {
-    return CONFIG.minimap.colors.selected;
-  }
-  return CONFIG.minimap.colors.default;
+// MiniMap node color function factory
+function createMiniMapNodeColor(colors: ReturnType<typeof useFlowThemeStyles>['colors']) {
+  return (node: CodeChartNode): string => {
+    if (node.type === 'module_group') {
+      return colors.node.background.module;
+    }
+    if (node.data?.is_entry_point) {
+      return colors.node.background.entryPoint;
+    }
+    if (node.selected) {
+      return colors.node.border.selected;
+    }
+    return colors.edge.stroke;
+  };
 }
 
 // Export the component with proper naming
 export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;
 
-// Wrap the component with ReactFlowProvider and ErrorBoundary
+// Wrap the component with ReactFlowProvider, ErrorBoundary, and FlowThemeProvider
 export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (props) => {
   return (
     <ErrorBoundary

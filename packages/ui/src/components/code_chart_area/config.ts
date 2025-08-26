@@ -1,4 +1,6 @@
 // Configuration constants for React Flow code visualization
+// Note: Color values in this file are defaults. Actual colors are theme-aware
+// and are provided by the FlowThemeProvider based on the current VSCode theme.
 
 // Layout Configuration
 export const LAYOUT_CONFIG = {

@@ -1,5 +1,6 @@
 import React from "react";
 import { CONFIG } from "./config";
+import { useFlowThemeStyles } from "./use_flow_theme_styles";
 
 interface LoadingIndicatorProps {
   status: string;
@@ -7,6 +8,7 @@ interface LoadingIndicatorProps {
 }
 
 export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, message }) => {
+  const themeStyles = useFlowThemeStyles();
   return (
     <div style={{
       display: "flex",
@@ -17,8 +19,8 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
       <div className="react-flow-loading-spinner" style={{
         width: "40px",
         height: "40px",
-        border: "4px solid #f3f3f3",
-        borderTop: "4px solid #3498db",
+        border: `4px solid ${themeStyles.colors.ui.loading.track}`,
+        borderTop: `4px solid ${themeStyles.colors.ui.button.primary}`,
         borderRadius: "50%",
         animation: "react-flow-spin 1s linear infinite",
       }} />
@@ -29,14 +31,14 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
         <div style={{
           fontSize: `${CONFIG.spacing.fontSize.large}px`,
           fontWeight: "500",
-          color: CONFIG.color.ui.text.primary,
+          color: themeStyles.colors.ui.text.primary,
           marginBottom: `${CONFIG.spacing.margin.small}px`,
         }}>
           {status}
         </div>
         <div style={{
           fontSize: "14px",
-          color: CONFIG.color.ui.text.secondary,
+          color: themeStyles.colors.ui.text.secondary,
         }}>
           {message}
         </div>

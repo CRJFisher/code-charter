@@ -4,6 +4,7 @@ import { useStore, ReactFlowState } from "@xyflow/react";
 import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
 import { navigateToFile } from "./navigation_utils";
 import { CONFIG } from "./config";
+import { useFlowThemeStyles } from "./use_flow_theme_styles";
 
 const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
@@ -12,6 +13,7 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
   const data = props.data as CodeNodeData;
   const { selected } = props;
+  const themeStyles = useFlowThemeStyles();
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -41,11 +43,9 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         style={{
           padding: `${CONFIG.spacing.padding.large}px ${CONFIG.spacing.padding.xlarge}px`,
           borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
-          backgroundColor: data.is_entry_point ? "#e8f5e9" : CONFIG.color.node.background.default,
-          border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px solid ${selected ? CONFIG.color.node.border.selected : data.is_entry_point ? CONFIG.minimap.colors.entryPoint : CONFIG.color.node.background.module}`,
+          ...themeStyles.getNodeStyle(selected, data.is_entry_point),
           minWidth: "150px",
           textAlign: "center",
-          transition: "all 0.3s ease",
           cursor: "pointer",
           outline: "none",
         }}
@@ -53,7 +53,7 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         onKeyDown={handleKeyDown}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = `scale(${CONFIG.node.visual.scale.hover})`;
-          e.currentTarget.style.boxShadow = CONFIG.color.shadow.hover;
+          e.currentTarget.style.boxShadow = themeStyles.colors.shadow.hover;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "scale(1)";
@@ -67,14 +67,14 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         <Handle
           type="target"
           position={Position.Top}
-          style={{ background: CONFIG.color.ui.loading.spinner }}
+          style={{ background: themeStyles.colors.ui.loading.spinner }}
         />
         
         <div
           style={{
             fontWeight: "bold",
             fontSize: `${CONFIG.spacing.fontSize.large}px`,
-            color: data.is_entry_point ? CONFIG.color.node.text.entryPoint : CONFIG.color.node.text.default,
+            color: data.is_entry_point ? themeStyles.colors.node.text.entryPoint : themeStyles.colors.node.text.default,
           }}
         >
           {data.is_entry_point && <span aria-label="Entry point">⮕ </span>}
@@ -84,7 +84,7 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
         <Handle
           type="source"
           position={Position.Bottom}
-          style={{ background: CONFIG.color.ui.loading.spinner }}
+          style={{ background: themeStyles.colors.ui.loading.spinner }}
         />
       </div>
     );
@@ -107,6 +107,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
   const { selected } = props;
+  const themeStyles = useFlowThemeStyles();
   
   // Only show module groups when zoomed out
   if (!isZoomedOut) {
@@ -116,8 +117,8 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
   const moduleStyles: React.CSSProperties = {
     padding: `${CONFIG.spacing.padding.xlarge}px`,
     borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
-    backgroundColor: CONFIG.color.node.background.default,
-    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? CONFIG.color.node.border.selected : CONFIG.color.node.border.default}`,
+    backgroundColor: themeStyles.colors.node.background.module,
+    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? themeStyles.colors.node.border.selected : themeStyles.colors.node.border.module}`,
     width: "100%",
     height: "100%",
     transition: "all 0.3s ease",
@@ -131,18 +132,18 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
     fontWeight: "bold",
     fontSize: `${CONFIG.spacing.fontSize.xlarge}px`,
     marginBottom: "10px",
-    color: CONFIG.color.ui.text.primary,
+    color: themeStyles.colors.ui.text.primary,
   };
 
   const descriptionStyles: React.CSSProperties = {
     fontSize: "14px",
-    color: CONFIG.color.node.text.secondary,
+    color: themeStyles.colors.node.text.secondary,
     marginBottom: `${CONFIG.spacing.margin.medium}px`,
   };
 
   const countStyles: React.CSSProperties = {
     fontSize: `${CONFIG.spacing.fontSize.medium}px`,
-    color: CONFIG.color.node.text.tertiary,
+    color: themeStyles.colors.node.text.tertiary,
   };
 
   const moduleAriaLabel = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.`;
@@ -158,7 +159,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
       <Handle
         type="target"
         position={Position.Top}
-        style={{ background: CONFIG.color.node.border.module }}
+        style={{ background: themeStyles.colors.node.border.module }}
       />
       
       <div style={headerStyles}>
@@ -178,7 +179,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ background: CONFIG.color.node.border.module }}
+        style={{ background: themeStyles.colors.node.border.module }}
       />
     </div>
   );

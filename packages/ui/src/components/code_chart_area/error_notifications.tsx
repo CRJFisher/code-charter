@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { errorNotificationManager, ErrorNotification } from './error_handling';
 import { CONFIG } from './config';
+import { useFlowThemeStyles } from './use_flow_theme_styles';
 
 export interface ErrorNotificationsProps {
   position?: 'top' | 'bottom';
@@ -60,6 +61,7 @@ interface NotificationItemProps {
 
 const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDismiss }) => {
   const [isExiting, setIsExiting] = useState(false);
+  const themeStyles = useFlowThemeStyles();
 
   const handleDismiss = () => {
     setIsExiting(true);
@@ -69,26 +71,26 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
   const getBackgroundColor = () => {
     switch (notification.severity) {
       case 'info':
-        return '#e3f2fd';
+        return themeStyles.colors.ui.info.background;
       case 'warning':
-        return '#fff3e0';
+        return themeStyles.colors.ui.warning.background;
       case 'error':
-        return CONFIG.color.ui.error.background;
+        return themeStyles.colors.ui.error.background;
       default:
-        return '#f5f5f5';
+        return themeStyles.colors.ui.background.panel;
     }
   };
 
   const getBorderColor = () => {
     switch (notification.severity) {
       case 'info':
-        return CONFIG.color.ui.button.secondary;
+        return themeStyles.colors.ui.info.border;
       case 'warning':
-        return '#ff9800';
+        return themeStyles.colors.ui.warning.border;
       case 'error':
-        return CONFIG.color.ui.button.danger;
+        return themeStyles.colors.ui.error.border;
       default:
-        return CONFIG.color.ui.border;
+        return themeStyles.colors.ui.border;
     }
   };
 
@@ -110,7 +112,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
     backgroundColor: getBackgroundColor(),
     border: `1px solid ${getBorderColor()}`,
     borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
-    boxShadow: CONFIG.color.shadow.default,
+    boxShadow: themeStyles.colors.shadow.default,
     display: 'flex',
     alignItems: 'flex-start',
     gap: `${CONFIG.spacing.padding.medium + 4}px`,

@@ -1,0 +1,91 @@
+/* React Flow Theme Transitions */
+
+/* Smooth color transitions when theme changes */
+.react-flow,
+.react-flow__node,
+.react-flow__edge,
+.react-flow__background,
+.react-flow__minimap,
+.react-flow__controls {
+  transition: background-color 0.3s ease, 
+              border-color 0.3s ease, 
+              color 0.3s ease,
+              fill 0.3s ease,
+              stroke 0.3s ease;
+}
+
+/* Dark theme specific styles */
+.flow-theme-dark .react-flow {
+  background-color: var(--flow-theme-ui-background-panel);
+}
+
+.flow-theme-dark .react-flow__controls {
+  background-color: var(--flow-theme-ui-background-overlay);
+  border-color: var(--flow-theme-ui-border);
+}
+
+.flow-theme-dark .react-flow__controls button {
+  background-color: var(--flow-theme-ui-background-overlay);
+  color: var(--flow-theme-ui-text-primary);
+  border-color: var(--flow-theme-ui-border);
+}
+
+.flow-theme-dark .react-flow__controls button:hover {
+  background-color: var(--flow-theme-ui-button-secondary);
+}
+
+/* Light theme specific styles */
+.flow-theme-light .react-flow {
+  background-color: var(--flow-theme-ui-background-panel);
+}
+
+.flow-theme-light .react-flow__controls {
+  background-color: var(--flow-theme-ui-background-overlay);
+  border-color: var(--flow-theme-ui-border);
+}
+
+.flow-theme-light .react-flow__controls button {
+  background-color: var(--flow-theme-ui-background-overlay);
+  color: var(--flow-theme-ui-text-primary);
+  border-color: var(--flow-theme-ui-border);
+}
+
+.flow-theme-light .react-flow__controls button:hover {
+  background-color: var(--flow-theme-ui-button-secondary);
+}
+
+/* Minimap styling */
+.react-flow__minimap {
+  background-color: var(--flow-theme-ui-background-minimap) !important;
+  border: 1px solid var(--flow-theme-ui-border) !important;
+}
+
+.react-flow__minimap-mask {
+  fill: var(--flow-theme-ui-background-overlay);
+  fill-opacity: 0.2;
+}
+
+/* Edge styling */
+.react-flow__edge-path {
+  stroke: var(--flow-theme-edge-stroke);
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--flow-theme-edge-strokeSelected);
+}
+
+/* Handle styling */
+.react-flow__handle {
+  background: var(--flow-theme-ui-loading-spinner);
+  border: 1px solid var(--flow-theme-ui-border);
+}
+
+.react-flow__handle:hover {
+  background: var(--flow-theme-node-border-selected);
+}
+
+/* Attribution styling */
+.react-flow__attribution {
+  background: var(--flow-theme-ui-background-overlay);
+  color: var(--flow-theme-ui-text-secondary);
+}
