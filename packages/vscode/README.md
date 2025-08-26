@@ -1,69 +1,87 @@
-# code-charter-vscode README
+# Code Charter VSCode Extension
 
-This is the README for your extension "code-charter-vscode". After writing up a brief description, we recommend including the following sections.
+Code Charter is a powerful tool for visualizing and understanding code structure through interactive diagrams and AI-powered summaries.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- **Code Visualization**: Generate interactive diagrams showing the call graph and structure of your code
+- **AI-Powered Summaries**: Get intelligent summaries of functions and their relationships
+- **Code Clustering**: Automatically group related functions together for better organization
+- **Multiple AI Providers**: Support for OpenAI and Ollama for code summarization
+- **Local Embeddings**: NEW! Use local text embeddings for clustering without API dependencies
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- VSCode 1.87.0 or higher
+- For AI features: Either Ollama running locally or an OpenAI API key
+- For clustering: Either OpenAI API key or local embeddings (90MB model download)
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+* `code-charter-vscode.modelProvider`: Select language model provider (Ollama or OpenAI)
+* `code-charter-vscode.APIKey`: API key for language model provider (if required)
+* `code-charter-vscode.embeddingProvider`: Choose embedding provider for clustering:
+  - `local`: Use local embeddings (90MB model download, no API key required)
+  - `openai`: Use OpenAI embeddings (requires API key)
+* `code-charter-vscode.devMode`: Enable development mode for UI development
+
+## Embedding Providers
+
+### Local Embeddings (NEW!)
+- **Model**: all-MiniLM-L6-v2 (90MB download)
+- **Benefits**: No API costs, works offline, privacy-friendly
+- **First Use**: The model will be downloaded automatically on first use
+- **Cache Location**: Models are cached in your system's cache directory
+
+### OpenAI Embeddings
+- **Model**: text-embedding-ada-002
+- **Benefits**: High quality embeddings, no local storage needed
+- **Requirements**: OpenAI API key and internet connection
+
+On first use of clustering, you'll be prompted to choose your preferred embedding provider.
+
+## Usage
+
+1. Open a code file in your project
+2. Run the command: "Code Charter: Summarise Code Trees With A Diagram"
+3. Select your entry point function
+4. View the generated diagram and summaries
+5. Use clustering to group related functions
+
+### Configuring Embeddings
+
+To configure or change your embedding provider:
+- Run the command: "Code Charter: Configure Cluster Embeddings"
+- Choose to change provider, update API key, or clear model cache
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+- Large codebases may take time to process
+- Clustering requires either OpenAI API key or local model download
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.2
 
-### 1.0.0
+- Added support for local embeddings using Transformers.js
+- First-run dialog for choosing embedding provider
+- API key input dialog for OpenAI embeddings
+- Command to configure cluster embeddings
+- Progress notifications during model download
+- Improved clustering configuration options
+- Lazy loading of embedding models
 
-Initial release of ...
+### 0.0.1
 
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+Initial release with core features:
+- Code visualization
+- AI summaries
+- OpenAI-based clustering
 
 ---
 
-## Following extension guidelines
+## Privacy Note
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+When using local embeddings, all processing happens on your machine. No code or data is sent to external servers for embedding generation.

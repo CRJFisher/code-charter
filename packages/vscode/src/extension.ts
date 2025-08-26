@@ -24,7 +24,15 @@ export function activate(context: vscode.ExtensionContext) {
     generateDiagram(context)
   );
 
-  context.subscriptions.push(disposable);
+  const configureEmbeddingsCommand = vscode.commands.registerCommand(
+    "code-charter-vscode.configureClusterEmbeddings",
+    async () => {
+      const { EmbeddingProviderSelector } = await import("./clustering/embedding_provider_selector");
+      await EmbeddingProviderSelector.configure_embeddings();
+    }
+  );
+
+  context.subscriptions.push(disposable, configureEmbeddingsCommand);
 }
 
 async function generateDiagram(context: vscode.ExtensionContext) {
@@ -157,18 +165,10 @@ async function showWebviewDiagram(
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
           
-          // Create clustering service with OpenAI API key
-          let clusteringService: ClusteringService;
-          if (modelDetails.provider === ModelProvider.OpenAI) {
-            const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
-            const apiKey = configuration.get("APIKey");
-            if (!apiKey || typeof apiKey !== "string") {
-              throw new Error("OpenAI API Key not set for clustering");
-            }
-            clusteringService = new ClusteringService(apiKey, workFolder);
-          } else {
-            throw new Error("Clustering requires OpenAI provider for embeddings");
-          }
+          // Create clustering service - API key is optional now
+          const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
+          const apiKey = configuration.get<string>("APIKey") || null;
+          const clusteringService = new ClusteringService(apiKey, workFolder, context);
           
           // Perform clustering
           const clusters = await clusteringService.cluster(

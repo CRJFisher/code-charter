@@ -4,18 +4,79 @@ import * as crypto from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
 import { OpenAI } from "openai";
+import { LocalEmbeddingsProvider, EmbeddingProvider } from "./local_embeddings_provider";
+import { EmbeddingProviderSelector, EmbeddingProviderType } from "./embedding_provider_selector";
 
 interface EmbeddingCache {
   [key: string]: number[];
 }
 
 export class ClusteringService {
-  private openAIClient: OpenAI;
+  private openAIClient: OpenAI | null;
   private workDir: vscode.Uri;
+  private embeddingProvider: EmbeddingProvider | null = null;
+  private providerType: EmbeddingProviderType | null = null;
 
-  constructor(apiKey: string, workDir: vscode.Uri) {
-    this.openAIClient = new OpenAI({ apiKey });
+  constructor(
+    private apiKey: string | null,
+    workDir: vscode.Uri,
+    private context: vscode.ExtensionContext
+  ) {
+    this.openAIClient = apiKey ? new OpenAI({ apiKey }) : null;
     this.workDir = workDir;
+  }
+
+  /**
+   * Initialize the embedding provider based on user preference
+   */
+  private async initializeEmbeddingProvider(): Promise<void> {
+    if (this.embeddingProvider) {
+      return;
+    }
+
+    // Get user's provider choice
+    this.providerType = await EmbeddingProviderSelector.get_embedding_provider(this.context);
+    
+    // Validate configuration
+    const is_valid = await EmbeddingProviderSelector.validate_provider_config(this.providerType);
+    if (!is_valid) {
+      throw new Error('Invalid embedding provider configuration');
+    }
+
+    if (this.providerType === 'local') {
+      // Create local embeddings provider with progress reporting
+      this.embeddingProvider = new LocalEmbeddingsProvider(
+        this.context,
+        (message: string, progress?: number) => {
+          // Show progress notification
+          vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Code Charter: Embeddings",
+            cancellable: false
+          }, async (progressReporter) => {
+            progressReporter.report({ message, increment: progress });
+            // Keep notification open for a moment
+            await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
+          });
+        }
+      );
+    } else {
+      // Use OpenAI provider
+      if (!this.openAIClient) {
+        throw new Error('OpenAI client not initialized. API key required.');
+      }
+      
+      this.embeddingProvider = {
+        getEmbeddings: async (texts: string[]) => {
+          const response = await this.openAIClient!.embeddings.create({
+            input: texts,
+            model: "text-embedding-ada-002"
+          });
+          
+          return response.data.map(item => item.embedding);
+        }
+      };
+    }
   }
 
   /**
@@ -25,8 +86,11 @@ export class ClusteringService {
     refinedFunctionSummaries: Record<string, string>,
     callGraphItems: Record<string, CallGraphNode>
   ): Promise<string[][]> {
-    // Generate hash for caching
-    const summariesHash = this.hashSummaries(refinedFunctionSummaries);
+    // Initialize embedding provider if needed
+    await this.initializeEmbeddingProvider();
+
+    // Generate hash for caching (include provider type in hash)
+    const summariesHash = this.hashSummaries(refinedFunctionSummaries, this.providerType!);
     
     // Try to load cached clusters
     const cachedClusters = await this.loadCachedClusters(summariesHash);
@@ -51,48 +115,66 @@ export class ClusteringService {
       n
     );
     
-    // Perform clustering
-    const clusters = await this.performClustering(combinedMatrix, indexToFunc);
+    // Find optimal clusters
+    const result = await findOptimalClusters(combinedMatrix, {
+      maxClusters: Math.min(Math.floor(n / 3), 12),
+      algorithm: 'spectral',
+      algorithmParams: { 
+        affinity: 'nearest_neighbors' 
+      },
+      metrics: ['silhouette', 'calinskiHarabasz'],
+      scoringFunction: (evaluation) => {
+        // Custom scoring function matching Python behavior
+        const silhouette = evaluation.silhouette || 0;
+        const calinskiHarabasz = evaluation.calinskiHarabasz || 0;
+        return silhouette * 2 + calinskiHarabasz;
+      }
+    });
     
-    // Order clusters by distance to centroid
-    const orderedClusters = this.orderClustersByDistanceToCentroid(clusters, embeddings);
+    // Convert cluster labels to grouped function names
+    const groupedClusters = this.groupClustersByLabel(result.labels, indexToFunc);
     
-    // Convert to array format expected by the extension
-    const clusterSymbols = Object.values(orderedClusters);
+    // Order clusters by average distance to centroid
+    const orderedClusters = this.orderClustersByCentroid(
+      groupedClusters,
+      embeddings,
+      funcToIndex
+    );
     
     // Cache the results
-    await this.saveClusters(summariesHash, clusterSymbols);
+    await this.saveClusters(orderedClusters, summariesHash);
     
-    return clusterSymbols;
+    return orderedClusters;
   }
 
   /**
-   * Generate embeddings for function summaries using OpenAI
+   * Generate embeddings for function summaries using configured provider
    */
   private async embedSummaries(summaries: Record<string, string>): Promise<Record<string, number[]>> {
+    if (!this.embeddingProvider) {
+      throw new Error('Embedding provider not initialized');
+    }
+
     const summaryTexts = Object.values(summaries);
     const summaryKeys = Object.keys(summaries);
     
-    // Use OpenAI embeddings API
-    const response = await this.openAIClient.embeddings.create({
-      input: summaryTexts,
-      model: "text-embedding-ada-002"
-    });
+    // Get embeddings from provider
+    const embeddings = await this.embeddingProvider.getEmbeddings(summaryTexts);
     
     const result: Record<string, number[]> = {};
-    response.data.forEach((embedding, index) => {
-      result[summaryKeys[index]] = embedding.embedding;
+    embeddings.forEach((embedding, index) => {
+      result[summaryKeys[index]] = embedding;
     });
     
     return result;
   }
 
   /**
-   * Hash summaries for caching
+   * Hash summaries for caching (includes provider type)
    */
-  private hashSummaries(summaries: Record<string, string>): string {
+  private hashSummaries(summaries: Record<string, string>, provider: string): string {
     const hash = crypto.createHash("md5");
-    hash.update(JSON.stringify(summaries));
+    hash.update(JSON.stringify({ summaries, provider }));
     return hash.digest("hex").substring(0, 8);
   }
 
@@ -109,124 +191,87 @@ export class ClusteringService {
       `${summariesHash}.json`
     );
     
+    // Try to load cached embeddings
     try {
-      const data = await vscode.workspace.fs.readFile(embeddingsPath);
-      return JSON.parse(data.toString());
-    } catch {
-      // Generate new embeddings
-      const embeddings = await this.embedSummaries(summaries);
-      
-      // Save to cache
-      await this.saveEmbeddings(embeddingsPath, embeddings);
-      
-      return embeddings;
-    }
-  }
-
-  /**
-   * Save embeddings to cache
-   */
-  private async saveEmbeddings(embeddingsPath: vscode.Uri, embeddings: Record<string, number[]>) {
-    const dir = vscode.Uri.joinPath(this.workDir, "embeddings");
-    try {
-      await vscode.workspace.fs.createDirectory(dir);
-    } catch {
-      // Directory might already exist
+      const cached = await vscode.workspace.fs.readFile(embeddingsPath);
+      const cachedData = JSON.parse(cached.toString()) as EmbeddingCache;
+      console.log(`Loaded cached embeddings from ${embeddingsPath.fsPath}`);
+      return cachedData;
+    } catch (error) {
+      console.log("No cached embeddings found, generating new ones...");
     }
     
-    const data = new TextEncoder().encode(JSON.stringify(embeddings, null, 2));
-    await vscode.workspace.fs.writeFile(embeddingsPath, data);
+    // Generate new embeddings
+    const embeddings = await this.embedSummaries(summaries);
+    
+    // Cache the embeddings
+    await this.ensureDirectory(vscode.Uri.joinPath(this.workDir, "embeddings"));
+    await vscode.workspace.fs.writeFile(
+      embeddingsPath,
+      new TextEncoder().encode(JSON.stringify(embeddings))
+    );
+    console.log(`Saved embeddings to ${embeddingsPath.fsPath}`);
+    
+    return embeddings;
   }
 
-  /**
-   * Prepare data structures for clustering
-   */
+  // ... rest of the methods remain the same as original ...
+  
   private prepareData(summaries: Record<string, string>) {
-    const functionNames = Object.keys(summaries);
+    const funcNames = Object.keys(summaries);
     const funcToIndex: Record<string, number> = {};
     const indexToFunc: Record<number, string> = {};
     
-    functionNames.forEach((name, index) => {
+    funcNames.forEach((name, index) => {
       funcToIndex[name] = index;
       indexToFunc[index] = name;
     });
     
-    return { funcToIndex, indexToFunc, n: functionNames.length };
+    return { funcToIndex, indexToFunc, n: funcNames.length };
   }
 
-  /**
-   * Calculate cosine similarity between two vectors
-   */
-  private cosineSimilarity(vec1: number[], vec2: number[]): number {
-    let dotProduct = 0;
-    let norm1 = 0;
-    let norm2 = 0;
-    
-    for (let i = 0; i < vec1.length; i++) {
-      dotProduct += vec1[i] * vec2[i];
-      norm1 += vec1[i] * vec1[i];
-      norm2 += vec2[i] * vec2[i];
-    }
-    
-    norm1 = Math.sqrt(norm1);
-    norm2 = Math.sqrt(norm2);
-    
-    return dotProduct / (norm1 * norm2);
-  }
-
-  /**
-   * Create similarity matrix from embeddings
-   */
   private createSimilarityMatrix(
     embeddings: Record<string, number[]>,
     funcToIndex: Record<string, number>,
     n: number
   ): number[][] {
+    // Initialize similarity matrix
     const matrix: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
     
-    Object.entries(embeddings).forEach(([func1, vec1]) => {
-      const i = funcToIndex[func1];
-      if (i === undefined) return;
-      
-      Object.entries(embeddings).forEach(([func2, vec2]) => {
-        const j = funcToIndex[func2];
-        if (j === undefined || i === j) return;
-        
-        const similarity = this.cosineSimilarity(vec1, vec2);
-        matrix[i][j] = similarity;
-        matrix[j][i] = similarity; // Ensure symmetry
-      });
-    });
-    
-    return matrix;
-  }
-
-  /**
-   * Normalize matrix using L1 normalization
-   */
-  private normalizeMatrix(matrix: number[][]): number[][] {
-    const n = matrix.length;
-    const normalized: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
+    const funcNames = Object.keys(funcToIndex);
     
     for (let i = 0; i < n; i++) {
-      let rowSum = 0;
-      for (let j = 0; j < n; j++) {
-        rowSum += Math.abs(matrix[i][j]);
-      }
-      
-      if (rowSum > 0) {
-        for (let j = 0; j < n; j++) {
-          normalized[i][j] = matrix[i][j] / rowSum;
+      for (let j = i; j < n; j++) {
+        if (i === j) {
+          matrix[i][j] = 1.0;
+        } else {
+          const similarity = this.cosineSimilarity(
+            embeddings[funcNames[i]],
+            embeddings[funcNames[j]]
+          );
+          matrix[i][j] = similarity;
+          matrix[j][i] = similarity;
         }
       }
     }
     
-    return normalized;
+    return matrix;
   }
 
-  /**
-   * Create combined matrix from similarity and adjacency data
-   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
   private createCombinedMatrix(
     callGraphItems: Record<string, CallGraphNode>,
     funcToIndex: Record<string, number>,
@@ -236,6 +281,7 @@ export class ClusteringService {
     // Create adjacency matrix
     const adjacencyMatrix: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
     
+    // Fill adjacency matrix
     Object.entries(callGraphItems).forEach(([symbol, node]) => {
       const i = funcToIndex[symbol];
       if (i === undefined) return;
@@ -244,125 +290,94 @@ export class ClusteringService {
         const j = funcToIndex[call.symbol];
         if (j !== undefined && i !== j) {
           adjacencyMatrix[i][j] = 1;
-          adjacencyMatrix[j][i] = 1;
+          adjacencyMatrix[j][i] = 1; // Make symmetric
         }
       });
     });
     
-    // Normalize both matrices
-    const similarityNormalized = this.normalizeMatrix(similarityMatrix);
-    const adjacencyNormalized = this.normalizeMatrix(adjacencyMatrix);
-    
-    // Combine with 50/50 weighting
+    // Combine matrices (50/50 weight)
     const combinedMatrix: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
+    
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        combinedMatrix[i][j] = 0.5 * adjacencyNormalized[i][j] + 0.5 * similarityNormalized[i][j];
+        combinedMatrix[i][j] = 0.5 * similarityMatrix[i][j] + 0.5 * adjacencyMatrix[i][j];
       }
     }
     
     return combinedMatrix;
   }
 
-  /**
-   * Perform clustering using clustering-tfjs
-   */
-  private async performClustering(
-    similarityMatrix: number[][],
+  private groupClustersByLabel(
+    labels: number[],
     indexToFunc: Record<number, string>
-  ): Promise<Record<number, string[]>> {
-    // Convert similarity matrix to distance matrix for clustering
-    const n = similarityMatrix.length;
-    const distanceMatrix = similarityMatrix.map(row => 
-      row.map(val => 1 - val)
-    );
-    
-    // Set diagonal to 0
-    for (let i = 0; i < n; i++) {
-      distanceMatrix[i][i] = 0;
-    }
-    
-    // Use findOptimalClusters with spectral clustering
-    const result = await findOptimalClusters(distanceMatrix, {
-      maxClusters: Math.floor(n / 3), // Match Python implementation
-      algorithm: 'spectral',
-      algorithmParams: { 
-        affinity: 'nearest_neighbors' 
-      },
-      metrics: ['silhouette', 'calinskiHarabasz'],
-      scoringFunction: (evaluation) => {
-        // Custom scoring function matching Python behavior
-        const silhouette = evaluation.silhouette || 0;
-        const calinskiHarabasz = evaluation.calinskiHarabasz || 0;
-        return silhouette * 2 + calinskiHarabasz;
-      }
-    });
-    
-    // Map labels back to function names
+  ): string[][] {
     const clusters: Record<number, string[]> = {};
-    result.labels.forEach((label, idx) => {
-      const funcName = indexToFunc[idx];
+    
+    labels.forEach((label, index) => {
       if (!clusters[label]) {
         clusters[label] = [];
       }
-      clusters[label].push(funcName);
+      clusters[label].push(indexToFunc[index]);
     });
     
-    return clusters;
+    return Object.values(clusters);
   }
 
-  /**
-   * Calculate centroid of a cluster
-   */
-  private calculateCentroid(
-    cluster: string[],
-    embeddings: Record<string, number[]>
-  ): number[] {
-    const vectors = cluster.map(func => embeddings[func]);
-    const dimension = vectors[0].length;
-    const centroid = new Array(dimension).fill(0);
+  private orderClustersByCentroid(
+    clusters: string[][],
+    embeddings: Record<string, number[]>,
+    funcToIndex: Record<string, number>
+  ): string[][] {
+    const clusterDistances: Array<{ cluster: string[]; distance: number }> = [];
     
-    vectors.forEach(vec => {
+    clusters.forEach(cluster => {
+      // Calculate centroid
+      const centroid = this.calculateCentroid(cluster, embeddings);
+      
+      // Calculate average distance to centroid
+      let totalDistance = 0;
+      cluster.forEach(func => {
+        totalDistance += this.euclideanDistance(embeddings[func], centroid);
+      });
+      
+      clusterDistances.push({
+        cluster,
+        distance: totalDistance / cluster.length
+      });
+    });
+    
+    // Sort by distance (ascending)
+    clusterDistances.sort((a, b) => a.distance - b.distance);
+    
+    return clusterDistances.map(item => item.cluster);
+  }
+
+  private calculateCentroid(cluster: string[], embeddings: Record<string, number[]>): number[] {
+    const dimension = embeddings[cluster[0]].length;
+    const centroid = Array(dimension).fill(0);
+    
+    cluster.forEach(func => {
+      const embedding = embeddings[func];
       for (let i = 0; i < dimension; i++) {
-        centroid[i] += vec[i];
+        centroid[i] += embedding[i];
       }
     });
     
     for (let i = 0; i < dimension; i++) {
-      centroid[i] /= vectors.length;
+      centroid[i] /= cluster.length;
     }
     
     return centroid;
   }
 
-  /**
-   * Order clusters by distance to centroid
-   */
-  private orderClustersByDistanceToCentroid(
-    clusters: Record<number, string[]>,
-    embeddings: Record<string, number[]>
-  ): Record<number, string[]> {
-    const orderedClusters: Record<number, string[]> = {};
-    
-    Object.entries(clusters).forEach(([label, cluster]) => {
-      const centroid = this.calculateCentroid(cluster, embeddings);
-      
-      // Sort by distance to centroid (descending similarity)
-      const ordered = cluster.sort((a, b) => {
-        const simA = this.cosineSimilarity(centroid, embeddings[a]);
-        const simB = this.cosineSimilarity(centroid, embeddings[b]);
-        return simB - simA;
-      });
-      
-      orderedClusters[parseInt(label)] = ordered;
-    });
-    
-    return orderedClusters;
+  private euclideanDistance(a: number[], b: number[]): number {
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) {
+      sum += Math.pow(a[i] - b[i], 2);
+    }
+    return Math.sqrt(sum);
   }
 
-  /**
-   * Load cached clusters if available
-   */
   private async loadCachedClusters(summariesHash: string): Promise<string[][] | null> {
     const clustersPath = vscode.Uri.joinPath(
       this.workDir,
@@ -371,26 +386,35 @@ export class ClusteringService {
     );
     
     try {
-      const data = await vscode.workspace.fs.readFile(clustersPath);
-      return JSON.parse(data.toString());
-    } catch {
+      const cached = await vscode.workspace.fs.readFile(clustersPath);
+      const clusters = JSON.parse(cached.toString()) as string[][];
+      console.log(`Loaded cached clusters from ${clustersPath.fsPath}`);
+      return clusters;
+    } catch (error) {
       return null;
     }
   }
 
-  /**
-   * Save clusters to cache
-   */
-  private async saveClusters(summariesHash: string, clusters: string[][]) {
-    const dir = vscode.Uri.joinPath(this.workDir, "clusters");
+  private async saveClusters(clusters: string[][], summariesHash: string): Promise<void> {
+    const clustersPath = vscode.Uri.joinPath(
+      this.workDir,
+      "clusters",
+      `${summariesHash}.json`
+    );
+    
+    await this.ensureDirectory(vscode.Uri.joinPath(this.workDir, "clusters"));
+    await vscode.workspace.fs.writeFile(
+      clustersPath,
+      new TextEncoder().encode(JSON.stringify(clusters))
+    );
+    console.log(`Saved clusters to ${clustersPath.fsPath}`);
+  }
+
+  private async ensureDirectory(uri: vscode.Uri): Promise<void> {
     try {
-      await vscode.workspace.fs.createDirectory(dir);
-    } catch {
+      await vscode.workspace.fs.createDirectory(uri);
+    } catch (error) {
       // Directory might already exist
     }
-    
-    const clustersPath = vscode.Uri.joinPath(dir, `${summariesHash}.json`);
-    const data = new TextEncoder().encode(JSON.stringify(clusters, null, 2));
-    await vscode.workspace.fs.writeFile(clustersPath, data);
   }
 }
