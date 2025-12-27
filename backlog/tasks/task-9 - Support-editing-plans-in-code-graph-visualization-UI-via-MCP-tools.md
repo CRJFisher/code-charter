@@ -3,7 +3,7 @@ id: task-9
 title: Support editing plans in code graph visualization UI via MCP tools
 status: To Do
 assignee: []
-created_date: '2025-08-22 13:32'
+created_date: "2025-08-22 13:32"
 labels: []
 dependencies: []
 ---
@@ -27,9 +27,12 @@ Enable users to edit implementation plans directly within the code graph visuali
 
 One desirable outcome of this feature would be to be able to write in-depth, thorough, deterministic task lists for the agent to execute.
 
-We could support two views: 
+We could support two views:
+
 1. Concept map (similar to the module detection mode currently in code-charter)
    - Zoom interface shows conceptual hierarchy in the code base
 2. Flow chart showing the key logic flows. This would be editable for high-level functionality changes
    - Zooming in would show the proposed changes to specific functions and features.
-But we should start with the minimal, most useful option. Given we don't have flow-chart functionality yet, we could use the module/functions view and show the before/after function/module descriptions.
+     But we should start with the minimal, most useful option. Given we don't have flow-chart functionality yet, we could use the module/functions view and show the before/after function/module descriptions.
+
+Views could/should be generated/updated on-demand.
