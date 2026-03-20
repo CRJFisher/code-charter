@@ -1,4 +1,4 @@
-import { CallGraph } from "@ariadnejs/core";
+import { CallGraph } from "@ariadnejs/types";
 
 export interface ClusterMember {
   symbol: string;

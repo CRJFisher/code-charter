@@ -29,7 +29,9 @@ export function compute_source_hash(file_contents: Map<string, string>): string 
   const sorted_keys = Array.from(file_contents.keys()).sort();
   for (const key of sorted_keys) {
     hash.update(key);
+    hash.update("\0");
     hash.update(file_contents.get(key)!);
+    hash.update("\0");
   }
   return hash.digest("hex").substring(0, 16);
 }

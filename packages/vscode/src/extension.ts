@@ -1,7 +1,10 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import { addToGitignore } from "./files";
 import { navigateToDoc } from "./navigate";
-import { CallGraph } from "@ariadnejs/core";
+import { CallGraph, CallGraphNode } from "@ariadnejs/core";
+import type { DocstringInfo } from "@code-charter/types";
 import { DocstringSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
@@ -85,6 +88,23 @@ async function show_webview_diagram(
   let top_level_function_to_descriptions: { [key: string]: DocstringSummaries } = {};
   let project_manager: AriadneProjectManager | undefined;
   const docstring_provider = new RegexDocstringProvider();
+  const embedding_provider = new LocalEmbeddingsProvider(
+    (message: string, progress?: number) => {
+      vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Code Charter: Embeddings",
+        cancellable: false
+      }, async (progress_reporter) => {
+        progress_reporter.report({ message, increment: progress });
+        await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
+      });
+    }
+  );
+  const clustering_service = new ClusteringService({
+    embedding_provider,
+    cache_storage: new VscodeCacheStorage(work_folder),
+    progress_reporter: (msg) => console.log(msg)
+  });
 
   panel.webview.onDidReceiveMessage(
     async (message) => {
@@ -138,25 +158,6 @@ async function show_webview_diagram(
           if (!descriptions) {
             throw new Error("Descriptions not available. Call getCodeTreeDescriptions first.");
           }
-
-          const embedding_provider = new LocalEmbeddingsProvider(
-            (message: string, progress?: number) => {
-              vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: "Code Charter: Embeddings",
-                cancellable: false
-              }, async (progress_reporter) => {
-                progress_reporter.report({ message, increment: progress });
-                await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
-              });
-            }
-          );
-
-          const clustering_service = new ClusteringService({
-            embedding_provider,
-            cache_storage: new VscodeCacheStorage(work_folder),
-            progress_reporter: (msg) => console.log(msg)
-          });
 
           const clusters = await clustering_service.cluster(
             descriptions.docstrings,
@@ -233,13 +234,10 @@ function extract_descriptions(
   workspace_path: string
 ): DocstringSummaries {
   const docstrings: Record<string, string> = {};
-  const call_tree: Record<string, any> = {};
+  const call_tree: Record<string, CallGraphNode> = {};
   const visited = new Set<string>();
-  const fs = require("fs");
-  const path = require("path");
 
-  // Cache of file -> docstrings map
-  const file_docstrings_cache = new Map<string, Map<string, import("@code-charter/types").DocstringInfo>>();
+  const file_docstrings_cache = new Map<string, Map<string, DocstringInfo>>();
 
   function walk(symbol: string) {
     if (visited.has(symbol)) return;
