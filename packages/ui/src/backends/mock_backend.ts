@@ -1,7 +1,5 @@
 import {
   CodeCharterBackend,
-  BackendState,
-  ConnectionStatus,
   NodeGroup,
   TreeAndContextSummaries,
   CallGraph,
@@ -12,31 +10,9 @@ import {
  * Mock backend implementation for testing and demos
  */
 export class MockBackend implements CodeCharterBackend {
-  private state: BackendState = { status: ConnectionStatus.DISCONNECTED };
-  private stateListeners: Set<(state: BackendState) => void> = new Set();
-
-  getState(): BackendState {
-    return this.state;
-  }
-
-  async connect(): Promise<void> {
-    this.updateState({ status: ConnectionStatus.CONNECTING });
-    
-    // Simulate connection delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    this.updateState({ status: ConnectionStatus.CONNECTED });
-  }
-
-  async disconnect(): Promise<void> {
-    this.updateState({ status: ConnectionStatus.DISCONNECTED });
-  }
-
   async getCallGraph(): Promise<CallGraph | undefined> {
-    // Return a sample call graph with correct types
     const nodes = new Map();
-    
-    // Create nodes with the correct structure
+
     const mainNode: CallGraphNode = {
       symbol: "main.ts:main",
       definition: {
@@ -57,7 +33,7 @@ export class MockBackend implements CodeCharterBackend {
       ],
       called_by: []
     };
-    
+
     const processDataNode: CallGraphNode = {
       symbol: "utils.ts:processData",
       definition: {
@@ -74,7 +50,7 @@ export class MockBackend implements CodeCharterBackend {
       ],
       called_by: ["main.ts:main"]
     };
-    
+
     const fetchDataNode: CallGraphNode = {
       symbol: "api.ts:fetchData",
       definition: {
@@ -91,33 +67,30 @@ export class MockBackend implements CodeCharterBackend {
     nodes.set("utils.ts:processData", processDataNode);
     nodes.set("api.ts:fetchData", fetchDataNode);
 
-    const mockGraph: CallGraph = {
+    return {
       nodes,
       edges: [
-        { 
-          from: "main.ts:main", 
+        {
+          from: "main.ts:main",
           to: "utils.ts:processData",
           location: { start: { row: 4, column: 0 }, end: { row: 4, column: 20 } }
         },
-        { 
-          from: "main.ts:main", 
+        {
+          from: "main.ts:main",
           to: "api.ts:fetchData",
           location: { start: { row: 5, column: 0 }, end: { row: 5, column: 15 } }
         },
-        { 
-          from: "utils.ts:processData", 
+        {
+          from: "utils.ts:processData",
           to: "api.ts:fetchData",
           location: { start: { row: 14, column: 0 }, end: { row: 14, column: 15 } }
         }
       ],
       top_level_nodes: ["main.ts:main"]
     };
-
-    return mockGraph;
   }
 
   async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
-    // Return sample clusters
     return [
       {
         description: "Data Processing Functions",
@@ -135,8 +108,6 @@ export class MockBackend implements CodeCharterBackend {
   }
 
   async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
-    // Return sample summaries
-    // Create a mock node that matches the CallGraphNode structure
     const mockNode: CallGraphNode = {
       symbol: topLevelFunctionSymbol,
       definition: {
@@ -168,19 +139,6 @@ export class MockBackend implements CodeCharterBackend {
   }
 
   async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
-    // In mock mode, just log the navigation request
     console.log(`Mock navigation to ${relativeDocPath}:${lineNumber}`);
-  }
-
-  onStateChange(callback: (state: BackendState) => void): () => void {
-    this.stateListeners.add(callback);
-    return () => {
-      this.stateListeners.delete(callback);
-    };
-  }
-
-  private updateState(state: BackendState): void {
-    this.state = state;
-    this.stateListeners.forEach(listener => listener(state));
   }
 }

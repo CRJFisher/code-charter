@@ -19,42 +19,9 @@ export interface NodeGroup {
 }
 
 /**
- * Connection status for the backend
- */
-export enum ConnectionStatus {
-  CONNECTING = "connecting",
-  CONNECTED = "connected",
-  DISCONNECTED = "disconnected",
-  ERROR = "error"
-}
-
-/**
- * Backend connection state
- */
-export interface BackendState {
-  status: ConnectionStatus;
-  error?: string;
-}
-
-/**
  * Main interface for Code Charter backend implementations
  */
 export interface CodeCharterBackend {
-  /**
-   * Get the current connection state
-   */
-  getState(): BackendState;
-
-  /**
-   * Initialize the backend connection
-   */
-  connect(): Promise<void>;
-
-  /**
-   * Disconnect from the backend
-   */
-  disconnect(): Promise<void>;
-
   /**
    * Get the call graph for the current project
    */
@@ -74,9 +41,4 @@ export interface CodeCharterBackend {
    * Navigate to a specific document location
    */
   navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void>;
-
-  /**
-   * Subscribe to backend state changes
-   */
-  onStateChange(callback: (state: BackendState) => void): () => void;
 }
