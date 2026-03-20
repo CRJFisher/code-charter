@@ -15,13 +15,9 @@
     "test:watch": "turbo run test:watch",
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "clean": "turbo run clean"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.0",
     "turbo": "^2.3.3",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"

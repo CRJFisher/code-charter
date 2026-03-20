@@ -25,8 +25,6 @@ async function summarise_call_graph(
   workspace_path: vscode.Uri,
   model_details: ModelDetails
 ): Promise<TreeAndContextSummaries> {
-  console.log(model_details);
-
   const top_level_function_name = symbol_repo_local_name(top_level_function_symbol);
   const root_context = await summarise_root_scope(work_dir, workspace_path, top_level_function_name, model_details);
 
@@ -225,7 +223,7 @@ async function get_function_business_logic(
   } = {};
   for (const [_, node] of all_function_nodes) {
     const summary_chain = build_business_logic_prompt(node.symbol_id).pipe(model_details.model).pipe(output_parser);
-    const summary_key = hashText(node.symbol_id);
+    const summary_key = hashText(node.symbol_id, summaries.get(node.symbol_id) || '');
     const summary_from_cache_or_llm_chain = await getSummaryWithCachingChain(
       summary_chain,
       function_summaries_db,
@@ -276,15 +274,6 @@ async function get_symbol_to_function_code(
     })
   );
   return node_code;
-}
-
-async function read_call_graph_json_file(call_graph_file: vscode.Uri): Promise<CallGraph> {
-  // Read the JSON file
-  const json_string = await vscode.workspace.fs
-    .readFile(call_graph_file)
-    .then((buffer) => new TextDecoder().decode(buffer));
-  const json_parsed = JSON.parse(json_string);
-  return json_parsed as CallGraph;
 }
 
 async function check_for_markdown_file(directory_path: vscode.Uri): Promise<string | null> {
@@ -351,4 +340,4 @@ function get_call_graph_items_with_filtered_out_functions(
   return call_graph_items;
 }
 
-export { summarise_call_graph, read_call_graph_json_file };
+export { summarise_call_graph };

@@ -45,7 +45,6 @@ export async function getSummaryWithCachingChain(
     [
       (_) => !!cachedSummary,
       RunnableLambda.from((_) => {
-        // console.log(`Using cached summary for ${symbol}`);
         return cachedSummary!;
       }),
     ],

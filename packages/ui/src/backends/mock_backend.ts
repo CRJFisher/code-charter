@@ -1,7 +1,5 @@
 import {
   CodeCharterBackend,
-  BackendState,
-  ConnectionStatus,
   NodeGroup,
   TreeAndContextSummaries,
   CallGraph,
@@ -48,23 +46,6 @@ function make_node(file: string, start_line: number, end_line: number, name: str
  * Mock backend implementation for testing and demos
  */
 export class MockBackend implements CodeCharterBackend {
-  private state: BackendState = { status: ConnectionStatus.DISCONNECTED };
-  private stateListeners: Set<(state: BackendState) => void> = new Set();
-
-  getState(): BackendState {
-    return this.state;
-  }
-
-  async connect(): Promise<void> {
-    this.updateState({ status: ConnectionStatus.CONNECTING });
-    await new Promise(resolve => setTimeout(resolve, 500));
-    this.updateState({ status: ConnectionStatus.CONNECTED });
-  }
-
-  async disconnect(): Promise<void> {
-    this.updateState({ status: ConnectionStatus.DISCONNECTED });
-  }
-
   async getCallGraph(): Promise<CallGraph | undefined> {
     const process_data_id = make_symbol_id("utils.ts", 9, 19, "processData");
     const fetch_data_id = make_symbol_id("api.ts", 4, 14, "fetchData");
@@ -129,17 +110,5 @@ export class MockBackend implements CodeCharterBackend {
 
   async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
     console.log(`Mock navigation to ${relativeDocPath}:${lineNumber}`);
-  }
-
-  onStateChange(callback: (state: BackendState) => void): () => void {
-    this.stateListeners.add(callback);
-    return () => {
-      this.stateListeners.delete(callback);
-    };
-  }
-
-  private updateState(state: BackendState): void {
-    this.state = state;
-    this.stateListeners.forEach(listener => listener(state));
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useBackend } from "../hooks/use_backend";
 import type { CallGraph, CallableNode, SymbolId } from "@code-charter/types";
 
@@ -26,7 +26,6 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_summaries_loading }) => {
-  const { backend } = useBackend();
   const [is_sidebar_open, set_is_sidebar_open] = useState(true);
 
   const toggle_sidebar = () => {
@@ -96,9 +95,11 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
     await backend.navigateToDoc(node.definition.location.file_path as string, node.definition.location.start_line);
   };
 
-  const tot_nodes_count_descending_symbols = [...call_graph.entry_points].sort(
-    (a, b) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
-  );
+  const tot_nodes_count_descending_symbols = useMemo(() => {
+    return [...call_graph.entry_points].sort(
+      (a, b) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
+    );
+  }, [call_graph]);
 
   return (
     <ul className="w-full">

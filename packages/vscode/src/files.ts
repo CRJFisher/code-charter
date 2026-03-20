@@ -23,17 +23,4 @@ function addToGitignore(fileName: string): void {
     }
 }
 
-async function getBottomLevelFolder(uri: vscode.Uri): Promise<string> {
-    // check if its a file or a folder
-    const stats = await fs.promises.stat(uri.fsPath);
-    let bottomLevelFolder: string;
-    if (stats.isFile()) {
-        // get the parent folder of the file
-        bottomLevelFolder = path.dirname(uri.fsPath).split(path.sep).pop() || '';
-    } else {
-        bottomLevelFolder = path.basename(uri.fsPath); // TODO: broken
-    }
-    return bottomLevelFolder;
-}
-
-export { addToGitignore, getBottomLevelFolder };
+export { addToGitignore };

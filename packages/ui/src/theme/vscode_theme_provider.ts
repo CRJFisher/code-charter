@@ -6,38 +6,7 @@ import { Theme, ThemeProvider, ThemeColors } from '@code-charter/types';
 const CSS_VAR_MAP: Record<keyof ThemeColors, string> = {
   'editor.background': '--vscode-editor-background',
   'editor.foreground': '--vscode-editor-foreground',
-  'editor.selectionBackground': '--vscode-editor-selectionBackground',
-  'editor.selectionForeground': '--vscode-editor-selectionForeground',
-  'editor.lineHighlightBackground': '--vscode-editor-lineHighlightBackground',
-  'editor.inactiveSelectionBackground': '--vscode-editor-inactiveSelectionBackground',
   'editorWidget.border': '--vscode-editor-widget-border',
-  'editorLineNumber.foreground': '--vscode-editorLineNumber-foreground',
-  'editorLineNumber.activeForeground': '--vscode-editorLineNumber-activeForeground',
-  'editorGutter.background': '--vscode-gutter-background',
-  'editorGutter.border': '--vscode-gutter-border',
-  'editorRuler.foreground': '--vscode-editor-rulerForeground',
-  'editorCursor.foreground': '--vscode-editorCursor-foreground',
-  'editorWhitespace.foreground': '--vscode-editorWhitespace-foreground',
-  'editorComment.foreground': '--vscode-editorComments-foreground',
-  'editor.selectionHighlightBackground': '--vscode-editor-selectionHighlightBackground',
-  'editorHoverHighlight.background': '--vscode-editorHoverHighlight-background',
-  'editor.findMatchHighlightBackground': '--vscode-editor-findMatchHighlightBackground',
-  'editor.findMatchBackground': '--vscode-editor-findMatchBackground',
-  'editorBracketMatch.background': '--vscode-editorBracketMatch-background',
-  'editorBracketMatch.border': '--vscode-editorBracketMatch-border',
-  'editorOverviewRuler.border': '--vscode-editorOverviewRuler-border',
-  'editorOverviewRuler.background': '--vscode-editorOverviewRuler-background',
-  'panel.border': '--vscode-panel-border',
-  'editor.keyword.foreground': '--vscode-editor-keyword-foreground',
-  'editor.function.foreground': '--vscode-editor-function-foreground',
-  'editor.variable.foreground': '--vscode-editor-variable-foreground',
-  'editor.string.foreground': '--vscode-editor-string-foreground',
-  'editor.number.foreground': '--vscode-editor-number-foreground',
-  'editor.boolean.foreground': '--vscode-editor-boolean-foreground',
-  'editor.constant.foreground': '--vscode-editor-constant-foreground',
-  'editor.type.foreground': '--vscode-editor-type-foreground',
-  'editor.operator.foreground': '--vscode-editor-operator-foreground',
-  'editor.comment.foreground': '--vscode-editor-comment-foreground',
 };
 
 /**
@@ -105,11 +74,10 @@ export class VSCodeThemeProvider implements ThemeProvider {
    */
   private getDefaultColor(key: keyof ThemeColors): string {
     // These are fallback colors based on Dark+ theme
-    const defaults: Partial<ThemeColors> = {
+    const defaults: ThemeColors = {
       'editor.background': '#1e1e1e',
       'editor.foreground': '#d4d4d4',
-      'panel.border': '#454545',
-      // Add more defaults as needed
+      'editorWidget.border': '#454545',
     };
     
     return defaults[key] || '#000000';

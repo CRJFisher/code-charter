@@ -163,7 +163,7 @@ export class EmbeddingProviderSelector {
                 if (!success) {
                     // Switch to local if API key not provided
                     await config.update(this.SETTING_KEY, 'local', vscode.ConfigurationTarget.Global);
-                    return true; // Will use local now
+                    return false;
                 }
             }
         }

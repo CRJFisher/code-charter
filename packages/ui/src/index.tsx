@@ -3,7 +3,6 @@ export * from "./backends";
 export * from "./hooks";
 
 // Export components
-export { CodeCharterUI } from "./components/code_charter_ui";
 export { App } from "./components/App";
 export { ThemedApp } from "./components/themed_app";
 export type { ThemedAppProps } from "./components/themed_app";
@@ -15,5 +14,5 @@ export * from "./theme";
 export type { CodeIndexStatus } from "./components/loading_status";
 
 // Default export
-import { CodeCharterUI } from "./components/code_charter_ui";
-export default CodeCharterUI;
+import { App } from "./components/App";
+export default App;

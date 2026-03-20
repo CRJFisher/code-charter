@@ -1,7 +1,6 @@
 import { CallableNode } from "@ariadnejs/types";
 import { findOptimalClusters } from "clustering-tfjs";
 import * as crypto from "crypto";
-import * as path from "path";
 import * as vscode from "vscode";
 import { OpenAI } from "openai";
 import { LocalEmbeddingsProvider, EmbeddingProvider } from "./local_embeddings_provider";
@@ -40,26 +39,30 @@ export class ClusteringService {
     // Validate configuration
     const is_valid = await EmbeddingProviderSelector.validate_provider_config(this.providerType);
     if (!is_valid) {
-      throw new Error('Invalid embedding provider configuration');
+      // Re-fetch provider type since validation may have changed it
+      this.providerType = await EmbeddingProviderSelector.get_embedding_provider(this.context);
     }
 
     if (this.providerType === 'local') {
       // Create local embeddings provider with progress reporting
-      this.embeddingProvider = new LocalEmbeddingsProvider(
+      // Use a single withProgress session to avoid spawning multiple notifications
+      let active_reporter: vscode.Progress<{ message?: string; increment?: number }> | null = null;
+      const local_provider = new LocalEmbeddingsProvider(
         this.context,
         (message: string, progress?: number) => {
-          // Show progress notification
-          vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "Code Charter: Embeddings",
-            cancellable: false
-          }, async (progressReporter) => {
-            progressReporter.report({ message, increment: progress });
-            // Keep notification open for a moment
-            await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
-          });
+          active_reporter?.report({ message, increment: progress });
         }
       );
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Code Charter: Embeddings",
+        cancellable: false
+      }, async (progress_reporter) => {
+        active_reporter = progress_reporter;
+        await local_provider.initialize_pipeline();
+        active_reporter = null;
+      });
+      this.embeddingProvider = local_provider;
     } else {
       // Use OpenAI provider
       if (!this.openAIClient) {
@@ -138,7 +141,6 @@ export class ClusteringService {
     const orderedClusters = this.orderClustersByCentroid(
       groupedClusters,
       embeddings,
-      funcToIndex
     );
     
     // Cache the results
@@ -296,6 +298,9 @@ export class ClusteringService {
     });
     
     // Combine matrices (50/50 weight)
+    // Note: We skip L1 normalization before combining. The spectral clustering
+    // algorithm with nearest_neighbors affinity operates on relative neighbor
+    // ordering rather than absolute values, making pre-normalization unnecessary.
     const combinedMatrix: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
     
     for (let i = 0; i < n; i++) {
@@ -326,7 +331,6 @@ export class ClusteringService {
   private orderClustersByCentroid(
     clusters: string[][],
     embeddings: Record<string, number[]>,
-    funcToIndex: Record<string, number>
   ): string[][] {
     const clusterDistances: Array<{ cluster: string[]; distance: number }> = [];
     

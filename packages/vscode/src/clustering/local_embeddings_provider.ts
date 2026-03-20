@@ -42,7 +42,7 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
         return cache_dir;
     }
 
-    private async initialize_pipeline(): Promise<void> {
+    async initialize_pipeline(): Promise<void> {
         if (this.pipeline) {
             return;
         }
@@ -115,26 +115,4 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
         }
     }
 
-    /**
-     * Check if the model is already cached locally
-     */
-    async is_model_cached(): Promise<boolean> {
-        const cache_dir = this.get_cache_dir();
-        const model_dir = path.join(cache_dir, 'models--Xenova--all-MiniLM-L6-v2');
-        
-        // Check if model directory exists and has content
-        if (fs.existsSync(model_dir)) {
-            const files = fs.readdirSync(model_dir);
-            return files.length > 0;
-        }
-        
-        return false;
-    }
-
-    /**
-     * Get estimated model size
-     */
-    get_model_size(): string {
-        return '90MB';
-    }
 }

@@ -1,11 +1,10 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { 
-  LayoutCache, 
-  PerformanceMonitor, 
+import {
+  LayoutCache,
+  PerformanceMonitor,
   getVisibleNodes,
-  BatchUpdater,
   useDebounce,
-  useThrottle 
+  useThrottle
 } from '../performance_utils';
 import { calculateNodeDimensions } from '../elk_layout';
 import { CodeChartNode } from '../react_flow_types';
@@ -139,37 +138,6 @@ describe('Performance Utilities', () => {
     });
   });
 
-  describe('BatchUpdater', () => {
-    it('should batch multiple updates', (done) => {
-      const updater = new BatchUpdater();
-      const updates: number[] = [];
-      
-      updater.add(() => updates.push(1));
-      updater.add(() => updates.push(2));
-      updater.add(() => updates.push(3));
-      
-      expect(updates).toEqual([]);
-      
-      // Wait for next frame
-      requestAnimationFrame(() => {
-        expect(updates).toEqual([1, 2, 3]);
-        done();
-      });
-    });
-
-    it('should clear pending updates', () => {
-      const updater = new BatchUpdater();
-      const updates: number[] = [];
-      
-      updater.add(() => updates.push(1));
-      updater.clear();
-      
-      // Wait to ensure no updates happen
-      setTimeout(() => {
-        expect(updates).toEqual([]);
-      }, 100);
-    });
-  });
 
   describe('useDebounce', () => {
     beforeEach(() => {

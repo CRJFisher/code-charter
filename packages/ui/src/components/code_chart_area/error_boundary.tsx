@@ -151,7 +151,7 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
       )}
 
       {!onRetry && retryCount > maxRetries && (
-        <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: CONFIG.color.ui.error.text }}>
+        <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: themeStyles.colors.ui.error.text }}>
           Maximum retry attempts reached. Please reload the page.
         </div>
       )}
@@ -160,7 +160,7 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
         <summary
           style={{
             cursor: 'pointer',
-            color: '#0066cc',
+            color: themeStyles.colors.ui.button.primary,
             marginBottom: '10px',
           }}
           onClick={() => setShowDetails(!showDetails)}
@@ -172,7 +172,7 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
           style={{
             marginTop: '10px',
             padding: '10px',
-            backgroundColor: '#f5f5f5',
+            backgroundColor: themeStyles.colors.node.background.module,
             borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
             fontSize: `${CONFIG.spacing.fontSize.medium}px`,
             fontFamily: 'monospace',
@@ -202,18 +202,3 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   );
 };
 
-// Hook for error handling in functional components
-export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    if (error) {
-      throw error;
-    }
-  }, [error]);
-
-  const resetError = () => setError(null);
-  const captureError = (error: Error) => setError(error);
-
-  return { resetError, captureError };
-}

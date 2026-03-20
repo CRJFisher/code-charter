@@ -176,19 +176,6 @@ export class LayoutError extends Error {
   }
 }
 
-export class DataProcessingError extends Error {
-  constructor(message: string, public readonly data?: any) {
-    super(message);
-    this.name = 'DataProcessingError';
-  }
-}
-
-export class TimeoutError extends Error {
-  constructor(message: string, public readonly timeoutMs: number) {
-    super(message);
-    this.name = 'TimeoutError';
-  }
-}
 
 // Error notification system
 export interface ErrorNotification {

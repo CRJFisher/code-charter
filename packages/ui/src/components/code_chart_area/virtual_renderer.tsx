@@ -90,7 +90,7 @@ export const ViewportIndicator: React.FC<ViewportIndicatorProps> = React.memo(({
   const positionStyles: React.CSSProperties = {
     position: 'absolute',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    color: CONFIG.color.ui.text.white,
+    color: '#ffffff',
     padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.medium + 4}px`,
     borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
     fontSize: `${CONFIG.spacing.fontSize.medium}px`,
@@ -170,46 +170,3 @@ export function useZoomCulling(
   }, [nodes, zoom, threshold]);
 }
 
-/**
- * Level of Detail (LOD) system for nodes
- */
-export type NodeLOD = 'full' | 'simplified' | 'minimal';
-
-export function getNodeLOD(zoom: number): NodeLOD {
-  if (zoom >= 0.8) return 'full';
-  if (zoom >= 0.4) return 'simplified';
-  return 'minimal';
-}
-
-/**
- * Progressive loading hook for large graphs
- */
-export function useProgressiveLoading<T>(
-  items: T[],
-  batchSize: number = 50,
-  delay: number = 0
-): {
-  loadedItems: T[];
-  isLoading: boolean;
-  progress: number;
-} {
-  const [loadedCount, setLoadedCount] = React.useState(
-    Math.min(batchSize, items.length)
-  );
-  
-  React.useEffect(() => {
-    if (loadedCount >= items.length) return;
-    
-    const timer = setTimeout(() => {
-      setLoadedCount(prev => Math.min(prev + batchSize, items.length));
-    }, delay);
-    
-    return () => clearTimeout(timer);
-  }, [loadedCount, items.length, batchSize, delay]);
-  
-  return {
-    loadedItems: items.slice(0, loadedCount),
-    isLoading: loadedCount < items.length,
-    progress: items.length > 0 ? loadedCount / items.length : 1,
-  };
-}

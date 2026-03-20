@@ -1,104 +1,55 @@
-import { TestMockBackend } from '../test_mock_backend';
-import type { CallGraph, CallableNode, SymbolId, SymbolName, FilePath, ScopeId, AnyDefinition } from '@ariadnejs/types';
+import { MockBackend } from '../mock_backend';
 
-function make_mock_call_graph(): CallGraph {
-  const node: CallableNode = {
-    symbol_id: "function:test.ts:1:0:10:0:test" as SymbolId,
-    name: "test" as SymbolName,
-    enclosed_calls: [],
-    location: { file_path: "test.ts" as FilePath, start_line: 1, start_column: 0, end_line: 10, end_column: 0 },
-    definition: {
-      kind: "function",
-      symbol_id: "function:test.ts:1:0:10:0:test" as SymbolId,
-      name: "test" as SymbolName,
-      defining_scope_id: "global:test.ts:0:0:100:0" as ScopeId,
-      location: { file_path: "test.ts" as FilePath, start_line: 1, start_column: 0, end_line: 10, end_column: 0 },
-      is_exported: false,
-      signature: { parameters: [] },
-      body_scope_id: "function:test.ts:1:0:10:0" as ScopeId,
-    } as AnyDefinition,
-    is_test: false,
-  };
+describe('MockBackend', () => {
+  let backend: MockBackend;
 
-  const nodes = new Map<SymbolId, CallableNode>();
-  nodes.set(node.symbol_id, node);
+  beforeEach(() => {
+    backend = new MockBackend();
+  });
 
-  return {
-    nodes,
-    entry_points: [node.symbol_id],
-  };
-}
-
-describe('TestMockBackend', () => {
-  const mockCallGraph = make_mock_call_graph();
-
-  it('returns configured call graph', async () => {
-    const backend = new TestMockBackend({
-      callGraph: mockCallGraph,
+  describe('getCallGraph', () => {
+    it('returns a call graph with nodes and entry_points', async () => {
+      const result = await backend.getCallGraph();
+      expect(result).toBeDefined();
+      expect(result!.nodes).toBeInstanceOf(Map);
+      expect(result!.nodes.size).toBe(3);
+      expect(result!.entry_points.length).toBe(1);
     });
 
-    const result = await backend.getCallGraph();
-    expect(result).toEqual(mockCallGraph);
-  });
-
-  it('returns configured summaries', async () => {
-    const summaries = {
-      'test': 'Test summary',
-    };
-
-    const backend = new TestMockBackend({
-      refinedSummaries: summaries,
+    it('returns nodes with correct structure', async () => {
+      const result = await backend.getCallGraph();
+      const nodes_array = Array.from(result!.nodes.values());
+      const main_node = nodes_array.find(n => n.name === 'main');
+      expect(main_node).toBeDefined();
+      expect(main_node!.symbol_id).toBeDefined();
+      expect(main_node!.enclosed_calls.length).toBe(2);
     });
-
-    const result = await backend.summariseCodeTree('test');
-    expect(result!.refinedFunctionSummaries).toEqual(summaries);
   });
 
-  it('throws error when configured to do so', async () => {
-    const backend = new TestMockBackend({
-      shouldThrowError: true,
+  describe('clusterCodeTree', () => {
+    it('returns node groups', async () => {
+      const result = await backend.clusterCodeTree('main.ts:main');
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(3);
+      expect(result[0].description).toBeDefined();
+      expect(Array.isArray(result[0].memberSymbols)).toBe(true);
     });
-
-    await expect(backend.getCallGraph()).rejects.toThrow('Mock error');
   });
 
-  it('simulates delay when configured', async () => {
-    const delay = 100;
-    const backend = new TestMockBackend({
-      callGraph: mockCallGraph,
-      delay,
+  describe('summariseCodeTree', () => {
+    it('returns summaries for a function', async () => {
+      const result = await backend.summariseCodeTree('main.ts:main');
+      expect(result).toBeDefined();
+      expect(result!.functionSummaries).toBeDefined();
+      expect(result!.refinedFunctionSummaries).toBeDefined();
+      expect(result!.contextSummary).toBeDefined();
+      expect(result!.callTreeWithFilteredOutNodes).toBeDefined();
     });
-
-    const start = Date.now();
-    await backend.getCallGraph();
-    const end = Date.now();
-
-    expect(end - start).toBeGreaterThanOrEqual(delay);
   });
 
-  it('returns empty clusters by default', async () => {
-    const backend = new TestMockBackend();
-
-    const result = await backend.clusterCodeTree('test');
-    expect(result).toEqual([]);
-  });
-
-  it('handles navigation calls', async () => {
-    const backend = new TestMockBackend();
-
-    // navigateToDoc now takes two positional args
-    await expect(backend.navigateToDoc('test.ts', 10)).resolves.not.toThrow();
-  });
-
-  it('provides default empty data when not configured', async () => {
-    const backend = new TestMockBackend();
-
-    const callGraph = await backend.getCallGraph();
-    expect(callGraph!.nodes.size).toBe(0);
-    expect(callGraph!.entry_points).toEqual([]);
-
-    const summaries = await backend.summariseCodeTree('test');
-    expect(summaries!.refinedFunctionSummaries).toEqual({});
-    expect(summaries!.contextSummary).toBe('Mock context');
+  describe('navigateToDoc', () => {
+    it('resolves without error', async () => {
+      await expect(backend.navigateToDoc('src/test.ts', 42)).resolves.toBeUndefined();
+    });
   });
 });

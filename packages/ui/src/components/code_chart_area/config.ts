@@ -1,9 +1,9 @@
 // Configuration constants for React Flow code visualization
 // Note: Color values in this file are defaults. Actual colors are theme-aware
-// and are provided by the FlowThemeProvider based on the current VSCode theme.
+// and are provided by the theme system based on the current VSCode theme.
 
 // Layout Configuration
-export const LAYOUT_CONFIG = {
+const LAYOUT_CONFIG = {
   // ELK Layout Options
   elk: {
     algorithm: 'layered',
@@ -32,7 +32,7 @@ export const LAYOUT_CONFIG = {
 } as const;
 
 // Node Configuration
-export const NODE_CONFIG = {
+const NODE_CONFIG = {
   // Default Dimensions
   default: {
     width: 250,
@@ -62,7 +62,7 @@ export const NODE_CONFIG = {
 } as const;
 
 // Zoom Configuration
-export const ZOOM_CONFIG = {
+const ZOOM_CONFIG = {
   // Zoom Levels
   levels: {
     min: 0.1,
@@ -76,7 +76,7 @@ export const ZOOM_CONFIG = {
 } as const;
 
 // Animation Configuration
-export const ANIMATION_CONFIG = {
+const ANIMATION_CONFIG = {
   // Durations (in ms)
   duration: {
     fitView: 500,
@@ -91,7 +91,7 @@ export const ANIMATION_CONFIG = {
 } as const;
 
 // Performance Configuration
-export const PERFORMANCE_CONFIG = {
+const PERFORMANCE_CONFIG = {
   // Node Count Thresholds
   nodes: {
     largeGraph: 200,
@@ -105,67 +105,9 @@ export const PERFORMANCE_CONFIG = {
   },
 } as const;
 
-// Color Configuration
-export const COLOR_CONFIG = {
-  // Node Colors
-  node: {
-    background: {
-      default: 'rgba(245, 245, 245, 0.9)',
-      module: '#e0e0e0',
-    },
-    border: {
-      default: '#999999',
-      selected: '#0096FF',
-      module: '#888',
-    },
-    text: {
-      default: '#333333',
-      entryPoint: '#2e7d32',
-      secondary: '#666666',
-      tertiary: '#999999',
-    },
-  },
-  // Edge Colors
-  edge: {
-    stroke: '#b1b1b7',
-    strokeWidth: 2,
-  },
-  // UI Colors
-  ui: {
-    background: {
-      overlay: 'rgba(255, 255, 255, 0.9)',
-      minimap: 'rgba(255, 255, 255, 0.8)',
-    },
-    border: '#ddd',
-    button: {
-      primary: '#4CAF50',
-      secondary: '#2196F3',
-      danger: '#f44336',
-      disabled: '#999',
-    },
-    text: {
-      primary: '#333',
-      secondary: '#666',
-      white: 'white',
-    },
-    error: {
-      background: '#fee',
-      border: '#fcc',
-      text: '#c00',
-    },
-    loading: {
-      spinner: '#888',
-    },
-  },
-  // Shadow Effects
-  shadow: {
-    default: '0 2px 8px rgba(0,0,0,0.1)',
-    hover: '0 2px 8px rgba(0,0,0,0.15)',
-  },
-} as const;
 
 // UI Spacing Configuration
-export const SPACING_CONFIG = {
+const SPACING_CONFIG = {
   // Padding
   padding: {
     small: 4,
@@ -196,7 +138,7 @@ export const SPACING_CONFIG = {
 } as const;
 
 // Error Handling Configuration
-export const ERROR_CONFIG = {
+const ERROR_CONFIG = {
   // Retry
   retry: {
     maxRetries: 3,
@@ -214,7 +156,7 @@ export const ERROR_CONFIG = {
 } as const;
 
 // MiniMap Configuration
-export const MINIMAP_CONFIG = {
+const MINIMAP_CONFIG = {
   nodeStrokeWidth: 3,
   colors: {
     moduleGroup: '#e0e0e0',
@@ -225,14 +167,14 @@ export const MINIMAP_CONFIG = {
 } as const;
 
 // Background Configuration
-export const BACKGROUND_CONFIG = {
+const BACKGROUND_CONFIG = {
   variant: 'dots' as const,
   gap: 12,
   size: 1,
 } as const;
 
 // Viewport Configuration
-export const VIEWPORT_CONFIG = {
+const VIEWPORT_CONFIG = {
   fitView: {
     padding: 0.2,
   },
@@ -248,7 +190,7 @@ export const VIEWPORT_CONFIG = {
 } as const;
 
 // Z-Index Layers
-export const Z_INDEX = {
+const Z_INDEX = {
   background: 0,
   nodes: 1,
   edges: 2,
@@ -264,7 +206,6 @@ export const CONFIG = {
   zoom: ZOOM_CONFIG,
   animation: ANIMATION_CONFIG,
   performance: PERFORMANCE_CONFIG,
-  color: COLOR_CONFIG,
   spacing: SPACING_CONFIG,
   error: ERROR_CONFIG,
   minimap: MINIMAP_CONFIG,
@@ -273,17 +214,4 @@ export const CONFIG = {
   zIndex: Z_INDEX,
 } as const;
 
-// Type definitions for configuration
-export type LayoutConfig = typeof LAYOUT_CONFIG;
-export type NodeConfig = typeof NODE_CONFIG;
-export type ZoomConfig = typeof ZOOM_CONFIG;
-export type AnimationConfig = typeof ANIMATION_CONFIG;
-export type PerformanceConfig = typeof PERFORMANCE_CONFIG;
-export type ColorConfig = typeof COLOR_CONFIG;
-export type SpacingConfig = typeof SPACING_CONFIG;
-export type ErrorConfig = typeof ERROR_CONFIG;
-export type MinimapConfig = typeof MINIMAP_CONFIG;
-export type BackgroundConfig = typeof BACKGROUND_CONFIG;
-export type ViewportConfig = typeof VIEWPORT_CONFIG;
-export type ZIndexConfig = typeof Z_INDEX;
 export type Config = typeof CONFIG;

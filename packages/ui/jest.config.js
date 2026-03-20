@@ -20,7 +20,6 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/**/index.tsx',
     '!src/standalone.tsx',
-    '!src/debug-entry.tsx',
     '!src/test/**',
   ],
   coverageThreshold: {

@@ -54,17 +54,15 @@ export interface AppProps {
 }
 
 export const App: React.FC<AppProps> = ({ className = "", forceStandalone = false }) => {
-  const { backend, isConnected } = useBackend();
+  const { backend } = useBackend();
   const [call_graph, set_call_graph] = useState<CallGraph | null>(null);
   const [selected_entry_point, set_selected_entry_point] = useState<CallableNode | null>(null);
   const [status_message, set_status_message] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
   const [ongoing_summarisations, set_ongoing_summarisations] = useState<Map<string, Promise<any>>>(new Map());
 
   useEffect(() => {
-    if (isConnected) {
-      detect_entry_points(backend, set_call_graph, set_status_message);
-    }
-  }, [backend, isConnected]);
+    detect_entry_points(backend, set_call_graph, set_status_message);
+  }, [backend]);
 
   const are_nodes_summaries_loading = (node_symbol: string) => {
     return ongoing_summarisations.has(node_symbol);
@@ -75,7 +73,7 @@ export const App: React.FC<AppProps> = ({ className = "", forceStandalone = fals
   };
 
   async function detect_modules(top_level_node_symbol: string | undefined): Promise<NodeGroup[] | undefined> {
-    if (!top_level_node_symbol || !isConnected) {
+    if (!top_level_node_symbol) {
       return;
     }
     const new_node_groups = await backend.clusterCodeTree(top_level_node_symbol);

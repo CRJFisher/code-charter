@@ -173,7 +173,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
           cursor: 'pointer',
           padding: `${CONFIG.spacing.padding.small}px`,
           fontSize: `${CONFIG.spacing.fontSize.large}px`,
-          color: CONFIG.color.ui.text.secondary,
+          color: themeStyles.colors.ui.text.secondary,
           flexShrink: 0,
         }}
         aria-label="Dismiss notification"
