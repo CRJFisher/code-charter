@@ -1,45 +1,66 @@
 import {
   CodeCharterBackend,
   NodeGroup,
-  TreeAndContextSummaries,
+  DocstringSummaries,
   CallGraph,
   CallableNode,
+  CallReference,
+  SymbolId,
+  SymbolName,
+  AnyDefinition,
 } from "@code-charter/types";
-import type { SymbolId, SymbolName, FilePath, ScopeId, AnyDefinition, CallReference } from "@ariadnejs/types";
 
-function make_symbol_id(file: string, start_line: number, end_line: number, name: string): SymbolId {
-  return `function:${file}:${start_line}:0:${end_line}:0:${name}` as SymbolId;
-}
-
-function make_call_ref(target_id: SymbolId, name: string, caller_file: string, line: number): CallReference {
-  return {
-    location: { file_path: caller_file as FilePath, start_line: line, start_column: 0, end_line: line, end_column: 20 },
-    name: name as SymbolName,
-    scope_id: `function:${caller_file}:0:0:100:0` as ScopeId,
-    call_type: "function" as const,
-    resolutions: [{ symbol_id: target_id, confidence: "certain" as const, reason: { type: "direct" as const } }],
+function make_mock_callable_node(
+  symbol_id: string,
+  name: string,
+  file_path: string,
+  start_line: number,
+  end_line: number
+): CallableNode {
+  const location = {
+    file_path,
+    start_line,
+    start_column: 0,
+    end_line,
+    end_column: 0,
   };
-}
-
-function make_node(file: string, start_line: number, end_line: number, name: string, calls: CallReference[] = []): CallableNode {
-  const id = make_symbol_id(file, start_line, end_line, name);
   return {
-    symbol_id: id,
+    symbol_id: symbol_id as SymbolId,
     name: name as SymbolName,
-    enclosed_calls: calls,
-    location: { file_path: file as FilePath, start_line, start_column: 0, end_line, end_column: 0 },
+    enclosed_calls: [],
+    location,
     definition: {
-      kind: "function",
-      symbol_id: id,
+      kind: "function" as const,
+      symbol_id: symbol_id as SymbolId,
       name: name as SymbolName,
-      defining_scope_id: `global:${file}:0:0:100:0` as ScopeId,
-      location: { file_path: file as FilePath, start_line, start_column: 0, end_line, end_column: 0 },
+      defining_scope_id: "scope:0",
+      location,
       is_exported: false,
       signature: { parameters: [] },
-      body_scope_id: `function:${file}:${start_line}:0:${end_line}:0` as ScopeId,
+      body_scope_id: "scope:1",
     } as AnyDefinition,
     is_test: false,
-  };
+  } as CallableNode;
+}
+
+function make_call_reference(
+  target_symbol_id: string,
+  name: string,
+  line: number
+): CallReference {
+  return {
+    location: {
+      file_path: "",
+      start_line: line,
+      start_column: 0,
+      end_line: line,
+      end_column: 20,
+    },
+    name: name as SymbolName,
+    scope_id: "scope:0",
+    call_type: "function",
+    resolutions: [{ symbol_id: target_symbol_id as SymbolId }],
+  } as CallReference;
 }
 
 /**
@@ -47,17 +68,17 @@ function make_node(file: string, start_line: number, end_line: number, name: str
  */
 export class MockBackend implements CodeCharterBackend {
   async getCallGraph(): Promise<CallGraph | undefined> {
-    const process_data_id = make_symbol_id("utils.ts", 9, 19, "processData");
-    const fetch_data_id = make_symbol_id("api.ts", 4, 14, "fetchData");
+    const main_node = make_mock_callable_node("main.ts:main", "main", "main.ts", 0, 9);
+    const process_data_node = make_mock_callable_node("utils.ts:processData", "processData", "utils.ts", 9, 19);
+    const fetch_data_node = make_mock_callable_node("api.ts:fetchData", "fetchData", "api.ts", 4, 14);
 
-    const main_node = make_node("main.ts", 0, 9, "main", [
-      make_call_ref(process_data_id, "processData", "main.ts", 4),
-      make_call_ref(fetch_data_id, "fetchData", "main.ts", 5),
-    ]);
-    const process_data_node = make_node("utils.ts", 9, 19, "processData", [
-      make_call_ref(fetch_data_id, "fetchData", "utils.ts", 14),
-    ]);
-    const fetch_data_node = make_node("api.ts", 4, 14, "fetchData");
+    (main_node as any).enclosed_calls = [
+      make_call_reference("utils.ts:processData", "processData", 4),
+      make_call_reference("api.ts:fetchData", "fetchData", 5),
+    ];
+    (process_data_node as any).enclosed_calls = [
+      make_call_reference("api.ts:fetchData", "fetchData", 14),
+    ];
 
     const nodes = new Map<SymbolId, CallableNode>();
     nodes.set(main_node.symbol_id, main_node);
@@ -66,8 +87,8 @@ export class MockBackend implements CodeCharterBackend {
 
     return {
       nodes,
-      entry_points: [main_node.symbol_id],
-    };
+      entry_points: ["main.ts:main" as SymbolId],
+    } as CallGraph;
   }
 
   async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
@@ -87,24 +108,19 @@ export class MockBackend implements CodeCharterBackend {
     ];
   }
 
-  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
-    const mock_node = make_node("main.ts", 0, 10, topLevelFunctionSymbol.split(':').pop() || topLevelFunctionSymbol);
+  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
+    const name = topLevelFunctionSymbol.split(':').pop() || topLevelFunctionSymbol;
+    const mock_node = make_mock_callable_node(topLevelFunctionSymbol, name, "main.ts", 0, 10);
 
     return {
-      functionSummaries: {
+      docstrings: {
         [topLevelFunctionSymbol]: "Main entry point that orchestrates data processing and API calls",
         "utils.ts:processData": "Processes raw data into structured format",
         "api.ts:fetchData": "Fetches data from external API endpoints"
       },
-      refinedFunctionSummaries: {
-        [topLevelFunctionSymbol]: "Application entry point - initializes services, processes data, and manages API interactions",
-        "utils.ts:processData": "Data processing pipeline with validation and transformation steps",
-        "api.ts:fetchData": "HTTP client for external API with retry logic and error handling"
-      },
-      callTreeWithFilteredOutNodes: {
+      call_tree: {
         [topLevelFunctionSymbol]: mock_node
-      },
-      contextSummary: "This codebase implements a data processing application that fetches data from external APIs, processes it through a validation pipeline, and produces structured output."
+      }
     };
   }
 

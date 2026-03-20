@@ -1,64 +1,60 @@
 import React from "react";
 import { CodeChartAreaReactFlowWrapper } from "./code_chart_area_react_flow";
-import type { CallableNode, SymbolId, SymbolName, FilePath, ScopeId, AnyDefinition } from "@ariadnejs/types";
-import { TreeAndContextSummaries, NodeGroup } from "@code-charter/types";
+import type { CallableNode, AnyDefinition, SymbolId, SymbolName } from "@code-charter/types";
+import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import { CodeIndexStatus } from "../loading_status";
 
 // Test component to verify React Flow integration
 export const TestReactFlowComponent: React.FC = () => {
-  const mockEntryPoint: CallableNode = {
+  const mock_location = {
+    file_path: "/test/file.ts",
+    start_line: 1,
+    start_column: 0,
+    end_line: 10,
+    end_column: 0,
+  };
+
+  const mock_definition = {
+    kind: "function" as const,
+    symbol_id: "function:/test/file.ts:1:0:10:0:test_function" as SymbolId,
+    name: "test_function" as SymbolName,
+    defining_scope_id: "scope:0",
+    location: mock_location,
+    is_exported: false,
+    signature: { parameters: [] },
+    body_scope_id: "scope:1",
+  } as AnyDefinition;
+
+  const mock_entry_point: CallableNode = {
     symbol_id: "function:/test/file.ts:1:0:10:0:test_function" as SymbolId,
     name: "test_function" as SymbolName,
     enclosed_calls: [],
-    location: {
-      file_path: "/test/file.ts" as FilePath,
-      start_line: 1,
-      start_column: 0,
-      end_line: 10,
-      end_column: 0,
-    },
-    definition: {
-      kind: "function",
-      symbol_id: "function:/test/file.ts:1:0:10:0:test_function" as SymbolId,
-      name: "test_function" as SymbolName,
-      defining_scope_id: "global:/test/file.ts:0:0:100:0" as ScopeId,
-      location: {
-        file_path: "/test/file.ts" as FilePath,
-        start_line: 1,
-        start_column: 0,
-        end_line: 10,
-        end_column: 0,
-      },
-      is_exported: false,
-      signature: { parameters: [] },
-      body_scope_id: "function:/test/file.ts:1:0:10:0" as ScopeId,
-    } as AnyDefinition,
+    location: mock_location,
+    definition: mock_definition,
     is_test: false,
-  };
+  } as CallableNode;
 
-  const mockGetSummaries = async (nodeSymbol: string): Promise<TreeAndContextSummaries | undefined> => {
+  const mock_get_descriptions = async (nodeSymbol: string): Promise<DocstringSummaries | undefined> => {
     return {
-      callTreeWithFilteredOutNodes: {
-        [nodeSymbol]: mockEntryPoint,
+      call_tree: {
+        [nodeSymbol]: mock_entry_point,
       },
-      functionSummaries: {
-        [nodeSymbol]: "This is a test function that demonstrates the custom node component with a longer summary text to show how it wraps within the node bounds.",
+      docstrings: {
+        [nodeSymbol]: "This is a test function that demonstrates the custom node component with a longer description text to show how it wraps within the node bounds.",
       },
-      refinedFunctionSummaries: {},
-      contextSummary: "Test context summary",
     };
   };
 
-  const mockDetectModules = async (): Promise<NodeGroup[] | undefined> => {
+  const mock_detect_modules = async (): Promise<NodeGroup[] | undefined> => {
     return [];
   };
 
   return (
     <CodeChartAreaReactFlowWrapper
-      selectedEntryPoint={mockEntryPoint}
+      selectedEntryPoint={mock_entry_point}
       screenWidthFraction={1}
-      getSummaries={mockGetSummaries}
-      detectModules={mockDetectModules}
+      getDescriptions={mock_get_descriptions}
+      detectModules={mock_detect_modules}
       indexingStatus={CodeIndexStatus.Ready}
     />
   );

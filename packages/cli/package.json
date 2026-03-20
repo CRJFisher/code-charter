@@ -1,0 +1,30 @@
+{
+  "name": "@code-charter/cli",
+  "version": "0.0.1",
+  "description": "CLI tool for Code Charter project initialization",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "code-charter": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "dev": "tsc -w -p .",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ariadnejs/core": "^0.5.18",
+    "@ariadnejs/types": "^0.5.15",
+    "@code-charter/types": "^0.0.1",
+    "@huggingface/transformers": "^3.7.1",
+    "clustering-tfjs": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import type { CallableNode } from "@ariadnejs/types";
-import { NodeGroup, TreeAndContextSummaries } from "@code-charter/types";
+import type { CallableNode } from "@code-charter/types";
+import { NodeGroup, DocstringSummaries } from "@code-charter/types";
 import {
   ReactFlow,
   useNodesState,
@@ -17,7 +17,8 @@ import {
 } from "@xyflow/react";
 import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
-import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
+import "./flow_theme.css";
+import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
 import { zoomAwareNodeTypes } from "./zoom_aware_node";
@@ -40,7 +41,7 @@ type ZoomMode = "zoomedIn" | "zoomedOut";
 interface CodeChartAreaProps {
   selectedEntryPoint: CallableNode | null;
   screenWidthFraction: number;
-  getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
+  getDescriptions: (nodeSymbol: string) => Promise<DocstringSummaries | undefined>;
   detectModules: () => Promise<NodeGroup[] | undefined>;
   indexingStatus: CodeIndexStatus;
 }
@@ -56,7 +57,7 @@ const ariaLabelConfig = {
 const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   selectedEntryPoint,
   screenWidthFraction,
-  getSummaries,
+  getDescriptions,
   detectModules,
   indexingStatus,
 }) => {
@@ -64,7 +65,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState<CodeChartEdge>([]);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
   const [callGraphNodes, setCallChart] = useState<Record<string, CallableNode> | null>(null);
-  const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
+  const [description_status, set_description_status] = useState<DescriptionStatus>(DescriptionStatus.LoadingDescriptions);
   const [error, setError] = useState<string | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,7 +75,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const { notify } = useErrorNotification();
   const themeStyles = useFlowThemeStyles();
   const miniMapNodeColor = useMemo(() => createMiniMapNodeColor(themeStyles.colors), [themeStyles.colors]);
-  
+
   // Use keyboard navigation hook
   const { selectedNodeId } = useKeyboardNavigation({
     onNodeNavigate: (nodeId) => {
@@ -90,14 +91,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       }
     },
   });
-  
+
   // Monitor zoom level and viewport
   const viewportX = useStore((state: XYFlowState) => state.transform[0]);
   const viewportY = useStore((state: XYFlowState) => state.transform[1]);
   const viewportZoom = useStore((state: XYFlowState) => state.transform[2]);
   const viewport = useMemo(() => ({ x: viewportX, y: viewportY, zoom: viewportZoom }), [viewportX, viewportY, viewportZoom]);
   const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
-  
+
   // Debounce viewport changes for performance
   const debouncedViewport = useDebounce(viewport, CONFIG.animation.debounce.viewport);
 
@@ -114,7 +115,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     if (!containerRef.current || nodes.length === 0) {
       return new Set<string>();
     }
-    
+
     return getVisibleNodes(
       nodes,
       debouncedViewport,
@@ -122,10 +123,10 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       containerRef.current.clientHeight
     );
   }, [nodes, debouncedViewport]);
-  
+
   // Apply zoom-based culling for performance
   const culledNodes = useZoomCulling(nodes, viewportZoom, CONFIG.zoom.culling.threshold);
-  
+
   // Apply virtual rendering for large graphs
   const { virtualNodes, virtualEdges, hiddenNodeCount } = useVirtualNodes({
     nodes: nodes.length > CONFIG.performance.nodes.largeGraph ? culledNodes : nodes,
@@ -133,14 +134,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     visibleNodeIds: nodes.length > CONFIG.performance.nodes.largeGraph ? visibleNodeIds : new Set(),
     renderBuffer: CONFIG.performance.virtualRender.renderBuffer,
   });
-  
+
   // Clear caches when entry point changes
   useEffect(() => {
     if (selectedEntryPoint) {
       clearLayoutCaches();
     }
   }, [selectedEntryPoint?.symbol_id]);
-  
+
   useEffect(() => {
     if (!selectedEntryPoint) {
       return;
@@ -149,48 +150,48 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     const fetchData = async () => {
       try {
         setError(null);
-        setSummaryStatus(SummarisationStatus.SummarisingFunctions);
+        set_description_status(DescriptionStatus.LoadingDescriptions);
         perfMonitor.current.startMeasure('data-fetch');
-        
+
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol_id);
         if (savedState) {
           setNodes(savedState.nodes);
           setEdges(savedState.edges);
           // Note: viewport will be set via onInit callback
-          setSummaryStatus(SummarisationStatus.Ready);
+          set_description_status(DescriptionStatus.Ready);
           return;
         }
-        
-        const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol_id);
-        if (!summariesAndFilteredCallTree) {
-          throw new Error("Failed to load function summaries");
+
+        const docstring_summaries = await getDescriptions(selectedEntryPoint.symbol_id);
+        if (!docstring_summaries) {
+          throw new Error("Failed to load code tree descriptions");
         }
-        setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
-        
-        setSummaryStatus(SummarisationStatus.DetectingModules);
+        setCallChart(docstring_summaries.call_tree);
+
+        set_description_status(DescriptionStatus.DetectingModules);
         const nodeGroups = await detectModules();
         nodeGroupsRef.current = nodeGroups;
-        
+
         // Generate all nodes and edges from the call tree
         const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
           selectedEntryPoint,
-          summariesAndFilteredCallTree,
+          docstring_summaries,
           nodeGroups,
           themeStyles.colors.cluster?.palette
         );
-        
+
         // Apply hierarchical layout
         const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
-        
+
         setNodes(layoutedNodes);
         setEdges(flowEdges);
-        setSummaryStatus(SummarisationStatus.Ready);
+        set_description_status(DescriptionStatus.Ready);
         perfMonitor.current.endMeasure('data-fetch', layoutedNodes.length, flowEdges.length);
       } catch (err) {
         const error = err instanceof Error ? err : new Error("An error occurred");
         setError(error.message);
-        setSummaryStatus(SummarisationStatus.Error);
+        set_description_status(DescriptionStatus.Error);
         errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol_id });
         handleReactFlowError(error);
 
@@ -205,36 +206,36 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         );
       }
     };
-    
+
     fetchData();
-  }, [selectedEntryPoint, getSummaries, detectModules, setNodes, setEdges]);
+  }, [selectedEntryPoint, getDescriptions, detectModules, setNodes, setEdges]);
 
   const getVisibilityClassNames = (show: boolean): string => {
     return show ? "visible" : "invisible";
   };
-  
+
   // Throttle save operations for performance
   const handleSaveState = useThrottle(useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint || !reactFlowInstance) return;
-    
+
     const viewport = reactFlowInstance.getViewport();
     saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol_id);
   }, [nodes, edges, selectedEntryPoint]), CONFIG.animation.debounce.save);
-  
+
   // Export state to file
   const handleExportState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint || !reactFlowInstance) return;
-    
+
     const viewport = reactFlowInstance.getViewport();
     exportGraphState(nodes, edges, viewport, selectedEntryPoint.symbol_id);
   }, [nodes, edges, selectedEntryPoint]);
-  
+
   // Handle React Flow initialization
   const onInit = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint) return;
-    
+
     reactFlowInstance.current = instance;
-    
+
     // Check for saved viewport
     const savedState = loadGraphState(selectedEntryPoint.symbol_id);
     if (savedState?.viewport) {
@@ -254,7 +255,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           alignItems: "center",
         }}
       >
-        <LoadingIndicator 
+        <LoadingIndicator
           status="Indexing Code"
           message="Parsing your codebase to build the call graph..."
         />
@@ -262,7 +263,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     );
   }
 
-  const showElements = selectedEntryPoint !== null && summaryStatus === SummarisationStatus.Ready;
+  const showElements = selectedEntryPoint !== null && description_status === DescriptionStatus.Ready;
 
   return (
     <>
@@ -278,7 +279,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         id="code-flow-graph"
       >
       <div
-        className={`loading-container ${getVisibilityClassNames(summaryStatus !== SummarisationStatus.Ready)}`}
+        className={`loading-container ${getVisibilityClassNames(description_status !== DescriptionStatus.Ready)}`}
         style={{
           position: "absolute",
           top: "50%",
@@ -288,19 +289,19 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           zIndex: CONFIG.zIndex.overlay,
         }}
       >
-        {summaryStatus === SummarisationStatus.SummarisingFunctions && (
-          <LoadingIndicator 
-            status="Summarizing Functions"
-            message="Generating AI summaries for each function..."
+        {description_status === DescriptionStatus.LoadingDescriptions && (
+          <LoadingIndicator
+            status="Loading Descriptions"
+            message="Extracting docstrings from source code..."
           />
         )}
-        {summaryStatus === SummarisationStatus.DetectingModules && (
-          <LoadingIndicator 
+        {description_status === DescriptionStatus.DetectingModules && (
+          <LoadingIndicator
             status="Detecting Modules"
             message="Analyzing code structure to identify logical modules..."
           />
         )}
-        {summaryStatus === SummarisationStatus.Error && error && (
+        {description_status === DescriptionStatus.Error && error && (
           <div style={{
             padding: "20px",
             ...themeStyles.getErrorStyle(),
@@ -312,7 +313,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           </div>
         )}
       </div>
-      
+
       <div className={getVisibilityClassNames(showElements)} style={{ width: "100%", height: "100%" }}>
         <ReactFlow
           nodes={virtualNodes}
@@ -352,17 +353,17 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           aria-label="Code flow diagram showing function calls and dependencies"
           role="application"
         >
-          <Background 
-            variant={BackgroundVariant.Dots} 
-            gap={CONFIG.background.gap} 
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={CONFIG.background.gap}
             size={CONFIG.background.size}
             color={themeStyles.colors.background.dots}
           />
           <Controls />
-          
+
           {/* Mini Map */}
           {showMiniMap && (
-            <MiniMap 
+            <MiniMap
               nodeColor={miniMapNodeColor}
               nodeStrokeWidth={CONFIG.minimap.nodeStrokeWidth}
               pannable
@@ -373,10 +374,10 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               }}
             />
           )}
-          
+
           {/* Search Panel */}
           <SearchPanel />
-          
+
           {/* Zoom mode indicator and controls */}
           <div
             style={{
@@ -398,7 +399,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             >
               {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
             </div>
-            
+
             {/* Performance info */}
             {nodes.length > CONFIG.performance.nodes.showStats && (
               <div
@@ -412,11 +413,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 {nodes.length} nodes • {virtualNodes.length} rendered • {hiddenNodeCount} hidden
               </div>
             )}
-            
+
             {/* Show indicators for hidden nodes */}
             {hiddenNodeCount > CONFIG.performance.nodes.hideIndicator && (
-              <ViewportIndicator 
-                direction="top" 
+              <ViewportIndicator
+                direction="top"
                 count={Math.floor(hiddenNodeCount / 4)}
                 onClick={() => {
                   if (reactFlowInstance.current) {
@@ -425,7 +426,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 }}
               />
             )}
-            
+
             {/* MiniMap Toggle */}
             <button
               onClick={() => setShowMiniMap(!showMiniMap)}
@@ -441,7 +442,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             >
               {showMiniMap ? "🗺️ Hide Map" : "🗺️ Show Map"}
             </button>
-            
+
             {/* Persistence controls */}
             <div
               style={{

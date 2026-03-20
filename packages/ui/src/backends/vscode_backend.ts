@@ -1,7 +1,7 @@
 import {
   CodeCharterBackend,
   NodeGroup,
-  TreeAndContextSummaries,
+  DocstringSummaries,
   CallGraph
 } from "@code-charter/types";
 
@@ -63,12 +63,12 @@ export class VSCodeBackend implements CodeCharterBackend {
     }
   }
 
-  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
+  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
     try {
-      const response = await this.sendMessageWithResponse("summariseCodeTree", { topLevelFunctionSymbol });
+      const response = await this.sendMessageWithResponse("getCodeTreeDescriptions", { topLevelFunctionSymbol });
       return response.data;
     } catch (error) {
-      console.error("Error summarising code tree:", error);
+      console.error("Error getting code tree descriptions:", error);
       return undefined;
     }
   }

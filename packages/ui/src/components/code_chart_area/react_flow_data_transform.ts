@@ -1,6 +1,7 @@
 import { Node, Edge } from "@xyflow/react";
-import type { CallableNode, CallReference } from "@ariadnejs/types";
-import { TreeAndContextSummaries, NodeGroup } from "@code-charter/types";
+import type { CallableNode } from "@code-charter/types";
+import { DocstringSummaries, NodeGroup } from "@code-charter/types";
+import { symbol_display_name } from "./symbol_utils";
 import { CodeNodeData } from "./code_function_node";
 import { ModuleNodeData } from "./zoom_aware_node";
 import { calculateNodeDimensions } from "./elk_layout";
@@ -12,14 +13,9 @@ export interface ReactFlowElements {
   edges: CodeChartEdge[];
 }
 
-function resolve_call_target(call_ref: CallReference): string | null {
-  if (call_ref.resolutions.length === 0) return null;
-  return call_ref.resolutions[0].symbol_id;
-}
-
 export function generateReactFlowElements(
   selected_entry_point: CallableNode,
-  summaries_and_filtered_call_tree: TreeAndContextSummaries,
+  docstring_summaries: DocstringSummaries,
   node_groups: NodeGroup[] | undefined,
   cluster_palette?: ClusterColor[]
 ): ReactFlowElements {
@@ -50,7 +46,7 @@ export function generateReactFlowElements(
     }
     visited.add(node.symbol_id);
 
-    const summary = summaries_and_filtered_call_tree.functionSummaries?.[node.symbol_id]?.trimStart() || "";
+    const description = docstring_summaries.docstrings?.[node.symbol_id]?.trimStart() || "";
     const parent_module_id = symbol_to_compound_id[node.symbol_id];
 
     // Create the React Flow node
@@ -59,9 +55,9 @@ export function generateReactFlowElements(
       type: "code_function",
       position,
       data: {
-        function_name: node.name as string,
-        summary,
-        file_path: node.definition.location.file_path as string,
+        function_name: symbol_display_name(node.symbol_id),
+        description,
+        file_path: node.definition.location.file_path,
         line_number: node.definition.location.start_line,
         is_entry_point: is_top_level,
         symbol: node.symbol_id,
@@ -79,23 +75,23 @@ export function generateReactFlowElements(
 
     // Process child calls
     const child_y = position.y + 150;
-    node.enclosed_calls.forEach((call_ref, index) => {
-      const target_symbol_id = resolve_call_target(call_ref);
-      if (!target_symbol_id) return;
+    node.enclosed_calls.forEach((call, index) => {
+      const target_symbol = call.resolutions[0]?.symbol_id;
+      if (!target_symbol) return;
 
       // Add edge
-      const edge_id = `${node.symbol_id}-${target_symbol_id}`;
+      const edge_id = `${node.symbol_id}-${target_symbol}`;
       edges.push({
         id: edge_id,
         source: node.symbol_id,
-        target: target_symbol_id,
+        target: target_symbol,
         type: "default",
         animated: false,
-        ariaLabel: `Call from ${node.name as string} to ${call_ref.name as string}`,
+        ariaLabel: `Call from ${symbol_display_name(node.symbol_id)} to ${symbol_display_name(target_symbol)}`,
       });
 
       // Track module connections
-      const child_module_id = symbol_to_compound_id[target_symbol_id];
+      const child_module_id = symbol_to_compound_id[target_symbol];
       if (parent_module_id && child_module_id && parent_module_id !== child_module_id) {
         if (!module_connections.has(parent_module_id)) {
           module_connections.set(parent_module_id, new Set());
@@ -104,7 +100,7 @@ export function generateReactFlowElements(
       }
 
       // Recursively add child nodes
-      const child_node = summaries_and_filtered_call_tree.callTreeWithFilteredOutNodes[target_symbol_id];
+      const child_node = docstring_summaries.call_tree[target_symbol];
       if (child_node) {
         const child_x = position.x + (index - node.enclosed_calls.length / 2) * 250;
         add_function_node(child_node, false, { x: child_x, y: child_y });
@@ -113,7 +109,7 @@ export function generateReactFlowElements(
   };
 
   // Start processing from the entry point
-  const entry_point_in_tree = summaries_and_filtered_call_tree.callTreeWithFilteredOutNodes[selected_entry_point.symbol_id];
+  const entry_point_in_tree = docstring_summaries.call_tree[selected_entry_point.symbol_id];
   if (entry_point_in_tree) {
     add_function_node(entry_point_in_tree, true, { x: 0, y: 0 });
   }

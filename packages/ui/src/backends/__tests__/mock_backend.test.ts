@@ -18,10 +18,10 @@ describe('MockBackend', () => {
 
     it('returns nodes with correct structure', async () => {
       const result = await backend.getCallGraph();
-      const nodes_array = Array.from(result!.nodes.values());
-      const main_node = nodes_array.find(n => n.name === 'main');
+      const main_node = result!.nodes.get('main.ts:main' as any);
       expect(main_node).toBeDefined();
-      expect(main_node!.symbol_id).toBeDefined();
+      expect(main_node!.symbol_id).toBe('main.ts:main');
+      expect(main_node!.definition).toBeDefined();
       expect(main_node!.enclosed_calls.length).toBe(2);
     });
   });
@@ -36,14 +36,13 @@ describe('MockBackend', () => {
     });
   });
 
-  describe('summariseCodeTree', () => {
-    it('returns summaries for a function', async () => {
-      const result = await backend.summariseCodeTree('main.ts:main');
+  describe('get_code_tree_descriptions', () => {
+    it('returns docstring descriptions for a function', async () => {
+      const result = await backend.get_code_tree_descriptions('main.ts:main');
       expect(result).toBeDefined();
-      expect(result!.functionSummaries).toBeDefined();
-      expect(result!.refinedFunctionSummaries).toBeDefined();
-      expect(result!.contextSummary).toBeDefined();
-      expect(result!.callTreeWithFilteredOutNodes).toBeDefined();
+      expect(result!.docstrings).toBeDefined();
+      expect(result!.call_tree).toBeDefined();
+      expect(result!.docstrings['main.ts:main']).toBeDefined();
     });
   });
 

@@ -1,31 +1,35 @@
 import React, { useState, useMemo } from "react";
 import { useBackend } from "../hooks/use_backend";
-import type { CallGraph, CallableNode, SymbolId } from "@code-charter/types";
+import type { CallGraph, CallableNode, CallReference } from "@code-charter/types";
 
-function count_nodes(top_level_node: SymbolId, graph: CallGraph, visited_nodes: Set<SymbolId> = new Set<SymbolId>()): number {
+function count_nodes(top_level_node: string, graph: CallGraph, visited_nodes: Set<string> = new Set<string>()): number {
   const node = graph.nodes.get(top_level_node);
   if (!node) return 0;
 
-  return node.enclosed_calls.reduce((acc: number, call_ref) => {
-    for (const resolution of call_ref.resolutions) {
-      if (visited_nodes.has(resolution.symbol_id)) {
-        continue;
-      }
-      visited_nodes.add(resolution.symbol_id);
-      acc += count_nodes(resolution.symbol_id, graph, visited_nodes);
+  return node.enclosed_calls.reduce((acc: number, call: CallReference) => {
+    const resolved_id = call.resolutions[0]?.symbol_id;
+    if (!resolved_id || visited_nodes.has(resolved_id)) {
+      return acc;
     }
-    return acc;
+    visited_nodes.add(resolved_id);
+    return acc + count_nodes(resolved_id, graph, visited_nodes);
   }, 1);
+}
+
+function symbol_display_name(symbol: string): string {
+  const parts = symbol.split(':');
+  return parts[parts.length - 1] || symbol;
 }
 
 interface SidebarProps {
   call_graph: CallGraph;
   selected_node: CallableNode | null;
   on_select: (entry_point: CallableNode) => void;
-  are_node_summaries_loading: (node_symbol: string) => boolean;
+  are_node_descriptions_loading: (node_symbol: string) => boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_summaries_loading }) => {
+const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_descriptions_loading }) => {
+  const { backend } = useBackend();
   const [is_sidebar_open, set_is_sidebar_open] = useState(true);
 
   const toggle_sidebar = () => {
@@ -67,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
             call_graph={call_graph}
             selected_node={selected_node}
             on_select={select_item_and_close_sidebar}
-            are_node_summaries_loading={are_node_summaries_loading}
+            are_node_descriptions_loading={are_node_descriptions_loading}
           />
         </aside>
       </div>
@@ -79,36 +83,36 @@ interface FunctionsListProps {
   call_graph: CallGraph;
   selected_node: CallableNode | null;
   on_select: (entry_point: CallableNode) => void;
-  are_node_summaries_loading: (node_symbol: string) => boolean;
+  are_node_descriptions_loading: (node_symbol: string) => boolean;
 }
 
 const FunctionsList: React.FC<FunctionsListProps> = ({
   call_graph,
   selected_node,
   on_select,
-  are_node_summaries_loading,
+  are_node_descriptions_loading,
 }) => {
   const { backend } = useBackend();
 
   const on_click_item = async (node: CallableNode) => {
     on_select(node);
-    await backend.navigateToDoc(node.definition.location.file_path as string, node.definition.location.start_line);
+    await backend.navigateToDoc(node.definition.location.file_path, node.definition.location.start_line);
   };
 
   const tot_nodes_count_descending_symbols = useMemo(() => {
     return [...call_graph.entry_points].sort(
-      (a, b) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
+      (a: string, b: string) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
     );
   }, [call_graph]);
 
   return (
     <ul className="w-full">
-      {tot_nodes_count_descending_symbols.map((node_symbol) => {
+      {tot_nodes_count_descending_symbols.map((node_symbol: string) => {
         const node = call_graph.nodes.get(node_symbol);
         if (!node) return null;
-        const display_name = node.name as string;
+        const display_name = symbol_display_name(node.symbol_id);
         const is_selected = selected_node && selected_node.symbol_id === node_symbol;
-        const is_loading = are_node_summaries_loading(node.symbol_id);
+        const is_loading = are_node_descriptions_loading(node.symbol_id);
         return (
           <li
             key={node.symbol_id}
@@ -123,7 +127,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
             <div className="flex items-center text-xs text-vscodeLineNumber h-5">
               {is_loading ? (
                 <div className="flex items-center">
-                  <span className="mr-2">Summarizing</span>
+                  <span className="mr-2">Loading</span>
                   <div className="w-4 h-4 border-2 border-t-transparent border-vscodeFg rounded-full animate-spin" />
                 </div>
               ) : (

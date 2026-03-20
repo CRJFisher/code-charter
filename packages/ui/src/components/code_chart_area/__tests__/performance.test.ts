@@ -185,7 +185,7 @@ describe('Performance Utilities', () => {
           position: { x: (i % 30) * 250, y: Math.floor(i / 30) * 150 },
           data: {
             function_name: `function_${i}`,
-            summary: 'Test function',
+            description: 'Test function',
             file_path: '/test/file.ts',
             line_number: i,
             symbol: `test::function_${i}`,
@@ -238,7 +238,7 @@ describe('Performance Utilities', () => {
         position: { x: 0, y: 0 },
         data: {
           function_name: 'testFunction',
-          summary: 'This is a test function with a longer summary',
+          description: 'This is a test function with a longer description',
           file_path: '/test/file.ts',
           line_number: 42,
           symbol: 'test::testFunction',

@@ -54,17 +54,15 @@
       backend: {
         type: window.CodeCharterUI.BackendType.MOCK,
         getCallGraph: async () => mockCallGraph,
-        summariseCodeTree: async () => ({
-          refinedFunctionSummaries: {
+        get_code_tree_descriptions: async () => ({
+          docstrings: {
             "main": "Main entry point of the application",
             "helper": "Helper utility function"
           },
-          contextSummary: "A simple demo application",
-          callTreeWithFilteredOutNodes: []
+          call_tree: {}
         }),
         clusterCodeTree: async () => [],
-        functionSummaryStatus: async () => ({}),
-        navigateToDoc: async () => ({ success: true })
+        navigateToDoc: async () => {}
       }
     });
   </script>

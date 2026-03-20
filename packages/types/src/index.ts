@@ -1,6 +1,9 @@
 // Export all backend types
 export * from './backend';
 
+// Export storage types
+export * from './storage';
+
 // Export theme types
 export * from './theme';
 
@@ -8,4 +11,4 @@ export * from './theme';
 export * from './clustering';
 
 // Re-export commonly used types from ariadnejs
-export type { CallGraph, CallableNode, CallReference, SymbolId, SymbolName, FilePath, AnyDefinition, Location, ScopeId } from '@ariadnejs/types';
+export type { CallableNode, CallGraph, CallReference, SymbolId, SymbolName, AnyDefinition } from '@ariadnejs/types';

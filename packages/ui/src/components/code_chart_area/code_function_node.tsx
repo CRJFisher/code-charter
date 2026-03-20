@@ -4,7 +4,7 @@ import { navigateToFile } from "./navigation_utils";
 
 export interface CodeNodeData extends Record<string, unknown> {
   function_name: string;
-  summary: string;
+  description: string;
   file_path: string;
   line_number: number;
   is_entry_point?: boolean;
@@ -57,7 +57,7 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeNodeData>> = ({ data, se
     gap: "4px",
   };
 
-  const summaryStyles: React.CSSProperties = {
+  const description_styles: React.CSSProperties = {
     fontSize: "12px",
     color: "#666666",
     lineHeight: "1.4",
@@ -66,7 +66,7 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeNodeData>> = ({ data, se
   };
 
   // Create accessible label
-  const ariaLabel = `${data.is_entry_point ? 'Entry point function' : 'Function'}: ${data.function_name}. ${data.summary || 'No description available'}. Located at ${data.file_path} line ${data.line_number}. Press Enter to navigate to source code.`;
+  const ariaLabel = `${data.is_entry_point ? 'Entry point function' : 'Function'}: ${data.function_name}. ${data.description || 'No description available'}. Located at ${data.file_path} line ${data.line_number}. Press Enter to navigate to source code.`;
   
   return (
     <div 
@@ -97,9 +97,9 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeNodeData>> = ({ data, se
         <span>{data.function_name}</span>
       </div>
       
-      {data.summary && (
-        <div style={summaryStyles}>
-          {data.summary}
+      {data.description && (
+        <div style={description_styles}>
+          {data.description}
         </div>
       )}
       
@@ -117,7 +117,7 @@ export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps
   // Only re-render if data or selected state changes
   return (
     prevProps.data.function_name === nextProps.data.function_name &&
-    prevProps.data.summary === nextProps.data.summary &&
+    prevProps.data.description === nextProps.data.description &&
     prevProps.data.file_path === nextProps.data.file_path &&
     prevProps.data.line_number === nextProps.data.line_number &&
     prevProps.data.is_entry_point === nextProps.data.is_entry_point &&

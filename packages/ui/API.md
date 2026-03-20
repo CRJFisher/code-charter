@@ -143,7 +143,7 @@ import { MockBackend } from '@code-charter/ui';
 
 const backend = new MockBackend({
   callGraph: { /* your mock data */ },
-  refinedSummaries: { /* your summaries */ }
+  docstrings: { /* your docstring descriptions */ }
 });
 ```
 
@@ -152,21 +152,21 @@ const backend = new MockBackend({
 Implement the `Backend` interface to create custom backends:
 
 ```typescript
-import { Backend } from '@code-charter/types';
+import { CodeCharterBackend } from '@code-charter/types';
 
-class CustomBackend implements Backend {
+class CustomBackend implements CodeCharterBackend {
   async getCallGraph(): Promise<CallGraph> {
     // Your implementation
   }
-  
-  async summariseCodeTree(symbol: string): Promise<TreeAndContextSummaries> {
+
+  async get_code_tree_descriptions(symbol: string): Promise<DocstringSummaries> {
     // Your implementation
   }
-  
-  async navigateToDoc(params: NavigateParams): Promise<NavigateResult> {
+
+  async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
     // Your implementation
   }
-  
+
   // ... other required methods
 }
 ```
@@ -203,11 +203,11 @@ init({
 All TypeScript types are exported from `@code-charter/types`:
 
 ```typescript
-import { 
-  Backend,
+import {
+  CodeCharterBackend,
+  DocstringSummaries,
   CallGraph,
   CallGraphNode,
-  BackendConfig,
   ThemeConfig
 } from '@code-charter/types';
 ```

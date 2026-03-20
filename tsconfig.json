@@ -11,6 +11,7 @@
   "references": [
     { "path": "./packages/types" },
     { "path": "./packages/ui" },
-    { "path": "./packages/vscode" }
+    { "path": "./packages/vscode" },
+    { "path": "./packages/cli" }
   ]
 }

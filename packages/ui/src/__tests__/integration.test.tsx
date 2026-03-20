@@ -6,42 +6,7 @@ import { BackendProvider } from '../contexts/backend_context';
 import { VSCodeBackend } from '../backends/vscode_backend';
 import { MockBackend } from '../backends/mock_backend';
 import { TestMockBackend } from '../backends/test_mock_backend';
-import type { CallGraph, CallableNode, SymbolId, SymbolName, FilePath, ScopeId, AnyDefinition } from '@ariadnejs/types';
 import { init } from '../index';
-
-function make_mock_node(file: string, name: string, start_line: number, end_line: number): CallableNode {
-  const id = `function:${file}:${start_line}:0:${end_line}:0:${name}` as SymbolId;
-  return {
-    symbol_id: id,
-    name: name as SymbolName,
-    enclosed_calls: [],
-    location: { file_path: file as FilePath, start_line, start_column: 0, end_line, end_column: 0 },
-    definition: {
-      kind: "function",
-      symbol_id: id,
-      name: name as SymbolName,
-      defining_scope_id: `global:${file}:0:0:100:0` as ScopeId,
-      location: { file_path: file as FilePath, start_line, start_column: 0, end_line, end_column: 0 },
-      is_exported: false,
-      signature: { parameters: [] },
-      body_scope_id: `function:${file}:${start_line}:0:${end_line}:0` as ScopeId,
-    } as AnyDefinition,
-    is_test: false,
-  };
-}
-
-function make_call_graph(node_specs: Array<{ file: string; name: string; start: number; end: number }>): CallGraph {
-  const nodes = new Map<SymbolId, CallableNode>();
-  const entry_points: SymbolId[] = [];
-
-  for (const spec of node_specs) {
-    const node = make_mock_node(spec.file, spec.name, spec.start, spec.end);
-    nodes.set(node.symbol_id, node);
-    entry_points.push(node.symbol_id);
-  }
-
-  return { nodes, entry_points };
-}
 
 describe('Integration Tests', () => {
   describe('Full UI initialization flow', () => {
@@ -100,9 +65,9 @@ describe('Integration Tests', () => {
       });
 
       // Switch to VS Code backend
-      const vsCodeBackend = new VSCodeBackend();
+      const vscode_backend = new VSCodeBackend();
       rerender(
-        <BackendProvider backend={vsCodeBackend}>
+        <BackendProvider backend={vscode_backend}>
           <CodeCharterUI />
         </BackendProvider>
       );
@@ -113,12 +78,12 @@ describe('Integration Tests', () => {
 
   describe('Error handling across backends', () => {
     it('handles errors consistently in mock backend', async () => {
-      const errorBackend = new TestMockBackend({
+      const error_backend = new TestMockBackend({
         shouldThrowError: true,
       });
 
       render(
-        <BackendProvider backend={errorBackend}>
+        <BackendProvider backend={error_backend}>
           <CodeCharterUI />
         </BackendProvider>
       );
@@ -129,11 +94,11 @@ describe('Integration Tests', () => {
     });
 
     it('handles network errors in VS Code backend', async () => {
-      const vsCodeBackend = new VSCodeBackend();
+      const vscode_backend = new VSCodeBackend();
 
       // Don't send any response to simulate timeout/error
       render(
-        <BackendProvider backend={vsCodeBackend}>
+        <BackendProvider backend={vscode_backend}>
           <CodeCharterUI />
         </BackendProvider>
       );
@@ -146,11 +111,11 @@ describe('Integration Tests', () => {
   describe('User interactions', () => {
     it('handles node click navigation across backends', async () => {
       const user = userEvent.setup();
-      const mockBackend = new MockBackend();
-      const navigateSpy = jest.spyOn(mockBackend, 'navigateToDoc');
+      const mock_backend = new MockBackend();
+      const navigate_spy = jest.spyOn(mock_backend, 'navigateToDoc');
 
       render(
-        <BackendProvider backend={mockBackend}>
+        <BackendProvider backend={mock_backend}>
           <CodeCharterUI />
         </BackendProvider>
       );
@@ -161,16 +126,16 @@ describe('Integration Tests', () => {
 
       await user.click(screen.getByText('main'));
 
-      expect(navigateSpy).toHaveBeenCalledWith('main.ts', 0);
+      expect(navigate_spy).toHaveBeenCalledWith('main.ts', 0);
     });
 
-    it('handles summary generation workflow', async () => {
+    it('handles description generation workflow', async () => {
       const user = userEvent.setup();
-      const mockBackend = new MockBackend();
-      const summarySpy = jest.spyOn(mockBackend, 'summariseCodeTree');
+      const mock_backend = new MockBackend();
+      const description_spy = jest.spyOn(mock_backend, 'get_code_tree_descriptions');
 
       render(
-        <BackendProvider backend={mockBackend}>
+        <BackendProvider backend={mock_backend}>
           <CodeCharterUI />
         </BackendProvider>
       );
@@ -179,11 +144,11 @@ describe('Integration Tests', () => {
         expect(screen.getByText('main')).toBeInTheDocument();
       });
 
-      // If there's a summary button, click it
-      const summaryButton = screen.queryByRole('button', { name: /summar/i });
-      if (summaryButton) {
-        await user.click(summaryButton);
-        expect(summarySpy).toHaveBeenCalled();
+      // If there's a description button, click it
+      const description_button = screen.queryByRole('button', { name: /descri/i });
+      if (description_button) {
+        await user.click(description_button);
+        expect(description_spy).toHaveBeenCalled();
       }
     });
   });

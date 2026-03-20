@@ -49,10 +49,10 @@ describe('Search Logic', () => {
   });
 
   describe('Search Scoring', () => {
-    const calculateScore = (query: string, name: string, summary: string = ''): number => {
+    const calculateScore = (query: string, name: string, description: string = ''): number => {
       const lowerQuery = query.toLowerCase();
       const lowerName = name.toLowerCase();
-      const lowerSummary = summary.toLowerCase();
+      const lower_description = description.toLowerCase();
       
       let score = 0;
       
@@ -68,8 +68,8 @@ describe('Search Logic', () => {
       else if (lowerName.includes(lowerQuery)) {
         score = 60;
       }
-      // Summary contains query
-      else if (lowerSummary.includes(lowerQuery)) {
+      // Description contains query
+      else if (lower_description.includes(lowerQuery)) {
         score = 40;
       }
       
@@ -88,7 +88,7 @@ describe('Search Logic', () => {
       expect(calculateScore('function', 'testFunction')).toBe(60);
     });
 
-    it('should score summary matches lower', () => {
+    it('should score description matches lower', () => {
       expect(calculateScore('helper', 'testFunction', 'A helper function')).toBe(40);
     });
 
@@ -109,7 +109,7 @@ describe('Search Logic', () => {
         type: 'code_function',
         data: {
           function_name: 'testFunction',
-          summary: 'This is a test function',
+          description: 'This is a test function',
         },
       },
       {
@@ -117,7 +117,7 @@ describe('Search Logic', () => {
         type: 'code_function',
         data: {
           function_name: 'anotherFunction',
-          summary: 'Another function for testing',
+          description: 'Another function for testing',
         },
       },
       {

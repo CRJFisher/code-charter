@@ -3,7 +3,7 @@ import "./App.css";
 import Sidebar from "./side_bar";
 import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area_react_flow";
 import { useBackend } from "../hooks/use_backend";
-import { TreeAndContextSummaries, NodeGroup, CallGraph, CallableNode } from "@code-charter/types";
+import { DocstringSummaries, NodeGroup, CallGraph, CallableNode } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
 import { ThemeSwitcher } from "../theme";
 
@@ -25,26 +25,26 @@ async function detect_entry_points(
   set_status_message(CodeIndexStatus.Ready);
 }
 
-async function fetch_summaries(
+async function fetch_descriptions(
   backend: any,
   node_symbol: string,
   ongoing_tasks: Map<string, Promise<any>>,
-  set_ongoing_summarisations: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>
+  set_ongoing_descriptions: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>
 ): Promise<any> {
   if (ongoing_tasks.has(node_symbol)) {
     return ongoing_tasks.get(node_symbol);
   }
 
-  const promise = backend.summariseCodeTree(node_symbol)
-    .then((summaries: TreeAndContextSummaries) => summaries)
+  const promise = backend.get_code_tree_descriptions(node_symbol)
+    .then((descriptions: DocstringSummaries) => descriptions)
     .finally(() =>
-      set_ongoing_summarisations((ongoing_summarisations) => {
-        ongoing_summarisations.delete(node_symbol);
-        return new Map(ongoing_summarisations);
+      set_ongoing_descriptions((ongoing_descriptions) => {
+        ongoing_descriptions.delete(node_symbol);
+        return new Map(ongoing_descriptions);
       })
     );
 
-  set_ongoing_summarisations(new Map(ongoing_tasks.set(node_symbol, promise)));
+  set_ongoing_descriptions(new Map(ongoing_tasks.set(node_symbol, promise)));
   return promise;
 }
 
@@ -58,18 +58,18 @@ export const App: React.FC<AppProps> = ({ className = "", forceStandalone = fals
   const [call_graph, set_call_graph] = useState<CallGraph | null>(null);
   const [selected_entry_point, set_selected_entry_point] = useState<CallableNode | null>(null);
   const [status_message, set_status_message] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
-  const [ongoing_summarisations, set_ongoing_summarisations] = useState<Map<string, Promise<any>>>(new Map());
+  const [ongoing_descriptions, set_ongoing_descriptions] = useState<Map<string, Promise<any>>>(new Map());
 
   useEffect(() => {
     detect_entry_points(backend, set_call_graph, set_status_message);
   }, [backend]);
 
-  const are_nodes_summaries_loading = (node_symbol: string) => {
-    return ongoing_summarisations.has(node_symbol);
+  const are_nodes_descriptions_loading = (node_symbol: string) => {
+    return ongoing_descriptions.has(node_symbol);
   };
 
-  const get_summaries = async (node_symbol: string): Promise<TreeAndContextSummaries | undefined> => {
-    return fetch_summaries(backend, node_symbol, ongoing_summarisations, set_ongoing_summarisations);
+  const get_descriptions = async (node_symbol: string): Promise<DocstringSummaries | undefined> => {
+    return fetch_descriptions(backend, node_symbol, ongoing_descriptions, set_ongoing_descriptions);
   };
 
   async function detect_modules(top_level_node_symbol: string | undefined): Promise<NodeGroup[] | undefined> {
@@ -91,13 +91,13 @@ export const App: React.FC<AppProps> = ({ className = "", forceStandalone = fals
           call_graph={call_graph || { nodes: new Map(), entry_points: [] }}
           on_select={set_selected_entry_point}
           selected_node={selected_entry_point}
-          are_node_summaries_loading={are_nodes_summaries_loading}
+          are_node_descriptions_loading={are_nodes_descriptions_loading}
         />
         <div className="flex flex-1 bg-vscodeBg">
           <CodeChartArea
             selectedEntryPoint={selected_entry_point}
             screenWidthFraction={0.8}
-            getSummaries={get_summaries}
+            getDescriptions={get_descriptions}
             detectModules={() => detect_modules(selected_entry_point?.symbol_id)}
             indexingStatus={status_message}
           />

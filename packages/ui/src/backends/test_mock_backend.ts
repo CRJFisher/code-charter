@@ -1,35 +1,36 @@
-import {
-  CodeCharterBackend,
-  BackendState,
-  ConnectionStatus,
-  NodeGroup,
-  TreeAndContextSummaries,
-  CallGraph,
-} from "@code-charter/types";
+import { CodeCharterBackend, DocstringSummaries, NodeGroup } from '@code-charter/types';
+import type { CallGraph } from '@code-charter/types';
 
-/**
- * Simple mock backend for testing
- */
+export enum ConnectionStatus {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+}
+
+export interface BackendState {
+  status: ConnectionStatus;
+}
+
 export class TestMockBackend implements CodeCharterBackend {
   private state: BackendState = { status: ConnectionStatus.DISCONNECTED };
-  private stateListeners: Set<(state: BackendState) => void> = new Set();
+  private state_callbacks: ((state: BackendState) => void)[] = [];
 
   constructor(
     private config: {
       callGraph?: CallGraph;
-      refinedSummaries?: Record<string, string>;
+      docstrings?: Record<string, string>;
       shouldThrowError?: boolean;
       delay?: number;
     } = {}
   ) {}
 
-  private async simulateDelay(): Promise<void> {
+  private async simulate_delay(): Promise<void> {
     if (this.config.delay) {
       await new Promise(resolve => setTimeout(resolve, this.config.delay));
     }
   }
 
-  private checkError(): void {
+  private check_error(): void {
     if (this.config.shouldThrowError) {
       throw new Error('Mock error');
     }
@@ -40,56 +41,49 @@ export class TestMockBackend implements CodeCharterBackend {
   }
 
   async connect(): Promise<void> {
-    this.updateState({ status: ConnectionStatus.CONNECTED });
+    this.update_state({ status: ConnectionStatus.CONNECTING });
+    this.update_state({ status: ConnectionStatus.CONNECTED });
   }
 
   async disconnect(): Promise<void> {
-    this.updateState({ status: ConnectionStatus.DISCONNECTED });
+    this.update_state({ status: ConnectionStatus.DISCONNECTED });
   }
 
-  async getCallGraph(): Promise<CallGraph | undefined> {
-    await this.simulateDelay();
-    this.checkError();
-
-    return this.config.callGraph || {
-      nodes: new Map(),
-      entry_points: [],
+  onStateChange(callback: (state: BackendState) => void): () => void {
+    this.state_callbacks.push(callback);
+    return () => {
+      this.state_callbacks = this.state_callbacks.filter(cb => cb !== callback);
     };
   }
 
-  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
-    await this.simulateDelay();
-    this.checkError();
+  async getCallGraph(): Promise<CallGraph | undefined> {
+    await this.simulate_delay();
+    this.check_error();
+    return this.config.callGraph;
+  }
 
+  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
+    await this.simulate_delay();
+    this.check_error();
     return {
-      functionSummaries: {},
-      refinedFunctionSummaries: this.config.refinedSummaries || {},
-      contextSummary: 'Mock context',
-      callTreeWithFilteredOutNodes: {},
+      docstrings: this.config.docstrings || {},
+      call_tree: {},
     };
   }
 
   async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
-    await this.simulateDelay();
-    this.checkError();
-
+    await this.simulate_delay();
+    this.check_error();
     return [];
   }
 
   async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
-    await this.simulateDelay();
-    this.checkError();
+    await this.simulate_delay();
+    this.check_error();
   }
 
-  onStateChange(callback: (state: BackendState) => void): () => void {
-    this.stateListeners.add(callback);
-    return () => {
-      this.stateListeners.delete(callback);
-    };
-  }
-
-  private updateState(state: BackendState): void {
+  private update_state(state: BackendState): void {
     this.state = state;
-    this.stateListeners.forEach(listener => listener(state));
+    this.state_callbacks.forEach(cb => cb(this.state));
   }
 }

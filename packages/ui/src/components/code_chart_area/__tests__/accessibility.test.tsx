@@ -35,7 +35,7 @@ describe('Accessibility Features', () => {
     id: 'test-node',
     data: {
       function_name: 'testFunction',
-      summary: 'Test function summary',
+      description: 'Test function description',
       file_path: '/test/file.ts',
       line_number: 42,
       is_entry_point: false,
@@ -56,7 +56,7 @@ describe('Accessibility Features', () => {
       
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Function: testFunction'));
-      expect(node).toHaveAttribute('aria-label', expect.stringContaining('Test function summary'));
+      expect(node).toHaveAttribute('aria-label', expect.stringContaining('Test function description'));
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('/test/file.ts line 42'));
       expect(node).toHaveAttribute('tabIndex', '0');
       expect(node).toHaveAttribute('aria-selected', 'false');

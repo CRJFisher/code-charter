@@ -2,13 +2,15 @@ import type { CallGraph, CallableNode } from "@ariadnejs/types";
 import type { ClusteringAlgorithm } from "./clustering";
 
 /**
- * Represents a summary of a code tree with function-level details
+ * Docstring-driven descriptions for a code tree.
+ * Uses docstrings extracted from source code as the primary description source,
+ * falling back to name + signature for undocumented symbols.
  */
-export interface TreeAndContextSummaries {
-  functionSummaries: Record<string, string>;
-  refinedFunctionSummaries: Record<string, string>;
-  callTreeWithFilteredOutNodes: Record<string, CallableNode>;
-  contextSummary: string;
+export interface DocstringSummaries {
+  /** symbol -> docstring body (or name+signature fallback for undocumented symbols) */
+  docstrings: Record<string, string>;
+  /** All nodes in the call tree */
+  call_tree: Record<string, CallableNode>;
 }
 
 /**
@@ -39,9 +41,9 @@ export interface CodeCharterBackend {
   clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]>;
 
   /**
-   * Summarize a code tree starting from a given function
+   * Get descriptions for a code tree starting from a given function (docstring extraction, no LLM)
    */
-  summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined>;
+  get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined>;
 
   /**
    * Navigate to a specific document location

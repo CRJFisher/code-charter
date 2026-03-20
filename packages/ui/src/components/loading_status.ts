@@ -6,8 +6,8 @@ export enum CodeIndexStatus {
     Ready = 'Ready',
 }
 
-export enum SummarisationStatus {
-    SummarisingFunctions = 'Summarising Functions',
+export enum DescriptionStatus {
+    LoadingDescriptions = 'Loading Descriptions',
     DetectingModules = 'Detecting Modules',
     Error = 'Error',
     Ready = 'Ready',

@@ -1,5 +1,4 @@
 import { pipeline } from '@huggingface/transformers';
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -13,9 +12,8 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
     private static CACHE_DIR_NAME = 'code-charter-models';
     private pipeline: any = null; // Type is complex, using any for now
     private initializationPromise: Promise<void> | null = null;
-    
+
     constructor(
-        private context: vscode.ExtensionContext,
         private progressCallback?: (message: string, increment?: number) => void
     ) {}
 

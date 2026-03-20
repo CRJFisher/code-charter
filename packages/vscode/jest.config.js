@@ -88,15 +88,12 @@ const config = {
   //   "node"
   // ],
 
-  // Transform TypeScript files using ts-jest
-  transform: {
-    '^.+\\.tsx?$': 'ts-jest',
-  },
-
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
     "^vscode$": "<rootDir>/src/__tests__/setup/vscode-mock.ts",
     "^clustering-tfjs$": "<rootDir>/src/__tests__/setup/clustering-tfjs-mock.ts",
+    "^@shared/(.*)$": "<rootDir>/shared/$1",
+    "^src/(.*)$": "<rootDir>/src/$1",
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
@@ -191,7 +188,9 @@ const config = {
   // testRunner: "jest-circus/runner",
 
   // A map from regular expressions to paths to transformers
-  // transform: undefined,
+  transform: {
+    '^.+\\.tsx?$': 'ts-jest',
+  },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   // transformIgnorePatterns: [

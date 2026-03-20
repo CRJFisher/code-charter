@@ -17,7 +17,7 @@ import { OpenAI } from "openai";
 import { Clustering } from "clustering-tfjs";
 import { LocalEmbeddingsProvider, EmbeddingProvider } from "./local_embeddings_provider";
 import { EmbeddingProviderSelector, EmbeddingProviderType } from "./embedding_provider_selector";
-import { CallGraphNode } from "@ariadnejs/types";
+import { CallableNode } from "@ariadnejs/types";
 import type { NodeGroup } from "@code-charter/types";
 import {
   group_clusters_by_label,
@@ -59,7 +59,7 @@ export class SomClusteringService {
   private symbol_hashes: Record<string, string> = {};
   private embedding_provider: EmbeddingProvider | null = null;
   private provider_type: EmbeddingProviderType | null = null;
-  private previous_call_graph_items: Record<string, CallGraphNode> | null = null;
+  private previous_call_graph_items: Record<string, CallableNode> | null = null;
   private current_node_groups: NodeGroup[] = [];
   private is_initialized = false;
   private clustering_in_progress = false;
@@ -143,7 +143,7 @@ export class SomClusteringService {
    */
   async full_cluster(
     refined_function_summaries: Record<string, string>,
-    call_graph_items: Record<string, CallGraphNode>
+    call_graph_items: Record<string, CallableNode>
   ): Promise<NodeGroup[]> {
     if (this.clustering_in_progress) {
       return this.current_node_groups;
@@ -243,7 +243,7 @@ export class SomClusteringService {
    * Uses partialFit on raw embeddings, then secondary agglomerative grouping.
    */
   async incremental_recluster(
-    new_call_graph_items: Record<string, CallGraphNode>,
+    new_call_graph_items: Record<string, CallableNode>,
     refined_function_summaries: Record<string, string>
   ): Promise<NodeGroup[] | null> {
     if (!this.is_initialized || !this.som || this.clustering_in_progress) {
@@ -323,8 +323,8 @@ export class SomClusteringService {
   }
 
   private diff_call_graphs(
-    old_items: Record<string, CallGraphNode>,
-    new_items: Record<string, CallGraphNode>
+    old_items: Record<string, CallableNode>,
+    new_items: Record<string, CallableNode>
   ): CallGraphDiff {
     const added: string[] = [];
     const removed: string[] = [];
@@ -351,15 +351,15 @@ export class SomClusteringService {
     return { added, removed, changed };
   }
 
-  private hash_callable_node(node: CallGraphNode): string {
-    const calls_signature = node.calls
-      .map((call) => call.symbol)
+  private hash_callable_node(node: CallableNode): string {
+    const calls_signature = node.enclosed_calls
+      .flatMap((call) => call.resolutions.map((r) => r.symbol_id))
       .sort()
       .join(",");
     return crypto.createHash("md5").update(calls_signature).digest("hex").substring(0, 8);
   }
 
-  private hash_all_nodes(call_graph_items: Record<string, CallGraphNode>): void {
+  private hash_all_nodes(call_graph_items: Record<string, CallableNode>): void {
     this.symbol_hashes = {};
     for (const [symbol, node] of Object.entries(call_graph_items)) {
       this.symbol_hashes[symbol] = this.hash_callable_node(node);

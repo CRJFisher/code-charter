@@ -1,5 +1,5 @@
 import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
-import type { TreeAndContextSummaries } from "@code-charter/types";
+import type { DocstringSummaries } from "@code-charter/types";
 import { get_resolved_symbol_id } from "../src/ariadne/call_graph_utils";
 
 function count_nodes(
@@ -20,6 +20,6 @@ function count_nodes(
   }, 1);
 }
 
-export type { CallGraph, CallableNode, TreeAndContextSummaries };
+export type { CallGraph, CallableNode, DocstringSummaries };
 
 export { count_nodes };

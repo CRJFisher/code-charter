@@ -4,7 +4,7 @@
  */
 
 export interface CallGraphItem {
-  calls: Array<{ symbol: string }>;
+  enclosed_calls: Array<{ resolutions: Array<{ symbol_id: string }> }>;
 }
 
 /**
@@ -121,11 +121,13 @@ export function create_adjacency_matrix(
     const i = func_to_index[symbol];
     if (i === undefined) continue;
 
-    for (const call of node.calls) {
-      const j = func_to_index[call.symbol];
-      if (j !== undefined && i !== j) {
-        matrix[i][j] = 1;
-        matrix[j][i] = 1;
+    for (const call of node.enclosed_calls) {
+      for (const resolution of call.resolutions) {
+        const j = func_to_index[resolution.symbol_id];
+        if (j !== undefined && i !== j) {
+          matrix[i][j] = 1;
+          matrix[j][i] = 1;
+        }
       }
     }
   }
