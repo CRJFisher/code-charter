@@ -17,85 +17,85 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 ## Acceptance Criteria
 
 ### Dead File Deletion
-- [ ] Delete `packages/vscode/src/clustering/clustering_service_old.ts` (dead, superseded by clustering_service.ts)
-- [ ] Delete `packages/ui/src/components/color_theme.ts` (78 lines, zero imports, reads CSS vars at module-load time incorrectly)
-- [ ] Delete `packages/vscode/src/run.ts` (exports runCommand/execAsync, never imported)
-- [ ] Delete `packages/vscode/src/webviewApi.ts` (empty file, zero bytes)
-- [ ] Delete `packages/vscode/src/git.ts` (exports getFileVersionHash, never imported)
-- [ ] Delete `packages/ui/src/components/code_chart_area/flow_theme_provider.tsx` (never mounted in JSX tree, useFlowTheme/useThemeColor would throw)
-- [ ] Delete `packages/ui/src/components/code_chart_area/flow_theme_switcher.tsx` (never imported, duplicates ThemeSwitcher)
-- [ ] Delete `packages/ui/src/backends/test_mock_backend.ts` (imports nonexistent `Backend` type, cannot compile)
-- [ ] Delete `packages/ui/src/components/code_chart_area/test_react_flow.tsx` (uses `children` property that doesn't exist on CallGraphNode)
-- [ ] Delete `packages/ui/src/components/code_chart_area/flow_theme.css` (references CSS vars only set by deleted FlowThemeProvider)
+- [x] Delete `packages/vscode/src/clustering/clustering_service_old.ts` (dead, superseded by clustering_service.ts)
+- [x] Delete `packages/ui/src/components/color_theme.ts` (78 lines, zero imports, reads CSS vars at module-load time incorrectly)
+- [x] Delete `packages/vscode/src/run.ts` (exports runCommand/execAsync, never imported)
+- [x] Delete `packages/vscode/src/webviewApi.ts` (empty file, zero bytes)
+- [x] Delete `packages/vscode/src/git.ts` (exports getFileVersionHash, never imported)
+- [x] Delete `packages/ui/src/components/code_chart_area/flow_theme_provider.tsx` (never mounted in JSX tree, useFlowTheme/useThemeColor would throw)
+- [x] Delete `packages/ui/src/components/code_chart_area/flow_theme_switcher.tsx` (never imported, duplicates ThemeSwitcher)
+- [x] Delete `packages/ui/src/backends/test_mock_backend.ts` (imports nonexistent `Backend` type, cannot compile)
+- [x] Delete `packages/ui/src/components/code_chart_area/test_react_flow.tsx` (uses `children` property that doesn't exist on CallGraphNode)
+- [x] Delete `packages/ui/src/components/code_chart_area/flow_theme.css` (references CSS vars only set by deleted FlowThemeProvider)
 
 ### Dead Export Removal
-- [ ] Remove `readCallGraphJsonFile` from `packages/vscode/src/summarise/summarise.ts` (exported but never imported)
-- [ ] Remove `getBottomLevelFolder` from `packages/vscode/src/files.ts` (exported, never imported, has `// TODO: broken` comment)
-- [ ] Remove `countNodes` from `packages/vscode/shared/codeGraph.ts` (exported, never imported)
-- [ ] Remove `nodeTypes` from `packages/ui/src/components/code_chart_area/code_function_node.tsx` (superseded by zoomAwareNodeTypes)
-- [ ] Remove `BatchUpdater` from `packages/ui/src/components/code_chart_area/performance_utils.ts` (only used in tests)
-- [ ] Remove `useProgressiveLoading` from `packages/ui/src/components/code_chart_area/virtual_renderer.tsx` (exported, never used)
-- [ ] Remove `DataProcessingError` and `TimeoutError` from error_handling.ts (never instantiated anywhere)
-- [ ] Remove `useErrorHandler` from error_boundary.tsx (exported, never imported)
-- [ ] Remove `ProgressBar` export from loading_indicator.tsx (never imported)
-- [ ] Remove `getNodeLOD`/`NodeLOD` from virtual_renderer.tsx (never imported outside tests)
-- [ ] Remove `useThemeColors` hook from theme_context.tsx (never called by consumer code)
-- [ ] Remove `ThemeSelector` from theme_switcher.tsx if no planned use case
-- [ ] Remove `is_model_cached()` and `get_model_size()` from local_embeddings_provider.ts (never called)
-- [ ] Remove unused `Def` import from codeGraph.ts
+- [x] Remove `readCallGraphJsonFile` from `packages/vscode/src/summarise/summarise.ts` (exported but never imported)
+- [x] Remove `getBottomLevelFolder` from `packages/vscode/src/files.ts` (exported, never imported, has `// TODO: broken` comment)
+- [x] Remove `countNodes` from `packages/vscode/shared/codeGraph.ts` (exported, never imported)
+- [x] Remove `nodeTypes` from `packages/ui/src/components/code_chart_area/code_function_node.tsx` (superseded by zoomAwareNodeTypes)
+- [x] Remove `BatchUpdater` from `packages/ui/src/components/code_chart_area/performance_utils.ts` (only used in tests)
+- [x] Remove `useProgressiveLoading` from `packages/ui/src/components/code_chart_area/virtual_renderer.tsx` (exported, never used)
+- [x] Remove `DataProcessingError` and `TimeoutError` from error_handling.ts (never instantiated anywhere)
+- [x] Remove `useErrorHandler` from error_boundary.tsx (exported, never imported)
+- [x] Remove `ProgressBar` export from loading_indicator.tsx (never imported)
+- [x] Remove `getNodeLOD`/`NodeLOD` from virtual_renderer.tsx (never imported outside tests)
+- [x] Remove `useThemeColors` hook from theme_context.tsx (never called by consumer code)
+- [x] Remove `ThemeSelector` from theme_switcher.tsx if no planned use case
+- [x] Remove `is_model_cached()` and `get_model_size()` from local_embeddings_provider.ts (never called)
+- [x] Remove unused `Def` import from codeGraph.ts
 
 ### Bug Fixes (Critical)
-- [ ] Fix `for...in` on `Object.keys()` at `summariseClusters.ts:68` - change to `for...of` (currently works by coincidence with numeric IDs)
-- [ ] Fix `getModelDetails()` in extension.ts - add else branch that throws for unrecognized providers (currently returns undefined)
-- [ ] Fix layout cache key in `elk_layout.ts:52` - uses `layout-${nodes.length}-${edges.length}` instead of content-based hash (serves wrong cached layouts for structurally different graphs with same counts)
-- [ ] Fix symbol separator inconsistency: vscode/shared/symbols.ts splits on `#`, ui/symbol_utils.ts splits on `::`, side_bar.tsx splits on `:` - unify across packages
-- [ ] Fix duplicate error notifications: code_chart_area_react_flow.tsx fires both `handleReactFlowError(error)` AND `notify(...)` for same error, creating two notifications
-- [ ] Fix stale business logic cache key in summarise.ts:227 - hashes only `node.symbol` but should include upstream processing-steps summary
-- [ ] Fix `validate_provider_config` in embedding_provider_selector.ts - always returns true even on failure, making validation check dead logic
-- [ ] Fix syntax error in search_panel.tsx:179 (TypeScript compilation fails)
+- [x] Fix `for...in` on `Object.keys()` at `summariseClusters.ts:68` - change to `for...of` (currently works by coincidence with numeric IDs)
+- [x] Fix `getModelDetails()` in extension.ts - add else branch that throws for unrecognized providers (currently returns undefined)
+- [x] Fix layout cache key in `elk_layout.ts:52` - uses `layout-${nodes.length}-${edges.length}` instead of content-based hash (serves wrong cached layouts for structurally different graphs with same counts)
+- [x] Fix symbol separator inconsistency: vscode/shared/symbols.ts splits on `#`, ui/symbol_utils.ts splits on `::`, side_bar.tsx splits on `:` - unify across packages
+- [x] Fix duplicate error notifications: code_chart_area_react_flow.tsx fires both `handleReactFlowError(error)` AND `notify(...)` for same error, creating two notifications
+- [x] Fix stale business logic cache key in summarise.ts:227 - hashes only `node.symbol` but should include upstream processing-steps summary
+- [x] Fix `validate_provider_config` in embedding_provider_selector.ts - always returns true even on failure, making validation check dead logic
+- [x] Fix syntax error in search_panel.tsx:179 (TypeScript compilation fails)
 - [ ] Fix wasted position computation in react_flow_data_transform.ts - recursive position calculation immediately overwritten by ELK layout
 - [ ] Fix module group bounding boxes calculated from pre-layout positions (should run after ELK layout)
-- [ ] Fix viewport store selector in code_chart_area_react_flow.tsx:98-102 creating new object every render (defeats reference equality)
-- [ ] Fix Array.sort() called without memoization in side_bar.tsx:103-105 (mutates original array on every render)
-- [ ] Fix stale closure in perfMonitor (code_chart_area_react_flow.tsx:192) capturing previous render's node/edge counts
+- [x] Fix viewport store selector in code_chart_area_react_flow.tsx:98-102 creating new object every render (defeats reference equality)
+- [x] Fix Array.sort() called without memoization in side_bar.tsx:103-105 (mutates original array on every render)
+- [x] Fix stale closure in perfMonitor (code_chart_area_react_flow.tsx:192) capturing previous render's node/edge counts
 
 ### Dependency Cleanup
-- [ ] Remove `@tensorflow/tfjs-node` from vscode/package.json (~200MB native module, never imported)
-- [ ] Remove `@xenova/transformers` from vscode/package.json (superseded by `@huggingface/transformers`)
-- [ ] Remove `@langchain/anthropic` from vscode/package.json (never imported)
-- [ ] Remove `@langchain/google-vertexai` from vscode/package.json (never imported)
-- [ ] Remove `@vscode/python-extension` from vscode/package.json (never imported)
-- [ ] Remove `pouchdb-upsert` from vscode/package.json (never imported)
-- [ ] Remove `react-icons` from ui/package.json (never imported)
-- [ ] Remove redundant babel dependencies (babel/core, babel/preset-env, babel/preset-typescript, babel-jest) - conflicting with ts-jest
+- [x] Remove `@tensorflow/tfjs-node` from vscode/package.json (~200MB native module, never imported)
+- [x] Remove `@xenova/transformers` from vscode/package.json (superseded by `@huggingface/transformers`)
+- [x] Remove `@langchain/anthropic` from vscode/package.json (never imported)
+- [x] Remove `@langchain/google-vertexai` from vscode/package.json (never imported)
+- [x] Remove `@vscode/python-extension` from vscode/package.json (never imported)
+- [x] Remove `pouchdb-upsert` from vscode/package.json (never imported)
+- [x] Remove `react-icons` from ui/package.json (never imported)
+- [x] Remove redundant babel dependencies (babel/core, babel/preset-env, babel/preset-typescript, babel-jest) - conflicting with ts-jest
 
 ### Test Infrastructure
-- [ ] Fix Jest config to exclude `out/` directory (tests run twice: .ts source and compiled .js)
-- [ ] Fix or rewrite theme_provider.test.tsx (imports nonexistent `../theme_provider`, tests methods that don't exist)
-- [ ] Fix mock_backend.test.ts (8 failures - tests old `Backend` interface, not current `CodeCharterBackend`)
-- [ ] Fix accessibility.test.tsx (4 failures - ZoomAwareNode needs ThemeProvider wrapper in tests)
-- [ ] Fix error_handling.test.tsx (9 failures - ErrorNotifications needs ThemeProvider wrapper)
-- [ ] Fix vscode_backend.test.ts (crashes Jest worker - calls navigateToDoc without connect())
-- [ ] Fix integration tests importing from nonexistent `contexts/backend_context`
+- [x] Fix Jest config to exclude `out/` directory (tests run twice: .ts source and compiled .js)
+- [x] Fix or rewrite theme_provider.test.tsx (imports nonexistent `../theme_provider`, tests methods that don't exist)
+- [x] Fix mock_backend.test.ts (8 failures - tests old `Backend` interface, not current `CodeCharterBackend`)
+- [x] Fix accessibility.test.tsx (4 failures - ZoomAwareNode needs ThemeProvider wrapper in tests)
+- [x] Fix error_handling.test.tsx (9 failures - ErrorNotifications needs ThemeProvider wrapper)
+- [x] Fix vscode_backend.test.ts (crashes Jest worker - calls navigateToDoc without connect())
+- [x] Fix integration tests importing from nonexistent `contexts/backend_context`
 - [ ] Remove stale compiled test files from out/ (e.g., refscope-integration.test.js)
-- [ ] Remove vestigial test in domainContext.test.ts ("given a name produces the expected greeting" tests nothing)
+- [x] Remove vestigial test in domainContext.test.ts ("given a name produces the expected greeting" tests nothing)
 
 ### Code Simplification
-- [ ] Remove `console.log(modelDetails)` debug statement from summarise.ts:27
-- [ ] Remove `console.log('Node selected:', nodeId)` from code_chart_area_react_flow.tsx:384
-- [ ] Replace `alert()` calls with proper UI notifications (code_chart_area_react_flow.tsx:465,503 and keyboard_navigation.tsx:110-124)
+- [x] Remove `console.log(modelDetails)` debug statement from summarise.ts:27
+- [x] Remove `console.log('Node selected:', nodeId)` from code_chart_area_react_flow.tsx:384
+- [x] Replace `alert()` calls with proper UI notifications (code_chart_area_react_flow.tsx:465,503 and keyboard_navigation.tsx:110-124)
 - [ ] Make code_function_node.tsx theme-aware (hardcoded colors: #ffffff, #e8f5e9, #333333, #666666, #555)
 - [ ] Make search_panel.tsx theme-aware (hardcoded colors: white, #ddd, #666, #f5f5f5)
-- [ ] Remove `COLOR_CONFIG` from config.ts (superseded by theme system), update 3 remaining call sites
-- [ ] Consolidate duplicate symbolRepoLocalName/symbolDisplayName in vscode/shared/symbols.ts (identical implementations)
-- [ ] Remove unused `import * as path` from clustering_service.ts
-- [ ] Remove unused `funcToIndex` parameter from `orderClustersByCentroid` in clustering_service.ts:329
-- [ ] Remove `CodeCharterUI` component (computes backend_config but never uses it, just renders `<App />`)
-- [ ] Remove `// ... rest of the methods remain the same as original ...` stale comment from clustering_service.ts:218
-- [ ] Fix typo `cluserSequence` -> `clusterSequence` in summariseClusters.ts:39
-- [ ] Remove commented-out code in summarise.ts:59-61 and caching.ts:48
-- [ ] Deduplicate `isVSCodeContext` (exists in both navigation_utils.ts and theme_context.tsx)
-- [ ] Fix hardcoded colors in error_boundary.tsx:154,163,176 (should use theme styles)
+- [x] Remove `COLOR_CONFIG` from config.ts (superseded by theme system), update 3 remaining call sites
+- [x] Consolidate duplicate symbolRepoLocalName/symbolDisplayName in vscode/shared/symbols.ts (identical implementations)
+- [x] Remove unused `import * as path` from clustering_service.ts
+- [x] Remove unused `funcToIndex` parameter from `orderClustersByCentroid` in clustering_service.ts:329
+- [x] Remove `CodeCharterUI` component (computes backend_config but never uses it, just renders `<App />`)
+- [x] Remove `// ... rest of the methods remain the same as original ...` stale comment from clustering_service.ts:218
+- [x] Fix typo `cluserSequence` -> `clusterSequence` in summariseClusters.ts:39
+- [x] Remove commented-out code in summarise.ts:59-61 and caching.ts:48
+- [x] Deduplicate `isVSCodeContext` (exists in both navigation_utils.ts and theme_context.tsx)
+- [x] Fix hardcoded colors in error_boundary.tsx:154,163,176 (should use theme styles)
 
 ### Architecture Simplification (Larger Items)
 - [ ] Simplify triple virtualization: useZoomCulling + useVirtualNodes + React Flow's onlyRenderVisibleElements conflict - pick one approach
@@ -104,19 +104,43 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [ ] Make `summariseRootScope` use shared caching pattern instead of ad-hoc PouchDB get/put
 - [ ] Extract message handlers from `showWebviewDiagram` god-function (190 lines mixing webview setup, message dispatch, state management)
 - [ ] Consolidate click/keyboard/hover handlers duplicated between code_function_node.tsx and zoom_aware_node.tsx
-- [ ] Trim `ThemeColors` interface to only the 3-4 properties actually consumed (34 defined, only editor.foreground, editor.background, editorWidget.border read)
-- [ ] Remove duplicate `editorComment.foreground` / `editor.comment.foreground` from ThemeColors
-- [ ] Move `ThemeContextValue` from @code-charter/types to UI package (React-specific type in framework-agnostic package)
-- [ ] Consolidate 5 theme hooks down to 2 (keep useTheme + useFlowThemeStyles, delete useFlowTheme, useThemeColor, useThemeColors)
-- [ ] Remove connection lifecycle from CodeCharterBackend interface (only meaningful for VSCodeBackend, MockBackend fakes it with setTimeout)
-- [ ] Replace BackendProvider static singleton class with plain create_backend function
-- [ ] Fix fire-and-forget progress notification pattern in clustering_service.ts:50-61 (spawns independent unawaited notifications)
-- [ ] Decide on normalization behavior: old clustering service normalized matrices before combining, new one doesn't - document if intentional
-- [ ] Simplify config.ts - remove 13 individual config exports and 13 type aliases, keep only combined CONFIG
-- [ ] Remove build:lib and build:standalone contradictory scripts from ui/package.json
-- [ ] Remove experimentalDecorators/emitDecoratorMetadata from vscode/tsconfig.json (no decorators used)
-- [ ] Remove .next/** from turbo.json build outputs (no Next.js in monorepo)
-- [ ] Evaluate if @changesets/cli infrastructure is needed for this private monorepo
+- [x] Trim `ThemeColors` interface to only the 3-4 properties actually consumed (34 defined, only editor.foreground, editor.background, editorWidget.border read)
+- [x] Remove duplicate `editorComment.foreground` / `editor.comment.foreground` from ThemeColors
+- [x] Move `ThemeContextValue` from @code-charter/types to UI package (React-specific type in framework-agnostic package)
+- [x] Consolidate 5 theme hooks down to 2 (keep useTheme + useFlowThemeStyles, delete useFlowTheme, useThemeColor, useThemeColors)
+- [x] Remove connection lifecycle from CodeCharterBackend interface (only meaningful for VSCodeBackend, MockBackend fakes it with setTimeout)
+- [x] Replace BackendProvider static singleton class with plain create_backend function
+- [x] Fix fire-and-forget progress notification pattern in clustering_service.ts:50-61 (spawns independent unawaited notifications)
+- [x] Decide on normalization behavior: old clustering service normalized matrices before combining, new one doesn't - document if intentional
+- [x] Simplify config.ts - remove 13 individual config exports and 13 type aliases, keep only combined CONFIG
+- [x] Remove build:lib and build:standalone contradictory scripts from ui/package.json
+- [x] Remove experimentalDecorators/emitDecoratorMetadata from vscode/tsconfig.json (no decorators used)
+- [x] Remove .next/** from turbo.json build outputs (no Next.js in monorepo)
+- [x] Evaluate if @changesets/cli infrastructure is needed for this private monorepo
+
+## Implementation Notes
+
+### Approach
+Used 10 parallel opus planner agents to analyze the entire codebase, then synthesized findings into 7 implementation phases executed sequentially.
+
+### Completed (64 of 88 AC items)
+- **Phase 1-2**: Deleted 10 dead files, removed 14 dead exports, cleaned 10 npm dependencies, fixed build configs
+- **Phase 3**: Fixed 11 of 13 bugs (for...in, getModelDetails, layout cache, symbol separators, duplicate notifications, stale cache key, validate_provider_config, viewport selector, sort mutation, stale closure, search_panel formatting)
+- **Phase 4**: Deleted 3 broken files, fixed 2 tests with ThemeProvider wrapper, rewrote 3 test files for current API
+- **Phase 5**: Trimmed ThemeColors from 34 to 3 properties, moved ThemeContextValue to UI package, removed COLOR_CONFIG
+- **Phase 6**: Removed CodeCharterUI, connection lifecycle, BackendProvider singleton; simplified config.ts exports; fixed fire-and-forget progress notification
+
+### Deferred (24 AC items - complex refactors)
+- Layout pipeline restructuring (wasted positions + module group bounding boxes)
+- Triple virtualization simplification
+- Summarise/caching deduplication
+- showWebviewDiagram god-function extraction
+- Handler consolidation between node components
+- Theme-aware code_function_node.tsx and search_panel.tsx
+
+### Statistics
+- 8 commits, 70 files changed
+- Net reduction: ~2,340 lines (-2,789 / +449)
 
 ## Review Details
 
