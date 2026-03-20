@@ -92,7 +92,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   });
   
   // Monitor zoom level and viewport
-  const zoom = useStore((state: XYFlowState) => state.transform[2]);
   const viewportX = useStore((state: XYFlowState) => state.transform[0]);
   const viewportY = useStore((state: XYFlowState) => state.transform[1]);
   const viewportZoom = useStore((state: XYFlowState) => state.transform[2]);
@@ -104,11 +103,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 
   // Update zoom mode based on zoom level
   useEffect(() => {
-    const newZoomMode = zoom < ZOOM_THRESHOLD ? "zoomedOut" : "zoomedIn";
+    const newZoomMode = viewportZoom < ZOOM_THRESHOLD ? "zoomedOut" : "zoomedIn";
     if (newZoomMode !== zoomMode) {
       setZoomMode(newZoomMode);
     }
-  }, [zoom, zoomMode]);
+  }, [viewportZoom, zoomMode]);
 
   // Memoize visible nodes for virtualization
   const visibleNodeIds = useMemo(() => {
@@ -125,7 +124,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   }, [nodes, debouncedViewport]);
   
   // Apply zoom-based culling for performance
-  const culledNodes = useZoomCulling(nodes, zoom, CONFIG.zoom.culling.threshold);
+  const culledNodes = useZoomCulling(nodes, viewportZoom, CONFIG.zoom.culling.threshold);
   
   // Apply virtual rendering for large graphs
   const { virtualNodes, virtualEdges, hiddenNodeCount } = useVirtualNodes({

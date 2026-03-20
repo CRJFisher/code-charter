@@ -26,7 +26,6 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_summaries_loading }) => {
-  const { backend } = useBackend();
   const [is_sidebar_open, set_is_sidebar_open] = useState(true);
 
   const toggle_sidebar = () => {

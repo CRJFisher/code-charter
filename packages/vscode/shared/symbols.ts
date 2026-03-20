@@ -1,4 +1,7 @@
 export function symbolRepoLocalName(symbol: string): string {
-  const parts = symbol.split(':');
-  return parts[parts.length - 1] || symbol;
+  const hash_index = symbol.indexOf('#');
+  if (hash_index !== -1) {
+    return symbol.substring(hash_index + 1);
+  }
+  return symbol;
 }

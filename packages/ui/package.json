@@ -14,8 +14,6 @@
     "dev:standalone": "NODE_ENV=development tsup --watch",
     "dev:server": "http-server dist -p 3000 --cors -c-1",
     "dev:all": "concurrently \"npm run dev:standalone\" \"npm run dev:server\"",
-    "debug": "tsx --inspect=9229 src/debug-entry.tsx",
-    "debug:watch": "tsx watch --inspect=9229 src/debug-entry.tsx",
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
