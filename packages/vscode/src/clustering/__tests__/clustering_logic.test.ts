@@ -92,8 +92,8 @@ describe("create_similarity_matrix", () => {
 describe("create_adjacency_matrix", () => {
   it("marks connected functions symmetrically", () => {
     const call_graph = {
-      a: { calls: [{ symbol: "b" }] },
-      b: { calls: [] },
+      a: { enclosed_calls: [{ resolutions: [{ symbol_id: "b" }] }] },
+      b: { enclosed_calls: [] },
     };
     const func_to_index = { a: 0, b: 1 };
     const matrix = create_adjacency_matrix(call_graph, func_to_index, 2);
@@ -106,7 +106,7 @@ describe("create_adjacency_matrix", () => {
 
   it("ignores calls to unknown symbols", () => {
     const call_graph = {
-      a: { calls: [{ symbol: "unknown" }] },
+      a: { enclosed_calls: [{ resolutions: [{ symbol_id: "unknown" }] }] },
     };
     const func_to_index = { a: 0 };
     const matrix = create_adjacency_matrix(call_graph, func_to_index, 1);
@@ -115,7 +115,7 @@ describe("create_adjacency_matrix", () => {
 
   it("ignores self-calls", () => {
     const call_graph = {
-      a: { calls: [{ symbol: "a" }] },
+      a: { enclosed_calls: [{ resolutions: [{ symbol_id: "a" }] }] },
     };
     const func_to_index = { a: 0 };
     const matrix = create_adjacency_matrix(call_graph, func_to_index, 1);
@@ -124,8 +124,8 @@ describe("create_adjacency_matrix", () => {
 
   it("returns all zeros for no connections", () => {
     const call_graph = {
-      a: { calls: [] },
-      b: { calls: [] },
+      a: { enclosed_calls: [] },
+      b: { enclosed_calls: [] },
     };
     const func_to_index = { a: 0, b: 1 };
     const matrix = create_adjacency_matrix(call_graph, func_to_index, 2);

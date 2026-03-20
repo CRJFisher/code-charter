@@ -53,7 +53,7 @@ export class ClusteringService {
       },
     });
 
-    const grouped_clusters = this.group_clusters_by_label(result.labels, index_to_func);
+    const grouped_clusters = this.group_clusters_by_label(result.optimal.labels, index_to_func);
     const ordered_clusters = this.order_clusters_by_centroid(
       grouped_clusters,
       embeddings,

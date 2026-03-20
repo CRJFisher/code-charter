@@ -11,7 +11,9 @@ export interface CodeNodeData extends Record<string, unknown> {
   symbol: string;
 }
 
-const CodeFunctionNodeComponent: React.FC<NodeProps<CodeNodeData>> = ({ data, selected }) => {
+const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
+  const data = props.data as CodeNodeData;
+  const { selected } = props;
   const handleClick = (e: React.MouseEvent) => {
     // Prevent node selection/dragging
     e.stopPropagation();
@@ -115,12 +117,14 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeNodeData>> = ({ data, se
 // Memoize the component to prevent unnecessary re-renders
 export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps, nextProps) => {
   // Only re-render if data or selected state changes
+  const prev_data = prevProps.data as CodeNodeData;
+  const next_data = nextProps.data as CodeNodeData;
   return (
-    prevProps.data.function_name === nextProps.data.function_name &&
-    prevProps.data.description === nextProps.data.description &&
-    prevProps.data.file_path === nextProps.data.file_path &&
-    prevProps.data.line_number === nextProps.data.line_number &&
-    prevProps.data.is_entry_point === nextProps.data.is_entry_point &&
+    prev_data.function_name === next_data.function_name &&
+    prev_data.description === next_data.description &&
+    prev_data.file_path === next_data.file_path &&
+    prev_data.line_number === next_data.line_number &&
+    prev_data.is_entry_point === next_data.is_entry_point &&
     prevProps.selected === nextProps.selected &&
     prevProps.id === nextProps.id
   );

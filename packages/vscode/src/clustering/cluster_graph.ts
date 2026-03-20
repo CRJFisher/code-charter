@@ -1,4 +1,4 @@
-import { CallGraph } from "@ariadnejs/types";
+import type { CallGraph, SymbolId } from "@ariadnejs/types";
 
 export interface ClusterMember {
   symbol: string;
@@ -83,7 +83,7 @@ export function build_cluster_graph(clusters: ClusterMember[][], call_graph: Cal
     cluster_id_to_members[current_cluster_id] = cluster;
 
     for (const member of cluster) {
-      const node = call_graph.nodes.get(member.symbol);
+      const node = call_graph.nodes.get(member.symbol as SymbolId);
       const dependency_cluster_ids = new Set(
         node?.enclosed_calls
           ?.flatMap((call) => call.resolutions.map((r) => symbol_to_cluster_id[r.symbol_id]))

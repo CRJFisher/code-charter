@@ -2,7 +2,7 @@
  * Supported clustering algorithms.
  * Matches the algorithms available in clustering-tfjs v0.4.0.
  */
-export type ClusteringAlgorithm = 'spectral' | 'kmeans' | 'agglomerative' | 'som';
+export type ClusteringAlgorithm = 'spectral' | 'kmeans' | 'agglomerative';
 
 /**
  * Metrics that can be used to evaluate clustering quality.
@@ -16,19 +16,6 @@ export interface SpectralParams {
   affinity?: 'nearest_neighbors' | 'rbf' | 'precomputed';
   gamma?: number;
   n_neighbors?: number;
-}
-
-/**
- * Algorithm-specific parameters for SOM clustering.
- */
-export interface SomParams {
-  grid_width?: number;
-  grid_height?: number;
-  learning_rate?: number;
-  num_epochs?: number;
-  topology?: 'rectangular' | 'hexagonal';
-  neighborhood?: 'gaussian' | 'bubble' | 'mexican_hat';
-  initialization?: 'random' | 'linear' | 'pca';
 }
 
 /**
@@ -51,7 +38,7 @@ export interface AgglomerativeParams {
 /**
  * Union of algorithm-specific parameter types.
  */
-export type AlgorithmParams = SpectralParams | SomParams | KmeansParams | AgglomerativeParams;
+export type AlgorithmParams = SpectralParams | KmeansParams | AgglomerativeParams;
 
 /**
  * Scores from a single clustering evaluation.

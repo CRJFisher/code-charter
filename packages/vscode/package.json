@@ -31,14 +31,12 @@
           "enum": [
             "spectral",
             "kmeans",
-            "agglomerative",
-            "som"
+            "agglomerative"
           ],
           "enumDescriptions": [
             "Spectral clustering: uses graph Laplacian eigenvalues. Best for code dependency graphs with non-convex cluster shapes.",
             "K-means: fast partitioning by minimizing within-cluster variance. Good for roughly spherical clusters.",
-            "Agglomerative: bottom-up hierarchical merging. Good for discovering nested code module hierarchies.",
-            "Self-organizing map (SOM): neural-network topology-preserving map with incremental re-clustering as code changes."
+            "Agglomerative: bottom-up hierarchical merging. Good for discovering nested code module hierarchies."
           ],
           "description": "Clustering algorithm used to group related code symbols."
         },
@@ -98,6 +96,6 @@
     "@huggingface/transformers": "^3.7.1",
     "@tensorflow/tfjs-node": "^4.10.0",
     "@vscode/python-extension": "^1.0.5",
-    "clustering-tfjs": "^0.4.0"
+    "clustering-tfjs": "^0.3.1"
   }
 }

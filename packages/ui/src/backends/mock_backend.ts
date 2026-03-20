@@ -38,9 +38,9 @@ function make_mock_callable_node(
       is_exported: false,
       signature: { parameters: [] },
       body_scope_id: "scope:1",
-    } as AnyDefinition,
+    } as unknown as AnyDefinition,
     is_test: false,
-  } as CallableNode;
+  } as unknown as CallableNode;
 }
 
 function make_call_reference(
@@ -60,7 +60,7 @@ function make_call_reference(
     scope_id: "scope:0",
     call_type: "function",
     resolutions: [{ symbol_id: target_symbol_id as SymbolId }],
-  } as CallReference;
+  } as unknown as CallReference;
 }
 
 /**

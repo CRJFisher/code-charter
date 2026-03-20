@@ -31,7 +31,7 @@ jest.mock('@xyflow/react', () => ({
 }));
 
 describe('Accessibility Features', () => {
-  const mockNodeProps: NodeProps = {
+  const mockNodeProps = {
     id: 'test-node',
     data: {
       function_name: 'testFunction',
@@ -43,12 +43,15 @@ describe('Accessibility Features', () => {
     },
     selected: false,
     type: 'code_function',
-    xPos: 0,
-    yPos: 0,
     zIndex: 0,
     isConnectable: true,
     dragging: false,
-  };
+    draggable: true,
+    selectable: true,
+    deletable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+  } as unknown as NodeProps;
 
   describe('CodeFunctionNode Accessibility', () => {
     it('should have proper ARIA attributes', () => {
@@ -63,7 +66,7 @@ describe('Accessibility Features', () => {
     });
 
     it('should show selected state in ARIA attributes', () => {
-      const selectedProps = { ...mockNodeProps, selected: true };
+      const selectedProps = { ...mockNodeProps, selected: true } as unknown as NodeProps;
       render(<CodeFunctionNode {...selectedProps} />);
       
       const node = screen.getByRole('button');
@@ -95,8 +98,8 @@ describe('Accessibility Features', () => {
     it('should have proper ARIA label for entry point', () => {
       const entryPointProps = {
         ...mockNodeProps,
-        data: { ...mockNodeProps.data, is_entry_point: true },
-      };
+        data: { ...(mockNodeProps as any).data, is_entry_point: true },
+      } as unknown as NodeProps;
       render(<CodeFunctionNode {...entryPointProps} />);
       
       const node = screen.getByRole('button');
@@ -142,7 +145,7 @@ describe('Accessibility Features', () => {
       const { useStore } = require('@xyflow/react');
       useStore.mockReturnValue(0.3); // Zoomed out to show modules
       
-      const moduleProps: NodeProps = {
+      const moduleProps = {
         ...mockNodeProps,
         data: {
           module_name: 'TestModule',
@@ -150,8 +153,8 @@ describe('Accessibility Features', () => {
           member_count: 5,
           is_expanded: true,
         },
-      };
-      
+      } as unknown as NodeProps;
+
       render_with_theme(<ModuleGroupNode {...moduleProps} />);
 
       const module = screen.getByRole('group');
@@ -164,7 +167,7 @@ describe('Accessibility Features', () => {
       const { useStore } = require('@xyflow/react');
       useStore.mockReturnValue(0.3); // Zoomed out
 
-      const moduleProps: NodeProps = {
+      const moduleProps = {
         ...mockNodeProps,
         data: {
           module_name: 'TestModule',
@@ -172,7 +175,7 @@ describe('Accessibility Features', () => {
           member_count: 3,
           is_expanded: true,
         },
-      };
+      } as unknown as NodeProps;
 
       render_with_theme(<ModuleGroupNode {...moduleProps} />);
       
@@ -183,7 +186,7 @@ describe('Accessibility Features', () => {
 
   describe('Focus Management', () => {
     it('should show focus indicators on selected nodes', () => {
-      const selectedProps = { ...mockNodeProps, selected: true };
+      const selectedProps = { ...mockNodeProps, selected: true } as unknown as NodeProps;
       const { container } = render(<CodeFunctionNode {...selectedProps} />);
       
       const node = container.querySelector('[role="button"]');

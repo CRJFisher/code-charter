@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useBackend } from "../hooks/use_backend";
-import type { CallGraph, CallableNode, CallReference } from "@code-charter/types";
+import type { CallGraph, CallableNode, CallReference, SymbolId } from "@code-charter/types";
 
-function count_nodes(top_level_node: string, graph: CallGraph, visited_nodes: Set<string> = new Set<string>()): number {
+function count_nodes(top_level_node: SymbolId, graph: CallGraph, visited_nodes: Set<SymbolId> = new Set<SymbolId>()): number {
   const node = graph.nodes.get(top_level_node);
   if (!node) return 0;
 
@@ -101,13 +101,13 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
 
   const tot_nodes_count_descending_symbols = useMemo(() => {
     return [...call_graph.entry_points].sort(
-      (a: string, b: string) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
+      (a, b) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
     );
   }, [call_graph]);
 
   return (
     <ul className="w-full">
-      {tot_nodes_count_descending_symbols.map((node_symbol: string) => {
+      {tot_nodes_count_descending_symbols.map((node_symbol) => {
         const node = call_graph.nodes.get(node_symbol);
         if (!node) return null;
         const display_name = symbol_display_name(node.symbol_id);

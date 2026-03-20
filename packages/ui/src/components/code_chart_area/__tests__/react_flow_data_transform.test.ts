@@ -27,7 +27,7 @@ describe("generateReactFlowElements", () => {
       is_exported: false,
       signature: { parameters: [] },
       body_scope_id: "scope:1",
-    } as AnyDefinition;
+    } as unknown as AnyDefinition;
   }
 
   function make_call_reference(target: CallableNode): CallReference {
@@ -37,7 +37,7 @@ describe("generateReactFlowElements", () => {
       scope_id: "scope:0",
       call_type: "function",
       resolutions: [{ symbol_id: target.symbol_id }],
-    } as CallReference;
+    } as unknown as CallReference;
   }
 
   const create_mock_node = (name: string, enclosed_calls: CallReference[] = []): CallableNode => ({
@@ -47,7 +47,7 @@ describe("generateReactFlowElements", () => {
     location: make_location(name),
     definition: make_definition(name),
     is_test: false,
-  }) as CallableNode;
+  }) as unknown as CallableNode;
 
   const create_mock_descriptions = (nodes: CallableNode[]): DocstringSummaries => ({
     call_tree: nodes.reduce((acc, node) => {

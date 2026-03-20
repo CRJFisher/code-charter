@@ -2,33 +2,14 @@ import { run_clustering } from "../clustering_adapter";
 import type { ClusteringConfig } from "@code-charter/types";
 
 // The mock is loaded via moduleNameMapper in jest.config.js
-const { findOptimalClusters, Clustering } = require("clustering-tfjs");
+const { findOptimalClusters } = require("clustering-tfjs");
 
 describe("run_clustering", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset the initialization state by reimporting
-    // Note: the adapter caches init state, but Clustering.init mock tracks calls
   });
 
   describe("with standard algorithms (spectral, kmeans, agglomerative)", () => {
-    it("calls Clustering.init() before clustering", async () => {
-      const config: ClusteringConfig = {
-        algorithm: "spectral",
-        max_clusters: 5,
-      };
-      const data = [
-        [1, 0],
-        [0, 1],
-        [1, 1],
-        [0.5, 0.5],
-        [0.9, 0.1],
-      ];
-
-      await run_clustering(data, config);
-      expect(Clustering.init).toHaveBeenCalled();
-    });
-
     it("maps config to findOptimalClusters options correctly", async () => {
       const config: ClusteringConfig = {
         algorithm: "spectral",
@@ -157,55 +138,6 @@ describe("run_clustering", () => {
         combinedScore: 2,
       });
       expect(score).toBeCloseTo(0.8 * 3 + 100);
-    });
-  });
-
-  describe("with SOM algorithm", () => {
-    it("uses SOM + AgglomerativeClustering 2-phase approach", async () => {
-      const config: ClusteringConfig = {
-        algorithm: "som",
-        max_clusters: 5,
-      };
-      const data = [
-        [1, 0],
-        [0, 1],
-        [1, 1],
-        [0.5, 0.5],
-        [0.9, 0.1],
-        [0.1, 0.9],
-      ];
-
-      const result = await run_clustering(data, config);
-
-      // Should have used SOM constructor
-      expect(Clustering.SOM).toHaveBeenCalled();
-      // Should have used AgglomerativeClustering
-      expect(Clustering.AgglomerativeClustering).toHaveBeenCalled();
-      // Should return valid result
-      expect(result).toHaveProperty("labels");
-      expect(result).toHaveProperty("n_clusters");
-    });
-
-    it("does NOT call findOptimalClusters for SOM", async () => {
-      findOptimalClusters.mockClear();
-
-      const config: ClusteringConfig = {
-        algorithm: "som",
-        max_clusters: 5,
-      };
-      const data = [
-        [1, 0],
-        [0, 1],
-        [1, 1],
-        [0.5, 0.5],
-        [0.9, 0.1],
-        [0.1, 0.9],
-      ];
-
-      await run_clustering(data, config);
-
-      // SOM path should NOT use findOptimalClusters
-      expect(findOptimalClusters).not.toHaveBeenCalled();
     });
   });
 

@@ -431,9 +431,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             <button
               onClick={() => setShowMiniMap(!showMiniMap)}
               style={{
+                ...themeStyles.getButtonStyle(showMiniMap ? 'primary' : 'secondary'),
                 padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                 fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                ...themeStyles.getButtonStyle(showMiniMap ? 'primary' : 'secondary'),
                 borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
                 opacity: showMiniMap ? 1 : 0.7,
                 marginBottom: `${CONFIG.spacing.margin.small}px`,
@@ -458,9 +458,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                   }
                 }}
                 style={{
+                  ...themeStyles.getButtonStyle('primary'),
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  ...themeStyles.getButtonStyle('primary'),
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
                 }}
               >
@@ -473,9 +473,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                   }
                 }}
                 style={{
+                  ...themeStyles.getButtonStyle('secondary'),
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  ...themeStyles.getButtonStyle('secondary'),
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
                 }}
               >
@@ -487,9 +487,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                   notify("Saved state cleared!", "info");
                 }}
                 style={{
+                  ...themeStyles.getButtonStyle('danger'),
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  ...themeStyles.getButtonStyle('danger'),
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
                 }}
               >

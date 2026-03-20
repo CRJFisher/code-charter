@@ -37,10 +37,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     
     nodes.forEach(node => {
       if (!node.data) return;
-      
-      const nodeName = node.data.function_name || node.data.module_name || '';
+      const node_data = node.data as Record<string, unknown>;
+
+      const nodeName = String(node_data.function_name || node_data.module_name || '');
       const lowerName = nodeName.toLowerCase();
-      const description = node.data.description || '';
+      const description = String(node_data.description || '');
       const lower_description = description.toLowerCase();
       
       let score = 0;
@@ -75,7 +76,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           nodeName,
           nodeType: node.type || 'unknown',
           description: description.substring(0, 100),
-          filePath: node.data.file_path,
+          filePath: node_data.file_path as string | undefined,
           score,
         });
       }

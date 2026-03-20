@@ -1,28 +1,29 @@
-import { 
-  saveGraphState, 
-  loadGraphState, 
+import {
+  saveGraphState,
+  loadGraphState,
   clearGraphState,
   exportGraphState,
   importGraphState,
   GraphState
 } from "../state_persistence";
-import { Node, Edge, Viewport } from "@xyflow/react";
+import { Edge, Viewport } from "@xyflow/react";
+import { CodeChartNode, CodeChartEdge } from "../react_flow_types";
 
 describe("state_persistence", () => {
-  const mockNodes: Node[] = [
+  const mockNodes = [
     {
       id: "node1",
       position: { x: 100, y: 100 },
       data: { label: "Node 1" },
     },
     {
-      id: "node2", 
+      id: "node2",
       position: { x: 200, y: 200 },
       data: { label: "Node 2" },
     },
-  ];
+  ] as unknown as CodeChartNode[];
 
-  const mockEdges: Edge[] = [
+  const mockEdges: CodeChartEdge[] = [
     {
       id: "edge1",
       source: "node1",

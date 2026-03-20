@@ -1,11 +1,9 @@
 /**
  * Clustering adapter that wraps clustering-tfjs behind a clean interface.
- * Handles Clustering.init() singleton, config mapping, SOM 2-phase clustering,
- * and result normalization.
+ * Handles config mapping and result normalization.
  */
 
 import {
-  Clustering,
   findOptimalClusters,
   type ClusterEvaluation as LibClusterEvaluation,
   type FindOptimalClustersOptions,
@@ -15,23 +13,7 @@ import type {
   ClusteringResult,
   ClusteringScores,
   ClusterEvaluation,
-  SomParams,
 } from "@code-charter/types";
-
-// Promise-based singleton to avoid TOCTOU race on concurrent init calls.
-let _init_promise: Promise<void> | null = null;
-
-/**
- * Ensure the TF.js backend is initialized (singleton, race-safe).
- */
-async function ensure_initialized(): Promise<void> {
-  if (!_init_promise) {
-    _init_promise = Clustering.init().then(() => {
-      console.log("[clustering-adapter] TF.js clustering backend initialized");
-    });
-  }
-  return _init_promise;
-}
 
 /**
  * Log TF.js memory usage for diagnostics.
@@ -57,7 +39,7 @@ function map_config_to_options(
   const options: FindOptimalClustersOptions = {
     minClusters: config.min_clusters ?? 2,
     maxClusters: config.max_clusters,
-    algorithm: config.algorithm === "som" ? "kmeans" : config.algorithm,
+    algorithm: config.algorithm,
     metrics: map_metrics(config.metrics),
   };
 
@@ -139,9 +121,9 @@ async function run_standard_clustering(
   const result = await findOptimalClusters(data, options);
 
   const optimal = result.optimal;
-  const labels = Array.isArray(optimal.labels)
-    ? optimal.labels
-    : Array.from(optimal.labels);
+  const labels: number[] = Array.isArray(optimal.labels)
+    ? optimal.labels as number[]
+    : Array.from(optimal.labels as Iterable<number>);
 
   return {
     labels,
@@ -157,155 +139,16 @@ async function run_standard_clustering(
 }
 
 /**
- * Run SOM-based 2-phase clustering:
- * Phase 1: Train SOM on data → extract weight vectors
- * Phase 2: Agglomerative clustering on weight vectors → final labels
- */
-async function run_som_clustering(
-  data: number[][],
-  config: ClusteringConfig
-): Promise<ClusteringResult> {
-  const n = data.length;
-  const som_params = (config.algorithm_params ?? {}) as SomParams;
-
-  const grid_dim = Math.max(
-    2,
-    som_params.grid_width ?? Math.ceil(Math.sqrt(n * 2))
-  );
-  const grid_height = som_params.grid_height ?? grid_dim;
-
-  const som = new Clustering.SOM({
-    nClusters: grid_dim * grid_height,
-    gridWidth: grid_dim,
-    gridHeight: grid_height,
-    topology: som_params.topology ?? "hexagonal",
-    neighborhood: som_params.neighborhood ?? "gaussian",
-    initialization: som_params.initialization ?? "pca",
-    numEpochs: som_params.num_epochs ?? 200,
-    learningRate: som_params.learning_rate ?? 0.5,
-    onlineMode: true,
-    tol: 1e-5,
-  });
-
-  try {
-    await som.fit(data);
-
-    // Extract weight vectors from SOM grid and dispose tensor immediately
-    const weights_tensor = som.getWeights();
-    const weights_3d: number[][][] = weights_tensor.arraySync();
-    if (weights_tensor.dispose) weights_tensor.dispose();
-
-    const weights_flat: number[][] = [];
-    for (let i = 0; i < grid_height; i++) {
-      for (let j = 0; j < grid_dim; j++) {
-        weights_flat.push(weights_3d[i][j]);
-      }
-    }
-
-    // Get BMU indices for all data points
-    const bmu_indices = (await som.predict(data)) as number[];
-
-    // Phase 2: Sweep agglomerative clustering on weight vectors for optimal k
-    const min_k = config.min_clusters ?? 2;
-    const max_k = Math.max(min_k, Math.min(Math.floor(n / 3), config.max_clusters));
-
-    let best_result: ClusteringResult | null = null;
-    let best_score = -Infinity;
-    const all_evaluations: ClusterEvaluation[] = [];
-
-    for (let k = min_k; k <= max_k; k++) {
-      const agglom = new Clustering.AgglomerativeClustering({
-        nClusters: k,
-        linkage: "ward",
-      });
-      const neuron_labels = (await agglom.fitPredict(
-        weights_flat
-      )) as number[];
-
-      const data_labels = bmu_indices.map(
-        (bmu_idx) => neuron_labels[bmu_idx]
-      );
-
-      const evaluation: ClusterEvaluation = {
-        k,
-        scores: {},
-        labels: data_labels,
-      };
-      all_evaluations.push(evaluation);
-
-      const unique_labels = new Set(data_labels);
-      const score = unique_labels.size === k ? k : k - (k - unique_labels.size) * 2;
-
-      if (score > best_score || best_result === null) {
-        best_score = score;
-        best_result = {
-          labels: data_labels,
-          n_clusters: unique_labels.size,
-          scores: {},
-          all_evaluations,
-        };
-      }
-    }
-
-    if (!best_result) {
-      return {
-        labels: new Array(n).fill(0),
-        n_clusters: 1,
-        scores: {},
-        all_evaluations: [],
-      };
-    }
-
-    best_result.all_evaluations = all_evaluations;
-    return best_result;
-  } finally {
-    som.dispose();
-  }
-}
-
-/**
  * Main entry point: run clustering with the given config.
  */
 export async function run_clustering(
   data: number[][],
   config: ClusteringConfig
 ): Promise<ClusteringResult> {
-  await ensure_initialized();
   log_memory("before clustering");
 
-  let result: ClusteringResult;
-
-  if (config.algorithm === "som") {
-    result = await run_som_clustering(data, config);
-  } else {
-    result = await run_standard_clustering(data, config);
-  }
+  const result = await run_standard_clustering(data, config);
 
   log_memory("after clustering");
   return result;
-}
-
-/**
- * Get a reference to the SOM class for direct use (e.g., incremental clustering).
- */
-export async function create_som_instance(
-  params: SomParams & { data_count: number }
-): Promise<InstanceType<typeof Clustering.SOM>> {
-  await ensure_initialized();
-
-  const grid_dim = params.grid_width ?? Math.ceil(Math.sqrt(params.data_count * 2));
-  const grid_height = params.grid_height ?? grid_dim;
-
-  return new Clustering.SOM({
-    nClusters: grid_dim * grid_height,
-    gridWidth: grid_dim,
-    gridHeight: grid_height,
-    topology: params.topology ?? "hexagonal",
-    neighborhood: params.neighborhood ?? "gaussian",
-    initialization: params.initialization ?? "pca",
-    numEpochs: params.num_epochs ?? 200,
-    learningRate: params.learning_rate ?? 0.5,
-    onlineMode: true,
-    tol: 1e-5,
-  });
 }

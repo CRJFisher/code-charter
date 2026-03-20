@@ -1,9 +1,11 @@
 ---
 id: task-11
 title: Codebase simplification and dead code cleanup
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-03-19'
+updated_date: '2026-03-20'
 labels: []
 dependencies: []
 ---
@@ -142,6 +144,18 @@ Used 10 parallel opus planner agents to analyze the entire codebase, then synthe
 - 8 commits, 70 files changed
 - Net reduction: ~2,340 lines (-2,789 / +449)
 
+
+## Implementation Plan
+
+Phase 1: Dead code deletion (10 files) and dead export removal (14 exports)
+Phase 2: Dependency cleanup (10 npm packages) and build config fixes
+Phase 3: Bug fixes (13 bugs), performance fixes, symbol separator unification
+Phase 4: Test infrastructure (delete 3 broken files, fix 2 with ThemeProvider, rewrite 3)
+Phase 5: Theme system cleanup (trim ThemeColors, move ThemeContextValue, remove COLOR_CONFIG)
+Phase 6: Backend simplification (remove connection lifecycle, replace BackendProvider), config simplification
+Phase 7: Verification and task completion
+
+Some complex refactors deferred: virtualization simplification, summarise dedup, caching simplification, showWebviewDiagram extraction, handler consolidation, layout pipeline restructuring, theme-aware components
 ## Review Details
 
 ### Reviewer Coverage Areas

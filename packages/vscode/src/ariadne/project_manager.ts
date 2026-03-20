@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
-import { load_project, Project } from "@ariadnejs/core";
+import { Project } from "@ariadnejs/core";
 import type { CallGraph, FilePath } from "@ariadnejs/types";
 import * as fs from "fs";
+import * as path from "path";
 
 export class AriadneProjectManager {
   private project: Project | undefined;
@@ -22,23 +23,67 @@ export class AriadneProjectManager {
     this.file_filter = file_filter;
   }
 
+  private static readonly EXCLUDED_DIRS = new Set([
+    "node_modules", "__pycache__", ".vscode", "out", ".git", ".hg",
+    "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
+    "venv", ".venv", "env", ".env",
+  ]);
+
   /**
    * Initialize the project by loading all files and setting up watchers
    */
   async initialize(): Promise<CallGraph> {
     console.log("Initializing AriadneProjectManager...");
 
-    this.project = await load_project({
-      project_path: this.workspace_path,
-      file_filter: this.file_filter,
-      exclude: ["__pycache__", ".vscode", "out"],
-    });
+    this.project = new Project();
+    await this.project.initialize(this.workspace_path as FilePath);
+
+    // Scan filesystem and add files that pass the filter
+    const files = await this.scan_files(this.workspace_path);
+    for (const file_path of files) {
+      try {
+        const content = await fs.promises.readFile(file_path, "utf-8");
+        this.project.update_file(file_path as FilePath, content);
+      } catch (error) {
+        console.error(`Error updating file ${file_path}:`, error);
+      }
+    }
 
     // Set up file watchers
     this.setup_file_watchers();
 
     // Return initial call graph
     return this.project.get_call_graph();
+  }
+
+  /**
+   * Recursively scan directory for files matching the filter
+   */
+  private async scan_files(dir: string): Promise<string[]> {
+    const results: string[] = [];
+    let entries: fs.Dirent[];
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      return results;
+    }
+    for (const entry of entries) {
+      const full_path = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!AriadneProjectManager.EXCLUDED_DIRS.has(entry.name)) {
+          results.push(...await this.scan_files(full_path));
+        }
+      } else if (entry.isFile() || entry.isSymbolicLink()) {
+        try {
+          if (this.file_filter(full_path)) {
+            results.push(full_path);
+          }
+        } catch (error) {
+          console.error(`Filter error for ${full_path}:`, error);
+        }
+      }
+    }
+    return results;
   }
 
   /**

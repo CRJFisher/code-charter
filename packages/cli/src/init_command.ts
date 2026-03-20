@@ -144,7 +144,7 @@ export async function run_init(target_dir: string): Promise<void> {
   for (const file_path of source_files) {
     const content = fs.readFileSync(file_path, "utf-8");
     const relative_path = path.relative(resolved_dir, file_path);
-    project.add_or_update_file(relative_path, content);
+    project.update_file(relative_path as any, content);
     file_contents.set(relative_path, content);
   }
 

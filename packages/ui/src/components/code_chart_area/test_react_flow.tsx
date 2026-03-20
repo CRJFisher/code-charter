@@ -23,16 +23,16 @@ export const TestReactFlowComponent: React.FC = () => {
     is_exported: false,
     signature: { parameters: [] },
     body_scope_id: "scope:1",
-  } as AnyDefinition;
+  } as unknown as AnyDefinition;
 
-  const mock_entry_point: CallableNode = {
+  const mock_entry_point = {
     symbol_id: "function:/test/file.ts:1:0:10:0:test_function" as SymbolId,
     name: "test_function" as SymbolName,
     enclosed_calls: [],
     location: mock_location,
     definition: mock_definition,
     is_test: false,
-  } as CallableNode;
+  } as unknown as CallableNode;
 
   const mock_get_descriptions = async (nodeSymbol: string): Promise<DocstringSummaries | undefined> => {
     return {

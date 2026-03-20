@@ -1,9 +1,11 @@
 ---
 id: task-13
 title: Migrate from @ariadnejs v0.5.x to v0.8.0
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-03-19'
+updated_date: '2026-03-20'
 labels: []
 dependencies: []
 ---
@@ -352,3 +354,30 @@ After all phases:
 
 **New file (1):**
 - `packages/vscode/src/ariadne/call_graph_utils.ts` _(shared helper for call resolution traversal)_
+
+## Implementation Notes
+
+## Implementation Notes
+
+### Approach
+Bottom-up migration across all 3 packages (~30 files), following the 6-phase plan from the task spec. Used 10 parallel opus planning agents to analyze every file, then implemented all changes, then used 10 parallel opus reviewer agents to verify.
+
+### Key Changes
+- **Types package**: Bumped @ariadnejs/types to ^0.8.0, re-exports CallableNode + branded types (SymbolId, FilePath, etc.)
+- **Project Manager**: Replaced manual scanDirectory/addFileToProject with load_project(), switched to absolute paths with FilePath casts
+- **New helper**: Created call_graph_utils.ts with get_resolved_symbol_id() for multi-candidate resolution traversal
+- **Summarise pipeline**: Full rewrite of node traversal (enclosed_calls + resolutions), CallableNode construction for filtered trees
+- **Clustering**: Updated adjacency matrix to iterate enclosed_calls/resolutions, deleted clustering_service_old.ts
+- **UI components**: All 8 files updated (side_bar, App, react_flow_data_transform, code_chart_area, symbol_utils, mock backends, test components)
+- **Tests**: All test files updated with new mock data shapes, assertions fixed
+
+### Technical Decisions
+- Used string-based keys (SymbolId is structurally string at runtime) to maintain compatibility with Record<string, ...> patterns
+- ClusterMember.symbol stays as string with SymbolId cast at CallGraph.nodes.get() boundary
+- node.name used directly (as string cast) instead of parsing SymbolId for display names
+- Location.start_line used directly for line numbers (0-based from tree-sitter, same as old range.start.row)
+
+### Modified Files (30 total)
+New: packages/vscode/src/ariadne/call_graph_utils.ts
+Deleted: packages/vscode/src/clustering/clustering_service_old.ts
+Modified: All package.json files, all source files listed in the implementation plan, all test files

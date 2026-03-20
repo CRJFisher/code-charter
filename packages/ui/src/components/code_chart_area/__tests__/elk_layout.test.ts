@@ -1,5 +1,6 @@
 import { applyHierarchicalLayout, calculateNodeDimensions } from "../elk_layout";
 import { Node, Edge } from "@xyflow/react";
+import { CodeChartNode } from "../react_flow_types";
 import ELK from "elkjs/lib/elk.bundled";
 
 // Mock ELK
@@ -11,8 +12,8 @@ describe("elk_layout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Default mock implementation that returns the layout based on input
-    mockELK.mockImplementation(() => ({
-      layout: jest.fn((graph) => {
+    mockELK.mockImplementation((() => ({
+      layout: jest.fn((graph: any) => {
         // Return a layout result based on the input graph
         return Promise.resolve({
           id: graph.id || 'root',
@@ -25,19 +26,19 @@ describe("elk_layout", () => {
           })),
         });
       }),
-    }));
+    })) as any);
   });
 
   describe("calculateNodeDimensions", () => {
     it("should calculate dimensions based on function name length", () => {
-      const shortNameNode: Node = {
+      const shortNameNode = {
         id: "1",
         position: { x: 0, y: 0 },
         data: {
           function_name: "fn",
           description: "Short description",
         },
-      };
+      } as CodeChartNode;
 
       const result = calculateNodeDimensions(shortNameNode);
       expect(result.width).toBeGreaterThanOrEqual(200); // MIN_WIDTH
@@ -45,42 +46,42 @@ describe("elk_layout", () => {
     });
 
     it("should increase width for longer function names", () => {
-      const longNameNode: Node = {
+      const longNameNode = {
         id: "1",
         position: { x: 0, y: 0 },
         data: {
           function_name: "thisIsAVeryLongFunctionNameThatShouldIncreaseWidth",
           description: "Description",
         },
-      };
+      } as CodeChartNode;
 
       const result = calculateNodeDimensions(longNameNode);
       expect(result.width).toBeGreaterThan(300);
     });
 
     it("should increase height for longer descriptions", () => {
-      const longSummaryNode: Node = {
+      const longSummaryNode = {
         id: "1",
         position: { x: 0, y: 0 },
         data: {
           function_name: "function",
           description: "This is a very long description that should wrap to multiple lines and increase the height of the node significantly because it contains a lot of text",
         },
-      };
+      } as CodeChartNode;
 
       const result = calculateNodeDimensions(longSummaryNode);
       expect(result.height).toBeGreaterThan(80);
     });
 
     it("should respect maximum width", () => {
-      const hugeNode: Node = {
+      const hugeNode = {
         id: "1",
         position: { x: 0, y: 0 },
         data: {
           function_name: "a".repeat(100),
           description: "a".repeat(1000),
         },
-      };
+      } as CodeChartNode;
 
       const result = calculateNodeDimensions(hugeNode);
       expect(result.width).toBeLessThanOrEqual(350); // MAX_WIDTH
@@ -89,11 +90,11 @@ describe("elk_layout", () => {
     });
 
     it("should handle missing data gracefully", () => {
-      const nodeWithoutData: Node = {
+      const nodeWithoutData = {
         id: "1",
         position: { x: 0, y: 0 },
         data: {},
-      };
+      } as CodeChartNode;
 
       const result = calculateNodeDimensions(nodeWithoutData);
       expect(result.width).toBe(200); // MIN_WIDTH
@@ -103,7 +104,7 @@ describe("elk_layout", () => {
 
   describe("applyHierarchicalLayout", () => {
     it("should apply ELK layout to nodes", async () => {
-      const nodes: Node[] = [
+      const nodes = [
         {
           id: "node1",
           position: { x: 0, y: 0 },
@@ -114,7 +115,7 @@ describe("elk_layout", () => {
           position: { x: 0, y: 0 },
           data: { function_name: "func2", description: "Description 2" },
         },
-      ];
+      ] as CodeChartNode[];
 
       const edges: Edge[] = [
         {
@@ -138,18 +139,18 @@ describe("elk_layout", () => {
     });
 
     it("should preserve node data and other properties", async () => {
-      const nodes: Node[] = [
+      const nodes = [
         {
           id: "node1",
           position: { x: 0, y: 0 },
-          data: { 
-            function_name: "func1", 
+          data: {
+            function_name: "func1",
             description: "Description 1",
             custom_field: "value",
           },
           type: "custom",
         },
-      ];
+      ] as unknown as CodeChartNode[];
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       const layoutedNodes = await applyHierarchicalLayout(nodes, []);
@@ -164,7 +165,7 @@ describe("elk_layout", () => {
     });
 
     it("should handle nodes with parentId", async () => {
-      const nodes: Node[] = [
+      const nodes = [
         {
           id: "parent",
           position: { x: 0, y: 0 },
@@ -176,7 +177,7 @@ describe("elk_layout", () => {
           data: { function_name: "child", description: "" },
           parentId: "parent",
         },
-      ];
+      ] as CodeChartNode[];
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       const result = await applyHierarchicalLayout(nodes, []);
@@ -196,20 +197,20 @@ describe("elk_layout", () => {
     });
 
     it("should handle layout errors gracefully", async () => {
-      const nodes: Node[] = [
+      const nodes = [
         {
           id: "node1",
           position: { x: 0, y: 0 },
           data: { function_name: "func1", description: "Description 1" },
         },
-      ];
+      ] as CodeChartNode[];
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       
       // Make ELK throw an error
-      mockELK.mockImplementationOnce(() => ({
+      mockELK.mockImplementationOnce((() => ({
         layout: jest.fn().mockRejectedValue(new Error("Layout failed")),
-      }));
+      })) as any);
 
       const result = await applyHierarchicalLayout(nodes, []);
       

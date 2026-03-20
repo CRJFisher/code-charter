@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { addToGitignore } from "./files";
 import { navigateToDoc } from "./navigate";
-import type { CallGraph, CallableNode } from "@ariadnejs/types";
+import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
 import type { DocstringSummaries } from "@code-charter/types";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
@@ -10,7 +10,7 @@ import { VscodeCacheStorage } from "./clustering/vscode_cache_storage";
 import { LocalEmbeddingsProvider } from "./clustering/local_embeddings_provider";
 import { AriadneProjectManager } from "./ariadne/project_manager";
 import { ClusterSummariesStore } from "./storage/json_store";
-import { symbolRepoLocalName } from "../shared/symbols";
+import { symbol_repo_local_name } from "../shared/symbols";
 
 const extension_folder = ".code-charter";
 
@@ -235,13 +235,15 @@ function extract_descriptions(
     if (visited.has(symbol)) return;
     visited.add(symbol);
 
-    const node = call_graph.nodes.get(symbol);
+    const node = call_graph.nodes.get(symbol as SymbolId);
     if (!node) return;
 
     call_tree[symbol] = node;
 
     // Use ariadne's docstring if available, fall back to display name
-    docstrings[symbol] = node.definition?.docstring || symbolRepoLocalName(symbol);
+    const def = node.definition;
+    const docstring = ("docstring" in def && typeof def.docstring === "string") ? def.docstring : undefined;
+    docstrings[symbol] = docstring || symbol_repo_local_name(symbol);
 
     for (const call_ref of node.enclosed_calls) {
       for (const resolution of call_ref.resolutions) {

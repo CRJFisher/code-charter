@@ -18,12 +18,16 @@
     "clean": "turbo run clean"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
     "@types/node": "^20.0.0",
+    "turbo": "^2.3.3",
     "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=18",
     "npm": ">=9"
+  },
+  "dependencies": {
+    "@ariadnejs/core": "^0.8.0",
+    "@ariadnejs/types": "^0.8.0"
   }
 }
