@@ -1,30 +1,27 @@
 import React, { useState } from "react";
 import { useBackend } from "../hooks/use_backend";
-import type { CallGraph, CallGraphNode } from "@code-charter/types";
+import type { CallGraph, CallableNode, SymbolId } from "@code-charter/types";
 
-// TODO: Move these utilities to a shared location
-function count_nodes(top_level_node: string, graph: CallGraph, visited_nodes: Set<string> = new Set<string>()): number {
+function count_nodes(top_level_node: SymbolId, graph: CallGraph, visited_nodes: Set<SymbolId> = new Set<SymbolId>()): number {
   const node = graph.nodes.get(top_level_node);
   if (!node) return 0;
 
-  return node.calls.reduce((acc: number, call: any) => {
-    if (visited_nodes.has(call.symbol)) {
-      return acc;
+  return node.enclosed_calls.reduce((acc: number, call_ref) => {
+    for (const resolution of call_ref.resolutions) {
+      if (visited_nodes.has(resolution.symbol_id)) {
+        continue;
+      }
+      visited_nodes.add(resolution.symbol_id);
+      acc += count_nodes(resolution.symbol_id, graph, visited_nodes);
     }
-    visited_nodes.add(call.symbol);
-    return acc + count_nodes(call.symbol, graph, visited_nodes);
+    return acc;
   }, 1);
-}
-
-function symbol_display_name(symbol: string): string {
-  const parts = symbol.split(':');
-  return parts[parts.length - 1] || symbol;
 }
 
 interface SidebarProps {
   call_graph: CallGraph;
-  selected_node: CallGraphNode | null;
-  on_select: (entry_point: CallGraphNode) => void;
+  selected_node: CallableNode | null;
+  on_select: (entry_point: CallableNode) => void;
   are_node_summaries_loading: (node_symbol: string) => boolean;
 }
 
@@ -36,9 +33,8 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
     set_is_sidebar_open(!is_sidebar_open);
   };
 
-  const select_item_and_close_sidebar = (node: CallGraphNode) => {
+  const select_item_and_close_sidebar = (node: CallableNode) => {
     on_select(node);
-    // set_is_sidebar_open(false); // TODO: make configurable
   };
 
   return (
@@ -82,8 +78,8 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
 
 interface FunctionsListProps {
   call_graph: CallGraph;
-  selected_node: CallGraphNode | null;
-  on_select: (entry_point: CallGraphNode) => void;
+  selected_node: CallableNode | null;
+  on_select: (entry_point: CallableNode) => void;
   are_node_summaries_loading: (node_symbol: string) => boolean;
 }
 
@@ -94,27 +90,27 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
   are_node_summaries_loading,
 }) => {
   const { backend } = useBackend();
-  
-  const on_click_item = async (node: CallGraphNode) => {
+
+  const on_click_item = async (node: CallableNode) => {
     on_select(node);
-    await backend.navigateToDoc(node.definition.file_path, node.definition.range.start.row);
+    await backend.navigateToDoc(node.definition.location.file_path as string, node.definition.location.start_line);
   };
 
-  const tot_nodes_count_descending_symbols = call_graph.top_level_nodes.sort(
-    (a: string, b: string) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
+  const tot_nodes_count_descending_symbols = [...call_graph.entry_points].sort(
+    (a, b) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
   );
 
   return (
     <ul className="w-full">
-      {tot_nodes_count_descending_symbols.map((node_symbol: string) => {
+      {tot_nodes_count_descending_symbols.map((node_symbol) => {
         const node = call_graph.nodes.get(node_symbol);
         if (!node) return null;
-        const display_name = symbol_display_name(node.symbol);
-        const is_selected = selected_node && selected_node.symbol === node_symbol;
-        const is_loading = are_node_summaries_loading(node.symbol);
+        const display_name = node.name as string;
+        const is_selected = selected_node && selected_node.symbol_id === node_symbol;
+        const is_loading = are_node_summaries_loading(node.symbol_id);
         return (
           <li
-            key={node.symbol}
+            key={node.symbol_id}
             className={`p-4 cursor-pointer bg-vscodeBg shadow-sm hover:bg-vscodeSelection ${
               is_selected ? "bg-vscodeSelection text-vscodeFg border border-vscodeBorder" : ""
             }`}
@@ -130,7 +126,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
                   <div className="w-4 h-4 border-2 border-t-transparent border-vscodeFg rounded-full animate-spin" />
                 </div>
               ) : (
-                <span className="ellipsis-end">{node.definition.file_path}</span>
+                <span className="ellipsis-end">{node.definition.location.file_path}</span>
               )}
             </div>
           </li>

@@ -26,7 +26,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@ariadnejs/core": "^0.5.18",
+    "@ariadnejs/types": "^0.8.0",
     "@code-charter/types": "^0.0.1",
     "@xyflow/react": "^12.8.2",
     "elkjs": "^0.10.0",

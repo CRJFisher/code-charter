@@ -1,9 +1,11 @@
-export function symbolRepoLocalName(symbol: string): string {
-  const parts = symbol.split('#');
+import type { SymbolId } from "@ariadnejs/types";
+
+export function symbol_repo_local_name(symbol: SymbolId | string): string {
+  const parts = symbol.split(":");
   return parts[parts.length - 1] || symbol;
 }
 
-export function symbolDisplayName(symbol: string): string {
-  const parts = symbol.split('#');
+export function symbol_display_name(symbol: SymbolId | string): string {
+  const parts = symbol.split(":");
   return parts[parts.length - 1] || symbol;
 }

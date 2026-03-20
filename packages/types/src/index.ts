@@ -5,4 +5,4 @@ export * from './backend';
 export * from './theme';
 
 // Re-export commonly used types from ariadnejs
-export type { CallGraph, CallGraphNode } from '@ariadnejs/types';
+export type { CallGraph, CallableNode, CallReference, SymbolId, SymbolName, FilePath, AnyDefinition, Location, ScopeId } from '@ariadnejs/types';

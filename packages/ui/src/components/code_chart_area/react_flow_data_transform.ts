@@ -1,7 +1,6 @@
 import { Node, Edge } from "@xyflow/react";
-import { CallGraphNode } from "@ariadnejs/core";
+import type { CallableNode, CallReference } from "@ariadnejs/types";
 import { TreeAndContextSummaries, NodeGroup } from "@code-charter/types";
-import { symbolDisplayName } from "./symbol_utils";
 import { CodeNodeData } from "./code_function_node";
 import { ModuleNodeData } from "./zoom_aware_node";
 import { calculateNodeDimensions } from "./elk_layout";
@@ -12,147 +11,155 @@ export interface ReactFlowElements {
   edges: CodeChartEdge[];
 }
 
+function resolve_call_target(call_ref: CallReference): string | null {
+  if (call_ref.resolutions.length === 0) return null;
+  return call_ref.resolutions[0].symbol_id;
+}
+
 export function generateReactFlowElements(
-  selectedEntryPoint: CallGraphNode,
-  summariesAndFilteredCallTree: TreeAndContextSummaries,
-  nodeGroups: NodeGroup[] | undefined
+  selected_entry_point: CallableNode,
+  summaries_and_filtered_call_tree: TreeAndContextSummaries,
+  node_groups: NodeGroup[] | undefined
 ): ReactFlowElements {
   const nodes: CodeChartNode[] = [];
   const edges: CodeChartEdge[] = [];
   const visited = new Set<string>();
-  
+
   // Define the mappings for module clustering
-  const compoundIdToGroup: { [compoundId: string]: NodeGroup } = {};
-  const symbolToCompoundId: { [symbol: string]: string } = {};
-  
-  // Process nodeGroups to populate the mappings
-  (nodeGroups || []).forEach((group, index) => {
-    const compoundId = `module_${index}`;
-    compoundIdToGroup[compoundId] = group;
-    for (const memberSymbol of group.memberSymbols) {
-      symbolToCompoundId[memberSymbol] = compoundId;
+  const compound_id_to_group: { [compound_id: string]: NodeGroup } = {};
+  const symbol_to_compound_id: { [symbol: string]: string } = {};
+
+  // Process node_groups to populate the mappings
+  (node_groups || []).forEach((group, index) => {
+    const compound_id = `module_${index}`;
+    compound_id_to_group[compound_id] = group;
+    for (const member_symbol of group.memberSymbols) {
+      symbol_to_compound_id[member_symbol] = compound_id;
     }
   });
-  
+
   // Track module connections for compound edges
-  const moduleConnections = new Map<string, Set<string>>();
-  
+  const module_connections = new Map<string, Set<string>>();
+
   // Helper function to add a function node
-  const addFunctionNode = (node: CallGraphNode, isTopLevel: boolean, position: { x: number; y: number }) => {
-    if (visited.has(node.symbol)) {
+  const add_function_node = (node: CallableNode, is_top_level: boolean, position: { x: number; y: number }) => {
+    if (visited.has(node.symbol_id)) {
       return;
     }
-    visited.add(node.symbol);
-    
-    const summary = summariesAndFilteredCallTree.functionSummaries?.[node.symbol]?.trimStart() || "";
-    const parentModuleId = symbolToCompoundId[node.symbol];
-    
+    visited.add(node.symbol_id);
+
+    const summary = summaries_and_filtered_call_tree.functionSummaries?.[node.symbol_id]?.trimStart() || "";
+    const parent_module_id = symbol_to_compound_id[node.symbol_id];
+
     // Create the React Flow node
-    const functionNode: CodeChartNode = {
-      id: node.symbol,
+    const function_node: CodeChartNode = {
+      id: node.symbol_id,
       type: "code_function",
       position,
       data: {
-        function_name: symbolDisplayName(node.symbol),
+        function_name: node.name as string,
         summary,
-        file_path: node.definition.file_path,
-        line_number: node.definition.range.start.row,
-        is_entry_point: isTopLevel,
-        symbol: node.symbol,
+        file_path: node.definition.location.file_path as string,
+        line_number: node.definition.location.start_line,
+        is_entry_point: is_top_level,
+        symbol: node.symbol_id,
       },
-      parentId: parentModuleId,
-      extent: parentModuleId ? "parent" : undefined,
+      parentId: parent_module_id,
+      extent: parent_module_id ? "parent" : undefined,
     };
-    
+
     // Calculate dimensions
-    const dimensions = calculateNodeDimensions(functionNode);
-    functionNode.width = dimensions.width;
-    functionNode.height = dimensions.height;
-    
-    nodes.push(functionNode);
-    
+    const dimensions = calculateNodeDimensions(function_node);
+    function_node.width = dimensions.width;
+    function_node.height = dimensions.height;
+
+    nodes.push(function_node);
+
     // Process child calls
-    const childY = position.y + 150;
-    node.calls.forEach((call, index) => {
+    const child_y = position.y + 150;
+    node.enclosed_calls.forEach((call_ref, index) => {
+      const target_symbol_id = resolve_call_target(call_ref);
+      if (!target_symbol_id) return;
+
       // Add edge
-      const edgeId = `${node.symbol}-${call.symbol}`;
+      const edge_id = `${node.symbol_id}-${target_symbol_id}`;
       edges.push({
-        id: edgeId,
-        source: node.symbol,
-        target: call.symbol,
+        id: edge_id,
+        source: node.symbol_id,
+        target: target_symbol_id,
         type: "default",
         animated: false,
-        ariaLabel: `Call from ${symbolDisplayName(node.symbol)} to ${symbolDisplayName(call.symbol)}`,
+        ariaLabel: `Call from ${node.name as string} to ${call_ref.name as string}`,
       });
-      
+
       // Track module connections
-      const childModuleId = symbolToCompoundId[call.symbol];
-      if (parentModuleId && childModuleId && parentModuleId !== childModuleId) {
-        if (!moduleConnections.has(parentModuleId)) {
-          moduleConnections.set(parentModuleId, new Set());
+      const child_module_id = symbol_to_compound_id[target_symbol_id];
+      if (parent_module_id && child_module_id && parent_module_id !== child_module_id) {
+        if (!module_connections.has(parent_module_id)) {
+          module_connections.set(parent_module_id, new Set());
         }
-        moduleConnections.get(parentModuleId)!.add(childModuleId);
+        module_connections.get(parent_module_id)!.add(child_module_id);
       }
-      
+
       // Recursively add child nodes
-      const childNode = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[call.symbol];
-      if (childNode) {
-        const childX = position.x + (index - node.calls.length / 2) * 250;
-        addFunctionNode(childNode, false, { x: childX, y: childY });
+      const child_node = summaries_and_filtered_call_tree.callTreeWithFilteredOutNodes[target_symbol_id];
+      if (child_node) {
+        const child_x = position.x + (index - node.enclosed_calls.length / 2) * 250;
+        add_function_node(child_node, false, { x: child_x, y: child_y });
       }
     });
   };
-  
+
   // Start processing from the entry point
-  const entryPointInTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
-  if (entryPointInTree) {
-    addFunctionNode(entryPointInTree, true, { x: 0, y: 0 });
+  const entry_point_in_tree = summaries_and_filtered_call_tree.callTreeWithFilteredOutNodes[selected_entry_point.symbol_id];
+  if (entry_point_in_tree) {
+    add_function_node(entry_point_in_tree, true, { x: 0, y: 0 });
   }
-  
+
   // After all function nodes are added, add module group nodes
-  if (nodeGroups && nodeGroups.length > 0) {
-    const moduleNodes: Node[] = [];
-    
-    nodeGroups.forEach((group, index) => {
-      const moduleId = `module_${index}`;
-      
+  if (node_groups && node_groups.length > 0) {
+    const module_nodes: Node[] = [];
+
+    node_groups.forEach((group, index) => {
+      const module_id = `module_${index}`;
+
       // Calculate module bounds based on member nodes
-      const memberNodes = nodes.filter(n => n.parentId === moduleId);
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      
-      if (memberNodes.length > 0) {
-        memberNodes.forEach(node => {
+      const member_nodes = nodes.filter(n => n.parentId === module_id);
+      let min_x = Infinity, min_y = Infinity, max_x = -Infinity, max_y = -Infinity;
+
+      if (member_nodes.length > 0) {
+        member_nodes.forEach(node => {
           const x = node.position.x;
           const y = node.position.y;
           const width = node.width || 200;
           const height = node.height || 100;
-          
-          minX = Math.min(minX, x);
-          minY = Math.min(minY, y);
-          maxX = Math.max(maxX, x + width);
-          maxY = Math.max(maxY, y + height);
+
+          min_x = Math.min(min_x, x);
+          min_y = Math.min(min_y, y);
+          max_x = Math.max(max_x, x + width);
+          max_y = Math.max(max_y, y + height);
         });
       } else {
         // Default positioning if no members
-        minX = index * 500;
-        minY = 0;
-        maxX = minX + 400;
-        maxY = minY + 300;
+        min_x = index * 500;
+        min_y = 0;
+        max_x = min_x + 400;
+        max_y = min_y + 300;
       }
-      
+
       const padding = 40;
-      const moduleNode: CodeChartNode = {
-        id: moduleId,
+      const module_node: CodeChartNode = {
+        id: module_id,
         type: "module_group",
-        position: { x: minX - padding, y: minY - padding },
+        position: { x: min_x - padding, y: min_y - padding },
         data: {
           module_name: `Module ${index + 1}`,
           description: group.description || "",
           member_count: group.memberSymbols.length,
         },
         style: {
-          width: maxX - minX + padding * 2,
-          height: maxY - minY + padding * 2,
+          width: max_x - min_x + padding * 2,
+          height: max_y - min_y + padding * 2,
           backgroundColor: "rgba(240, 240, 240, 0.3)",
           border: "2px dashed #cccccc",
           borderRadius: "15px",
@@ -160,18 +167,18 @@ export function generateReactFlowElements(
           zIndex: -1,
         },
       };
-      moduleNodes.push(moduleNode);
+      module_nodes.push(module_node);
     });
-    
+
     // Add module nodes at the beginning so they render behind
-    nodes.unshift(...moduleNodes as CodeChartNode[]);
-    
+    nodes.unshift(...module_nodes as CodeChartNode[]);
+
     // Add edges between modules after all connections are tracked
-    moduleConnections.forEach((targets, source) => {
+    module_connections.forEach((targets, source) => {
       targets.forEach(target => {
-        const moduleEdgeId = `module-edge-${source}-${target}`;
+        const module_edge_id = `module-edge-${source}-${target}`;
         edges.push({
-          id: moduleEdgeId,
+          id: module_edge_id,
           source,
           target,
           type: "default",
@@ -185,6 +192,6 @@ export function generateReactFlowElements(
       });
     });
   }
-  
+
   return { nodes, edges };
 }

@@ -1,147 +1,108 @@
 import * as vscode from "vscode";
-import { Project, CallGraph } from "@ariadnejs/core";
+import { load_project, Project } from "@ariadnejs/core";
+import type { CallGraph, FilePath } from "@ariadnejs/types";
 import * as fs from "fs";
-import * as path from "path";
 
 export class AriadneProjectManager {
-  private project: Project;
-  private workspacePath: string;
-  private fileWatcher: vscode.FileSystemWatcher | undefined;
+  private project: Project | undefined;
+  private workspace_path: string;
+  private file_watcher: vscode.FileSystemWatcher | undefined;
   private disposables: vscode.Disposable[] = [];
-  private fileFilter: (path: string) => boolean;
-  private onCallGraphChangedEmitter = new vscode.EventEmitter<CallGraph>();
-  
+  private file_filter: (path: string) => boolean;
+  private on_call_graph_changed_emitter = new vscode.EventEmitter<CallGraph>();
+
   // Public event that fires when the call graph changes
-  public readonly onCallGraphChanged = this.onCallGraphChangedEmitter.event;
+  public readonly onCallGraphChanged = this.on_call_graph_changed_emitter.event;
 
   constructor(
-    workspacePath: string,
-    fileFilter: (path: string) => boolean = () => true
+    workspace_path: string,
+    file_filter: (path: string) => boolean = () => true
   ) {
-    this.workspacePath = workspacePath;
-    this.fileFilter = fileFilter;
-    this.project = new Project();
+    this.workspace_path = workspace_path;
+    this.file_filter = file_filter;
   }
 
   /**
-   * Initialize the project by scanning all files and setting up watchers
+   * Initialize the project by loading all files and setting up watchers
    */
   async initialize(): Promise<CallGraph> {
     console.log("Initializing AriadneProjectManager...");
-    
-    // Initial scan of all files
-    await this.scanDirectory(this.workspacePath);
-    
+
+    this.project = await load_project({
+      project_path: this.workspace_path,
+      file_filter: this.file_filter,
+      exclude: ["__pycache__", ".vscode", "out"],
+    });
+
     // Set up file watchers
-    this.setupFileWatchers();
-    
+    this.setup_file_watchers();
+
     // Return initial call graph
     return this.project.get_call_graph();
   }
 
   /**
-   * Scan a directory recursively and add all matching files to the project
+   * Update a file in the project
    */
-  private async scanDirectory(dirPath: string): Promise<void> {
-    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-    
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-      
-      if (entry.isDirectory()) {
-        // Skip common non-source directories
-        if (this.shouldSkipDirectory(entry.name)) {
-          continue;
-        }
-        await this.scanDirectory(fullPath);
-      } else if (entry.isFile() && this.fileFilter(fullPath)) {
-        await this.addFileToProject(fullPath);
-      }
-    }
-  }
-
-  /**
-   * Check if a directory should be skipped
-   */
-  private shouldSkipDirectory(dirName: string): boolean {
-    const skipDirs = [
-      "node_modules",
-      ".git",
-      "__pycache__",
-      ".vscode",
-      "dist",
-      "out",
-      "build",
-      ".next",
-      ".cache"
-    ];
-    return skipDirs.includes(dirName) || dirName.startsWith(".");
-  }
-
-  /**
-   * Add a file to the project
-   */
-  private async addFileToProject(filePath: string): Promise<void> {
+  private async update_file_in_project(file_path: string): Promise<void> {
     try {
-      const content = await fs.promises.readFile(filePath, "utf-8");
-      const relativePath = path.relative(this.workspacePath, filePath);
-      this.project.add_or_update_file(relativePath, content);
-      console.log(`Added file to project: ${relativePath}`);
+      const content = await fs.promises.readFile(file_path, "utf-8");
+      this.project!.update_file(file_path as FilePath, content);
+      console.log(`Updated file in project: ${file_path}`);
     } catch (error) {
-      console.error(`Error adding file ${filePath}:`, error);
+      console.error(`Error updating file ${file_path}:`, error);
     }
   }
 
   /**
    * Set up file system watchers for incremental updates
    */
-  private setupFileWatchers(): void {
+  private setup_file_watchers(): void {
     // Create a file watcher for the workspace
-    const pattern = new vscode.RelativePattern(this.workspacePath, "**/*");
-    this.fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
-    
+    const pattern = new vscode.RelativePattern(this.workspace_path, "**/*");
+    this.file_watcher = vscode.workspace.createFileSystemWatcher(pattern);
+
     // Handle file creation
     this.disposables.push(
-      this.fileWatcher.onDidCreate(async (uri) => {
-        if (this.fileFilter(uri.fsPath)) {
-          await this.addFileToProject(uri.fsPath);
-          this.emitCallGraphChanged();
+      this.file_watcher.onDidCreate(async (uri) => {
+        if (this.file_filter(uri.fsPath)) {
+          await this.update_file_in_project(uri.fsPath);
+          this.emit_call_graph_changed();
         }
       })
     );
-    
+
     // Handle file changes
     this.disposables.push(
-      this.fileWatcher.onDidChange(async (uri) => {
-        if (this.fileFilter(uri.fsPath)) {
-          await this.updateFile(uri.fsPath);
-          this.emitCallGraphChanged();
+      this.file_watcher.onDidChange(async (uri) => {
+        if (this.file_filter(uri.fsPath)) {
+          await this.update_file_in_project(uri.fsPath);
+          this.emit_call_graph_changed();
         }
       })
     );
-    
+
     // Handle file deletion
     this.disposables.push(
-      this.fileWatcher.onDidDelete((uri) => {
-        if (this.fileFilter(uri.fsPath)) {
-          const relativePath = path.relative(this.workspacePath, uri.fsPath);
-          this.project.remove_file(relativePath);
-          console.log(`Removed file from project: ${relativePath}`);
-          this.emitCallGraphChanged();
+      this.file_watcher.onDidDelete((uri) => {
+        if (this.file_filter(uri.fsPath)) {
+          this.project!.remove_file(uri.fsPath as FilePath);
+          console.log(`Removed file from project: ${uri.fsPath}`);
+          this.emit_call_graph_changed();
         }
       })
     );
-    
+
     // Also watch for text document changes for more granular updates
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument(async (event) => {
         const document = event.document;
-        
+
         // Only process if it's a file in our workspace and matches our filter
-        if (document.uri.scheme === "file" && document.uri.fsPath.startsWith(this.workspacePath)) {
+        if (document.uri.scheme === "file" && document.uri.fsPath.startsWith(this.workspace_path)) {
           try {
-            if (this.fileFilter(document.uri.fsPath)) {
-              await this.handleDocumentChange(document, event.contentChanges);
+            if (this.file_filter(document.uri.fsPath)) {
+              this.handle_document_change(document);
             }
           } catch (error) {
             console.error(`Filter error for ${document.uri.fsPath}:`, error);
@@ -152,64 +113,45 @@ export class AriadneProjectManager {
   }
 
   /**
-   * Update a file in the project
-   */
-  private async updateFile(filePath: string): Promise<void> {
-    try {
-      const content = await fs.promises.readFile(filePath, "utf-8");
-      const relativePath = path.relative(this.workspacePath, filePath);
-      this.project.add_or_update_file(relativePath, content);
-      console.log(`Updated file in project: ${relativePath}`);
-    } catch (error) {
-      console.error(`Error updating file ${filePath}:`, error);
-    }
-  }
-
-  /**
    * Handle incremental document changes
    */
-  private async handleDocumentChange(
-    document: vscode.TextDocument,
-    _changes: readonly vscode.TextDocumentContentChangeEvent[]
-  ): Promise<void> {
-    const relativePath = path.relative(this.workspacePath, document.uri.fsPath);
-    
-    // For now, we'll do a full file update since the API doesn't expose
-    // update_file_range in a way that maps easily to VSCode's change events
-    // In the future, we could optimize this by using update_file_range
-    this.project.add_or_update_file(relativePath, document.getText());
-    
+  private handle_document_change(document: vscode.TextDocument): void {
+    this.project!.update_file(document.uri.fsPath as FilePath, document.getText());
+
     // Debounce the call graph update to avoid too many updates
-    this.debounceCallGraphUpdate();
+    this.debounce_call_graph_update();
   }
 
-  private updateTimer: NodeJS.Timeout | undefined;
-  
+  private update_timer: NodeJS.Timeout | undefined;
+
   /**
    * Debounce call graph updates to avoid excessive recalculation
    */
-  private debounceCallGraphUpdate(): void {
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
+  private debounce_call_graph_update(): void {
+    if (this.update_timer) {
+      clearTimeout(this.update_timer);
     }
-    
-    this.updateTimer = setTimeout(() => {
-      this.emitCallGraphChanged();
+
+    this.update_timer = setTimeout(() => {
+      this.emit_call_graph_changed();
     }, 500); // Wait 500ms after last change
   }
 
   /**
    * Emit that the call graph has changed
    */
-  private emitCallGraphChanged(): void {
-    const callGraph = this.project.get_call_graph();
-    this.onCallGraphChangedEmitter.fire(callGraph);
+  private emit_call_graph_changed(): void {
+    const call_graph = this.project!.get_call_graph();
+    this.on_call_graph_changed_emitter.fire(call_graph);
   }
 
   /**
    * Get the current call graph
    */
   getCallGraph(): CallGraph {
+    if (!this.project) {
+      return { nodes: new Map(), entry_points: [] };
+    }
     return this.project.get_call_graph();
   }
 
@@ -218,10 +160,10 @@ export class AriadneProjectManager {
    */
   dispose(): void {
     this.disposables.forEach(d => d.dispose());
-    this.fileWatcher?.dispose();
-    this.onCallGraphChangedEmitter.dispose();
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
+    this.file_watcher?.dispose();
+    this.on_call_graph_changed_emitter.dispose();
+    if (this.update_timer) {
+      clearTimeout(this.update_timer);
     }
   }
 }

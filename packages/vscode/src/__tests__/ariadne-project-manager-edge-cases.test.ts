@@ -60,7 +60,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
         expect(consoleErrorMock).toHaveBeenCalled();
         const calls = consoleErrorMock.mock.calls;
         const hasErrorLog = calls.some(call => 
-          call.some(arg => typeof arg === 'string' && arg.includes('Error adding file'))
+          call.some(arg => typeof arg === 'string' && arg.includes('Error updating file'))
         );
         expect(hasErrorLog).toBe(true);
       }

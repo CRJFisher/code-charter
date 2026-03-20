@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import { addToGitignore } from "./files";
-import { summariseCallGraph } from "./summarise/summarise";
+import { summarise_call_graph } from "./summarise/summarise";
 import { navigateToDoc } from "./navigate";
 import { ModelDetails, ModelProvider } from "./model";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
-import { getClusterDescriptions } from "./summarise/summariseClusters";
-import { CallGraph } from "@ariadnejs/core";
-import { TreeAndContextSummaries } from "@shared/codeGraph";
+import { get_cluster_descriptions } from "./summarise/summariseClusters";
+import type { CallGraph } from "@ariadnejs/types";
+import type { TreeAndContextSummaries } from "@code-charter/types";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { ClusteringService } from "./clustering/clustering_service";
@@ -149,7 +149,7 @@ async function showWebviewDiagram(
           }
           const workspacePath = workspaceFolders[0].uri;
           const modelDetails = await getModelDetails();
-          const summaries = await summariseCallGraph(
+          const summaries = await summarise_call_graph(
             topLevelFunctionSymbol,
             callGraph,
             workFolder,
@@ -176,12 +176,12 @@ async function showWebviewDiagram(
             summaries.callTreeWithFilteredOutNodes
           );
           
-          const descriptions = await getClusterDescriptions(
+          const descriptions = await get_cluster_descriptions(
             clusters.map((cluster) =>
               cluster.map((memberSymbol) => {
                 return {
                   symbol: memberSymbol,
-                  functionSummaryString: summaries.refinedFunctionSummaries[memberSymbol],
+                  function_summary_string: summaries.refinedFunctionSummaries[memberSymbol],
                 };
               })
             ),

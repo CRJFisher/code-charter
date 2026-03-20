@@ -1,4 +1,4 @@
-import type { CallGraph, CallGraphNode } from "@ariadnejs/types";
+import type { CallGraph, CallableNode } from "@ariadnejs/types";
 
 /**
  * Represents a summary of a code tree with function-level details
@@ -6,7 +6,7 @@ import type { CallGraph, CallGraphNode } from "@ariadnejs/types";
 export interface TreeAndContextSummaries {
   functionSummaries: Record<string, string>;
   refinedFunctionSummaries: Record<string, string>;
-  callTreeWithFilteredOutNodes: Record<string, CallGraphNode>;
+  callTreeWithFilteredOutNodes: Record<string, CallableNode>;
   contextSummary: string;
 }
 

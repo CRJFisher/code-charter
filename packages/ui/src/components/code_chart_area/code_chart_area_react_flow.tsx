@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { CallGraphNode } from "@ariadnejs/core";
+import type { CallableNode } from "@ariadnejs/types";
 import { NodeGroup, TreeAndContextSummaries } from "@code-charter/types";
 import {
   ReactFlow,
@@ -20,7 +20,7 @@ import "@xyflow/react/dist/style.css";
 import "./flow_theme.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
-import { symbolDisplayName } from "./symbol_utils";
+
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
 import { zoomAwareNodeTypes } from "./zoom_aware_node";
 import { generateReactFlowElements } from "./react_flow_data_transform";
@@ -40,7 +40,7 @@ import { useFlowThemeStyles } from "./use_flow_theme_styles";
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
-  selectedEntryPoint: CallGraphNode | null;
+  selectedEntryPoint: CallableNode | null;
   screenWidthFraction: number;
   getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
   detectModules: () => Promise<NodeGroup[] | undefined>;
@@ -65,7 +65,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const [nodes, setNodes, onNodesChange] = useNodesState<CodeChartNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<CodeChartEdge>([]);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
-  const [callGraphNodes, setCallChart] = useState<Record<string, CallGraphNode> | null>(null);
+  const [callGraphNodes, setCallChart] = useState<Record<string, CallableNode> | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
   const [error, setError] = useState<string | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
@@ -143,7 +143,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     if (selectedEntryPoint) {
       clearLayoutCaches();
     }
-  }, [selectedEntryPoint?.symbol]);
+  }, [selectedEntryPoint?.symbol_id]);
   
   useEffect(() => {
     if (!selectedEntryPoint) {
@@ -157,7 +157,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         perfMonitor.current.startMeasure('data-fetch');
         
         // Check for saved state first
-        const savedState = loadGraphState(selectedEntryPoint.symbol);
+        const savedState = loadGraphState(selectedEntryPoint.symbol_id);
         if (savedState) {
           setNodes(savedState.nodes);
           setEdges(savedState.edges);
@@ -166,7 +166,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           return;
         }
         
-        const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
+        const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol_id);
         if (!summariesAndFilteredCallTree) {
           throw new Error("Failed to load function summaries");
         }
@@ -194,7 +194,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         const error = err instanceof Error ? err : new Error("An error occurred");
         setError(error.message);
         setSummaryStatus(SummarisationStatus.Error);
-        errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol });
+        errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol_id });
         handleReactFlowError(error);
         
         // Show notification with retry option
@@ -221,7 +221,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     if (!selectedEntryPoint || !reactFlowInstance) return;
     
     const viewport = reactFlowInstance.getViewport();
-    saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol);
+    saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol_id);
   }, [nodes, edges, selectedEntryPoint]), CONFIG.animation.debounce.save);
   
   // Export state to file
@@ -229,7 +229,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     if (!selectedEntryPoint || !reactFlowInstance) return;
     
     const viewport = reactFlowInstance.getViewport();
-    exportGraphState(nodes, edges, viewport, selectedEntryPoint.symbol);
+    exportGraphState(nodes, edges, viewport, selectedEntryPoint.symbol_id);
   }, [nodes, edges, selectedEntryPoint]);
   
   // Handle React Flow initialization
@@ -239,7 +239,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     reactFlowInstance.current = instance;
     
     // Check for saved viewport
-    const savedState = loadGraphState(selectedEntryPoint.symbol);
+    const savedState = loadGraphState(selectedEntryPoint.symbol_id);
     if (savedState?.viewport) {
       instance.setViewport(savedState.viewport);
     }

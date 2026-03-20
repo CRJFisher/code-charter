@@ -1,10 +1,19 @@
-import { Backend } from '@code-charter/types';
-import { CallGraph } from '@ariadnejs/types';
+import {
+  CodeCharterBackend,
+  BackendState,
+  ConnectionStatus,
+  NodeGroup,
+  TreeAndContextSummaries,
+  CallGraph,
+} from "@code-charter/types";
 
 /**
  * Simple mock backend for testing
  */
-export class TestMockBackend implements Backend {
+export class TestMockBackend implements CodeCharterBackend {
+  private state: BackendState = { status: ConnectionStatus.DISCONNECTED };
+  private stateListeners: Set<(state: BackendState) => void> = new Set();
+
   constructor(
     private config: {
       callGraph?: CallGraph;
@@ -26,52 +35,61 @@ export class TestMockBackend implements Backend {
     }
   }
 
-  async getCallGraph(): Promise<CallGraph> {
+  getState(): BackendState {
+    return this.state;
+  }
+
+  async connect(): Promise<void> {
+    this.updateState({ status: ConnectionStatus.CONNECTED });
+  }
+
+  async disconnect(): Promise<void> {
+    this.updateState({ status: ConnectionStatus.DISCONNECTED });
+  }
+
+  async getCallGraph(): Promise<CallGraph | undefined> {
     await this.simulateDelay();
     this.checkError();
 
     return this.config.callGraph || {
-      nodes: {},
-      edges: [],
+      nodes: new Map(),
+      entry_points: [],
     };
   }
 
-  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<{
-    refinedFunctionSummaries: Record<string, string>;
-    contextSummary: string;
-    callTreeWithFilteredOutNodes: any[];
-  }> {
+  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
     await this.simulateDelay();
     this.checkError();
 
     return {
+      functionSummaries: {},
       refinedFunctionSummaries: this.config.refinedSummaries || {},
       contextSummary: 'Mock context',
-      callTreeWithFilteredOutNodes: [],
+      callTreeWithFilteredOutNodes: {},
     };
   }
 
-  async clusterCodeTree(topLevelFunctionSymbol: string): Promise<string[][]> {
+  async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
     await this.simulateDelay();
     this.checkError();
 
     return [];
   }
 
-  async functionSummaryStatus(functionSymbol: string): Promise<Record<string, any>> {
+  async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
     await this.simulateDelay();
     this.checkError();
-
-    return {};
   }
 
-  async navigateToDoc(params: {
-    relativeDocPath: string;
-    lineNumber: number;
-  }): Promise<{ success: boolean }> {
-    await this.simulateDelay();
-    this.checkError();
+  onStateChange(callback: (state: BackendState) => void): () => void {
+    this.stateListeners.add(callback);
+    return () => {
+      this.stateListeners.delete(callback);
+    };
+  }
 
-    return { success: true };
+  private updateState(state: BackendState): void {
+    this.state = state;
+    this.stateListeners.forEach(listener => listener(state));
   }
 }

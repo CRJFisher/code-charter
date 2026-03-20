@@ -23,7 +23,7 @@ describe("AriadneProjectManager", () => {
   it("should initialize with an empty project", async () => {
     projectManager = new AriadneProjectManager(tempDir);
     const callGraph = await projectManager.initialize();
-    
+
     expect(callGraph).toBeDefined();
     expect(callGraph.nodes.size).toBe(0);
   });
@@ -41,7 +41,7 @@ def main():
 
     projectManager = new AriadneProjectManager(tempDir, (p) => p.endsWith(".py"));
     const callGraph = await projectManager.initialize();
-    
+
     expect(callGraph).toBeDefined();
     expect(callGraph.nodes.size).toBeGreaterThan(0);
   });
@@ -54,7 +54,7 @@ def main():
     // Only include Python files
     projectManager = new AriadneProjectManager(tempDir, (p) => p.endsWith(".py"));
     const callGraph = await projectManager.initialize();
-    
+
     // Should only have nodes from Python file
     const nodeSymbols = Array.from(callGraph.nodes.keys());
     expect(nodeSymbols.some(s => s.includes("test.py"))).toBe(true);
@@ -66,21 +66,21 @@ def main():
     const nodeModulesDir = path.join(tempDir, "node_modules");
     await fs.promises.mkdir(nodeModulesDir);
     await fs.promises.writeFile(
-      path.join(nodeModulesDir, "test.py"), 
-      "def should_not_be_included(): pass", 
+      path.join(nodeModulesDir, "test.py"),
+      "def should_not_be_included(): pass",
       "utf-8"
     );
 
     // Create a file that should be included
     await fs.promises.writeFile(
-      path.join(tempDir, "included.py"), 
-      "def should_be_included(): pass", 
+      path.join(tempDir, "included.py"),
+      "def should_be_included(): pass",
       "utf-8"
     );
 
     projectManager = new AriadneProjectManager(tempDir, (p) => p.endsWith(".py"));
     const callGraph = await projectManager.initialize();
-    
+
     const nodeSymbols = Array.from(callGraph.nodes.keys());
     expect(nodeSymbols.some(s => s.includes("included.py"))).toBe(true);
     expect(nodeSymbols.some(s => s.includes("node_modules"))).toBe(false);
@@ -92,21 +92,21 @@ def main():
     const libDir = path.join(srcDir, "lib");
     await fs.promises.mkdir(srcDir);
     await fs.promises.mkdir(libDir);
-    
+
     await fs.promises.writeFile(
-      path.join(srcDir, "main.py"), 
-      "def main(): pass", 
+      path.join(srcDir, "main.py"),
+      "def main(): pass",
       "utf-8"
     );
     await fs.promises.writeFile(
-      path.join(libDir, "utils.py"), 
-      "def util(): pass", 
+      path.join(libDir, "utils.py"),
+      "def util(): pass",
       "utf-8"
     );
 
     projectManager = new AriadneProjectManager(tempDir, (p) => p.endsWith(".py"));
     const callGraph = await projectManager.initialize();
-    
+
     const nodeSymbols = Array.from(callGraph.nodes.keys());
     expect(nodeSymbols.some(s => s.includes("main.py"))).toBe(true);
     expect(nodeSymbols.some(s => s.includes("utils.py"))).toBe(true);

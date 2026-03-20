@@ -5,8 +5,43 @@ import { CodeCharterUI } from '../components/code_charter_ui';
 import { BackendProvider } from '../contexts/backend_context';
 import { VSCodeBackend } from '../backends/vscode_backend';
 import { MockBackend } from '../backends/mock_backend';
-import { CallGraph } from '@ariadnejs/types';
+import { TestMockBackend } from '../backends/test_mock_backend';
+import type { CallGraph, CallableNode, SymbolId, SymbolName, FilePath, ScopeId, AnyDefinition } from '@ariadnejs/types';
 import { init } from '../index';
+
+function make_mock_node(file: string, name: string, start_line: number, end_line: number): CallableNode {
+  const id = `function:${file}:${start_line}:0:${end_line}:0:${name}` as SymbolId;
+  return {
+    symbol_id: id,
+    name: name as SymbolName,
+    enclosed_calls: [],
+    location: { file_path: file as FilePath, start_line, start_column: 0, end_line, end_column: 0 },
+    definition: {
+      kind: "function",
+      symbol_id: id,
+      name: name as SymbolName,
+      defining_scope_id: `global:${file}:0:0:100:0` as ScopeId,
+      location: { file_path: file as FilePath, start_line, start_column: 0, end_line, end_column: 0 },
+      is_exported: false,
+      signature: { parameters: [] },
+      body_scope_id: `function:${file}:${start_line}:0:${end_line}:0` as ScopeId,
+    } as AnyDefinition,
+    is_test: false,
+  };
+}
+
+function make_call_graph(node_specs: Array<{ file: string; name: string; start: number; end: number }>): CallGraph {
+  const nodes = new Map<SymbolId, CallableNode>();
+  const entry_points: SymbolId[] = [];
+
+  for (const spec of node_specs) {
+    const node = make_mock_node(spec.file, spec.name, spec.start, spec.end);
+    nodes.set(node.symbol_id, node);
+    entry_points.push(node.symbol_id);
+  }
+
+  return { nodes, entry_points };
+}
 
 describe('Integration Tests', () => {
   describe('Full UI initialization flow', () => {
@@ -14,19 +49,7 @@ describe('Integration Tests', () => {
       const rootElement = document.createElement('div');
       document.body.appendChild(rootElement);
 
-      const mockData: CallGraph = {
-        nodes: {
-          'fn1': {
-            symbol: 'fn1',
-            label: 'Function 1',
-            file_path: 'file1.ts',
-            line_number: 10,
-          },
-        },
-        edges: [],
-      };
-
-      const backend = new MockBackend({ callGraph: mockData });
+      const backend = new MockBackend();
 
       init({
         rootElement,
@@ -34,7 +57,7 @@ describe('Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Function 1')).toBeInTheDocument();
+        expect(screen.getByText('main')).toBeInTheDocument();
       });
 
       document.body.removeChild(rootElement);
@@ -90,7 +113,7 @@ describe('Integration Tests', () => {
 
   describe('Error handling across backends', () => {
     it('handles errors consistently in mock backend', async () => {
-      const errorBackend = new MockBackend({
+      const errorBackend = new TestMockBackend({
         shouldThrowError: true,
       });
 
@@ -107,7 +130,7 @@ describe('Integration Tests', () => {
 
     it('handles network errors in VS Code backend', async () => {
       const vsCodeBackend = new VSCodeBackend();
-      
+
       // Don't send any response to simulate timeout/error
       render(
         <BackendProvider backend={vsCodeBackend}>
@@ -123,20 +146,7 @@ describe('Integration Tests', () => {
   describe('User interactions', () => {
     it('handles node click navigation across backends', async () => {
       const user = userEvent.setup();
-      const mockBackend = new MockBackend({
-        callGraph: {
-          nodes: {
-            'clickable': {
-              symbol: 'clickable',
-              label: 'Clickable Node',
-              file_path: 'click.ts',
-              line_number: 5,
-            },
-          },
-          edges: [],
-        },
-      });
-
+      const mockBackend = new MockBackend();
       const navigateSpy = jest.spyOn(mockBackend, 'navigateToDoc');
 
       render(
@@ -146,36 +156,17 @@ describe('Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Clickable Node')).toBeInTheDocument();
+        expect(screen.getByText('main')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('Clickable Node'));
+      await user.click(screen.getByText('main'));
 
-      expect(navigateSpy).toHaveBeenCalledWith({
-        relativeDocPath: 'click.ts',
-        lineNumber: 5,
-      });
+      expect(navigateSpy).toHaveBeenCalledWith('main.ts', 0);
     });
 
     it('handles summary generation workflow', async () => {
       const user = userEvent.setup();
-      const mockBackend = new MockBackend({
-        callGraph: {
-          nodes: {
-            'main': {
-              symbol: 'main',
-              label: 'Main Function',
-              file_path: 'main.ts',
-              line_number: 1,
-            },
-          },
-          edges: [],
-        },
-        refinedSummaries: {
-          'main': 'This is the main entry point',
-        },
-      });
-
+      const mockBackend = new MockBackend();
       const summarySpy = jest.spyOn(mockBackend, 'summariseCodeTree');
 
       render(
@@ -185,7 +176,7 @@ describe('Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Main Function')).toBeInTheDocument();
+        expect(screen.getByText('main')).toBeInTheDocument();
       });
 
       // If there's a summary button, click it
@@ -201,7 +192,7 @@ describe('Integration Tests', () => {
     it('applies VS Code theme when in VS Code environment', () => {
       // Set VS Code CSS variables
       document.documentElement.style.setProperty('--vscode-editor-background', '#000000');
-      
+
       render(
         <BackendProvider backend={new MockBackend()}>
           <CodeCharterUI />
@@ -219,7 +210,7 @@ describe('Integration Tests', () => {
     it('applies standalone theme when not in VS Code', () => {
       // Ensure no VS Code variables
       document.documentElement.style.removeProperty('--vscode-editor-background');
-      
+
       render(
         <BackendProvider backend={new MockBackend()}>
           <CodeCharterUI />

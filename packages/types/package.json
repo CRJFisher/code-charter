@@ -16,7 +16,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@ariadnejs/types": "^0.5.0"
+    "@ariadnejs/types": "^0.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
