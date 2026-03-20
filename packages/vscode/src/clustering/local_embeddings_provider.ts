@@ -42,7 +42,7 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
         return cache_dir;
     }
 
-    private async initialize_pipeline(): Promise<void> {
+    async initialize_pipeline(): Promise<void> {
         if (this.pipeline) {
             return;
         }

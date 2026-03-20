@@ -45,21 +45,21 @@ export class ClusteringService {
 
     if (this.providerType === 'local') {
       // Create local embeddings provider with progress reporting
-      this.embeddingProvider = new LocalEmbeddingsProvider(
-        this.context,
-        (message: string, progress?: number) => {
-          // Show progress notification
-          vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "Code Charter: Embeddings",
-            cancellable: false
-          }, async (progressReporter) => {
-            progressReporter.report({ message, increment: progress });
-            // Keep notification open for a moment
-            await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
-          });
-        }
-      );
+      // Use a single withProgress session to avoid spawning multiple notifications
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Code Charter: Embeddings",
+        cancellable: false
+      }, async (progress_reporter) => {
+        this.embeddingProvider = new LocalEmbeddingsProvider(
+          this.context,
+          (message: string, progress?: number) => {
+            progress_reporter.report({ message, increment: progress });
+          }
+        );
+        // Initialize the pipeline within this progress scope
+        await (this.embeddingProvider as LocalEmbeddingsProvider).initialize_pipeline();
+      });
     } else {
       // Use OpenAI provider
       if (!this.openAIClient) {
@@ -293,6 +293,9 @@ export class ClusteringService {
     });
     
     // Combine matrices (50/50 weight)
+    // Note: We skip L1 normalization before combining. The spectral clustering
+    // algorithm with nearest_neighbors affinity operates on relative neighbor
+    // ordering rather than absolute values, making pre-normalization unnecessary.
     const combinedMatrix: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
     
     for (let i = 0; i < n; i++) {
