@@ -4,6 +4,11 @@ import { Theme } from '@code-charter/types';
  * Theme-aware color configuration for React Flow components
  * Maps theme colors to component-specific colors
  */
+export interface ClusterColor {
+  background: string;
+  border: string;
+}
+
 export interface ThemeColorConfig {
   // Node colors
   node: {
@@ -28,6 +33,10 @@ export interface ThemeColorConfig {
   edge: {
     stroke: string;
     strokeSelected: string;
+  };
+  // Cluster palette (12 distinguishable colors)
+  cluster: {
+    palette: ClusterColor[];
   };
   // UI colors
   ui: {
@@ -115,6 +124,35 @@ export function getThemeColors(theme: Theme): ThemeColorConfig {
       stroke: isDark ? '#555555' : '#b1b1b7',
       strokeSelected: '#0096FF',
     },
+    cluster: {
+      palette: isDark ? [
+        { background: 'rgba(77, 157, 224, 0.20)', border: 'rgba(77, 157, 224, 0.7)' },
+        { background: 'rgba(255, 158, 74, 0.20)', border: 'rgba(255, 158, 74, 0.7)' },
+        { background: 'rgba(86, 194, 86, 0.20)', border: 'rgba(86, 194, 86, 0.7)' },
+        { background: 'rgba(237, 93, 94, 0.20)', border: 'rgba(237, 93, 94, 0.7)' },
+        { background: 'rgba(175, 141, 211, 0.20)', border: 'rgba(175, 141, 211, 0.7)' },
+        { background: 'rgba(176, 122, 111, 0.20)', border: 'rgba(176, 122, 111, 0.7)' },
+        { background: 'rgba(237, 151, 214, 0.20)', border: 'rgba(237, 151, 214, 0.7)' },
+        { background: 'rgba(162, 162, 162, 0.20)', border: 'rgba(162, 162, 162, 0.7)' },
+        { background: 'rgba(214, 215, 78, 0.20)', border: 'rgba(214, 215, 78, 0.7)' },
+        { background: 'rgba(73, 213, 226, 0.20)', border: 'rgba(73, 213, 226, 0.7)' },
+        { background: 'rgba(77, 118, 188, 0.20)', border: 'rgba(77, 118, 188, 0.7)' },
+        { background: 'rgba(255, 210, 162, 0.20)', border: 'rgba(255, 210, 162, 0.7)' },
+      ] : [
+        { background: 'rgba(31, 119, 180, 0.15)', border: 'rgba(31, 119, 180, 0.6)' },
+        { background: 'rgba(255, 127, 14, 0.15)', border: 'rgba(255, 127, 14, 0.6)' },
+        { background: 'rgba(44, 160, 44, 0.15)', border: 'rgba(44, 160, 44, 0.6)' },
+        { background: 'rgba(214, 39, 40, 0.15)', border: 'rgba(214, 39, 40, 0.6)' },
+        { background: 'rgba(148, 103, 189, 0.15)', border: 'rgba(148, 103, 189, 0.6)' },
+        { background: 'rgba(140, 86, 75, 0.15)', border: 'rgba(140, 86, 75, 0.6)' },
+        { background: 'rgba(227, 119, 194, 0.15)', border: 'rgba(227, 119, 194, 0.6)' },
+        { background: 'rgba(127, 127, 127, 0.15)', border: 'rgba(127, 127, 127, 0.6)' },
+        { background: 'rgba(188, 189, 34, 0.15)', border: 'rgba(188, 189, 34, 0.6)' },
+        { background: 'rgba(23, 190, 207, 0.15)', border: 'rgba(23, 190, 207, 0.6)' },
+        { background: 'rgba(31, 70, 144, 0.15)', border: 'rgba(31, 70, 144, 0.6)' },
+        { background: 'rgba(255, 187, 120, 0.15)', border: 'rgba(255, 187, 120, 0.6)' },
+      ],
+    },
     ui: {
       background: {
         overlay: isDark ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
@@ -189,4 +227,16 @@ export function getThemeCssVariables(colors: ThemeColorConfig): Record<string, s
   
   addVars(colors, 'theme');
   return vars;
+}
+
+/**
+ * Get the color pair for a given cluster index (wraps around the palette).
+ */
+export function get_cluster_color(
+  colors: ThemeColorConfig,
+  cluster_index: number
+): ClusterColor {
+  const palette = colors.cluster.palette;
+  // Guard against negative indices (JS modulo returns negative for negative operands)
+  return palette[((cluster_index % palette.length) + palette.length) % palette.length];
 }

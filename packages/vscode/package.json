@@ -58,14 +58,40 @@
           ],
           "description": "Select embedding provider for clustering. If not set, will prompt on first use."
         },
-        "code-charter-vscode.devMode": {
+        "code-charter-vscode.clusteringAlgorithm": {
           "order": 4,
+          "type": "string",
+          "default": "spectral",
+          "enum": [
+            "spectral",
+            "kmeans",
+            "agglomerative",
+            "som"
+          ],
+          "enumDescriptions": [
+            "Spectral clustering: uses graph Laplacian eigenvalues. Best for code dependency graphs with non-convex cluster shapes.",
+            "K-means: fast partitioning by minimizing within-cluster variance. Good for roughly spherical clusters.",
+            "Agglomerative: bottom-up hierarchical merging. Good for discovering nested code module hierarchies.",
+            "Self-organizing map (SOM): neural-network topology-preserving map with incremental re-clustering as code changes."
+          ],
+          "description": "Clustering algorithm used to group related code symbols."
+        },
+        "code-charter-vscode.clusteringMaxClusters": {
+          "order": 5,
+          "type": "number",
+          "default": 12,
+          "minimum": 2,
+          "maximum": 30,
+          "description": "Maximum number of clusters. The algorithm searches for the optimal count up to this limit."
+        },
+        "code-charter-vscode.devMode": {
+          "order": 6,
           "type": "boolean",
           "default": false,
           "description": "Enable development mode to load UI from dev server"
         },
         "code-charter-vscode.devServerUrl": {
-          "order": 5,
+          "order": 7,
           "type": "string",
           "default": "http://localhost:3000",
           "description": "URL of the UI development server"
@@ -107,7 +133,9 @@
     "@huggingface/transformers": "^3.7.1",
     "@langchain/ollama": "^0.1.3",
     "@langchain/openai": "^0.0.34",
-    "clustering-tfjs": "^0.1.0",
+    "@tensorflow/tfjs-node": "^4.10.0",
+    "@vscode/python-extension": "^1.0.5",
+    "clustering-tfjs": "^0.4.0",
     "langchain": "^0.3.6",
     "openai": "^4.0.0",
     "pouchdb": "^8.0.1"
