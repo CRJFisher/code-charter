@@ -90,7 +90,7 @@ export const ViewportIndicator: React.FC<ViewportIndicatorProps> = React.memo(({
   const positionStyles: React.CSSProperties = {
     position: 'absolute',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    color: CONFIG.color.ui.text.white,
+    color: '#ffffff',
     padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.medium + 4}px`,
     borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
     fontSize: `${CONFIG.spacing.fontSize.medium}px`,

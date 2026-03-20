@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Theme, ThemeProvider, ThemeContextValue } from '@code-charter/types';
+import { Theme, ThemeProvider } from '@code-charter/types';
+
+export interface ThemeContextValue {
+  theme: Theme;
+  setTheme?: (theme: Theme) => void;
+  availableThemes?: Theme[];
+  isStandalone: boolean;
+}
 import { VSCodeThemeProvider } from './vscode_theme_provider';
 import { StandaloneThemeProvider } from './standalone_theme_provider';
 import { isVSCodeContext } from '../components/code_chart_area/navigation_utils';

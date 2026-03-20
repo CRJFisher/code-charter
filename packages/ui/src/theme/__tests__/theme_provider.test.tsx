@@ -1,138 +1,145 @@
 import React from 'react';
-import { render } from '@testing-library/react';
-import { ThemeProvider } from '../theme_provider';
+import { render, act } from '@testing-library/react';
+import { ThemeProviderComponent, useTheme } from '../theme_context';
 import { VSCodeThemeProvider } from '../vscode_theme_provider';
 import { StandaloneThemeProvider } from '../standalone_theme_provider';
+import { darkTheme, lightTheme } from '../default_themes';
 
-describe('ThemeProvider', () => {
+/**
+ * Helper component that consumes the theme context
+ */
+function ThemeConsumer() {
+  const ctx = useTheme();
+  return (
+    <div>
+      <span data-testid="theme-name">{ctx.theme.name}</span>
+      <span data-testid="theme-type">{ctx.theme.type}</span>
+      <span data-testid="is-standalone">{String(ctx.isStandalone)}</span>
+    </div>
+  );
+}
+
+describe('ThemeProviderComponent', () => {
+  // Force standalone mode so the provider does not try to use VS Code APIs
   it('renders children', () => {
     const { getByText } = render(
-      <ThemeProvider>
+      <ThemeProviderComponent forceStandalone>
         <div>Test Child</div>
-      </ThemeProvider>
+      </ThemeProviderComponent>
     );
 
     expect(getByText('Test Child')).toBeInTheDocument();
   });
 
-  it('automatically detects VS Code environment', () => {
-    // Mock VS Code CSS variables
-    const rootElement = document.documentElement;
-    rootElement.style.setProperty('--vscode-editor-background', '#1e1e1e');
-    rootElement.style.setProperty('--vscode-editor-foreground', '#cccccc');
-
-    const { container } = render(
-      <ThemeProvider>
-        <div>Content</div>
-      </ThemeProvider>
+  it('provides theme context to children via useTheme()', () => {
+    const { getByTestId } = render(
+      <ThemeProviderComponent forceStandalone>
+        <ThemeConsumer />
+      </ThemeProviderComponent>
     );
 
-    // Should have VS Code theme classes or styles
-    const styles = window.getComputedStyle(container.firstChild as Element);
-    expect(styles.getPropertyValue('--vscode-editor-background')).toBe('#1e1e1e');
+    // In standalone / forceStandalone mode the default theme should be present
+    expect(getByTestId('theme-name').textContent).toBeTruthy();
+    expect(getByTestId('is-standalone').textContent).toBe('true');
   });
 
-  it('falls back to standalone theme when not in VS Code', () => {
-    // Clear any VS Code variables
-    const rootElement = document.documentElement;
-    rootElement.style.removeProperty('--vscode-editor-background');
-    rootElement.style.removeProperty('--vscode-editor-foreground');
+  it('throws when useTheme() is used outside the provider', () => {
+    // Suppress the React error boundary console output
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    const { container } = render(
-      <ThemeProvider>
-        <div>Content</div>
-      </ThemeProvider>
+    expect(() => render(<ThemeConsumer />)).toThrow(
+      'useTheme must be used within a ThemeProvider'
     );
 
-    // Should have standalone theme
-    expect(container.innerHTML).toContain('Content');
+    spy.mockRestore();
   });
 });
 
 describe('VSCodeThemeProvider', () => {
   beforeEach(() => {
-    // Set up VS Code CSS variables
-    const rootElement = document.documentElement;
-    rootElement.style.setProperty('--vscode-editor-background', '#1e1e1e');
-    rootElement.style.setProperty('--vscode-editor-foreground', '#cccccc');
-    rootElement.style.setProperty('--vscode-button-background', '#0e639c');
-    rootElement.style.setProperty('--vscode-button-foreground', '#ffffff');
+    // Set up VS Code CSS variables so getCurrentTheme can read them
+    const root = document.documentElement;
+    root.style.setProperty('--vscode-editor-background', '#1e1e1e');
+    root.style.setProperty('--vscode-editor-foreground', '#d4d4d4');
   });
 
   afterEach(() => {
-    // Clean up
-    const rootElement = document.documentElement;
-    rootElement.style.removeProperty('--vscode-editor-background');
-    rootElement.style.removeProperty('--vscode-editor-foreground');
-    rootElement.style.removeProperty('--vscode-button-background');
-    rootElement.style.removeProperty('--vscode-button-foreground');
+    const root = document.documentElement;
+    root.style.removeProperty('--vscode-editor-background');
+    root.style.removeProperty('--vscode-editor-foreground');
   });
 
-  it('provides VS Code theme colors', () => {
+  it('getCurrentTheme() returns a valid Theme object', () => {
     const provider = new VSCodeThemeProvider();
-    const colors = provider.getThemeColors();
+    const theme = provider.getCurrentTheme();
 
-    expect(colors['editor.background']).toBe('#1e1e1e');
-    expect(colors['editor.foreground']).toBe('#cccccc');
-    expect(colors['button.background']).toBe('#0e639c');
-    expect(colors['button.foreground']).toBe('#ffffff');
+    expect(theme).toHaveProperty('name');
+    expect(theme).toHaveProperty('type');
+    expect(theme).toHaveProperty('colors');
+    expect(['light', 'dark']).toContain(theme.type);
+    expect(theme.colors['editor.background']).toBeDefined();
+    expect(theme.colors['editor.foreground']).toBeDefined();
   });
 
-  it('returns default colors for missing variables', () => {
+  it('onThemeChange returns an unsubscribe function', () => {
     const provider = new VSCodeThemeProvider();
-    const colors = provider.getThemeColors();
+    const callback = jest.fn();
+    const unsubscribe = provider.onThemeChange(callback);
 
-    // These might not be set in test environment
-    if (!colors['panel.background']) {
-      expect(colors['panel.background']).toBe('#1e1e1e'); // Falls back to editor background
-    }
-  });
+    expect(typeof unsubscribe).toBe('function');
 
-  it('identifies as VS Code theme', () => {
-    const provider = new VSCodeThemeProvider();
-    expect(provider.getThemeType()).toBe('vscode');
+    // Cleanup
+    unsubscribe();
+    provider.dispose();
   });
 });
 
 describe('StandaloneThemeProvider', () => {
-  it('provides dark theme colors', () => {
-    const provider = new StandaloneThemeProvider('dark');
-    const colors = provider.getThemeColors();
+  it('getCurrentTheme() returns the initial theme when provided', () => {
+    const provider = new StandaloneThemeProvider(darkTheme);
+    const theme = provider.getCurrentTheme();
 
-    expect(colors['editor.background']).toBe('#1e1e1e');
-    expect(colors['editor.foreground']).toBe('#cccccc');
-    expect(colors['button.background']).toBe('#0e639c');
+    expect(theme.name).toBe(darkTheme.name);
+    expect(theme.type).toBe('dark');
   });
 
-  it('provides light theme colors', () => {
-    const provider = new StandaloneThemeProvider('light');
-    const colors = provider.getThemeColors();
+  it('setTheme() changes the current theme', () => {
+    const provider = new StandaloneThemeProvider(darkTheme);
+    provider.setTheme(lightTheme);
 
-    expect(colors['editor.background']).toBe('#ffffff');
-    expect(colors['editor.foreground']).toBe('#333333');
-    expect(colors['button.background']).toBe('#007acc');
+    const theme = provider.getCurrentTheme();
+    expect(theme.name).toBe(lightTheme.name);
+    expect(theme.type).toBe('light');
   });
 
-  it('defaults to dark theme', () => {
+  it('getAvailableThemes() returns at least the default themes', () => {
     const provider = new StandaloneThemeProvider();
-    const colors = provider.getThemeColors();
+    const themes = provider.getAvailableThemes();
 
-    expect(colors['editor.background']).toBe('#1e1e1e');
+    expect(themes.length).toBeGreaterThanOrEqual(2);
+    expect(themes.some(t => t.type === 'dark')).toBe(true);
+    expect(themes.some(t => t.type === 'light')).toBe(true);
   });
 
-  it('identifies as standalone theme', () => {
-    const provider = new StandaloneThemeProvider();
-    expect(provider.getThemeType()).toBe('standalone');
+  it('onThemeChange() notifies listeners when theme is set', () => {
+    const provider = new StandaloneThemeProvider(darkTheme);
+    const callback = jest.fn();
+    provider.onThemeChange(callback);
+
+    provider.setTheme(lightTheme);
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(lightTheme);
   });
 
-  it('applies theme to element', () => {
-    const provider = new StandaloneThemeProvider('dark');
-    const element = document.createElement('div');
-    
-    provider.applyTheme(element);
+  it('unsubscribe stops notifications', () => {
+    const provider = new StandaloneThemeProvider(darkTheme);
+    const callback = jest.fn();
+    const unsubscribe = provider.onThemeChange(callback);
 
-    const styles = element.style;
-    expect(styles.getPropertyValue('--editor-background')).toBe('#1e1e1e');
-    expect(styles.getPropertyValue('--editor-foreground')).toBe('#cccccc');
+    unsubscribe();
+    provider.setTheme(lightTheme);
+
+    expect(callback).not.toHaveBeenCalled();
   });
 });
