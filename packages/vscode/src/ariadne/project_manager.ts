@@ -149,7 +149,10 @@ export class AriadneProjectManager {
    * Get the current call graph
    */
   getCallGraph(): CallGraph {
-    return this.project!.get_call_graph();
+    if (!this.project) {
+      return { nodes: new Map(), entry_points: [] };
+    }
+    return this.project.get_call_graph();
   }
 
   /**

@@ -215,8 +215,6 @@ export class ClusteringService {
     return embeddings;
   }
 
-  // ... rest of the methods remain the same as original ...
-  
   private prepareData(summaries: Record<string, string>) {
     const funcNames = Object.keys(summaries);
     const funcToIndex: Record<string, number> = {};
