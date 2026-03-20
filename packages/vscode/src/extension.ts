@@ -124,11 +124,27 @@ async function showWebviewDiagram(
               // Trigger incremental re-clustering if SOM service is active
               if (somClusteringService?.is_som_ready()) {
                 try {
-                  // Build call graph items for the SOM service
                   const summaries_entry = Object.values(topLevelFunctionToSummaries)[0];
                   if (summaries_entry) {
+                    // Convert CallGraph nodes to Record for the SOM service.
+                    // Use the new call graph's nodes but filter to known symbols.
+                    const new_call_graph_items: Record<string, any> = {};
+                    if (newCallGraph && typeof newCallGraph === "object" && "nodes" in newCallGraph) {
+                      const nodes_map = (newCallGraph as any).nodes;
+                      if (nodes_map && typeof nodes_map.forEach === "function") {
+                        nodes_map.forEach((node: any, key: string) => {
+                          new_call_graph_items[key] = node;
+                        });
+                      }
+                    }
+
+                    // Use new call graph items if available, else fall back to last known
+                    const call_graph_items = Object.keys(new_call_graph_items).length > 0
+                      ? new_call_graph_items
+                      : summaries_entry.callTreeWithFilteredOutNodes;
+
                     const updated_groups = await somClusteringService.incremental_recluster(
-                      summaries_entry.callTreeWithFilteredOutNodes,
+                      call_graph_items,
                       summaries_entry.refinedFunctionSummaries
                     );
 
@@ -174,8 +190,14 @@ async function showWebviewDiagram(
         },
         clusterCodeTree: async () => {
           const { topLevelFunctionSymbol } = otherFields;
+          if (!callGraph) {
+            throw new Error("Call graph not available");
+          }
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
+          if (!summaries) {
+            throw new Error("Summaries not yet generated for this symbol");
+          }
 
           const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
           const apiKey = configuration.get<string>("APIKey") || null;

@@ -180,7 +180,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
           selectedEntryPoint,
           summariesAndFilteredCallTree,
-          nodeGroups
+          nodeGroups,
+          themeStyles.colors.cluster?.palette
         );
         
         // Apply hierarchical layout

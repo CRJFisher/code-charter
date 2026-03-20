@@ -18,16 +18,19 @@ import type {
   SomParams,
 } from "@code-charter/types";
 
-let _initialized = false;
+// Promise-based singleton to avoid TOCTOU race on concurrent init calls.
+let _init_promise: Promise<void> | null = null;
 
 /**
- * Ensure the TF.js backend is initialized (singleton).
+ * Ensure the TF.js backend is initialized (singleton, race-safe).
  */
 async function ensure_initialized(): Promise<void> {
-  if (_initialized) return;
-  await Clustering.init();
-  console.log("[clustering-adapter] TF.js clustering backend initialized");
-  _initialized = true;
+  if (!_init_promise) {
+    _init_promise = Clustering.init().then(() => {
+      console.log("[clustering-adapter] TF.js clustering backend initialized");
+    });
+  }
+  return _init_promise;
 }
 
 /**
@@ -35,7 +38,6 @@ async function ensure_initialized(): Promise<void> {
  */
 function log_memory(label: string): void {
   try {
-    // Dynamic require to avoid hard failure if tfjs-node isn't available
     const tf = require("@tensorflow/tfjs-node");
     const mem = tf.memory();
     console.log(
@@ -59,7 +61,6 @@ function map_config_to_options(
     metrics: map_metrics(config.metrics),
   };
 
-  // Map algorithm-specific params
   if (config.algorithm_params) {
     const params = config.algorithm_params as Record<string, unknown>;
     const mapped: Record<string, unknown> = {};
@@ -76,7 +77,6 @@ function map_config_to_options(
     options.algorithmParams = mapped;
   }
 
-  // Map scoring function (snake_case → camelCase bridge)
   if (config.scoring_function) {
     const user_scoring = config.scoring_function;
     options.scoringFunction = (evaluation: LibClusterEvaluation) => {
@@ -100,18 +100,14 @@ function map_metrics(
   metrics?: string[]
 ): Array<"silhouette" | "daviesBouldin" | "calinskiHarabasz"> | undefined {
   if (!metrics) return undefined;
-  return metrics.map((m) => {
-    switch (m) {
-      case "silhouette":
-        return "silhouette";
-      case "davies_bouldin":
-        return "daviesBouldin";
-      case "calinski_harabasz":
-        return "calinskiHarabasz";
-      default:
-        return m as "silhouette";
-    }
-  });
+  const metric_map: Record<string, "silhouette" | "daviesBouldin" | "calinskiHarabasz"> = {
+    silhouette: "silhouette",
+    davies_bouldin: "daviesBouldin",
+    calinski_harabasz: "calinskiHarabasz",
+  };
+  return metrics
+    .filter((m) => m in metric_map)
+    .map((m) => metric_map[m]);
 }
 
 /**
@@ -172,14 +168,12 @@ async function run_som_clustering(
   const n = data.length;
   const som_params = (config.algorithm_params ?? {}) as SomParams;
 
-  // Grid size heuristic: ceil(sqrt(n * 2))
   const grid_dim = Math.max(
     2,
     som_params.grid_width ?? Math.ceil(Math.sqrt(n * 2))
   );
   const grid_height = som_params.grid_height ?? grid_dim;
 
-  // Phase 1: Train SOM
   const som = new Clustering.SOM({
     nClusters: grid_dim * grid_height,
     gridWidth: grid_dim,
@@ -189,87 +183,84 @@ async function run_som_clustering(
     initialization: som_params.initialization ?? "pca",
     numEpochs: som_params.num_epochs ?? 200,
     learningRate: som_params.learning_rate ?? 0.5,
-    onlineMode: true, // Enable partialFit for later incremental use
+    onlineMode: true,
     tol: 1e-5,
   });
 
-  await som.fit(data);
+  try {
+    await som.fit(data);
 
-  // Extract weight vectors from SOM grid
-  const weights_tensor = som.getWeights();
-  const weights_3d: number[][][] = weights_tensor.arraySync();
-  const weights_flat: number[][] = [];
-  for (let i = 0; i < grid_height; i++) {
-    for (let j = 0; j < grid_dim; j++) {
-      weights_flat.push(weights_3d[i][j]);
+    // Extract weight vectors from SOM grid and dispose tensor immediately
+    const weights_tensor = som.getWeights();
+    const weights_3d: number[][][] = weights_tensor.arraySync();
+    if (weights_tensor.dispose) weights_tensor.dispose();
+
+    const weights_flat: number[][] = [];
+    for (let i = 0; i < grid_height; i++) {
+      for (let j = 0; j < grid_dim; j++) {
+        weights_flat.push(weights_3d[i][j]);
+      }
     }
-  }
 
-  // Get BMU indices for all data points
-  const bmu_indices = (await som.predict(data)) as number[];
+    // Get BMU indices for all data points
+    const bmu_indices = (await som.predict(data)) as number[];
 
-  // Phase 2: Sweep agglomerative clustering on weight vectors for optimal k
-  const min_k = config.min_clusters ?? 2;
-  const max_k = Math.min(Math.floor(n / 3), config.max_clusters);
+    // Phase 2: Sweep agglomerative clustering on weight vectors for optimal k
+    const min_k = config.min_clusters ?? 2;
+    const max_k = Math.max(min_k, Math.min(Math.floor(n / 3), config.max_clusters));
 
-  let best_result: ClusteringResult | null = null;
-  let best_score = -Infinity;
-  const all_evaluations: ClusterEvaluation[] = [];
+    let best_result: ClusteringResult | null = null;
+    let best_score = -Infinity;
+    const all_evaluations: ClusterEvaluation[] = [];
 
-  for (let k = min_k; k <= max_k; k++) {
-    const agglom = new Clustering.AgglomerativeClustering({
-      nClusters: k,
-      linkage: "ward",
-    });
-    const neuron_labels = (await agglom.fitPredict(
-      weights_flat
-    )) as number[];
+    for (let k = min_k; k <= max_k; k++) {
+      const agglom = new Clustering.AgglomerativeClustering({
+        nClusters: k,
+        linkage: "ward",
+      });
+      const neuron_labels = (await agglom.fitPredict(
+        weights_flat
+      )) as number[];
 
-    // Map data points to final clusters via their BMU
-    const data_labels = bmu_indices.map(
-      (bmu_idx) => neuron_labels[bmu_idx]
-    );
+      const data_labels = bmu_indices.map(
+        (bmu_idx) => neuron_labels[bmu_idx]
+      );
 
-    // Evaluate using the library's built-in findOptimalClusters for just this k
-    // We compute a simple silhouette-like score by checking cluster compactness
-    const evaluation: ClusterEvaluation = {
-      k,
-      scores: {},
-      labels: data_labels,
-    };
-    all_evaluations.push(evaluation);
-
-    // Use number of non-empty clusters as a basic scoring heuristic
-    const unique_labels = new Set(data_labels);
-    // Prefer k values that produce actual different clusters (no empty ones)
-    const score = unique_labels.size === k ? k : k - (k - unique_labels.size) * 2;
-
-    if (score > best_score || best_result === null) {
-      best_score = score;
-      best_result = {
-        labels: data_labels,
-        n_clusters: unique_labels.size,
+      const evaluation: ClusterEvaluation = {
+        k,
         scores: {},
-        all_evaluations,
+        labels: data_labels,
+      };
+      all_evaluations.push(evaluation);
+
+      const unique_labels = new Set(data_labels);
+      const score = unique_labels.size === k ? k : k - (k - unique_labels.size) * 2;
+
+      if (score > best_score || best_result === null) {
+        best_score = score;
+        best_result = {
+          labels: data_labels,
+          n_clusters: unique_labels.size,
+          scores: {},
+          all_evaluations,
+        };
+      }
+    }
+
+    if (!best_result) {
+      return {
+        labels: new Array(n).fill(0),
+        n_clusters: 1,
+        scores: {},
+        all_evaluations: [],
       };
     }
+
+    best_result.all_evaluations = all_evaluations;
+    return best_result;
+  } finally {
+    som.dispose();
   }
-
-  // Clean up
-  som.dispose();
-
-  // If no valid k was found (e.g., n too small), return single-cluster fallback
-  if (!best_result) {
-    return {
-      labels: new Array(n).fill(0),
-      n_clusters: 1,
-      scores: {},
-      all_evaluations: [],
-    };
-  }
-
-  best_result.all_evaluations = all_evaluations;
-  return best_result;
 }
 
 /**
@@ -298,11 +289,11 @@ export async function run_clustering(
  * Get a reference to the SOM class for direct use (e.g., incremental clustering).
  */
 export async function create_som_instance(
-  params: SomParams & { n_clusters: number }
+  params: SomParams & { data_count: number }
 ): Promise<InstanceType<typeof Clustering.SOM>> {
   await ensure_initialized();
 
-  const grid_dim = params.grid_width ?? Math.ceil(Math.sqrt(params.n_clusters * 2));
+  const grid_dim = params.grid_width ?? Math.ceil(Math.sqrt(params.data_count * 2));
   const grid_height = params.grid_height ?? grid_dim;
 
   return new Clustering.SOM({

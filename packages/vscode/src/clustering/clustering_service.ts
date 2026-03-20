@@ -131,12 +131,13 @@ export class ClusteringService {
       call_graph_items
     );
 
-    // Try to load cached clusters
-    const cached_clusters = await this.load_cached_clusters(cluster_hash);
-    if (cached_clusters) {
+    // Try to load cached clusters (includes quality_score)
+    const cached = await this.load_cached_clusters(cluster_hash);
+    if (cached) {
       return {
-        clusters: cached_clusters,
+        clusters: cached.clusters,
         algorithm_used: this.algorithm,
+        quality_score: cached.quality_score,
       };
     }
 
@@ -181,13 +182,15 @@ export class ClusteringService {
     // Order clusters by average distance to centroid
     const ordered_clusters = order_clusters_by_centroid(grouped_clusters, embeddings);
 
-    // Cache the results
-    await this.save_clusters(ordered_clusters, cluster_hash);
+    const quality_score = result.scores.silhouette;
+
+    // Cache the results (including quality_score)
+    await this.save_clusters(ordered_clusters, cluster_hash, quality_score);
 
     return {
       clusters: ordered_clusters,
       algorithm_used: this.algorithm,
-      quality_score: result.scores.silhouette,
+      quality_score,
     };
   }
 
@@ -292,7 +295,9 @@ export class ClusteringService {
     return embeddings;
   }
 
-  private async load_cached_clusters(cluster_hash: string): Promise<string[][] | null> {
+  private async load_cached_clusters(
+    cluster_hash: string
+  ): Promise<{ clusters: string[][]; quality_score?: number } | null> {
     const clusters_path = vscode.Uri.joinPath(
       this.work_dir,
       "clusters",
@@ -301,15 +306,23 @@ export class ClusteringService {
 
     try {
       const cached = await vscode.workspace.fs.readFile(clusters_path);
-      const clusters = JSON.parse(cached.toString()) as string[][];
+      const data = JSON.parse(cached.toString());
       console.log(`Loaded cached clusters from ${clusters_path.fsPath}`);
-      return clusters;
+      // Support both old format (string[][]) and new format ({ clusters, quality_score })
+      if (Array.isArray(data)) {
+        return { clusters: data };
+      }
+      return data as { clusters: string[][]; quality_score?: number };
     } catch {
       return null;
     }
   }
 
-  private async save_clusters(clusters: string[][], cluster_hash: string): Promise<void> {
+  private async save_clusters(
+    clusters: string[][],
+    cluster_hash: string,
+    quality_score?: number
+  ): Promise<void> {
     const clusters_path = vscode.Uri.joinPath(
       this.work_dir,
       "clusters",
@@ -319,7 +332,7 @@ export class ClusteringService {
     await this.ensure_directory(vscode.Uri.joinPath(this.work_dir, "clusters"));
     await vscode.workspace.fs.writeFile(
       clusters_path,
-      new TextEncoder().encode(JSON.stringify(clusters))
+      new TextEncoder().encode(JSON.stringify({ clusters, quality_score }))
     );
     console.log(`Saved clusters to ${clusters_path.fsPath}`);
   }

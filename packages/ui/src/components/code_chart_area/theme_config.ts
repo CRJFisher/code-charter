@@ -237,5 +237,6 @@ export function get_cluster_color(
   cluster_index: number
 ): ClusterColor {
   const palette = colors.cluster.palette;
-  return palette[cluster_index % palette.length];
+  // Guard against negative indices (JS modulo returns negative for negative operands)
+  return palette[((cluster_index % palette.length) + palette.length) % palette.length];
 }
