@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useBackend } from "../hooks/use_backend";
 import type { CallGraph, CallGraphNode } from "@code-charter/types";
 
@@ -16,10 +16,7 @@ function count_nodes(top_level_node: string, graph: CallGraph, visited_nodes: Se
   }, 1);
 }
 
-function symbol_display_name(symbol: string): string {
-  const parts = symbol.split(':');
-  return parts[parts.length - 1] || symbol;
-}
+import { symbolDisplayName as symbol_display_name } from "./code_chart_area/symbol_utils";
 
 interface SidebarProps {
   call_graph: CallGraph;
@@ -100,9 +97,11 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
     await backend.navigateToDoc(node.definition.file_path, node.definition.range.start.row);
   };
 
-  const tot_nodes_count_descending_symbols = call_graph.top_level_nodes.sort(
-    (a: string, b: string) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
-  );
+  const tot_nodes_count_descending_symbols = useMemo(() => {
+    return [...call_graph.top_level_nodes].sort(
+      (a: string, b: string) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
+    );
+  }, [call_graph]);
 
   return (
     <ul className="w-full">

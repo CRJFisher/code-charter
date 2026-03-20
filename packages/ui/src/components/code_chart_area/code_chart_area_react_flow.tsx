@@ -19,7 +19,6 @@ import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
-import { symbolDisplayName } from "./symbol_utils";
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
 import { zoomAwareNodeTypes } from "./zoom_aware_node";
 import { generateReactFlowElements } from "./react_flow_data_transform";
@@ -94,11 +93,10 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   
   // Monitor zoom level and viewport
   const zoom = useStore((state: XYFlowState) => state.transform[2]);
-  const viewport = useStore((state: XYFlowState) => ({
-    x: state.transform[0],
-    y: state.transform[1],
-    zoom: state.transform[2],
-  }));
+  const viewportX = useStore((state: XYFlowState) => state.transform[0]);
+  const viewportY = useStore((state: XYFlowState) => state.transform[1]);
+  const viewportZoom = useStore((state: XYFlowState) => state.transform[2]);
+  const viewport = useMemo(() => ({ x: viewportX, y: viewportY, zoom: viewportZoom }), [viewportX, viewportY, viewportZoom]);
   const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
   
   // Debounce viewport changes for performance
@@ -188,14 +186,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         setNodes(layoutedNodes);
         setEdges(flowEdges);
         setSummaryStatus(SummarisationStatus.Ready);
-        perfMonitor.current.endMeasure('data-fetch', nodes.length, edges.length);
+        perfMonitor.current.endMeasure('data-fetch', layoutedNodes.length, flowEdges.length);
       } catch (err) {
         const error = err instanceof Error ? err : new Error("An error occurred");
         setError(error.message);
         setSummaryStatus(SummarisationStatus.Error);
         errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol });
-        handleReactFlowError(error);
-        
+
         // Show notification with retry option
         notify(
           'Failed to load visualization data',
@@ -455,7 +452,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 onClick={() => {
                   if (reactFlowInstance.current) {
                     handleSaveState(reactFlowInstance.current);
-                    alert("Graph state saved!");
+                    notify("Graph state saved!", "info");
                   }
                 }}
                 style={{
@@ -484,10 +481,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               </button>
               <button
                 onClick={() => {
-                  if (confirm("Clear saved state?")) {
-                    clearGraphState();
-                    alert("Saved state cleared!");
-                  }
+                  clearGraphState();
+                  notify("Saved state cleared!", "info");
                 }}
                 style={{
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,

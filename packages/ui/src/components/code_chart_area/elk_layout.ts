@@ -49,7 +49,7 @@ export async function applyHierarchicalLayout(
   }
 
   // Check cache first
-  const cacheKey = `layout-${nodes.length}-${edges.length}`;
+  const cacheKey = layoutCache.generateKey(nodes, edges);
   const cached = layoutCache.get(cacheKey);
   if (cached) {
     console.log('[Layout] Using cached layout');

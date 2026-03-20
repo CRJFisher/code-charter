@@ -39,7 +39,8 @@ export class ClusteringService {
     // Validate configuration
     const is_valid = await EmbeddingProviderSelector.validate_provider_config(this.providerType);
     if (!is_valid) {
-      throw new Error('Invalid embedding provider configuration');
+      // Re-fetch provider type since validation may have changed it
+      this.providerType = await EmbeddingProviderSelector.get_embedding_provider(this.context);
     }
 
     if (this.providerType === 'local') {

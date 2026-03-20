@@ -280,6 +280,8 @@ async function getModelDetails(): Promise<ModelDetails> {
         keepAlive: "20m", // TODO: this doesn't work - still getting timeouts
       }),
     };
+  } else {
+    throw new Error(`Unsupported model provider: ${provider}`);
   }
 }
 

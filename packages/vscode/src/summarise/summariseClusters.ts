@@ -65,7 +65,7 @@ export async function getClusterDescriptions(
   const output = await sequence.invoke({ curr: { root: domainSummary }, prev: {} });
   const combinedSummaries = { ...output.prev, ...output.curr };
   const clusterSummaries = {};
-  for (const clusterId in Object.keys(clusterGraph.clusterIdToMembers)) {
+  for (const clusterId of Object.keys(clusterGraph.clusterIdToMembers)) {
     clusterSummaries[clusterId] = combinedSummaries[clusterId];
   }
   return clusterSummaries;

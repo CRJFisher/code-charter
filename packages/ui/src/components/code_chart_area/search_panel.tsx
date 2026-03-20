@@ -174,7 +174,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           requestAnimationFrame(() => {
             inputRef.current?.focus();
           });
-        }}
+        }
       }
     };
     

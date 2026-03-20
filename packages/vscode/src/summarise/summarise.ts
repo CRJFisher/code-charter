@@ -219,7 +219,7 @@ async function getFunctionBusinessLogic(
   } = {};
   for (const [_, node] of allFunctionNodes) {
     const summaryChain = buildBusinessLogicPrompt(node.symbol).pipe(modelDetails.model).pipe(outputParser);
-    const summaryKey = hashText(node.symbol);
+    const summaryKey = hashText(node.symbol, summaries.get(node.symbol) || '');
     const summaryFromCacheOrLLMChain = await getSummaryWithCachingChain(
       summaryChain,
       functionSummariesDb,

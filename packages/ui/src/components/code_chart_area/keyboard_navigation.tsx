@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './react_flow_types';
+import { errorNotificationManager } from './error_handling';
 
 export interface KeyboardNavigationProps {
   onNodeNavigate?: (nodeId: string) => void;
@@ -106,22 +107,10 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
 }
 
 function showKeyboardShortcuts() {
-  // This could be enhanced to show a modal or overlay
-  alert(`Keyboard Shortcuts:
-  
-Navigation:
-• Tab - Navigate through nodes
-• Arrow Keys - Navigate to connected nodes
-• Enter/Space - Activate node (open file)
-• Escape - Deselect all nodes
-
-View Control:
-• Ctrl/Cmd + F - Fit all nodes in view
-• Mouse Wheel - Zoom in/out
-
-Other:
-• / - Focus search (when implemented)
-• Shift + ? - Show this help`);
+  errorNotificationManager.notify(
+    "Keyboard shortcuts: Tab (navigate nodes), Arrow keys (connected nodes), Enter/Space (open file), Escape (deselect), Ctrl+F (fit view), / (search), Shift+? (help)",
+    "info"
+  );
 }
 
 // Skip link component for accessibility
