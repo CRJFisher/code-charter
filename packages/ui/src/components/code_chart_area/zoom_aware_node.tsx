@@ -5,6 +5,7 @@ import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
 import { navigateToFile } from "./navigation_utils";
 import { CONFIG } from "./config";
 import { useFlowThemeStyles } from "./use_flow_theme_styles";
+import { get_cluster_color } from "./theme_config";
 
 const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
@@ -94,12 +95,20 @@ const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
   return <CodeFunctionNode {...props} />;
 };
 
-// Module group node for when clustering is implemented
+// Module group node for clustering
 export interface ModuleNodeData extends Record<string, unknown> {
   module_name: string;
   description: string;
   member_count: number;
   is_expanded?: boolean;
+  cluster_index: number;
+  quality_score?: number;
+}
+
+function get_quality_color(score: number): string {
+  if (score >= 0.7) return '#4caf50';
+  if (score >= 0.4) return '#ff9800';
+  return '#f44336';
 }
 
 const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
@@ -108,17 +117,19 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
   const { selected } = props;
   const themeStyles = useFlowThemeStyles();
-  
+
   // Only show module groups when zoomed out
   if (!isZoomedOut) {
     return null;
   }
-  
+
+  const cluster_color = get_cluster_color(themeStyles.colors, data.cluster_index ?? 0);
+
   const moduleStyles: React.CSSProperties = {
     padding: `${CONFIG.spacing.padding.xlarge}px`,
     borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
-    backgroundColor: themeStyles.colors.node.background.module,
-    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? themeStyles.colors.node.border.selected : themeStyles.colors.node.border.module}`,
+    backgroundColor: cluster_color.background,
+    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? themeStyles.colors.node.border.selected : cluster_color.border}`,
     width: "100%",
     height: "100%",
     transition: "all 0.3s ease",
@@ -146,10 +157,13 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
     color: themeStyles.colors.node.text.tertiary,
   };
 
-  const moduleAriaLabel = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.`;
-  
+  const quality_label = data.quality_score !== undefined
+    ? ` Cluster quality: ${(data.quality_score * 100).toFixed(0)} percent.`
+    : '';
+  const moduleAriaLabel = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.${quality_label}`;
+
   return (
-    <div 
+    <div
       style={moduleStyles}
       role="group"
       tabIndex={0}
@@ -159,27 +173,50 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
       <Handle
         type="target"
         position={Position.Top}
-        style={{ background: themeStyles.colors.node.border.module }}
+        style={{ background: cluster_color.border }}
       />
-      
+
       <div style={headerStyles}>
         {data.module_name}
       </div>
-      
+
       {data.description && (
         <div style={descriptionStyles}>
           {data.description}
         </div>
       )}
-      
+
       <div style={countStyles}>
         {data.member_count} functions
       </div>
-      
+
+      {data.quality_score !== undefined && (
+        <div style={{
+          fontSize: '11px',
+          color: themeStyles.colors.node.text.tertiary,
+          marginTop: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+        }}>
+          <span
+            style={{
+              display: 'inline-block',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: get_quality_color(data.quality_score),
+            }}
+            aria-hidden="true"
+          />
+          Quality: {(data.quality_score * 100).toFixed(0)}%
+        </div>
+      )}
+
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ background: themeStyles.colors.node.border.module }}
+        style={{ background: cluster_color.border }}
       />
     </div>
   );
@@ -202,11 +239,13 @@ export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prevProps, next
 export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prevProps, nextProps) => {
   const prevData = prevProps.data as ModuleNodeData;
   const nextData = nextProps.data as ModuleNodeData;
-  
+
   return (
     prevData.module_name === nextData.module_name &&
     prevData.description === nextData.description &&
     prevData.member_count === nextData.member_count &&
+    prevData.cluster_index === nextData.cluster_index &&
+    prevData.quality_score === nextData.quality_score &&
     prevProps.selected === nextProps.selected &&
     prevProps.id === nextProps.id
   );

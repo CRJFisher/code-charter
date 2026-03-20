@@ -6,6 +6,7 @@ import { CodeNodeData } from "./code_function_node";
 import { ModuleNodeData } from "./zoom_aware_node";
 import { calculateNodeDimensions } from "./elk_layout";
 import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
+import type { ClusterColor } from "./theme_config";
 
 export interface ReactFlowElements {
   nodes: CodeChartNode[];
@@ -15,7 +16,8 @@ export interface ReactFlowElements {
 export function generateReactFlowElements(
   selectedEntryPoint: CallGraphNode,
   summariesAndFilteredCallTree: TreeAndContextSummaries,
-  nodeGroups: NodeGroup[] | undefined
+  nodeGroups: NodeGroup[] | undefined,
+  cluster_palette?: ClusterColor[]
 ): ReactFlowElements {
   const nodes: CodeChartNode[] = [];
   const edges: CodeChartEdge[] = [];
@@ -141,6 +143,7 @@ export function generateReactFlowElements(
       }
       
       const padding = 40;
+      const cluster_index = group.metadata?.cluster_index ?? index;
       const moduleNode: CodeChartNode = {
         id: moduleId,
         type: "module_group",
@@ -149,12 +152,12 @@ export function generateReactFlowElements(
           module_name: `Module ${index + 1}`,
           description: group.description || "",
           member_count: group.memberSymbols.length,
+          cluster_index,
+          quality_score: group.metadata?.quality_score,
         },
         style: {
           width: maxX - minX + padding * 2,
           height: maxY - minY + padding * 2,
-          backgroundColor: "rgba(240, 240, 240, 0.3)",
-          border: "2px dashed #cccccc",
           borderRadius: "15px",
           padding: "20px",
           zIndex: -1,
@@ -166,8 +169,19 @@ export function generateReactFlowElements(
     // Add module nodes at the beginning so they render behind
     nodes.unshift(...moduleNodes as CodeChartNode[]);
     
+    // Build cluster index lookup for module edge coloring
+    const module_id_to_cluster_index = new Map<string, number>();
+    nodeGroups.forEach((group, idx) => {
+      module_id_to_cluster_index.set(`module_${idx}`, group.metadata?.cluster_index ?? idx);
+    });
+
     // Add edges between modules after all connections are tracked
     moduleConnections.forEach((targets, source) => {
+      const source_cluster_index = module_id_to_cluster_index.get(source) ?? 0;
+      const edge_color = cluster_palette
+        ? cluster_palette[source_cluster_index % cluster_palette.length].border
+        : "#cccccc";
+
       targets.forEach(target => {
         const moduleEdgeId = `module-edge-${source}-${target}`;
         edges.push({
@@ -177,7 +191,7 @@ export function generateReactFlowElements(
           type: "default",
           animated: false,
           style: {
-            stroke: "#cccccc",
+            stroke: edge_color,
             strokeWidth: 3,
           },
           ariaLabel: `Module connection from ${source} to ${target}`,

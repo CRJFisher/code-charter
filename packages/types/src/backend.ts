@@ -1,4 +1,5 @@
 import type { CallGraph, CallGraphNode } from "@ariadnejs/types";
+import type { ClusteringAlgorithm } from "./clustering";
 
 /**
  * Represents a summary of a code tree with function-level details
@@ -16,6 +17,11 @@ export interface TreeAndContextSummaries {
 export interface NodeGroup {
   description: string;
   memberSymbols: string[];
+  metadata?: {
+    algorithm_used: ClusteringAlgorithm;
+    quality_score?: number;
+    cluster_index: number;
+  };
 }
 
 /**

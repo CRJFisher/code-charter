@@ -10,16 +10,16 @@ import { CallGraph } from "@ariadnejs/core";
 import { TreeAndContextSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
-import { ClusteringService } from "./clustering/clustering_service";
+import { ClusteringService, read_clustering_config } from "./clustering/clustering_service";
+import { SomClusteringService } from "./clustering/som_clustering_service";
 import { AriadneProjectManager } from "./ariadne/project_manager";
+import type { NodeGroup } from "@code-charter/types";
 
 const extensionFolder = ".code-charter";
 
 let webviewColumn: vscode.ViewColumn | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  // The command has been defined in the package.json file
-  // The commandId parameter must match the command field in package.json
   const disposable = vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () =>
     generateDiagram(context)
   );
@@ -36,7 +36,6 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function generateDiagram(context: vscode.ExtensionContext) {
-  // Check if a `.code-charter` directory exists in the workspace
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
     vscode.window.showWarningMessage("No workspace is open.");
@@ -49,7 +48,6 @@ async function generateDiagram(context: vscode.ExtensionContext) {
     () => false
   );
   if (!dirExists) {
-    // Create the directory
     await vscode.workspace.fs.createDirectory(workDir);
     addToGitignore(extensionFolder);
   }
@@ -69,10 +67,9 @@ async function showWebviewDiagram(
       vscode.Uri.file(context.extensionPath),
       vscode.Uri.joinPath(context.extensionUri, "node_modules"),
     ],
-    // Enable Chrome DevTools debugging in development
-    ...(process.env.CODE_CHARTER_DEV_MODE === "true" ? { 
+    ...(process.env.CODE_CHARTER_DEV_MODE === "true" ? {
       enableCommandUris: true,
-      enableFindWidget: true 
+      enableFindWidget: true
     } : {})
   });
   webviewColumn = panel.viewColumn;
@@ -85,10 +82,10 @@ async function showWebviewDiagram(
   const codeCharterConfig = vscode.workspace.getConfiguration("code-charter-vscode");
   const isDevelopment = process.env.CODE_CHARTER_DEV_MODE === "true" || codeCharterConfig.get("devMode", false);
   const devServerUrl = codeCharterConfig.get("devServerUrl", "http://localhost:3000");
-  
+
   const htmlContent = getWebviewContent(
-    panel.webview, 
-    context.extensionUri, 
+    panel.webview,
+    context.extensionUri,
     colorCustomizations,
     isDevelopment,
     devServerUrl
@@ -97,21 +94,18 @@ async function showWebviewDiagram(
   let callGraph: CallGraph | undefined;
   let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};
   let projectManager: AriadneProjectManager | undefined;
+  let somClusteringService: SomClusteringService | undefined;
 
   panel.webview.onDidReceiveMessage(
     async (message) => {
       const { command, id, ...otherFields } = message;
 
-      // Map of command handlers
       const commandHandlers: { [key: string]: () => Promise<void> } = {
         getCallGraph: async () => {
-          // Use the first workspace folder directly
           const workspacePath = workspaceFolders[0].uri.fsPath;
-          
-          // Initialize project manager if not already done
+
           if (!projectManager) {
             projectManager = new AriadneProjectManager(workspacePath, (path) => {
-              // Filter out test files and common non-source directories
               return (
                 !path.includes("test") &&
                 !path.includes("node_modules") &&
@@ -119,24 +113,43 @@ async function showWebviewDiagram(
                 !path.includes(".git")
               );
             });
-            
-            // Set up listener for call graph changes
-            projectManager.onCallGraphChanged((newCallGraph) => {
+
+            projectManager.onCallGraphChanged(async (newCallGraph) => {
               callGraph = newCallGraph;
-              // Notify the webview that the call graph has been updated
-              panel.webview.postMessage({ 
-                command: "callGraphUpdated", 
-                data: newCallGraph 
+              panel.webview.postMessage({
+                command: "callGraphUpdated",
+                data: newCallGraph
               });
+
+              // Trigger incremental re-clustering if SOM service is active
+              if (somClusteringService?.is_som_ready()) {
+                try {
+                  // Build call graph items for the SOM service
+                  const summaries_entry = Object.values(topLevelFunctionToSummaries)[0];
+                  if (summaries_entry) {
+                    const updated_groups = await somClusteringService.incremental_recluster(
+                      summaries_entry.callTreeWithFilteredOutNodes,
+                      summaries_entry.refinedFunctionSummaries
+                    );
+
+                    if (updated_groups) {
+                      panel.webview.postMessage({
+                        command: "clusteringUpdated",
+                        data: updated_groups,
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error("Incremental re-clustering failed:", error);
+                }
+              }
             });
-            
-            // Initialize and get the initial call graph
+
             callGraph = await projectManager.initialize();
           } else {
-            // Get current call graph from project manager
             callGraph = projectManager.getCallGraph();
           }
-          
+
           if (!callGraph) {
             throw new Error("Call graph not found");
           }
@@ -156,7 +169,6 @@ async function showWebviewDiagram(
             workspacePath,
             modelDetails
           );
-          // TODO: create a filtered Record<string, DefinitionNode> based on filtered out nodes. Then we don't need filtering
           topLevelFunctionToSummaries[topLevelFunctionSymbol] = summaries;
           panel.webview.postMessage({ id, command: "summariseCodeTreeResponse", data: summaries });
         },
@@ -164,42 +176,86 @@ async function showWebviewDiagram(
           const { topLevelFunctionSymbol } = otherFields;
           const modelDetails = await getModelDetails();
           const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
-          
-          // Create clustering service - API key is optional now
+
           const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
           const apiKey = configuration.get<string>("APIKey") || null;
-          const clusteringService = new ClusteringService(apiKey, workFolder, context);
-          
-          // Perform clustering
-          const clusters = await clusteringService.cluster(
-            summaries.refinedFunctionSummaries,
-            summaries.callTreeWithFilteredOutNodes
-          );
-          
-          const descriptions = await getClusterDescriptions(
-            clusters.map((cluster) =>
-              cluster.map((memberSymbol) => {
-                return {
+          const clustering_config = read_clustering_config();
+
+          let node_groups: NodeGroup[];
+
+          if (clustering_config.algorithm === "som") {
+            // Use SOM clustering service for incremental support
+            if (!somClusteringService) {
+              somClusteringService = new SomClusteringService(apiKey, workFolder, context);
+            }
+
+            const som_groups = await somClusteringService.full_cluster(
+              summaries.refinedFunctionSummaries,
+              summaries.callTreeWithFilteredOutNodes
+            );
+
+            // Get descriptions for SOM clusters
+            const descriptions = await getClusterDescriptions(
+              som_groups.map((group) =>
+                group.memberSymbols.map((memberSymbol) => ({
                   symbol: memberSymbol,
                   functionSummaryString: summaries.refinedFunctionSummaries[memberSymbol],
-                };
-              })
-            ),
-            modelDetails,
-            summaries.contextSummary,
-            callGraph
-          );
-          const nodeGroups = clusters.map((cluster, i) => {
-            return {
+                }))
+              ),
+              modelDetails,
+              summaries.contextSummary,
+              callGraph
+            );
+
+            node_groups = som_groups.map((group, i) => ({
+              description: descriptions[i],
+              memberSymbols: group.memberSymbols,
+              metadata: {
+                algorithm_used: "som" as const,
+                cluster_index: i,
+                quality_score: group.metadata?.quality_score,
+              },
+            }));
+          } else {
+            // Use standard clustering service
+            const clusteringService = new ClusteringService(
+              apiKey,
+              workFolder,
+              context,
+              clustering_config
+            );
+
+            const cluster_result = await clusteringService.cluster(
+              summaries.refinedFunctionSummaries,
+              summaries.callTreeWithFilteredOutNodes
+            );
+
+            const descriptions = await getClusterDescriptions(
+              cluster_result.clusters.map((cluster) =>
+                cluster.map((memberSymbol) => ({
+                  symbol: memberSymbol,
+                  functionSummaryString: summaries.refinedFunctionSummaries[memberSymbol],
+                }))
+              ),
+              modelDetails,
+              summaries.contextSummary,
+              callGraph
+            );
+
+            node_groups = cluster_result.clusters.map((cluster, i) => ({
               description: descriptions[i],
               memberSymbols: cluster,
-            };
-          });
-          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: nodeGroups });
+              metadata: {
+                algorithm_used: cluster_result.algorithm_used,
+                cluster_index: i,
+                quality_score: cluster_result.quality_score,
+              },
+            }));
+          }
+
+          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: node_groups });
         },
         functionSummaryStatus: async () => {
-          const { functionSymbol } = otherFields;
-          // TODO: get it from the db
           panel.webview.postMessage({ id, command: "functionSummaryStatusResponse", data: {} });
         },
         navigateToDoc: async () => {
@@ -212,7 +268,6 @@ async function showWebviewDiagram(
         },
       };
 
-      // Execute the appropriate handler
       const handler = commandHandlers[command];
       if (handler) {
         await handler();
@@ -225,17 +280,16 @@ async function showWebviewDiagram(
   );
 
   panel.webview.html = htmlContent;
-  
-  // Clean up project manager when panel is disposed
+
   panel.onDidDispose(() => {
     projectManager?.dispose();
     projectManager = undefined;
+    somClusteringService?.dispose();
+    somClusteringService = undefined;
   }, null, context.subscriptions);
 
-  // Set up dev watcher if in development mode
   if (isDevelopment) {
     const devWatcher = new UIDevWatcher(context, () => {
-      // Reload the webview when UI changes
       panel.webview.html = getWebviewContent(
         panel.webview,
         context.extensionUri,
@@ -268,8 +322,7 @@ async function getModelDetails(): Promise<ModelDetails> {
       }),
     };
   } else if (provider === ModelProvider.Ollama) {
-    // TODO: get by calling Ollama API - use the last-used model
-    const modelName = "mistral"; // 'magicoder'; //"phi3:3.8b",
+    const modelName = "mistral";
     return {
       uid: `ollama:${modelName}`,
       provider: ModelProvider.Ollama,
@@ -277,10 +330,11 @@ async function getModelDetails(): Promise<ModelDetails> {
         baseUrl: "http://localhost:11434",
         model: modelName,
         format: "txt",
-        keepAlive: "20m", // TODO: this doesn't work - still getting timeouts
+        keepAlive: "20m",
       }),
     };
   }
+  throw new Error(`Unsupported model provider: ${provider}`);
 }
 
 
