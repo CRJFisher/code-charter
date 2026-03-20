@@ -1,10 +1,7 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
 import { addToGitignore } from "./files";
 import { navigateToDoc } from "./navigate";
 import { CallGraph, CallGraphNode } from "@ariadnejs/core";
-import type { DocstringInfo } from "@code-charter/types";
 import { DocstringSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
@@ -12,7 +9,6 @@ import { ClusteringService } from "./clustering/clustering_service";
 import { VscodeCacheStorage } from "./clustering/vscode_cache_storage";
 import { LocalEmbeddingsProvider } from "./clustering/local_embeddings_provider";
 import { AriadneProjectManager } from "./ariadne/project_manager";
-import { RegexDocstringProvider } from "./docstrings";
 import { ClusterSummariesStore } from "./storage/json_store";
 import { symbolRepoLocalName } from "../shared/symbols";
 
@@ -87,7 +83,6 @@ async function show_webview_diagram(
   let call_graph: CallGraph | undefined;
   let top_level_function_to_descriptions: { [key: string]: DocstringSummaries } = {};
   let project_manager: AriadneProjectManager | undefined;
-  const docstring_provider = new RegexDocstringProvider();
   const embedding_provider = new LocalEmbeddingsProvider(
     (message: string, progress?: number) => {
       vscode.window.withProgress({
@@ -148,7 +143,7 @@ async function show_webview_diagram(
             throw new Error("Call graph not found");
           }
 
-          const descriptions = extract_descriptions(call_graph, topLevelFunctionSymbol, docstring_provider, workspace_folders[0].uri.fsPath);
+          const descriptions = extract_descriptions(call_graph, topLevelFunctionSymbol);
           top_level_function_to_descriptions[topLevelFunctionSymbol] = descriptions;
           panel.webview.postMessage({ id, command: "getCodeTreeDescriptionsResponse", data: descriptions });
         },
@@ -225,19 +220,16 @@ async function show_webview_diagram(
 
 /**
  * Extracts docstring descriptions from the call graph for a given entry point.
- * Walks the call tree and uses RegexDocstringProvider to get docstrings from source files.
+ * Uses ariadne's Def.docstring field directly — ariadne already extracts docstrings
+ * via tree-sitter during call graph construction.
  */
 function extract_descriptions(
   call_graph: CallGraph,
-  top_level_symbol: string,
-  docstring_provider: RegexDocstringProvider,
-  workspace_path: string
+  top_level_symbol: string
 ): DocstringSummaries {
   const docstrings: Record<string, string> = {};
   const call_tree: Record<string, CallGraphNode> = {};
   const visited = new Set<string>();
-
-  const file_docstrings_cache = new Map<string, Map<string, DocstringInfo>>();
 
   function walk(symbol: string) {
     if (visited.has(symbol)) return;
@@ -248,40 +240,9 @@ function extract_descriptions(
 
     call_tree[symbol] = node;
 
-    // Try to get docstring from the definition
-    const def = node.definition;
-    if (def && def.file_path) {
-      const abs_path = path.isAbsolute(def.file_path)
-        ? def.file_path
-        : path.join(workspace_path, def.file_path);
+    // Use ariadne's docstring if available, fall back to display name
+    docstrings[symbol] = node.definition?.docstring || symbolRepoLocalName(symbol);
 
-      if (!file_docstrings_cache.has(abs_path)) {
-        try {
-          const content = fs.readFileSync(abs_path, "utf-8");
-          file_docstrings_cache.set(abs_path, docstring_provider.get_docstrings(abs_path, content));
-        } catch {
-          file_docstrings_cache.set(abs_path, new Map());
-        }
-      }
-
-      const file_docs = file_docstrings_cache.get(abs_path)!;
-      const local_name = symbolRepoLocalName(symbol);
-
-      // Try to find a matching docstring by local name
-      for (const [key, info] of file_docs) {
-        if (key === local_name || key.endsWith(`.${local_name}`)) {
-          docstrings[symbol] = info.body;
-          break;
-        }
-      }
-    }
-
-    // Fallback: use the symbol's display name
-    if (!docstrings[symbol]) {
-      docstrings[symbol] = symbolRepoLocalName(symbol);
-    }
-
-    // Walk children
     for (const call of node.calls) {
       walk(call.symbol);
     }
