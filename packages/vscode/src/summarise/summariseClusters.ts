@@ -36,11 +36,11 @@ export async function getClusterDescriptions(
 ): Promise<Record<string, string>> {
   const clusterGraph = getClusterGraph(clusters, callGraph);
 
-  const cluserSequence = getClusterDependencySequence("0", clusterGraph);
-  const sequenceLength = Object.keys(cluserSequence).length;
+  const clusterSequence = getClusterDependencySequence("0", clusterGraph);
+  const sequenceLength = Object.keys(clusterSequence).length;
   const levelRunnables = [];
   for (let i = 0; i < sequenceLength; i++) {
-    levelRunnables.push(createLevelRunnable(cluserSequence[i], clusterGraph.clusterIdToMembers, modelDetails));
+    levelRunnables.push(createLevelRunnable(clusterSequence[i], clusterGraph.clusterIdToMembers, modelDetails));
   }
 
   let sequence: Runnable;

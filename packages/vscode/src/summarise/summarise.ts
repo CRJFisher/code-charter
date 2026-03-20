@@ -24,8 +24,6 @@ async function summariseCallGraph(
   workspacePath: vscode.Uri,
   modelDetails: ModelDetails
 ): Promise<TreeAndContextSummaries> {
-  console.log(modelDetails);
-
   const topLevelFunctionName = symbolRepoLocalName(topLevelFunctionSymbol);
   const rootContext = await summariseRootScope(workDir, workspacePath, topLevelFunctionName, modelDetails);
 
@@ -56,9 +54,6 @@ async function summariseCallGraph(
     contextSummary: rootContext,
     callTreeWithFilteredOutNodes: businessLogicDescriptions.filteredCallTree,
   };
-  // write summaries to file
-  // const outFile = `${workDir.fsPath}/summaries-${topLevelFunctionName.replace(" ", "")}.json`;
-  // await vscode.workspace.fs.writeFile(vscode.Uri.file(outFile), Buffer.from(JSON.stringify(summaries, null, 2)));
   return summaries;
 }
 
@@ -277,15 +272,6 @@ async function getSymbolToFunctionCode(
   return nodeCode;
 }
 
-async function readCallGraphJsonFile(callGraphFile: vscode.Uri): Promise<CallGraph> {
-  // Read the JSON file
-  const jsonString = await vscode.workspace.fs
-    .readFile(callGraphFile)
-    .then((buffer) => new TextDecoder().decode(buffer));
-  const jsonParsed = JSON.parse(jsonString);
-  return jsonParsed as CallGraph;
-}
-
 async function checkForMarkdownFile(directoryPath: vscode.Uri): Promise<string | null> {
   try {
     // Read all files in the directory asynchronously
@@ -340,4 +326,4 @@ function getCallGraphItemsWithFilteredOutFunctions(
   return callGraphItems;
 }
 
-export { summariseCallGraph, readCallGraphJsonFile };
+export { summariseCallGraph };

@@ -1,7 +1,6 @@
 import { CallGraphNode } from "@ariadnejs/types";
 import { findOptimalClusters } from "clustering-tfjs";
 import * as crypto from "crypto";
-import * as path from "path";
 import * as vscode from "vscode";
 import { OpenAI } from "openai";
 import { LocalEmbeddingsProvider, EmbeddingProvider } from "./local_embeddings_provider";
@@ -138,7 +137,6 @@ export class ClusteringService {
     const orderedClusters = this.orderClustersByCentroid(
       groupedClusters,
       embeddings,
-      funcToIndex
     );
     
     // Cache the results
@@ -215,8 +213,6 @@ export class ClusteringService {
     return embeddings;
   }
 
-  // ... rest of the methods remain the same as original ...
-  
   private prepareData(summaries: Record<string, string>) {
     const funcNames = Object.keys(summaries);
     const funcToIndex: Record<string, number> = {};
@@ -326,7 +322,6 @@ export class ClusteringService {
   private orderClustersByCentroid(
     clusters: string[][],
     embeddings: Record<string, number[]>,
-    funcToIndex: Record<string, number>
   ): string[][] {
     const clusterDistances: Array<{ cluster: string[]; distance: number }> = [];
     

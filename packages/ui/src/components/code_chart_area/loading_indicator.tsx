@@ -53,26 +53,3 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
     </div>
   );
 };
-
-// Progress bar component for multi-step operations
-export const ProgressBar: React.FC<{ progress: number; total: number }> = ({ progress, total }) => {
-  const percentage = Math.round((progress / total) * 100);
-  
-  return (
-    <div style={{
-      width: "200px",
-      height: "8px",
-      backgroundColor: "#f0f0f0",
-      borderRadius: "4px",
-      overflow: "hidden",
-      marginTop: "12px",
-    }}>
-      <div style={{
-        width: `${percentage}%`,
-        height: "100%",
-        backgroundColor: "#3498db",
-        transition: "width 0.3s ease",
-      }} />
-    </div>
-  );
-};

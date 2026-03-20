@@ -174,38 +174,3 @@ export function getVisibleNodes(
   
   return visibleNodeIds;
 }
-
-// Batch updates helper
-export class BatchUpdater {
-  private updates: (() => void)[] = [];
-  private rafId: number | null = null;
-
-  add(update: () => void): void {
-    this.updates.push(update);
-    this.scheduleFlush();
-  }
-
-  private scheduleFlush(): void {
-    if (this.rafId === null) {
-      this.rafId = requestAnimationFrame(() => {
-        this.flush();
-      });
-    }
-  }
-
-  private flush(): void {
-    const updates = this.updates.slice();
-    this.updates = [];
-    this.rafId = null;
-    
-    updates.forEach(update => update());
-  }
-
-  clear(): void {
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
-    this.updates = [];
-  }
-}

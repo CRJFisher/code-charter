@@ -10,8 +10,6 @@
   ],
   "scripts": {
     "build": "tsup",
-    "build:lib": "tsup --config tsup.config.ts --no-config",
-    "build:standalone": "tsup --config tsup.config.ts --no-config",
     "dev": "tsup --watch",
     "dev:standalone": "NODE_ENV=development tsup --watch",
     "dev:server": "http-server dist -p 3000 --cors -c-1",
@@ -31,8 +29,7 @@
     "@xyflow/react": "^12.8.2",
     "elkjs": "^0.10.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-icons": "^4.11.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.0.0",

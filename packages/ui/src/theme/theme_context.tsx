@@ -2,18 +2,12 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { Theme, ThemeProvider, ThemeContextValue } from '@code-charter/types';
 import { VSCodeThemeProvider } from './vscode_theme_provider';
 import { StandaloneThemeProvider } from './standalone_theme_provider';
+import { isVSCodeContext } from '../components/code_chart_area/navigation_utils';
 
 /**
  * Theme context
  */
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-/**
- * Detect if we're running in VSCode webview
- */
-function isVSCodeContext(): boolean {
-  return typeof acquireVsCodeApi !== 'undefined';
-}
 
 /**
  * Theme provider component props
@@ -75,19 +69,3 @@ export function useTheme(): ThemeContextValue {
   return context;
 }
 
-/**
- * Hook to get theme colors as CSS variables
- */
-export function useThemeColors(): Record<string, string> {
-  const { theme } = useTheme();
-  
-  return Object.entries(theme.colors).reduce((acc, [key, value]) => {
-    // Convert to CSS variable format
-    const cssVarName = `--vscode-${key.replace(/\./g, '-')}`;
-    acc[cssVarName] = value;
-    return acc;
-  }, {} as Record<string, string>);
-}
-
-// Global declaration for VSCode API detection
-declare const acquireVsCodeApi: any;

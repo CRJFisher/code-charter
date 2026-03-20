@@ -202,18 +202,3 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   );
 };
 
-// Hook for error handling in functional components
-export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    if (error) {
-      throw error;
-    }
-  }, [error]);
-
-  const resetError = () => setError(null);
-  const captureError = (error: Error) => setError(error);
-
-  return { resetError, captureError };
-}

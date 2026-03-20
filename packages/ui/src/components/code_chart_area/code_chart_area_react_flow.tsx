@@ -17,7 +17,6 @@ import {
 } from "@xyflow/react";
 import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
-import "./flow_theme.css";
 import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
 import { symbolDisplayName } from "./symbol_utils";
@@ -378,12 +377,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           )}
           
           {/* Search Panel */}
-          <SearchPanel 
-            onNodeSelect={(nodeId) => {
-              // Additional handling if needed when node is selected
-              console.log('Node selected:', nodeId);
-            }}
-          />
+          <SearchPanel />
           
           {/* Zoom mode indicator and controls */}
           <div
@@ -532,7 +526,7 @@ function createMiniMapNodeColor(colors: ReturnType<typeof useFlowThemeStyles>['c
 // Export the component with proper naming
 export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;
 
-// Wrap the component with ReactFlowProvider, ErrorBoundary, and FlowThemeProvider
+// Wrap the component with ReactFlowProvider and ErrorBoundary
 export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (props) => {
   return (
     <ErrorBoundary

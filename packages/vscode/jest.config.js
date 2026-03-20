@@ -103,7 +103,7 @@ const config = {
   // notifyMode: "failure-change",
 
   // A preset that is used as a base for Jest's configuration
-  // preset: undefined,
+  preset: 'ts-jest',
 
   // Run tests from one or more projects
   // projects: undefined,
@@ -165,12 +165,14 @@ const config = {
   testPathIgnorePatterns: [
     "/node_modules/",
     "/.vscode-test/",
-    "/src/__tests__/setup/"
+    "/src/__tests__/setup/",
+    "/out/"
   ],
-  
+
   // Module paths to ignore
   modulePathIgnorePatterns: [
-    "/.vscode-test/"
+    "/.vscode-test/",
+    "/out/"
   ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files

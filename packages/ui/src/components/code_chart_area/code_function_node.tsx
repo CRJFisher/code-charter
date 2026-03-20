@@ -125,8 +125,3 @@ export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps
     prevProps.id === nextProps.id
   );
 });
-
-// Node types mapping for React Flow
-export const nodeTypes = {
-  code_function: CodeFunctionNode,
-};
