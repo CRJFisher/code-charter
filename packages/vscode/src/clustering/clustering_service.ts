@@ -46,20 +46,23 @@ export class ClusteringService {
     if (this.providerType === 'local') {
       // Create local embeddings provider with progress reporting
       // Use a single withProgress session to avoid spawning multiple notifications
+      let active_reporter: vscode.Progress<{ message?: string; increment?: number }> | null = null;
+      const local_provider = new LocalEmbeddingsProvider(
+        this.context,
+        (message: string, progress?: number) => {
+          active_reporter?.report({ message, increment: progress });
+        }
+      );
       await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: "Code Charter: Embeddings",
         cancellable: false
       }, async (progress_reporter) => {
-        this.embeddingProvider = new LocalEmbeddingsProvider(
-          this.context,
-          (message: string, progress?: number) => {
-            progress_reporter.report({ message, increment: progress });
-          }
-        );
-        // Initialize the pipeline within this progress scope
-        await (this.embeddingProvider as LocalEmbeddingsProvider).initialize_pipeline();
+        active_reporter = progress_reporter;
+        await local_provider.initialize_pipeline();
+        active_reporter = null;
       });
+      this.embeddingProvider = local_provider;
     } else {
       // Use OpenAI provider
       if (!this.openAIClient) {
