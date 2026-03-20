@@ -3,7 +3,7 @@
 // and are provided by the theme system based on the current VSCode theme.
 
 // Layout Configuration
-export const LAYOUT_CONFIG = {
+const LAYOUT_CONFIG = {
   // ELK Layout Options
   elk: {
     algorithm: 'layered',
@@ -32,7 +32,7 @@ export const LAYOUT_CONFIG = {
 } as const;
 
 // Node Configuration
-export const NODE_CONFIG = {
+const NODE_CONFIG = {
   // Default Dimensions
   default: {
     width: 250,
@@ -62,7 +62,7 @@ export const NODE_CONFIG = {
 } as const;
 
 // Zoom Configuration
-export const ZOOM_CONFIG = {
+const ZOOM_CONFIG = {
   // Zoom Levels
   levels: {
     min: 0.1,
@@ -76,7 +76,7 @@ export const ZOOM_CONFIG = {
 } as const;
 
 // Animation Configuration
-export const ANIMATION_CONFIG = {
+const ANIMATION_CONFIG = {
   // Durations (in ms)
   duration: {
     fitView: 500,
@@ -91,7 +91,7 @@ export const ANIMATION_CONFIG = {
 } as const;
 
 // Performance Configuration
-export const PERFORMANCE_CONFIG = {
+const PERFORMANCE_CONFIG = {
   // Node Count Thresholds
   nodes: {
     largeGraph: 200,
@@ -107,7 +107,7 @@ export const PERFORMANCE_CONFIG = {
 
 
 // UI Spacing Configuration
-export const SPACING_CONFIG = {
+const SPACING_CONFIG = {
   // Padding
   padding: {
     small: 4,
@@ -138,7 +138,7 @@ export const SPACING_CONFIG = {
 } as const;
 
 // Error Handling Configuration
-export const ERROR_CONFIG = {
+const ERROR_CONFIG = {
   // Retry
   retry: {
     maxRetries: 3,
@@ -156,7 +156,7 @@ export const ERROR_CONFIG = {
 } as const;
 
 // MiniMap Configuration
-export const MINIMAP_CONFIG = {
+const MINIMAP_CONFIG = {
   nodeStrokeWidth: 3,
   colors: {
     moduleGroup: '#e0e0e0',
@@ -167,14 +167,14 @@ export const MINIMAP_CONFIG = {
 } as const;
 
 // Background Configuration
-export const BACKGROUND_CONFIG = {
+const BACKGROUND_CONFIG = {
   variant: 'dots' as const,
   gap: 12,
   size: 1,
 } as const;
 
 // Viewport Configuration
-export const VIEWPORT_CONFIG = {
+const VIEWPORT_CONFIG = {
   fitView: {
     padding: 0.2,
   },
@@ -190,7 +190,7 @@ export const VIEWPORT_CONFIG = {
 } as const;
 
 // Z-Index Layers
-export const Z_INDEX = {
+const Z_INDEX = {
   background: 0,
   nodes: 1,
   edges: 2,
@@ -214,16 +214,4 @@ export const CONFIG = {
   zIndex: Z_INDEX,
 } as const;
 
-// Type definitions for configuration
-export type LayoutConfig = typeof LAYOUT_CONFIG;
-export type NodeConfig = typeof NODE_CONFIG;
-export type ZoomConfig = typeof ZOOM_CONFIG;
-export type AnimationConfig = typeof ANIMATION_CONFIG;
-export type PerformanceConfig = typeof PERFORMANCE_CONFIG;
-export type SpacingConfig = typeof SPACING_CONFIG;
-export type ErrorConfig = typeof ERROR_CONFIG;
-export type MinimapConfig = typeof MINIMAP_CONFIG;
-export type BackgroundConfig = typeof BACKGROUND_CONFIG;
-export type ViewportConfig = typeof VIEWPORT_CONFIG;
-export type ZIndexConfig = typeof Z_INDEX;
 export type Config = typeof CONFIG;
