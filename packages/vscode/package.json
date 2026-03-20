@@ -104,8 +104,8 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "@ariadnejs/core": "^0.5.18",
-    "@ariadnejs/types": "^0.5.15",
+    "@ariadnejs/core": "^0.8.0",
+    "@ariadnejs/types": "^0.8.0",
     "@code-charter/types": "^0.0.1",
     "@code-charter/ui": "^0.0.1",
     "@huggingface/transformers": "^3.7.1",

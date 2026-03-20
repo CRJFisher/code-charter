@@ -1,33 +1,33 @@
-import { ClusterGraph, getClusterDepthLevels, getClusterDependencySequence } from "../summariseClusters";
+import { ClusterGraph, get_cluster_depth_levels, get_cluster_dependency_sequence } from "../summariseClusters";
 
-describe("getClusterDependencySequence", () => {
+describe("get_cluster_dependency_sequence", () => {
   test("should process simple linear dependency", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: [],
         B: ["A"],
         C: ["B"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B"],
         B: ["C"],
         C: [],
       },
     };
 
-    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+    const result = get_cluster_dependency_sequence(rootClusterId, clusterGraph);
 
     expect(result).toEqual({
-      0: [{ clusterId: "A", dependencies: [] }],
-      1: [{ clusterId: "B", dependencies: ["A"] }],
-      2: [{ clusterId: "C", dependencies: ["B"] }],
+      0: [{ cluster_id: "A", dependencies: [] }],
+      1: [{ cluster_id: "B", dependencies: ["A"] }],
+      2: [{ cluster_id: "C", dependencies: ["B"] }],
     });
   });
 
@@ -35,19 +35,19 @@ describe("getClusterDependencySequence", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
         D: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: [],
         B: ["A"],
         C: ["A"],
         D: ["B", "C"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B", "C"],
         B: ["D"],
         C: ["D"],
@@ -55,15 +55,15 @@ describe("getClusterDependencySequence", () => {
       },
     };
 
-    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+    const result = get_cluster_dependency_sequence(rootClusterId, clusterGraph);
 
     expect(result).toEqual({
-      0: [{ clusterId: "A", dependencies: [] }],
+      0: [{ cluster_id: "A", dependencies: [] }],
       1: [
-        { clusterId: "B", dependencies: ["A"] },
-        { clusterId: "C", dependencies: ["A"] },
+        { cluster_id: "B", dependencies: ["A"] },
+        { cluster_id: "C", dependencies: ["A"] },
       ],
-      2: [{ clusterId: "D", dependencies: ["B", "C"] }],
+      2: [{ cluster_id: "D", dependencies: ["B", "C"] }],
     });
   });
 
@@ -71,30 +71,30 @@ describe("getClusterDependencySequence", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: ["C"],
         B: ["A"],
         C: ["B"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B"],
         B: ["C"],
         C: ["A"],
       },
     };
 
-    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+    const result = get_cluster_dependency_sequence(rootClusterId, clusterGraph);
 
     expect(result).toEqual({
-      0: [{ clusterId: "A", dependencies: [] }],
-      1: [{ clusterId: "B", dependencies: ["A"] }],
-      2: [{ clusterId: "C", dependencies: ["B"] }],
-      3: [{ clusterId: "A", dependencies: ["C"] }],
+      0: [{ cluster_id: "A", dependencies: [] }],
+      1: [{ cluster_id: "B", dependencies: ["A"] }],
+      2: [{ cluster_id: "C", dependencies: ["B"] }],
+      3: [{ cluster_id: "A", dependencies: ["C"] }],
     });
   });
 
@@ -102,30 +102,30 @@ describe("getClusterDependencySequence", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: ["C"],
         B: ["A"],
         C: ["B"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B"],
         B: ["C"],
         C: ["A"],
       },
     };
 
-    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+    const result = get_cluster_dependency_sequence(rootClusterId, clusterGraph);
 
     expect(result).toEqual({
-      0: [{ clusterId: "A", dependencies: [] }],
-      1: [{ clusterId: "B", dependencies: ["A"] }],
-      2: [{ clusterId: "C", dependencies: ["B"] }],
-      3: [{ clusterId: "A", dependencies: ["C"] }],
+      0: [{ cluster_id: "A", dependencies: [] }],
+      1: [{ cluster_id: "B", dependencies: ["A"] }],
+      2: [{ cluster_id: "C", dependencies: ["B"] }],
+      3: [{ cluster_id: "A", dependencies: ["C"] }],
     });
   });
 
@@ -133,47 +133,47 @@ describe("getClusterDependencySequence", () => {
     const rootClusterId = "A";
 
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: ["A"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["A"],
       },
     };
 
-    const result = getClusterDependencySequence(rootClusterId, clusterGraph);
+    const result = get_cluster_dependency_sequence(rootClusterId, clusterGraph);
 
     expect(result).toEqual({
-      0: [{ clusterId: "A", dependencies: [] }],
-      1: [{ clusterId: "A", dependencies: ["A"] }],
+      0: [{ cluster_id: "A", dependencies: [] }],
+      1: [{ cluster_id: "A", dependencies: ["A"] }],
     });
   });
 });
 
-describe("getClusterDepthLevels", () => {
+describe("get_cluster_depth_levels", () => {
   test("should return correct depth levels for a simple tree", () => {
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: [],
         B: ["A"],
         C: ["B"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B"],
         B: ["C"],
         C: [],
       },
     };
 
-    const result = getClusterDepthLevels("A", clusterGraph);
+    const result = get_cluster_depth_levels("A", clusterGraph);
 
     expect(result).toEqual({
       A: new Set([0]),
@@ -184,19 +184,19 @@ describe("getClusterDepthLevels", () => {
 
   test("should handle a cycle and include depths for both branches", () => {
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
         D: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: [],
         B: ["A", "D"],
         C: ["B"],
         D: ["C"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B"],
         B: ["C"],
         C: ["D"],
@@ -204,7 +204,7 @@ describe("getClusterDepthLevels", () => {
       },
     };
 
-    const result = getClusterDepthLevels("A", clusterGraph);
+    const result = get_cluster_depth_levels("A", clusterGraph);
 
     expect(result).toEqual({
       A: new Set([0]),
@@ -216,21 +216,21 @@ describe("getClusterDepthLevels", () => {
 
   test("should handle a complex graph with cycles and branches", () => {
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
         D: [],
         E: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: [],
         B: ["A", "D"],
         C: ["A"],
         D: ["B"],
         E: ["C"],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: ["B", "C"],
         B: ["D"],
         C: ["E"],
@@ -239,7 +239,7 @@ describe("getClusterDepthLevels", () => {
       },
     };
 
-    const result = getClusterDepthLevels("A", clusterGraph);
+    const result = get_cluster_depth_levels("A", clusterGraph);
 
     expect(result).toEqual({
       A: new Set([0]),
@@ -252,12 +252,12 @@ describe("getClusterDepthLevels", () => {
 
   test("should handle an empty graph", () => {
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {},
-      clusterIdToParentClusterIds: {},
-      clusterIdToChildClusterIds: {},
+      cluster_id_to_members: {},
+      cluster_id_to_parent_cluster_ids: {},
+      cluster_id_to_child_cluster_ids: {},
     };
 
-    const result = getClusterDepthLevels("A", clusterGraph);
+    const result = get_cluster_depth_levels("A", clusterGraph);
 
     expect(result).toEqual({
       A: new Set([0]),
@@ -266,24 +266,24 @@ describe("getClusterDepthLevels", () => {
 
   test("should handle a graph with disconnected nodes", () => {
     const clusterGraph: ClusterGraph = {
-      clusterIdToMembers: {
+      cluster_id_to_members: {
         A: [],
         B: [],
         C: [],
       },
-      clusterIdToParentClusterIds: {
+      cluster_id_to_parent_cluster_ids: {
         A: [],
         B: [],
         C: [],
       },
-      clusterIdToChildClusterIds: {
+      cluster_id_to_child_cluster_ids: {
         A: [],
         B: [],
         C: [],
       },
     };
 
-    const result = getClusterDepthLevels("A", clusterGraph);
+    const result = get_cluster_depth_levels("A", clusterGraph);
 
     expect(result).toEqual({
       A: new Set([0]),

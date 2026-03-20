@@ -1,26 +1,39 @@
 import React from "react";
 import { CodeChartAreaReactFlowWrapper } from "./code_chart_area_react_flow";
-import { CallGraphNode } from "@ariadnejs/core";
+import type { CallableNode, SymbolId, SymbolName, FilePath, ScopeId, AnyDefinition } from "@ariadnejs/types";
 import { TreeAndContextSummaries, NodeGroup } from "@code-charter/types";
 import { CodeIndexStatus } from "../loading_status";
 
 // Test component to verify React Flow integration
 export const TestReactFlowComponent: React.FC = () => {
-  const mockEntryPoint: CallGraphNode = {
-    symbol: "test::function",
-    definition: {
-      kind: "definition",
-      name: "test_function",
-      symbol_kind: "Function",
-      symbol_id: "test_function_id",
-      id: 1,
-      file_path: "/test/file.ts",
-      range: {
-        start: { row: 1, column: 0 },
-        end: { row: 10, column: 0 },
-      },
+  const mockEntryPoint: CallableNode = {
+    symbol_id: "function:/test/file.ts:1:0:10:0:test_function" as SymbolId,
+    name: "test_function" as SymbolName,
+    enclosed_calls: [],
+    location: {
+      file_path: "/test/file.ts" as FilePath,
+      start_line: 1,
+      start_column: 0,
+      end_line: 10,
+      end_column: 0,
     },
-    children: [],
+    definition: {
+      kind: "function",
+      symbol_id: "function:/test/file.ts:1:0:10:0:test_function" as SymbolId,
+      name: "test_function" as SymbolName,
+      defining_scope_id: "global:/test/file.ts:0:0:100:0" as ScopeId,
+      location: {
+        file_path: "/test/file.ts" as FilePath,
+        start_line: 1,
+        start_column: 0,
+        end_line: 10,
+        end_column: 0,
+      },
+      is_exported: false,
+      signature: { parameters: [] },
+      body_scope_id: "function:/test/file.ts:1:0:10:0" as ScopeId,
+    } as AnyDefinition,
+    is_test: false,
   };
 
   const mockGetSummaries = async (nodeSymbol: string): Promise<TreeAndContextSummaries | undefined> => {

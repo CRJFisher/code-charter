@@ -8,53 +8,53 @@ import {
   RunnableParallel,
   RunnablePassthrough,
 } from "@langchain/core/runnables";
-import { symbolRepoLocalName } from "../../shared/symbols";
+import { symbol_repo_local_name } from "../../shared/symbols";
 import { ModelDetails } from "src/model";
-import { CallGraph } from "@shared/codeGraph";
+import type { CallGraph, SymbolId } from "@ariadnejs/types";
 
 interface ClusterMember {
   symbol: string;
-  functionSummaryString: string;
+  function_summary_string: string;
 }
 
 export interface ClusterGraph {
-  clusterIdToMembers: Record<string, ClusterMember[]>;
-  clusterIdToParentClusterIds: Record<string, string[]>;
-  clusterIdToChildClusterIds: Record<string, string[]>;
+  cluster_id_to_members: Record<string, ClusterMember[]>;
+  cluster_id_to_parent_cluster_ids: Record<string, string[]>;
+  cluster_id_to_child_cluster_ids: Record<string, string[]>;
 }
 
 interface ClusterDependencies {
-  clusterId: string;
+  cluster_id: string;
   dependencies: string[];
 }
 
-export async function getClusterDescriptions(
+export async function get_cluster_descriptions(
   clusters: ClusterMember[][],
-  modelDetails: ModelDetails,
-  domainSummary: string,
-  callGraph: CallGraph
+  model_details: ModelDetails,
+  domain_summary: string,
+  call_graph: CallGraph
 ): Promise<Record<string, string>> {
-  const clusterGraph = getClusterGraph(clusters, callGraph);
+  const cluster_graph = get_cluster_graph(clusters, call_graph);
 
-  const cluserSequence = getClusterDependencySequence("0", clusterGraph);
-  const sequenceLength = Object.keys(cluserSequence).length;
-  const levelRunnables = [];
-  for (let i = 0; i < sequenceLength; i++) {
-    levelRunnables.push(createLevelRunnable(cluserSequence[i], clusterGraph.clusterIdToMembers, modelDetails));
+  const cluster_sequence = get_cluster_dependency_sequence("0", cluster_graph);
+  const sequence_length = Object.keys(cluster_sequence).length;
+  const level_runnables = [];
+  for (let i = 0; i < sequence_length; i++) {
+    level_runnables.push(create_level_runnable(cluster_sequence[i], cluster_graph.cluster_id_to_members, model_details));
   }
 
   let sequence: Runnable;
-  if (levelRunnables.length === 0) {
+  if (level_runnables.length === 0) {
     throw new Error("No levels to process");
   } else {
     // Start with a RunnablePassthrough to pass the initial inputs through
     sequence = new RunnablePassthrough();
-    for (const levelRunnable of levelRunnables) {
+    for (const level_runnable of level_runnables) {
       // Pipe each levelRunnable, ensuring inputs are passed along
       sequence = sequence.pipe(
         RunnableParallel.from({
           curr: RunnableLambda.from((inputs: any) => {
-            return levelRunnable.invoke({ ...inputs.prev, ...inputs.curr });
+            return level_runnable.invoke({ ...inputs.prev, ...inputs.curr });
           }),
           prev: RunnableLambda.from((inputs: any) => ({ ...inputs.prev, ...inputs.curr })),
         })
@@ -62,176 +62,171 @@ export async function getClusterDescriptions(
     }
   }
 
-  const output = await sequence.invoke({ curr: { root: domainSummary }, prev: {} });
-  const combinedSummaries = { ...output.prev, ...output.curr };
-  const clusterSummaries = {};
-  for (const clusterId in Object.keys(clusterGraph.clusterIdToMembers)) {
-    clusterSummaries[clusterId] = combinedSummaries[clusterId];
+  const output = await sequence.invoke({ curr: { root: domain_summary }, prev: {} });
+  const combined_summaries = { ...output.prev, ...output.curr };
+  const cluster_summaries = {};
+  for (const cluster_id in Object.keys(cluster_graph.cluster_id_to_members)) {
+    cluster_summaries[cluster_id] = combined_summaries[cluster_id];
   }
-  return clusterSummaries;
+  return cluster_summaries;
 }
 
 interface ClusterContext {
-  parentIds: string[] | undefined;
-  clusterMembers: ClusterMember[];
+  parent_ids: string[] | undefined;
+  cluster_members: ClusterMember[];
 }
 
-function buildClusterSummaryPrompt(contextSummary: ClusterContext): PromptTemplate {
-  const isRoot = !contextSummary.parentIds || contextSummary.parentIds.length === 0;
+function build_cluster_summary_prompt(context_summary: ClusterContext): PromptTemplate {
+  const is_root = !context_summary.parent_ids || context_summary.parent_ids.length === 0;
   let context: string;
-  let inputVariables: string[];
-  if (isRoot) {
-    context = `These functions include the entrypoint into the application. 
+  let input_variables: string[];
+  if (is_root) {
+    context = `These functions include the entrypoint into the application.
     Connect their meaning to the following high-level domain context about the project:
     """
     {root}
     """`;
-    inputVariables = ["root"];
+    input_variables = ["root"];
   } else {
     context = `Here are the summaries of the modules that depend on this module.
     """
-    ${contextSummary.parentIds.map((parentId) => "{" + parentId + "}").join("\n")}
+    ${context_summary.parent_ids.map((parent_id) => "{" + parent_id + "}").join("\n")}
     """
     Avoid repeating the same information in the parent descriptions. Instead, focus on what this module does differently or adds to the parent modules.`;
-    inputVariables = contextSummary.parentIds;
+    input_variables = context_summary.parent_ids;
   }
-  const functionIdsPlaceholders = contextSummary.clusterMembers
-    .map((member) => `${symbolRepoLocalName(member.symbol)}\n${member.functionSummaryString}`)
+  const function_ids_placeholders = context_summary.cluster_members
+    .map((member) => `${symbol_repo_local_name(member.symbol)}\n${member.function_summary_string}`)
     .join("\n\n");
-  const templateString = `Function descriptions:
+  const template_string = `Function descriptions:
 """
-${functionIdsPlaceholders}
+${function_ids_placeholders}
 """
 ${context}
 Write a short, action-focused sentence about **what these functions collectively do** in telegraph-style, without mentioning specific classes, files, or organisational details`;
   return new PromptTemplate({
-    inputVariables: inputVariables,
-    template: templateString,
+    inputVariables: input_variables,
+    template: template_string,
   });
 }
 
-function createLevelRunnable(
-  clustersAtLevel: ClusterDependencies[],
-  clusterIdToMembers: Record<string, ClusterMember[]>,
-  modelDetails: ModelDetails
+function create_level_runnable(
+  clusters_at_level: ClusterDependencies[],
+  cluster_id_to_members: Record<string, ClusterMember[]>,
+  model_details: ModelDetails
 ): Runnable<any, any, RunnableConfig> {
-  const clusterIdToRunnable: Record<string, Runnable<any, string, RunnableConfig>> = {};
-  for (const cluster of clustersAtLevel) {
-    const clusterId = cluster.clusterId;
+  const cluster_id_to_runnable: Record<string, Runnable<any, string, RunnableConfig>> = {};
+  for (const cluster of clusters_at_level) {
+    const cluster_id = cluster.cluster_id;
     const context = {
-      parentIds: cluster.dependencies,
-      clusterMembers: clusterIdToMembers[clusterId],
+      parent_ids: cluster.dependencies,
+      cluster_members: cluster_id_to_members[cluster_id],
     };
-    const outputParser = new StringOutputParser();
-    const summaryChain = buildClusterSummaryPrompt(context).pipe(modelDetails.model).pipe(outputParser);
-    clusterIdToRunnable[clusterId] = summaryChain;
+    const output_parser = new StringOutputParser();
+    const summary_chain = build_cluster_summary_prompt(context).pipe(model_details.model).pipe(output_parser);
+    cluster_id_to_runnable[cluster_id] = summary_chain;
   }
-  return RunnableMap.from(clusterIdToRunnable);
+  return RunnableMap.from(cluster_id_to_runnable);
 }
 
-export function getClusterDependencySequence(
-  rootClusterId: string,
-  clusterGraph: ClusterGraph
-): { [sequenceIndex: number]: ClusterDependencies[] } {
-  /**
-   * If possible, we want the cluster to be processed after all it's dependencies have been processed.
-   * If there a circular dependency in the graph, we need to process it (at least) twice - once with a restricted context (so the sequence can progreess) and then with the full context.
-   * E.g. in A -> B -> C -> A, we can't include A in A's context in the first pass but we can once C has been processed.
-   */
-  const clusterSequence: { [sequenceIndex: number]: ClusterDependencies[] } = {};
-  const clusterDepthLevels = getClusterDepthLevels(rootClusterId, clusterGraph);
-  for (const [clusterId, depths] of Object.entries(clusterDepthLevels)) {
+export function get_cluster_dependency_sequence(
+  root_cluster_id: string,
+  cluster_graph: ClusterGraph
+): { [sequence_index: number]: ClusterDependencies[] } {
+  const cluster_sequence: { [sequence_index: number]: ClusterDependencies[] } = {};
+  const cluster_depth_levels = get_cluster_depth_levels(root_cluster_id, cluster_graph);
+  for (const [cluster_id, depths] of Object.entries(cluster_depth_levels)) {
     for (const depth of depths) {
-      if (!clusterSequence[depth]) {
-        clusterSequence[depth] = [];
+      if (!cluster_sequence[depth]) {
+        cluster_sequence[depth] = [];
       }
-      const clusterDependencies = new Set(clusterGraph.clusterIdToParentClusterIds[clusterId] || []);
-      // Its dependencies have to have been processed before it
-      const dependencies = Object.entries(clusterDepthLevels)
+      const cluster_dependencies = new Set(cluster_graph.cluster_id_to_parent_cluster_ids[cluster_id] || []);
+      const dependencies = Object.entries(cluster_depth_levels)
         .filter(
-          ([clusterId, depths]) => clusterDependencies.has(clusterId) && Array.from(depths).some((d) => d < depth)
+          ([cid, depths]) => cluster_dependencies.has(cid) && Array.from(depths).some((d) => d < depth)
         )
-        .map(([clusterId]) => clusterId);
-      clusterSequence[depth].push({ clusterId, dependencies });
+        .map(([cid]) => cid);
+      cluster_sequence[depth].push({ cluster_id, dependencies });
     }
   }
-  return clusterSequence;
+  return cluster_sequence;
 }
 
-export function getClusterDepthLevels(
-  startClusterId: string,
-  clusterGraph: ClusterGraph,
-  visitedNodes: Set<string> = new Set(),
-  clusterIdDepthLevels: Record<string, Set<number>> = {},
+export function get_cluster_depth_levels(
+  start_cluster_id: string,
+  cluster_graph: ClusterGraph,
+  visited_nodes: Set<string> = new Set(),
+  cluster_id_depth_levels: Record<string, Set<number>> = {},
   depth: number = 0
 ): Record<string, Set<number>> {
-  if (clusterIdDepthLevels[startClusterId] === undefined) {
-    clusterIdDepthLevels[startClusterId] = new Set();
+  if (cluster_id_depth_levels[start_cluster_id] === undefined) {
+    cluster_id_depth_levels[start_cluster_id] = new Set();
   }
-  clusterIdDepthLevels[startClusterId].add(depth);
-  if (visitedNodes.has(startClusterId)) {
-    return clusterIdDepthLevels;
+  cluster_id_depth_levels[start_cluster_id].add(depth);
+  if (visited_nodes.has(start_cluster_id)) {
+    return cluster_id_depth_levels;
   }
-  visitedNodes.add(startClusterId);
-  for (const child of clusterGraph.clusterIdToChildClusterIds[startClusterId] || []) {
-    getClusterDepthLevels(child, clusterGraph, visitedNodes, clusterIdDepthLevels, depth + 1);
+  visited_nodes.add(start_cluster_id);
+  for (const child of cluster_graph.cluster_id_to_child_cluster_ids[start_cluster_id] || []) {
+    get_cluster_depth_levels(child, cluster_graph, visited_nodes, cluster_id_depth_levels, depth + 1);
   }
-  return clusterIdDepthLevels;
+  return cluster_id_depth_levels;
 }
 
-function getClusterGraph(clusters: ClusterMember[][], callGraph: CallGraph): ClusterGraph {
-  const symbolToClusterId = {};
+function get_cluster_graph(clusters: ClusterMember[][], call_graph: CallGraph): ClusterGraph {
+  const symbol_to_cluster_id: Record<string, string> = {};
   for (const [index, cluster] of clusters.entries()) {
     for (const member of cluster) {
-      symbolToClusterId[member.symbol] = `${index}`;
+      symbol_to_cluster_id[member.symbol] = `${index}`;
     }
   }
 
-  const clusterIdToMembers = {};
-  const clusterIdToDependencies: Record<string, string[]> = {}; // Clusters that the current cluster depends on
-  const clusterIdToDependents: Record<string, string[]> = {}; // Clusters that depend on the current cluster
+  const cluster_id_to_members: Record<string, ClusterMember[]> = {};
+  const cluster_id_to_dependencies: Record<string, string[]> = {};
+  const cluster_id_to_dependents: Record<string, string[]> = {};
 
   for (const [index, cluster] of clusters.entries()) {
-    const currentClusterId = `${index}`;
-    clusterIdToMembers[currentClusterId] = cluster;
+    const current_cluster_id = `${index}`;
+    cluster_id_to_members[current_cluster_id] = cluster;
 
     for (const member of cluster) {
-      const node = callGraph.nodes.get(member.symbol);
-      const dependencyClusterIds = new Set(
-        node?.calls
-          ?.map((call) => symbolToClusterId[call.symbol])
-          .filter((id) => id !== undefined && id !== currentClusterId) || []
+      const node = call_graph.nodes.get(member.symbol as SymbolId);
+      const dependency_cluster_ids = new Set(
+        node?.enclosed_calls
+          ?.flatMap((call_ref) =>
+            call_ref.resolutions.map((r) => symbol_to_cluster_id[r.symbol_id as string])
+          )
+          .filter((id): id is string => id !== undefined && id !== current_cluster_id) || []
       );
 
-      for (const dependencyClusterId of dependencyClusterIds) {
-        // Add to clusterIdToDependencies
-        if (!clusterIdToDependencies[currentClusterId]) {
-          clusterIdToDependencies[currentClusterId] = [];
+      for (const dependency_cluster_id of dependency_cluster_ids) {
+        // Add to cluster_id_to_dependencies
+        if (!cluster_id_to_dependencies[current_cluster_id]) {
+          cluster_id_to_dependencies[current_cluster_id] = [];
         }
-        clusterIdToDependencies[currentClusterId].push(dependencyClusterId);
+        cluster_id_to_dependencies[current_cluster_id].push(dependency_cluster_id);
 
-        // Add to clusterIdToDependents
-        if (!clusterIdToDependents[dependencyClusterId]) {
-          clusterIdToDependents[dependencyClusterId] = [];
+        // Add to cluster_id_to_dependents
+        if (!cluster_id_to_dependents[dependency_cluster_id]) {
+          cluster_id_to_dependents[dependency_cluster_id] = [];
         }
-        clusterIdToDependents[dependencyClusterId].push(currentClusterId);
+        cluster_id_to_dependents[dependency_cluster_id].push(current_cluster_id);
       }
     }
   }
 
   // validate deps are symmetrical
-  for (const [clusterId, dependencyClusterIds] of Object.entries(clusterIdToDependencies)) {
-    for (const dependencyClusterId of dependencyClusterIds) {
-      if (!clusterIdToDependents[dependencyClusterId]?.includes(clusterId)) {
-        throw new Error(`Cluster dependencies are not symmetrical: ${clusterId} depends on ${dependencyClusterId}`);
+  for (const [cluster_id, dependency_cluster_ids] of Object.entries(cluster_id_to_dependencies)) {
+    for (const dependency_cluster_id of dependency_cluster_ids) {
+      if (!cluster_id_to_dependents[dependency_cluster_id]?.includes(cluster_id)) {
+        throw new Error(`Cluster dependencies are not symmetrical: ${cluster_id} depends on ${dependency_cluster_id}`);
       }
     }
   }
 
-  // TODO: remove duplicate cluster IDs
   return {
-    clusterIdToMembers,
-    clusterIdToChildClusterIds: clusterIdToDependencies,
-    clusterIdToParentClusterIds: clusterIdToDependents,
+    cluster_id_to_members,
+    cluster_id_to_child_cluster_ids: cluster_id_to_dependencies,
+    cluster_id_to_parent_cluster_ids: cluster_id_to_dependents,
   };
 }

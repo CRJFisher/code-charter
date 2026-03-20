@@ -1,53 +1,32 @@
-import { symbolDisplayName } from "../symbol_utils";
+import { symbol_display_name } from "../symbol_utils";
 
-describe("symbolDisplayName", () => {
-  it("should extract the last part of a symbol", () => {
-    expect(symbolDisplayName("namespace::class::method")).toBe("method");
-    expect(symbolDisplayName("module::function")).toBe("function");
-    expect(symbolDisplayName("package::subpackage::class::property")).toBe("property");
+describe("symbol_display_name", () => {
+  it("should extract name from v0.8 SymbolId format (colon-separated)", () => {
+    expect(symbol_display_name("function:src/utils.ts:10:0:20:1:processData")).toBe("processData");
+    expect(symbol_display_name("method:src/class.ts:5:2:15:3:render")).toBe("render");
+    expect(symbol_display_name("class:src/models.ts:1:0:50:0:UserModel")).toBe("UserModel");
   });
 
-  it("should handle single-part symbols", () => {
-    expect(symbolDisplayName("function")).toBe("function");
-    expect(symbolDisplayName("variable")).toBe("variable");
+  it("should handle simple names without separators", () => {
+    expect(symbol_display_name("function")).toBe("function");
+    expect(symbol_display_name("variable")).toBe("variable");
   });
 
-  it("should handle empty strings", () => {
-    expect(symbolDisplayName("")).toBe("");
+  it("should handle empty string", () => {
+    expect(symbol_display_name("")).toBe("");
   });
 
-  it("should handle symbols ending with ::", () => {
-    expect(symbolDisplayName("namespace::class::")).toBe("namespace::class::");
-    expect(symbolDisplayName("module::")).toBe("module::");
+  it("should handle names with special characters", () => {
+    expect(symbol_display_name("function:src/utils.ts:1:0:10:0:my_function")).toBe("my_function");
+    expect(symbol_display_name("method:src/class.ts:1:0:10:0:_privateMethod")).toBe("_privateMethod");
   });
 
-  it("should handle symbols with multiple consecutive ::", () => {
-    expect(symbolDisplayName("namespace::::method")).toBe("method");
-    expect(symbolDisplayName("::class::method")).toBe("method");
+  it("should handle various symbol kinds", () => {
+    expect(symbol_display_name("constructor:src/class.ts:1:0:10:0:constructor")).toBe("constructor");
+    expect(symbol_display_name("variable:src/config.ts:1:0:1:20:MAX_SIZE")).toBe("MAX_SIZE");
   });
 
-  it("should handle special characters in symbol names", () => {
-    expect(symbolDisplayName("namespace::my-function")).toBe("my-function");
-    expect(symbolDisplayName("module::_privateMethod")).toBe("_privateMethod");
-    expect(symbolDisplayName("package::Class<T>::method")).toBe("method");
-  });
-
-  it("should handle numeric parts", () => {
-    expect(symbolDisplayName("namespace::func1")).toBe("func1");
-    expect(symbolDisplayName("module::123")).toBe("123");
-  });
-
-  it("should handle symbols with spaces (edge case)", () => {
-    expect(symbolDisplayName("namespace::my function")).toBe("my function");
-  });
-
-  it("should handle very long symbol paths", () => {
-    const longPath = "a::b::c::d::e::f::g::h::i::j::k::finalPart";
-    expect(symbolDisplayName(longPath)).toBe("finalPart");
-  });
-
-  it("should handle symbols with file paths", () => {
-    expect(symbolDisplayName("/path/to/file.ts::function")).toBe("function");
-    expect(symbolDisplayName("src/components/App.tsx::Component::render")).toBe("render");
+  it("should handle long paths", () => {
+    expect(symbol_display_name("function:src/deeply/nested/module/file.ts:100:0:200:0:deepFunction")).toBe("deepFunction");
   });
 });

@@ -1,4 +1,4 @@
-import { CallGraphNode } from "@ariadnejs/types";
+import { CallableNode } from "@ariadnejs/types";
 import { findOptimalClusters } from "clustering-tfjs";
 import * as crypto from "crypto";
 import * as path from "path";
@@ -84,7 +84,7 @@ export class ClusteringService {
    */
   async cluster(
     refinedFunctionSummaries: Record<string, string>,
-    callGraphItems: Record<string, CallGraphNode>
+    callGraphItems: Record<string, CallableNode>
   ): Promise<string[][]> {
     // Initialize embedding provider if needed
     await this.initializeEmbeddingProvider();
@@ -273,7 +273,7 @@ export class ClusteringService {
   }
 
   private createCombinedMatrix(
-    callGraphItems: Record<string, CallGraphNode>,
+    callGraphItems: Record<string, CallableNode>,
     funcToIndex: Record<string, number>,
     similarityMatrix: number[][],
     n: number
@@ -286,11 +286,13 @@ export class ClusteringService {
       const i = funcToIndex[symbol];
       if (i === undefined) return;
       
-      node.calls.forEach(call => {
-        const j = funcToIndex[call.symbol];
-        if (j !== undefined && i !== j) {
-          adjacencyMatrix[i][j] = 1;
-          adjacencyMatrix[j][i] = 1; // Make symmetric
+      node.enclosed_calls.forEach(call_ref => {
+        for (const resolution of call_ref.resolutions) {
+          const j = funcToIndex[resolution.symbol_id as string];
+          if (j !== undefined && i !== j) {
+            adjacencyMatrix[i][j] = 1;
+            adjacencyMatrix[j][i] = 1; // Make symmetric
+          }
         }
       });
     });

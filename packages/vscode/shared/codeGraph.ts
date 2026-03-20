@@ -1,19 +1,25 @@
-import { CallGraph, Def, CallGraphNode } from "@ariadnejs/core";
-import { TreeAndContextSummaries } from "@code-charter/types";
+import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
+import type { TreeAndContextSummaries } from "@code-charter/types";
+import { get_resolved_symbol_id } from "../src/ariadne/call_graph_utils";
 
-function countNodes(topLevelNode: string, graph: CallGraph, visitedNodes: Set<string> = new Set<string>()): number {
-  const node = graph.nodes.get(topLevelNode);
+function count_nodes(
+  top_level_node: SymbolId,
+  graph: CallGraph,
+  visited_nodes: Set<SymbolId> = new Set<SymbolId>()
+): number {
+  const node = graph.nodes.get(top_level_node);
   if (!node) return 0;
 
-  return node.calls.reduce((acc, call) => {
-    if (visitedNodes.has(call.symbol)) {
+  return node.enclosed_calls.reduce((acc, call_ref) => {
+    const resolved_id = get_resolved_symbol_id(call_ref);
+    if (!resolved_id || visited_nodes.has(resolved_id)) {
       return acc;
     }
-    visitedNodes.add(call.symbol);
-    return acc + countNodes(call.symbol, graph, visitedNodes);
+    visited_nodes.add(resolved_id);
+    return acc + count_nodes(resolved_id, graph, visited_nodes);
   }, 1);
 }
 
-export type { CallGraph, TreeAndContextSummaries };
+export type { CallGraph, CallableNode, TreeAndContextSummaries };
 
-export { countNodes };
+export { count_nodes };
