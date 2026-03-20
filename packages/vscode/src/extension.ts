@@ -1,66 +1,54 @@
 import * as vscode from "vscode";
 import { addToGitignore } from "./files";
-import { summariseCallGraph } from "./summarise/summarise";
 import { navigateToDoc } from "./navigate";
-import { ModelDetails, ModelProvider } from "./model";
-import { ChatOllama } from "@langchain/ollama";
-import { ChatOpenAI } from "@langchain/openai";
-import { getClusterDescriptions } from "./summarise/summariseClusters";
 import { CallGraph } from "@ariadnejs/core";
-import { TreeAndContextSummaries } from "@shared/codeGraph";
+import { DocstringSummaries } from "@shared/codeGraph";
 import { getWebviewContent } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { ClusteringService } from "./clustering/clustering_service";
+import { VscodeCacheStorage } from "./clustering/vscode_cache_storage";
+import { LocalEmbeddingsProvider } from "./clustering/local_embeddings_provider";
 import { AriadneProjectManager } from "./ariadne/project_manager";
+import { RegexDocstringProvider } from "./docstrings";
+import { ClusterSummariesStore } from "./storage/json_store";
+import { symbolRepoLocalName } from "../shared/symbols";
 
-const extensionFolder = ".code-charter";
+const extension_folder = ".code-charter";
 
-let webviewColumn: vscode.ViewColumn | undefined;
+let webview_column: vscode.ViewColumn | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  // The command has been defined in the package.json file
-  // The commandId parameter must match the command field in package.json
   const disposable = vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () =>
-    generateDiagram(context)
+    generate_diagram(context)
   );
 
-  const configureEmbeddingsCommand = vscode.commands.registerCommand(
-    "code-charter-vscode.configureClusterEmbeddings",
-    async () => {
-      const { EmbeddingProviderSelector } = await import("./clustering/embedding_provider_selector");
-      await EmbeddingProviderSelector.configure_embeddings();
-    }
-  );
-
-  context.subscriptions.push(disposable, configureEmbeddingsCommand);
+  context.subscriptions.push(disposable);
 }
 
-async function generateDiagram(context: vscode.ExtensionContext) {
-  // Check if a `.code-charter` directory exists in the workspace
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders) {
+async function generate_diagram(context: vscode.ExtensionContext) {
+  const workspace_folders = vscode.workspace.workspaceFolders;
+  if (!workspace_folders) {
     vscode.window.showWarningMessage("No workspace is open.");
     return;
   }
-  const workspacePath = workspaceFolders[0].uri.fsPath;
-  const workDir = vscode.Uri.file(`${workspacePath}/${extensionFolder}`);
-  const dirExists = await vscode.workspace.fs.stat(workDir).then(
+  const workspace_path = workspace_folders[0].uri.fsPath;
+  const work_dir = vscode.Uri.file(`${workspace_path}/${extension_folder}`);
+  const dir_exists = await vscode.workspace.fs.stat(work_dir).then(
     () => true,
     () => false
   );
-  if (!dirExists) {
-    // Create the directory
-    await vscode.workspace.fs.createDirectory(workDir);
-    addToGitignore(extensionFolder);
+  if (!dir_exists) {
+    await vscode.workspace.fs.createDirectory(work_dir);
+    addToGitignore(extension_folder);
   }
 
-  await showWebviewDiagram(workspaceFolders, context, workDir);
+  await show_webview_diagram(workspace_folders, context, work_dir);
 }
 
-async function showWebviewDiagram(
-  workspaceFolders: readonly vscode.WorkspaceFolder[],
+async function show_webview_diagram(
+  workspace_folders: readonly vscode.WorkspaceFolder[],
   context: vscode.ExtensionContext,
-  workFolder: vscode.Uri
+  work_folder: vscode.Uri
 ) {
   const panel = vscode.window.createWebviewPanel("codeDiagram", "Code Charter Diagram", vscode.ViewColumn.One, {
     enableScripts: true,
@@ -69,49 +57,45 @@ async function showWebviewDiagram(
       vscode.Uri.file(context.extensionPath),
       vscode.Uri.joinPath(context.extensionUri, "node_modules"),
     ],
-    // Enable Chrome DevTools debugging in development
-    ...(process.env.CODE_CHARTER_DEV_MODE === "true" ? { 
+    ...(process.env.CODE_CHARTER_DEV_MODE === "true" ? {
       enableCommandUris: true,
-      enableFindWidget: true 
+      enableFindWidget: true
     } : {})
   });
-  webviewColumn = panel.viewColumn;
+  webview_column = panel.viewColumn;
 
   panel.onDidChangeViewState(() => {
-    webviewColumn = panel.viewColumn;
+    webview_column = panel.viewColumn;
   });
 
-  const colorCustomizations = vscode.workspace.getConfiguration().get("workbench.colorCustomizations") || {};
-  const codeCharterConfig = vscode.workspace.getConfiguration("code-charter-vscode");
-  const isDevelopment = process.env.CODE_CHARTER_DEV_MODE === "true" || codeCharterConfig.get("devMode", false);
-  const devServerUrl = codeCharterConfig.get("devServerUrl", "http://localhost:3000");
-  
-  const htmlContent = getWebviewContent(
-    panel.webview, 
-    context.extensionUri, 
-    colorCustomizations,
-    isDevelopment,
-    devServerUrl
+  const color_customizations = vscode.workspace.getConfiguration().get("workbench.colorCustomizations") || {};
+  const code_charter_config = vscode.workspace.getConfiguration("code-charter-vscode");
+  const is_development = process.env.CODE_CHARTER_DEV_MODE === "true" || code_charter_config.get("devMode", false);
+  const dev_server_url = code_charter_config.get("devServerUrl", "http://localhost:3000");
+
+  const html_content = getWebviewContent(
+    panel.webview,
+    context.extensionUri,
+    color_customizations,
+    is_development,
+    dev_server_url
   );
 
-  let callGraph: CallGraph | undefined;
-  let topLevelFunctionToSummaries: { [key: string]: TreeAndContextSummaries } = {};
-  let projectManager: AriadneProjectManager | undefined;
+  let call_graph: CallGraph | undefined;
+  let top_level_function_to_descriptions: { [key: string]: DocstringSummaries } = {};
+  let project_manager: AriadneProjectManager | undefined;
+  const docstring_provider = new RegexDocstringProvider();
 
   panel.webview.onDidReceiveMessage(
     async (message) => {
-      const { command, id, ...otherFields } = message;
+      const { command, id, ...other_fields } = message;
 
-      // Map of command handlers
-      const commandHandlers: { [key: string]: () => Promise<void> } = {
+      const command_handlers: { [key: string]: () => Promise<void> } = {
         getCallGraph: async () => {
-          // Use the first workspace folder directly
-          const workspacePath = workspaceFolders[0].uri.fsPath;
-          
-          // Initialize project manager if not already done
-          if (!projectManager) {
-            projectManager = new AriadneProjectManager(workspacePath, (path) => {
-              // Filter out test files and common non-source directories
+          const workspace_path = workspace_folders[0].uri.fsPath;
+
+          if (!project_manager) {
+            project_manager = new AriadneProjectManager(workspace_path, (path) => {
               return (
                 !path.includes("test") &&
                 !path.includes("node_modules") &&
@@ -119,101 +103,94 @@ async function showWebviewDiagram(
                 !path.includes(".git")
               );
             });
-            
-            // Set up listener for call graph changes
-            projectManager.onCallGraphChanged((newCallGraph) => {
-              callGraph = newCallGraph;
-              // Notify the webview that the call graph has been updated
-              panel.webview.postMessage({ 
-                command: "callGraphUpdated", 
-                data: newCallGraph 
+
+            project_manager.onCallGraphChanged((new_call_graph) => {
+              call_graph = new_call_graph;
+              panel.webview.postMessage({
+                command: "callGraphUpdated",
+                data: new_call_graph
               });
             });
-            
-            // Initialize and get the initial call graph
-            callGraph = await projectManager.initialize();
+
+            call_graph = await project_manager.initialize();
           } else {
-            // Get current call graph from project manager
-            callGraph = projectManager.getCallGraph();
+            call_graph = project_manager.getCallGraph();
           }
-          
-          if (!callGraph) {
+
+          if (!call_graph) {
             throw new Error("Call graph not found");
           }
-          panel.webview.postMessage({ id, command: "getCallGraphResponse", data: callGraph });
+          panel.webview.postMessage({ id, command: "getCallGraphResponse", data: call_graph });
         },
-        summariseCodeTree: async () => {
-          const { topLevelFunctionSymbol } = otherFields;
-          if (!callGraph) {
+        getCodeTreeDescriptions: async () => {
+          const { topLevelFunctionSymbol } = other_fields;
+          if (!call_graph) {
             throw new Error("Call graph not found");
           }
-          const workspacePath = workspaceFolders[0].uri;
-          const modelDetails = await getModelDetails();
-          const summaries = await summariseCallGraph(
-            topLevelFunctionSymbol,
-            callGraph,
-            workFolder,
-            workspacePath,
-            modelDetails
-          );
-          // TODO: create a filtered Record<string, DefinitionNode> based on filtered out nodes. Then we don't need filtering
-          topLevelFunctionToSummaries[topLevelFunctionSymbol] = summaries;
-          panel.webview.postMessage({ id, command: "summariseCodeTreeResponse", data: summaries });
+
+          const descriptions = extract_descriptions(call_graph, topLevelFunctionSymbol, docstring_provider, workspace_folders[0].uri.fsPath);
+          top_level_function_to_descriptions[topLevelFunctionSymbol] = descriptions;
+          panel.webview.postMessage({ id, command: "getCodeTreeDescriptionsResponse", data: descriptions });
         },
         clusterCodeTree: async () => {
-          const { topLevelFunctionSymbol } = otherFields;
-          const modelDetails = await getModelDetails();
-          const summaries = topLevelFunctionToSummaries[topLevelFunctionSymbol];
-          
-          // Create clustering service - API key is optional now
-          const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
-          const apiKey = configuration.get<string>("APIKey") || null;
-          const clusteringService = new ClusteringService(apiKey, workFolder, context);
-          
-          // Perform clustering
-          const clusters = await clusteringService.cluster(
-            summaries.refinedFunctionSummaries,
-            summaries.callTreeWithFilteredOutNodes
+          const { topLevelFunctionSymbol } = other_fields;
+          const descriptions = top_level_function_to_descriptions[topLevelFunctionSymbol];
+          if (!descriptions) {
+            throw new Error("Descriptions not available. Call getCodeTreeDescriptions first.");
+          }
+
+          const embedding_provider = new LocalEmbeddingsProvider(
+            (message: string, progress?: number) => {
+              vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "Code Charter: Embeddings",
+                cancellable: false
+              }, async (progress_reporter) => {
+                progress_reporter.report({ message, increment: progress });
+                await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
+              });
+            }
           );
-          
-          const descriptions = await getClusterDescriptions(
-            clusters.map((cluster) =>
-              cluster.map((memberSymbol) => {
-                return {
-                  symbol: memberSymbol,
-                  functionSummaryString: summaries.refinedFunctionSummaries[memberSymbol],
-                };
-              })
-            ),
-            modelDetails,
-            summaries.contextSummary,
-            callGraph
+
+          const clustering_service = new ClusteringService({
+            embedding_provider,
+            cache_storage: new VscodeCacheStorage(work_folder),
+            progress_reporter: (msg) => console.log(msg)
+          });
+
+          const clusters = await clustering_service.cluster(
+            descriptions.docstrings,
+            descriptions.call_tree
           );
-          const nodeGroups = clusters.map((cluster, i) => {
+
+          // Read pre-computed cluster descriptions from JSON if available
+          const workspace_path = workspace_folders[0].uri.fsPath;
+          const stored_summaries = ClusterSummariesStore.read(workspace_path);
+
+          const node_groups = clusters.map((cluster, i) => {
+            const stored_cluster = stored_summaries?.clusters?.find(c => {
+              const stored_members = new Set(c.members);
+              return cluster.every(m => stored_members.has(m)) && cluster.length === c.members.length;
+            });
+
             return {
-              description: descriptions[i],
+              description: stored_cluster?.description || `Module ${i + 1}`,
               memberSymbols: cluster,
             };
           });
-          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: nodeGroups });
-        },
-        functionSummaryStatus: async () => {
-          const { functionSymbol } = otherFields;
-          // TODO: get it from the db
-          panel.webview.postMessage({ id, command: "functionSummaryStatusResponse", data: {} });
+
+          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: node_groups });
         },
         navigateToDoc: async () => {
-          const { relativeDocPath, lineNumber } = otherFields;
-          console.log("Navigating to doc:", relativeDocPath, lineNumber);
-          const workspacePath = workspaceFolders[0].uri.fsPath;
-          const fileUri = vscode.Uri.file(`${workspacePath}/${relativeDocPath}`);
-          await navigateToDoc(fileUri, lineNumber, webviewColumn);
+          const { relativeDocPath, lineNumber } = other_fields;
+          const workspace_path = workspace_folders[0].uri.fsPath;
+          const file_uri = vscode.Uri.file(`${workspace_path}/${relativeDocPath}`);
+          await navigateToDoc(file_uri, lineNumber, webview_column);
           panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
         },
       };
 
-      // Execute the appropriate handler
-      const handler = commandHandlers[command];
+      const handler = command_handlers[command];
       if (handler) {
         await handler();
       } else {
@@ -224,64 +201,97 @@ async function showWebviewDiagram(
     context.subscriptions
   );
 
-  panel.webview.html = htmlContent;
-  
-  // Clean up project manager when panel is disposed
+  panel.webview.html = html_content;
+
   panel.onDidDispose(() => {
-    projectManager?.dispose();
-    projectManager = undefined;
+    project_manager?.dispose();
+    project_manager = undefined;
   }, null, context.subscriptions);
 
-  // Set up dev watcher if in development mode
-  if (isDevelopment) {
-    const devWatcher = new UIDevWatcher(context, () => {
-      // Reload the webview when UI changes
+  if (is_development) {
+    const dev_watcher = new UIDevWatcher(context, () => {
       panel.webview.html = getWebviewContent(
         panel.webview,
         context.extensionUri,
-        colorCustomizations,
-        isDevelopment,
-        devServerUrl
+        color_customizations,
+        is_development,
+        dev_server_url
       );
     });
-    devWatcher.start();
+    dev_watcher.start();
   }
 }
 
-async function getModelDetails(): Promise<ModelDetails> {
-  const configuration = vscode.workspace.getConfiguration("code-charter-vscode");
-  const provider = configuration.get("modelProvider");
-  if (provider === ModelProvider.OpenAI) {
-    const apiKey = configuration.get("APIKey");
-    if (apiKey === undefined || typeof apiKey !== "string") {
-      throw new Error("OpenAI API Key not set");
+/**
+ * Extracts docstring descriptions from the call graph for a given entry point.
+ * Walks the call tree and uses RegexDocstringProvider to get docstrings from source files.
+ */
+function extract_descriptions(
+  call_graph: CallGraph,
+  top_level_symbol: string,
+  docstring_provider: RegexDocstringProvider,
+  workspace_path: string
+): DocstringSummaries {
+  const docstrings: Record<string, string> = {};
+  const call_tree: Record<string, any> = {};
+  const visited = new Set<string>();
+  const fs = require("fs");
+  const path = require("path");
+
+  // Cache of file -> docstrings map
+  const file_docstrings_cache = new Map<string, Map<string, import("@code-charter/types").DocstringInfo>>();
+
+  function walk(symbol: string) {
+    if (visited.has(symbol)) return;
+    visited.add(symbol);
+
+    const node = call_graph.nodes.get(symbol);
+    if (!node) return;
+
+    call_tree[symbol] = node;
+
+    // Try to get docstring from the definition
+    const def = node.definition;
+    if (def && def.file_path) {
+      const abs_path = path.isAbsolute(def.file_path)
+        ? def.file_path
+        : path.join(workspace_path, def.file_path);
+
+      if (!file_docstrings_cache.has(abs_path)) {
+        try {
+          const content = fs.readFileSync(abs_path, "utf-8");
+          file_docstrings_cache.set(abs_path, docstring_provider.get_docstrings(abs_path, content));
+        } catch {
+          file_docstrings_cache.set(abs_path, new Map());
+        }
+      }
+
+      const file_docs = file_docstrings_cache.get(abs_path)!;
+      const local_name = symbolRepoLocalName(symbol);
+
+      // Try to find a matching docstring by local name
+      for (const [key, info] of file_docs) {
+        if (key === local_name || key.endsWith(`.${local_name}`)) {
+          docstrings[symbol] = info.body;
+          break;
+        }
+      }
     }
-    const modelName = "gpt-4o";
-    return {
-      uid: `openai:${modelName}`,
-      provider: ModelProvider.OpenAI,
-      model: new ChatOpenAI({
-        temperature: 0,
-        modelName: modelName,
-        apiKey: apiKey,
-        topP: 0.1,
-      }),
-    };
-  } else if (provider === ModelProvider.Ollama) {
-    // TODO: get by calling Ollama API - use the last-used model
-    const modelName = "mistral"; // 'magicoder'; //"phi3:3.8b",
-    return {
-      uid: `ollama:${modelName}`,
-      provider: ModelProvider.Ollama,
-      model: new ChatOllama({
-        baseUrl: "http://localhost:11434",
-        model: modelName,
-        format: "txt",
-        keepAlive: "20m", // TODO: this doesn't work - still getting timeouts
-      }),
-    };
-  }
-}
 
+    // Fallback: use the symbol's display name
+    if (!docstrings[symbol]) {
+      docstrings[symbol] = symbolRepoLocalName(symbol);
+    }
+
+    // Walk children
+    for (const call of node.calls) {
+      walk(call.symbol);
+    }
+  }
+
+  walk(top_level_symbol);
+
+  return { docstrings, call_tree };
+}
 
 export function deactivate() {}

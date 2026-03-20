@@ -39,13 +39,7 @@ const mockCallGraph = {
 console.log('🚀 UI Debug Server Starting...');
 
 // Create mock backend
-const mockBackend = new MockBackend({
-  callGraph: mockCallGraph,
-  refinedSummaries: {
-    "main": "Main entry point of the application",
-    "helper": "Helper utility function"
-  }
-});
+const mockBackend = new MockBackend();
 
 // Test render the component
 console.log('📦 Testing component render...');

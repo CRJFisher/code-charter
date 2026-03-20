@@ -7,7 +7,7 @@ export interface SearchResult {
   nodeId: string;
   nodeName: string;
   nodeType: string;
-  summary?: string;
+  description?: string;
   filePath?: string;
   score: number;
 }
@@ -40,8 +40,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       
       const nodeName = node.data.function_name || node.data.module_name || '';
       const lowerName = nodeName.toLowerCase();
-      const summary = node.data.summary || node.data.description || '';
-      const lowerSummary = summary.toLowerCase();
+      const description = node.data.description || '';
+      const lower_description = description.toLowerCase();
       
       let score = 0;
       
@@ -57,8 +57,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       else if (lowerName.includes(lowerQuery)) {
         score = 60;
       }
-      // Summary contains query
-      else if (lowerSummary.includes(lowerQuery)) {
+      // Description contains query
+      else if (lower_description.includes(lowerQuery)) {
         score = 40;
       }
       // Fuzzy match
@@ -74,7 +74,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           nodeId: node.id,
           nodeName,
           nodeType: node.type || 'unknown',
-          summary: summary.substring(0, 100),
+          description: description.substring(0, 100),
           filePath: node.data.file_path,
           score,
         });
@@ -174,7 +174,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           requestAnimationFrame(() => {
             inputRef.current?.focus();
           });
-        }}
+        }
       }
     };
     
@@ -328,7 +328,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                       }}>
                         {highlightMatch(result.nodeName, query)}
                       </div>
-                      {result.summary && (
+                      {result.description && (
                         <div style={{
                           fontSize: '12px',
                           color: '#666',
@@ -337,7 +337,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                         }}>
-                          {result.summary}
+                          {result.description}
                         </div>
                       )}
                       {result.filePath && (

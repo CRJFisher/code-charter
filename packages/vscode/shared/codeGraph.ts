@@ -1,5 +1,5 @@
 import { CallGraph, Def, CallGraphNode } from "@ariadnejs/core";
-import { TreeAndContextSummaries } from "@code-charter/types";
+import { DocstringSummaries } from "@code-charter/types";
 
 function countNodes(topLevelNode: string, graph: CallGraph, visitedNodes: Set<string> = new Set<string>()): number {
   const node = graph.nodes.get(topLevelNode);
@@ -14,6 +14,6 @@ function countNodes(topLevelNode: string, graph: CallGraph, visitedNodes: Set<st
   }, 1);
 }
 
-export type { CallGraph, TreeAndContextSummaries };
+export type { CallGraph, DocstringSummaries };
 
 export { countNodes };

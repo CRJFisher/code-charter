@@ -25,7 +25,7 @@ jest.mock('@xyflow/react', () => ({
         position: { x: 0, y: 0 },
         data: {
           function_name: 'testFunction',
-          summary: 'This is a test function',
+          description: 'This is a test function',
           file_path: '/test/file.ts',
           line_number: 10,
         },
@@ -36,7 +36,7 @@ jest.mock('@xyflow/react', () => ({
         position: { x: 100, y: 100 },
         data: {
           function_name: 'anotherFunction',
-          summary: 'Another test function',
+          description: 'Another test function',
           file_path: '/test/another.ts',
           line_number: 20,
         },
@@ -287,7 +287,7 @@ describe('SearchPanel', () => {
       position: { x: i * 10, y: i * 10 },
       data: {
         function_name: `testFunction${i}`,
-        summary: 'Test function',
+        description: 'Test function',
       },
     }));
     

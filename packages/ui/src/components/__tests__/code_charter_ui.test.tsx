@@ -34,7 +34,7 @@ describe('CodeCharterUI', () => {
 
   const mockBackend = new TestMockBackend({
     callGraph: mockCallGraph,
-    refinedSummaries: {
+    docstrings: {
       'main': 'Main entry point of the application',
       'helper': 'Helper utility function',
     },
@@ -64,7 +64,7 @@ describe('CodeCharterUI', () => {
 
   it('loads and displays call graph', async () => {
     renderWithBackend(<CodeCharterUI />);
-    
+
     await waitFor(() => {
       expect(screen.queryByText(/Loading call graph/i)).not.toBeInTheDocument();
     });
@@ -77,9 +77,9 @@ describe('CodeCharterUI', () => {
   it('handles node click for navigation', async () => {
     const navigateSpy = jest.spyOn(mockBackend, 'navigateToDoc');
     const user = userEvent.setup();
-    
+
     renderWithBackend(<CodeCharterUI />);
-    
+
     await waitFor(() => {
       expect(screen.getByText('main')).toBeInTheDocument();
     });
@@ -113,7 +113,7 @@ describe('CodeCharterUI', () => {
   it('handles empty call graph gracefully', async () => {
     const emptyBackend = new TestMockBackend({
       callGraph: { nodes: {}, edges: [] },
-      refinedSummaries: {},
+      docstrings: {},
     });
 
     render(
@@ -130,7 +130,7 @@ describe('CodeCharterUI', () => {
   it('toggles between different view modes', async () => {
     const user = userEvent.setup();
     renderWithBackend(<CodeCharterUI />);
-    
+
     await waitFor(() => {
       expect(screen.getByText('main')).toBeInTheDocument();
     });

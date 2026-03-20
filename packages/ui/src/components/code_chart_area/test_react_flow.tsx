@@ -1,7 +1,7 @@
 import React from "react";
 import { CodeChartAreaReactFlowWrapper } from "./code_chart_area_react_flow";
 import { CallGraphNode } from "@ariadnejs/core";
-import { TreeAndContextSummaries, NodeGroup } from "@code-charter/types";
+import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import { CodeIndexStatus } from "../loading_status";
 
 // Test component to verify React Flow integration
@@ -23,16 +23,14 @@ export const TestReactFlowComponent: React.FC = () => {
     children: [],
   };
 
-  const mockGetSummaries = async (nodeSymbol: string): Promise<TreeAndContextSummaries | undefined> => {
+  const mock_get_descriptions = async (nodeSymbol: string): Promise<DocstringSummaries | undefined> => {
     return {
-      callTreeWithFilteredOutNodes: {
+      call_tree: {
         [nodeSymbol]: mockEntryPoint,
       },
-      functionSummaries: {
-        [nodeSymbol]: "This is a test function that demonstrates the custom node component with a longer summary text to show how it wraps within the node bounds.",
+      docstrings: {
+        [nodeSymbol]: "This is a test function that demonstrates the custom node component with a longer description text to show how it wraps within the node bounds.",
       },
-      refinedFunctionSummaries: {},
-      contextSummary: "Test context summary",
     };
   };
 
@@ -44,7 +42,7 @@ export const TestReactFlowComponent: React.FC = () => {
     <CodeChartAreaReactFlowWrapper
       selectedEntryPoint={mockEntryPoint}
       screenWidthFraction={1}
-      getSummaries={mockGetSummaries}
+      getDescriptions={mock_get_descriptions}
       detectModules={mockDetectModules}
       indexingStatus={CodeIndexStatus.Ready}
     />

@@ -1,6 +1,6 @@
 import { Node, Edge } from "@xyflow/react";
 import { CallGraphNode } from "@ariadnejs/core";
-import { TreeAndContextSummaries, NodeGroup } from "@code-charter/types";
+import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import { symbolDisplayName } from "./symbol_utils";
 import { CodeNodeData } from "./code_function_node";
 import { ModuleNodeData } from "./zoom_aware_node";
@@ -14,7 +14,7 @@ export interface ReactFlowElements {
 
 export function generateReactFlowElements(
   selectedEntryPoint: CallGraphNode,
-  summariesAndFilteredCallTree: TreeAndContextSummaries,
+  docstring_summaries: DocstringSummaries,
   nodeGroups: NodeGroup[] | undefined
 ): ReactFlowElements {
   const nodes: CodeChartNode[] = [];
@@ -44,7 +44,7 @@ export function generateReactFlowElements(
     }
     visited.add(node.symbol);
     
-    const summary = summariesAndFilteredCallTree.functionSummaries?.[node.symbol]?.trimStart() || "";
+    const description = docstring_summaries.docstrings?.[node.symbol]?.trimStart() || "";
     const parentModuleId = symbolToCompoundId[node.symbol];
     
     // Create the React Flow node
@@ -54,7 +54,7 @@ export function generateReactFlowElements(
       position,
       data: {
         function_name: symbolDisplayName(node.symbol),
-        summary,
+        description,
         file_path: node.definition.file_path,
         line_number: node.definition.range.start.row,
         is_entry_point: isTopLevel,
@@ -95,7 +95,7 @@ export function generateReactFlowElements(
       }
       
       // Recursively add child nodes
-      const childNode = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[call.symbol];
+      const childNode = docstring_summaries.call_tree[call.symbol];
       if (childNode) {
         const childX = position.x + (index - node.calls.length / 2) * 250;
         addFunctionNode(childNode, false, { x: childX, y: childY });
@@ -104,7 +104,7 @@ export function generateReactFlowElements(
   };
   
   // Start processing from the entry point
-  const entryPointInTree = summariesAndFilteredCallTree.callTreeWithFilteredOutNodes[selectedEntryPoint.symbol];
+  const entryPointInTree = docstring_summaries.call_tree[selectedEntryPoint.symbol];
   if (entryPointInTree) {
     addFunctionNode(entryPointInTree, true, { x: 0, y: 0 });
   }

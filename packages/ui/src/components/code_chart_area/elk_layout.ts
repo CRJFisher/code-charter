@@ -152,27 +152,27 @@ export function calculateNodeDimensions(node: CodeChartNode): { width: number; h
   
   // Calculate based on content
   let functionNameLength = 0;
-  let summaryLength = 0;
+  let description_length = 0;
   
   if (isCodeNode(node)) {
     const data = node.data as CodeNodeData;
     functionNameLength = (data.function_name || '').length;
-    summaryLength = (data.summary || '').length;
+    description_length = (data.description || '').length;
   } else if (isModuleNode(node)) {
     const data = node.data as ModuleNodeData;
     functionNameLength = (data.module_name || '').length;
-    summaryLength = (data.description || '').length;
+    description_length = (data.description || '').length;
   }
   
   // Width calculation (with max/min constraints)
   const minWidth = NODE_CONFIG.constraints.minWidth;
   const maxWidth = NODE_CONFIG.constraints.maxWidth;
-  const calculatedWidth = Math.max(functionNameLength * charWidth, summaryLength * charWidth / 3) + basePadding * 2;
+  const calculatedWidth = Math.max(functionNameLength * charWidth, description_length * charWidth / 3) + basePadding * 2;
   const width = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
   
   // Height calculation based on text wrapping
-  const summaryLines = Math.ceil((summaryLength * charWidth) / (width - basePadding * 2));
-  const height = basePadding * 2 + lineHeight * 2 + (summaryLines * lineHeight);
+  const description_lines = Math.ceil((description_length * charWidth) / (width - basePadding * 2));
+  const height = basePadding * 2 + lineHeight * 2 + (description_lines * lineHeight);
   
   const dimensions = { width, height };
   dimensionCache.set(cacheKey, dimensions);

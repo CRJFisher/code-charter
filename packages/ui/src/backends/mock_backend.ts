@@ -3,7 +3,7 @@ import {
   BackendState,
   ConnectionStatus,
   NodeGroup,
-  TreeAndContextSummaries,
+  DocstringSummaries,
   CallGraph,
   CallGraphNode
 } from "@code-charter/types";
@@ -134,10 +134,10 @@ export class MockBackend implements CodeCharterBackend {
     ];
   }
 
-  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<TreeAndContextSummaries | undefined> {
-    // Return sample summaries
+  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
+    // Return sample descriptions
     // Create a mock node that matches the CallGraphNode structure
-    const mockNode: CallGraphNode = {
+    const mock_node: CallGraphNode = {
       symbol: topLevelFunctionSymbol,
       definition: {
         symbol: topLevelFunctionSymbol,
@@ -150,20 +150,14 @@ export class MockBackend implements CodeCharterBackend {
     };
 
     return {
-      functionSummaries: {
+      docstrings: {
         [topLevelFunctionSymbol]: "Main entry point that orchestrates data processing and API calls",
         "utils.ts:processData": "Processes raw data into structured format",
         "api.ts:fetchData": "Fetches data from external API endpoints"
       },
-      refinedFunctionSummaries: {
-        [topLevelFunctionSymbol]: "Application entry point - initializes services, processes data, and manages API interactions",
-        "utils.ts:processData": "Data processing pipeline with validation and transformation steps",
-        "api.ts:fetchData": "HTTP client for external API with retry logic and error handling"
-      },
-      callTreeWithFilteredOutNodes: {
-        [topLevelFunctionSymbol]: mockNode
-      },
-      contextSummary: "This codebase implements a data processing application that fetches data from external APIs, processes it through a validation pipeline, and produces structured output."
+      call_tree: {
+        [topLevelFunctionSymbol]: mock_node
+      }
     };
   }
 

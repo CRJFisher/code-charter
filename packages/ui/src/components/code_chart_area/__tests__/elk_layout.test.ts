@@ -35,7 +35,7 @@ describe("elk_layout", () => {
         position: { x: 0, y: 0 },
         data: {
           function_name: "fn",
-          summary: "Short summary",
+          description: "Short description",
         },
       };
 
@@ -50,7 +50,7 @@ describe("elk_layout", () => {
         position: { x: 0, y: 0 },
         data: {
           function_name: "thisIsAVeryLongFunctionNameThatShouldIncreaseWidth",
-          summary: "Summary",
+          description: "Description",
         },
       };
 
@@ -58,13 +58,13 @@ describe("elk_layout", () => {
       expect(result.width).toBeGreaterThan(300);
     });
 
-    it("should increase height for longer summaries", () => {
+    it("should increase height for longer descriptions", () => {
       const longSummaryNode: Node = {
         id: "1",
         position: { x: 0, y: 0 },
         data: {
           function_name: "function",
-          summary: "This is a very long summary that should wrap to multiple lines and increase the height of the node significantly because it contains a lot of text",
+          description: "This is a very long description that should wrap to multiple lines and increase the height of the node significantly because it contains a lot of text",
         },
       };
 
@@ -78,7 +78,7 @@ describe("elk_layout", () => {
         position: { x: 0, y: 0 },
         data: {
           function_name: "a".repeat(100),
-          summary: "a".repeat(1000),
+          description: "a".repeat(1000),
         },
       };
 
@@ -107,12 +107,12 @@ describe("elk_layout", () => {
         {
           id: "node1",
           position: { x: 0, y: 0 },
-          data: { function_name: "func1", summary: "Summary 1" },
+          data: { function_name: "func1", description: "Description 1" },
         },
         {
           id: "node2",
           position: { x: 0, y: 0 },
-          data: { function_name: "func2", summary: "Summary 2" },
+          data: { function_name: "func2", description: "Description 2" },
         },
       ];
 
@@ -144,7 +144,7 @@ describe("elk_layout", () => {
           position: { x: 0, y: 0 },
           data: { 
             function_name: "func1", 
-            summary: "Summary 1",
+            description: "Description 1",
             custom_field: "value",
           },
           type: "custom",
@@ -156,7 +156,7 @@ describe("elk_layout", () => {
 
       expect(layoutedNodes[0].data).toEqual({
         function_name: "func1",
-        summary: "Summary 1", 
+        description: "Description 1",
         custom_field: "value",
       });
       expect(layoutedNodes[0].type).toBe("custom");
@@ -168,12 +168,12 @@ describe("elk_layout", () => {
         {
           id: "parent",
           position: { x: 0, y: 0 },
-          data: { function_name: "parent", summary: "" },
+          data: { function_name: "parent", description: "" },
         },
         {
           id: "child",
           position: { x: 0, y: 0 },
-          data: { function_name: "child", summary: "" },
+          data: { function_name: "child", description: "" },
           parentId: "parent",
         },
       ];
@@ -200,7 +200,7 @@ describe("elk_layout", () => {
         {
           id: "node1",
           position: { x: 0, y: 0 },
-          data: { function_name: "func1", summary: "Summary 1" },
+          data: { function_name: "func1", description: "Description 1" },
         },
       ];
 

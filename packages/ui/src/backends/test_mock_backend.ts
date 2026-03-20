@@ -1,77 +1,75 @@
-import { Backend } from '@code-charter/types';
+import { CodeCharterBackend, DocstringSummaries, NodeGroup, BackendState, ConnectionStatus } from '@code-charter/types';
 import { CallGraph } from '@ariadnejs/types';
 
-/**
- * Simple mock backend for testing
- */
-export class TestMockBackend implements Backend {
+export class TestMockBackend implements CodeCharterBackend {
+  private state: BackendState = { status: ConnectionStatus.CONNECTED };
+  private state_callbacks: ((state: BackendState) => void)[] = [];
+
   constructor(
     private config: {
       callGraph?: CallGraph;
-      refinedSummaries?: Record<string, string>;
+      docstrings?: Record<string, string>;
       shouldThrowError?: boolean;
       delay?: number;
     } = {}
   ) {}
 
-  private async simulateDelay(): Promise<void> {
+  private async simulate_delay(): Promise<void> {
     if (this.config.delay) {
       await new Promise(resolve => setTimeout(resolve, this.config.delay));
     }
   }
 
-  private checkError(): void {
+  private check_error(): void {
     if (this.config.shouldThrowError) {
       throw new Error('Mock error');
     }
   }
 
-  async getCallGraph(): Promise<CallGraph> {
-    await this.simulateDelay();
-    this.checkError();
+  getState(): BackendState {
+    return this.state;
+  }
 
-    return this.config.callGraph || {
-      nodes: {},
-      edges: [],
+  async connect(): Promise<void> {
+    this.state = { status: ConnectionStatus.CONNECTED };
+    this.state_callbacks.forEach(cb => cb(this.state));
+  }
+
+  async disconnect(): Promise<void> {
+    this.state = { status: ConnectionStatus.DISCONNECTED };
+    this.state_callbacks.forEach(cb => cb(this.state));
+  }
+
+  onStateChange(callback: (state: BackendState) => void): () => void {
+    this.state_callbacks.push(callback);
+    return () => {
+      this.state_callbacks = this.state_callbacks.filter(cb => cb !== callback);
     };
   }
 
-  async summariseCodeTree(topLevelFunctionSymbol: string): Promise<{
-    refinedFunctionSummaries: Record<string, string>;
-    contextSummary: string;
-    callTreeWithFilteredOutNodes: any[];
-  }> {
-    await this.simulateDelay();
-    this.checkError();
+  async getCallGraph(): Promise<CallGraph | undefined> {
+    await this.simulate_delay();
+    this.check_error();
+    return this.config.callGraph;
+  }
 
+  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
+    await this.simulate_delay();
+    this.check_error();
     return {
-      refinedFunctionSummaries: this.config.refinedSummaries || {},
-      contextSummary: 'Mock context',
-      callTreeWithFilteredOutNodes: [],
+      docstrings: this.config.docstrings || {},
+      call_tree: {},
     };
   }
 
-  async clusterCodeTree(topLevelFunctionSymbol: string): Promise<string[][]> {
-    await this.simulateDelay();
-    this.checkError();
-
+  async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
+    await this.simulate_delay();
+    this.check_error();
     return [];
   }
 
-  async functionSummaryStatus(functionSymbol: string): Promise<Record<string, any>> {
-    await this.simulateDelay();
-    this.checkError();
-
-    return {};
-  }
-
-  async navigateToDoc(params: {
-    relativeDocPath: string;
-    lineNumber: number;
-  }): Promise<{ success: boolean }> {
-    await this.simulateDelay();
-    this.checkError();
-
-    return { success: true };
+  async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
+    await this.simulate_delay();
+    this.check_error();
   }
 }

@@ -1,6 +1,9 @@
 // Export all backend types
 export * from './backend';
 
+// Export storage types
+export * from './storage';
+
 // Export theme types
 export * from './theme';
 

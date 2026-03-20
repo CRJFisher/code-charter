@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { CallGraphNode } from "@ariadnejs/core";
-import { NodeGroup, TreeAndContextSummaries } from "@code-charter/types";
+import { NodeGroup, DocstringSummaries } from "@code-charter/types";
 import {
   ReactFlow,
   useNodesState,
@@ -18,7 +18,7 @@ import {
 import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
 import "@xyflow/react/dist/style.css";
 import "./flow_theme.css";
-import { CodeIndexStatus, SummarisationStatus } from "../loading_status";
+import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
 import { symbolDisplayName } from "./symbol_utils";
 import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
@@ -42,7 +42,7 @@ type ZoomMode = "zoomedIn" | "zoomedOut";
 interface CodeChartAreaProps {
   selectedEntryPoint: CallGraphNode | null;
   screenWidthFraction: number;
-  getSummaries: (nodeSymbol: string) => Promise<TreeAndContextSummaries | undefined>;
+  getDescriptions: (nodeSymbol: string) => Promise<DocstringSummaries | undefined>;
   detectModules: () => Promise<NodeGroup[] | undefined>;
   indexingStatus: CodeIndexStatus;
 }
@@ -58,7 +58,7 @@ const ariaLabelConfig = {
 const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   selectedEntryPoint,
   screenWidthFraction,
-  getSummaries,
+  getDescriptions,
   detectModules,
   indexingStatus,
 }) => {
@@ -66,7 +66,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState<CodeChartEdge>([]);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
   const [callGraphNodes, setCallChart] = useState<Record<string, CallGraphNode> | null>(null);
-  const [summaryStatus, setSummaryStatus] = useState<SummarisationStatus>(SummarisationStatus.SummarisingFunctions);
+  const [description_status, set_description_status] = useState<DescriptionStatus>(DescriptionStatus.LoadingDescriptions);
   const [error, setError] = useState<string | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -153,33 +153,33 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     const fetchData = async () => {
       try {
         setError(null);
-        setSummaryStatus(SummarisationStatus.SummarisingFunctions);
+        set_description_status(DescriptionStatus.LoadingDescriptions);
         perfMonitor.current.startMeasure('data-fetch');
-        
+
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol);
         if (savedState) {
           setNodes(savedState.nodes);
           setEdges(savedState.edges);
           // Note: viewport will be set via onInit callback
-          setSummaryStatus(SummarisationStatus.Ready);
+          set_description_status(DescriptionStatus.Ready);
           return;
         }
-        
-        const summariesAndFilteredCallTree = await getSummaries(selectedEntryPoint.symbol);
-        if (!summariesAndFilteredCallTree) {
-          throw new Error("Failed to load function summaries");
+
+        const docstring_summaries = await getDescriptions(selectedEntryPoint.symbol);
+        if (!docstring_summaries) {
+          throw new Error("Failed to load code tree descriptions");
         }
-        setCallChart(summariesAndFilteredCallTree.callTreeWithFilteredOutNodes);
+        setCallChart(docstring_summaries.call_tree);
         
-        setSummaryStatus(SummarisationStatus.DetectingModules);
+        set_description_status(DescriptionStatus.DetectingModules);
         const nodeGroups = await detectModules();
         nodeGroupsRef.current = nodeGroups;
         
         // Generate all nodes and edges from the call tree
         const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
           selectedEntryPoint,
-          summariesAndFilteredCallTree,
+          docstring_summaries,
           nodeGroups
         );
         
@@ -188,12 +188,12 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         
         setNodes(layoutedNodes);
         setEdges(flowEdges);
-        setSummaryStatus(SummarisationStatus.Ready);
+        set_description_status(DescriptionStatus.Ready);
         perfMonitor.current.endMeasure('data-fetch', nodes.length, edges.length);
       } catch (err) {
         const error = err instanceof Error ? err : new Error("An error occurred");
         setError(error.message);
-        setSummaryStatus(SummarisationStatus.Error);
+        set_description_status(DescriptionStatus.Error);
         errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol });
         handleReactFlowError(error);
         
@@ -210,7 +210,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     };
     
     fetchData();
-  }, [selectedEntryPoint, getSummaries, detectModules, setNodes, setEdges]);
+  }, [selectedEntryPoint, getDescriptions, detectModules, setNodes, setEdges]);
 
   const getVisibilityClassNames = (show: boolean): string => {
     return show ? "visible" : "invisible";
@@ -265,7 +265,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     );
   }
 
-  const showElements = selectedEntryPoint !== null && summaryStatus === SummarisationStatus.Ready;
+  const showElements = selectedEntryPoint !== null && description_status === DescriptionStatus.Ready;
 
   return (
     <>
@@ -281,7 +281,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         id="code-flow-graph"
       >
       <div
-        className={`loading-container ${getVisibilityClassNames(summaryStatus !== SummarisationStatus.Ready)}`}
+        className={`loading-container ${getVisibilityClassNames(description_status !== DescriptionStatus.Ready)}`}
         style={{
           position: "absolute",
           top: "50%",
@@ -291,19 +291,19 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           zIndex: CONFIG.zIndex.overlay,
         }}
       >
-        {summaryStatus === SummarisationStatus.SummarisingFunctions && (
-          <LoadingIndicator 
-            status="Summarizing Functions"
-            message="Generating AI summaries for each function..."
+        {description_status === DescriptionStatus.LoadingDescriptions && (
+          <LoadingIndicator
+            status="Loading Descriptions"
+            message="Extracting docstrings from source code..."
           />
         )}
-        {summaryStatus === SummarisationStatus.DetectingModules && (
+        {description_status === DescriptionStatus.DetectingModules && (
           <LoadingIndicator 
             status="Detecting Modules"
             message="Analyzing code structure to identify logical modules..."
           />
         )}
-        {summaryStatus === SummarisationStatus.Error && error && (
+        {description_status === DescriptionStatus.Error && error && (
           <div style={{
             padding: "20px",
             ...themeStyles.getErrorStyle(),

@@ -25,10 +25,10 @@ interface SidebarProps {
   call_graph: CallGraph;
   selected_node: CallGraphNode | null;
   on_select: (entry_point: CallGraphNode) => void;
-  are_node_summaries_loading: (node_symbol: string) => boolean;
+  are_node_descriptions_loading: (node_symbol: string) => boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_summaries_loading }) => {
+const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_descriptions_loading }) => {
   const { backend } = useBackend();
   const [is_sidebar_open, set_is_sidebar_open] = useState(true);
 
@@ -72,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
             call_graph={call_graph}
             selected_node={selected_node}
             on_select={select_item_and_close_sidebar}
-            are_node_summaries_loading={are_node_summaries_loading}
+            are_node_descriptions_loading={are_node_descriptions_loading}
           />
         </aside>
       </div>
@@ -84,14 +84,14 @@ interface FunctionsListProps {
   call_graph: CallGraph;
   selected_node: CallGraphNode | null;
   on_select: (entry_point: CallGraphNode) => void;
-  are_node_summaries_loading: (node_symbol: string) => boolean;
+  are_node_descriptions_loading: (node_symbol: string) => boolean;
 }
 
 const FunctionsList: React.FC<FunctionsListProps> = ({
   call_graph,
   selected_node,
   on_select,
-  are_node_summaries_loading,
+  are_node_descriptions_loading,
 }) => {
   const { backend } = useBackend();
   
@@ -111,7 +111,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
         if (!node) return null;
         const display_name = symbol_display_name(node.symbol);
         const is_selected = selected_node && selected_node.symbol === node_symbol;
-        const is_loading = are_node_summaries_loading(node.symbol);
+        const is_loading = are_node_descriptions_loading(node.symbol);
         return (
           <li
             key={node.symbol}
@@ -126,7 +126,7 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
             <div className="flex items-center text-xs text-vscodeLineNumber h-5">
               {is_loading ? (
                 <div className="flex items-center">
-                  <span className="mr-2">Summarizing</span>
+                  <span className="mr-2">Loading</span>
                   <div className="w-4 h-4 border-2 border-t-transparent border-vscodeFg rounded-full animate-spin" />
                 </div>
               ) : (

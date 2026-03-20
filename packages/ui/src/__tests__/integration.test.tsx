@@ -107,7 +107,7 @@ describe('Integration Tests', () => {
 
     it('handles network errors in VS Code backend', async () => {
       const vsCodeBackend = new VSCodeBackend();
-      
+
       // Don't send any response to simulate timeout/error
       render(
         <BackendProvider backend={vsCodeBackend}>
@@ -157,7 +157,7 @@ describe('Integration Tests', () => {
       });
     });
 
-    it('handles summary generation workflow', async () => {
+    it('handles description generation workflow', async () => {
       const user = userEvent.setup();
       const mockBackend = new MockBackend({
         callGraph: {
@@ -171,12 +171,12 @@ describe('Integration Tests', () => {
           },
           edges: [],
         },
-        refinedSummaries: {
+        docstrings: {
           'main': 'This is the main entry point',
         },
       });
 
-      const summarySpy = jest.spyOn(mockBackend, 'summariseCodeTree');
+      const description_spy = jest.spyOn(mockBackend, 'get_code_tree_descriptions');
 
       render(
         <BackendProvider backend={mockBackend}>
@@ -188,11 +188,11 @@ describe('Integration Tests', () => {
         expect(screen.getByText('Main Function')).toBeInTheDocument();
       });
 
-      // If there's a summary button, click it
-      const summaryButton = screen.queryByRole('button', { name: /summar/i });
-      if (summaryButton) {
-        await user.click(summaryButton);
-        expect(summarySpy).toHaveBeenCalled();
+      // If there's a description button, click it
+      const description_button = screen.queryByRole('button', { name: /descri/i });
+      if (description_button) {
+        await user.click(description_button);
+        expect(description_spy).toHaveBeenCalled();
       }
     });
   });
@@ -201,7 +201,7 @@ describe('Integration Tests', () => {
     it('applies VS Code theme when in VS Code environment', () => {
       // Set VS Code CSS variables
       document.documentElement.style.setProperty('--vscode-editor-background', '#000000');
-      
+
       render(
         <BackendProvider backend={new MockBackend()}>
           <CodeCharterUI />
@@ -219,7 +219,7 @@ describe('Integration Tests', () => {
     it('applies standalone theme when not in VS Code', () => {
       // Ensure no VS Code variables
       document.documentElement.style.removeProperty('--vscode-editor-background');
-      
+
       render(
         <BackendProvider backend={new MockBackend()}>
           <CodeCharterUI />

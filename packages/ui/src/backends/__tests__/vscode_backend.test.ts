@@ -18,7 +18,7 @@ describe('VSCodeBackend', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     backend = new VSCodeBackend();
-    
+
     // Capture the message event listener
     const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
     backend = new VSCodeBackend();
@@ -57,39 +57,35 @@ describe('VSCodeBackend', () => {
     expect(result).toEqual(mockCallGraph);
   });
 
-  it('sends summariseCodeTree message with correct parameters', async () => {
-    const summaryPromise = backend.summariseCodeTree('testSymbol');
+  it('sends getCodeTreeDescriptions message with correct parameters', async () => {
+    const descriptionsPromise = backend.get_code_tree_descriptions('testSymbol');
 
     expect(mockPostMessage).toHaveBeenCalledWith({
-      command: 'summariseCodeTree',
+      command: 'getCodeTreeDescriptions',
       id: expect.any(String),
       topLevelFunctionSymbol: 'testSymbol',
     });
 
     // Simulate response
-    const mockSummaries = {
-      refinedFunctionSummaries: { testSymbol: 'Test summary' },
-      contextSummary: 'Context',
-      callTreeWithFilteredOutNodes: [],
+    const mockDescriptions = {
+      docstrings: { testSymbol: 'Test description' },
+      call_tree: {},
     };
 
     messageHandler(new MessageEvent('message', {
       data: {
-        command: 'summariseCodeTreeResponse',
+        command: 'getCodeTreeDescriptionsResponse',
         id: mockPostMessage.mock.calls[0][0].id,
-        data: mockSummaries,
+        data: mockDescriptions,
       },
     }));
 
-    const result = await summaryPromise;
-    expect(result).toEqual(mockSummaries);
+    const result = await descriptionsPromise;
+    expect(result).toEqual(mockDescriptions);
   });
 
   it('handles navigation requests', async () => {
-    const navPromise = backend.navigateToDoc({
-      relativeDocPath: 'src/test.ts',
-      lineNumber: 42,
-    });
+    const navPromise = backend.navigateToDoc('src/test.ts', 42);
 
     expect(mockPostMessage).toHaveBeenCalledWith({
       command: 'navigateToDoc',
@@ -107,16 +103,16 @@ describe('VSCodeBackend', () => {
       },
     }));
 
-    const result = await navPromise;
-    expect(result).toEqual({ success: true });
+    // Should not throw
+    await navPromise;
   });
 
   it('handles multiple concurrent requests', async () => {
     const promise1 = backend.getCallGraph();
-    const promise2 = backend.summariseCodeTree('symbol');
-    
+    const promise2 = backend.get_code_tree_descriptions('symbol');
+
     expect(mockPostMessage).toHaveBeenCalledTimes(2);
-    
+
     // IDs should be different
     const id1 = mockPostMessage.mock.calls[0][0].id;
     const id2 = mockPostMessage.mock.calls[1][0].id;
@@ -136,7 +132,7 @@ describe('VSCodeBackend', () => {
     }));
 
     // Promise should still be pending
-    const timeoutPromise = new Promise((_, reject) => 
+    const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Timeout')), 100)
     );
 
@@ -145,11 +141,11 @@ describe('VSCodeBackend', () => {
 
   it('cleans up event listener on subsequent calls', () => {
     const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
-    
+
     // Create multiple backends
     const backend1 = new VSCodeBackend();
     const backend2 = new VSCodeBackend();
-    
+
     // Should have removed the first listener when creating the second
     expect(removeEventListenerSpy).toHaveBeenCalled();
   });

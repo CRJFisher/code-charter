@@ -192,7 +192,7 @@ export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prevProps, next
   
   return (
     prevData.function_name === nextData.function_name &&
-    prevData.summary === nextData.summary &&
+    prevData.description === nextData.description &&
     prevData.is_entry_point === nextData.is_entry_point &&
     prevProps.selected === nextProps.selected &&
     prevProps.id === nextProps.id
