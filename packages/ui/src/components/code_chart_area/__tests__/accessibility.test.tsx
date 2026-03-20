@@ -4,6 +4,15 @@ import { CodeFunctionNode } from '../code_function_node';
 import { ZoomAwareNode, ModuleGroupNode } from '../zoom_aware_node';
 import { NodeProps } from '@xyflow/react';
 import '@testing-library/jest-dom';
+import { ThemeProviderComponent } from '../../../theme/theme_context';
+
+const render_with_theme = (ui: React.ReactElement) => {
+  return render(
+    <ThemeProviderComponent forceStandalone>
+      {ui}
+    </ThemeProviderComponent>
+  );
+};
 
 // Mock navigation utilities
 jest.mock('../navigation_utils', () => ({
@@ -104,8 +113,8 @@ describe('Accessibility Features', () => {
       const { useStore } = require('@xyflow/react');
       useStore.mockReturnValue(0.3); // Zoomed out
       
-      render(<ZoomAwareNode {...mockNodeProps} />);
-      
+      render_with_theme(<ZoomAwareNode {...mockNodeProps} />);
+
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', 'Function: testFunction. Press Enter to open source code.');
       expect(node).toHaveAttribute('tabIndex', '0');
@@ -115,8 +124,8 @@ describe('Accessibility Features', () => {
       const { useStore } = require('@xyflow/react');
       const { navigateToFile } = require('../navigation_utils');
       useStore.mockReturnValue(0.3); // Zoomed out
-      
-      render(<ZoomAwareNode {...mockNodeProps} />);
+
+      render_with_theme(<ZoomAwareNode {...mockNodeProps} />);
       
       const node = screen.getByRole('button');
       fireEvent.keyDown(node, { key: 'Enter' });
@@ -143,8 +152,8 @@ describe('Accessibility Features', () => {
         },
       };
       
-      render(<ModuleGroupNode {...moduleProps} />);
-      
+      render_with_theme(<ModuleGroupNode {...moduleProps} />);
+
       const module = screen.getByRole('group');
       expect(module).toHaveAttribute('aria-label', 'Module: TestModule. Test module description. Contains 5 functions.');
       expect(module).toHaveAttribute('tabIndex', '0');
@@ -154,7 +163,7 @@ describe('Accessibility Features', () => {
     it('should handle missing description gracefully', () => {
       const { useStore } = require('@xyflow/react');
       useStore.mockReturnValue(0.3); // Zoomed out
-      
+
       const moduleProps: NodeProps = {
         ...mockNodeProps,
         data: {
@@ -164,8 +173,8 @@ describe('Accessibility Features', () => {
           is_expanded: true,
         },
       };
-      
-      render(<ModuleGroupNode {...moduleProps} />);
+
+      render_with_theme(<ModuleGroupNode {...moduleProps} />);
       
       const module = screen.getByRole('group');
       expect(module).toHaveAttribute('aria-label', 'Module: TestModule. No description. Contains 3 functions.');

@@ -3,7 +3,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ErrorBoundary, DefaultErrorFallback } from '../error_boundary';
 import { withRetry, ErrorRecovery, LayoutError, errorLogger, errorNotificationManager } from '../error_handling';
 import { ErrorNotifications } from '../error_notifications';
+import { ThemeProviderComponent } from '../../../theme/theme_context';
 import '@testing-library/jest-dom';
+
+const render_with_theme = (ui: React.ReactElement) => {
+  return render(
+    <ThemeProviderComponent forceStandalone>
+      {ui}
+    </ThemeProviderComponent>
+  );
+};
 
 describe('Error Handling', () => {
   beforeEach(() => {
@@ -30,11 +39,13 @@ describe('Error Handling', () => {
 
     it('should catch errors and display fallback UI', () => {
       const onError = jest.fn();
-      
+
       render(
-        <ErrorBoundary onError={onError}>
-          <ThrowError shouldThrow={true} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary onError={onError}>
+            <ThrowError shouldThrow={true} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -45,9 +56,11 @@ describe('Error Handling', () => {
 
     it('should allow retry with retry button', () => {
       const { rerender } = render(
-        <ErrorBoundary>
-          <ThrowError shouldThrow={true} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary>
+            <ThrowError shouldThrow={true} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       const retryButton = screen.getByText(/Try Again/);
@@ -57,9 +70,11 @@ describe('Error Handling', () => {
       fireEvent.click(retryButton);
 
       rerender(
-        <ErrorBoundary>
-          <ThrowError shouldThrow={false} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary>
+            <ThrowError shouldThrow={false} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       expect(screen.getByText('No error')).toBeInTheDocument();
@@ -67,27 +82,33 @@ describe('Error Handling', () => {
 
     it('should limit retry attempts', () => {
       const { rerender } = render(
-        <ErrorBoundary maxRetries={2}>
-          <ThrowError shouldThrow={true} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary maxRetries={2}>
+            <ThrowError shouldThrow={true} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       // First retry
       fireEvent.click(screen.getByText(/Try Again.*1\/2/));
-      
+
       rerender(
-        <ErrorBoundary maxRetries={2}>
-          <ThrowError shouldThrow={true} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary maxRetries={2}>
+            <ThrowError shouldThrow={true} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       // Second retry
       fireEvent.click(screen.getByText(/Try Again.*2\/2/));
-      
+
       rerender(
-        <ErrorBoundary maxRetries={2}>
-          <ThrowError shouldThrow={true} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary maxRetries={2}>
+            <ThrowError shouldThrow={true} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       // No more retry button
@@ -101,9 +122,11 @@ describe('Error Handling', () => {
       ));
 
       render(
-        <ErrorBoundary fallback={customFallback}>
-          <ThrowError shouldThrow={true} />
-        </ErrorBoundary>
+        <ThemeProviderComponent forceStandalone>
+          <ErrorBoundary fallback={customFallback}>
+            <ThrowError shouldThrow={true} />
+          </ErrorBoundary>
+        </ThemeProviderComponent>
       );
 
       expect(screen.getByText('Custom error: Test error')).toBeInTheDocument();
@@ -254,7 +277,7 @@ describe('Error Handling', () => {
 
   describe('ErrorNotifications', () => {
     it('should display notifications', async () => {
-      render(<ErrorNotifications />);
+      render_with_theme(<ErrorNotifications />);
       
       errorNotificationManager.notify('Test notification', 'error');
       
@@ -265,7 +288,7 @@ describe('Error Handling', () => {
     });
 
     it('should dismiss notifications', async () => {
-      render(<ErrorNotifications />);
+      render_with_theme(<ErrorNotifications />);
       
       errorNotificationManager.notify('Test notification', 'error');
       
@@ -283,7 +306,7 @@ describe('Error Handling', () => {
 
     it('should show action buttons', async () => {
       const action = jest.fn();
-      render(<ErrorNotifications />);
+      render_with_theme(<ErrorNotifications />);
       
       errorNotificationManager.notify('Test notification', 'error', [
         { label: 'Retry', action },
@@ -300,7 +323,7 @@ describe('Error Handling', () => {
     });
 
     it('should limit displayed notifications', async () => {
-      render(<ErrorNotifications maxNotifications={2} />);
+      render_with_theme(<ErrorNotifications maxNotifications={2} />);
       
       errorNotificationManager.notify('Notification 1', 'info');
       errorNotificationManager.notify('Notification 2', 'warning');
@@ -316,7 +339,7 @@ describe('Error Handling', () => {
     });
 
     it('should use correct icons and colors', async () => {
-      render(<ErrorNotifications />);
+      render_with_theme(<ErrorNotifications />);
       
       errorNotificationManager.notify('Info', 'info');
       errorNotificationManager.notify('Warning', 'warning');
