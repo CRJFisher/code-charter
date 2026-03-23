@@ -21,6 +21,7 @@
 		"shared/**/*"
 	],
 	"exclude": [
-		"web"
+		"web",
+		"out"
 	]
 }
