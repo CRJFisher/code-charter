@@ -29,8 +29,11 @@ export class LayoutCache {
   }
 
   set(key: string, value: any): void {
-    // Implement LRU eviction
-    if (this.cache.size >= this.maxSize) {
+    // Delete existing entry first to avoid spurious eviction when updating
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // Evict least recently used (first entry in Map iteration order)
       const firstKey = this.cache.keys().next().value;
       if (firstKey !== undefined) {
         this.cache.delete(firstKey);

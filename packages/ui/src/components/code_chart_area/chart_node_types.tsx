@@ -1,19 +1,18 @@
 import React from "react";
-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
 import { useStore, ReactFlowState } from "@xyflow/react";
 import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
 import { navigateToFile } from "./editor_navigation";
 import { CONFIG } from "./chart_config";
 import { useFlowThemeStyles } from "./use_chart_theme_styles";
 import { get_cluster_color, ThemeColorConfig } from "./theme_config";
+import type { CodeFunctionNodeType, ModuleGroupNodeType } from "./chart_types";
 
 const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
 // Derived boolean selector — only triggers re-renders on threshold crossings,
 // not on every micro zoom change. This makes React.memo comparators effective.
 const select_is_zoomed_out = (state: ReactFlowState) => state.transform[2] < ZOOM_THRESHOLD;
-
-type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
 
 const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {
   const isZoomedOut = useStore(select_is_zoomed_out);
@@ -115,8 +114,6 @@ function get_quality_color(score: number, colors: ThemeColorConfig): string {
   if (score >= 0.4) return colors.ui.warning.text;
   return colors.ui.error.text;
 }
-
-type ModuleGroupNodeType = Node<ModuleNodeData, 'module_group'>;
 
 const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (props) => {
   const data = props.data;

@@ -2,12 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CodeFunctionNode } from './code_function_node';
 import { ZoomAwareNode, ModuleGroupNode } from './chart_node_types';
-import { NodeProps, Node } from '@xyflow/react';
+import { NodeProps } from '@xyflow/react';
 import '@testing-library/jest-dom';
 import { ThemeProviderComponent } from '../../theme/theme_context';
 import { navigateToFile } from './editor_navigation';
-import { CodeNodeData } from './code_function_node';
-import { ModuleNodeData } from './chart_node_types';
+import type { CodeFunctionNodeType, ModuleGroupNodeType } from './chart_types';
 
 const render_with_theme = (ui: React.ReactElement) => {
   return render(
@@ -38,9 +37,6 @@ jest.mock('@xyflow/react', () => ({
 }));
 
 const mocked_navigate = jest.mocked(navigateToFile);
-
-type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
-type ModuleGroupNodeType = Node<ModuleNodeData, 'module_group'>;
 
 function create_code_node_props(overrides: Partial<NodeProps<CodeFunctionNodeType>> = {}): NodeProps<CodeFunctionNodeType> {
   return {

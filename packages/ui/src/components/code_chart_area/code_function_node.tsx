@@ -1,8 +1,9 @@
 import React from "react";
-import { Handle, Position, NodeProps, Node } from "@xyflow/react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
 import { navigateToFile } from "./editor_navigation";
 import { useFlowThemeStyles } from "./use_chart_theme_styles";
 import { CONFIG } from "./chart_config";
+import type { CodeFunctionNodeType } from "./chart_types";
 
 export interface CodeNodeData extends Record<string, unknown> {
   function_name: string;
@@ -12,8 +13,6 @@ export interface CodeNodeData extends Record<string, unknown> {
   is_entry_point?: boolean;
   symbol: string;
 }
-
-type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
 
 const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {
   const data = props.data;
