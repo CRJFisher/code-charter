@@ -1,6 +1,7 @@
 import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { navigateToFile } from "./editor_navigation";
+import { useFlowThemeStyles } from "./use_chart_theme_styles";
 
 export interface CodeNodeData extends Record<string, unknown> {
   function_name: string;
@@ -14,16 +15,16 @@ export interface CodeNodeData extends Record<string, unknown> {
 const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
   const data = props.data as CodeNodeData;
   const { selected } = props;
+  const themeStyles = useFlowThemeStyles();
+
   const handleClick = (e: React.MouseEvent) => {
-    // Prevent node selection/dragging
     e.stopPropagation();
-    
     navigateToFile({
       file_path: data.file_path,
       line_number: data.line_number,
     });
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -38,9 +39,12 @@ const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
   const nodeStyles: React.CSSProperties = {
     padding: "10px",
     borderRadius: "5px",
-    backgroundColor: data.is_entry_point ? "#e8f5e9" : "#ffffff",
-    border: `${data.is_entry_point ? 2 : 1}px solid ${selected ? '#0096FF' : '#e0e0e0'}`,
-    borderWidth: selected ? "3px" : data.is_entry_point ? "2px" : "1px",
+    backgroundColor: data.is_entry_point
+      ? themeStyles.colors.node.background.entryPoint
+      : themeStyles.colors.node.background.default,
+    border: `${selected ? 3 : data.is_entry_point ? 2 : 1}px solid ${
+      selected ? themeStyles.colors.node.border.selected : themeStyles.colors.node.border.default
+    }`,
     minWidth: "200px",
     maxWidth: "350px",
     cursor: "pointer",
@@ -53,7 +57,9 @@ const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
     fontWeight: "bold",
     fontSize: "14px",
     marginBottom: "8px",
-    color: data.is_entry_point ? "#2e7d32" : "#333333",
+    color: data.is_entry_point
+      ? themeStyles.colors.node.text.entryPoint
+      : themeStyles.colors.node.text.default,
     display: "flex",
     alignItems: "center",
     gap: "4px",
@@ -61,23 +67,24 @@ const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
 
   const description_styles: React.CSSProperties = {
     fontSize: "12px",
-    color: "#666666",
+    color: themeStyles.colors.node.text.secondary,
     lineHeight: "1.4",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   };
 
-  // Create accessible label
+  const handle_color = themeStyles.colors.edge.stroke;
+
   const ariaLabel = `${data.is_entry_point ? 'Entry point function' : 'Function'}: ${data.function_name}. ${data.description || 'No description available'}. Located at ${data.file_path} line ${data.line_number}. Press Enter to navigate to source code.`;
-  
+
   return (
-    <div 
+    <div
       style={nodeStyles}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "scale(1.02)";
-        e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+        e.currentTarget.style.boxShadow = themeStyles.colors.shadow.hover;
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "scale(1)";
@@ -91,32 +98,30 @@ const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
       <Handle
         type="target"
         position={Position.Top}
-        style={{ background: "#555" }}
+        style={{ background: handle_color }}
       />
-      
+
       <div style={headerStyles}>
         {data.is_entry_point && <span aria-label="Entry point">⮕</span>}
         <span>{data.function_name}</span>
       </div>
-      
+
       {data.description && (
         <div style={description_styles}>
           {data.description}
         </div>
       )}
-      
+
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ background: "#555" }}
+        style={{ background: handle_color }}
       />
     </div>
   );
 };
 
-// Memoize the component to prevent unnecessary re-renders
 export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps, nextProps) => {
-  // Only re-render if data or selected state changes
   const prev_data = prevProps.data as CodeNodeData;
   const next_data = nextProps.data as CodeNodeData;
   return (

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
-import { symbol_display_name } from './symbol_display';
 
 export interface SearchResult {
   nodeId: string;
@@ -25,7 +24,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { getNodes, setCenter, setNodes } = useReactFlow<CodeChartNode, CodeChartEdge>();
+  const { setCenter, setNodes } = useReactFlow<CodeChartNode, CodeChartEdge>();
   const nodes = useStore((state: ReactFlowState) => state.nodes as CodeChartNode[]);
   
   // Search algorithm with fuzzy matching
@@ -287,7 +286,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 textAlign: 'center',
                 color: '#666',
               }}>
-                No results found for "{query}"
+                No results found for &quot;{query}&quot;
               </div>
             )}
             
@@ -384,14 +383,18 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   );
 };
 
+function escape_regex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Helper function to highlight matching text
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query) return text;
-  
-  const regex = new RegExp(`(${query})`, 'gi');
+
+  const regex = new RegExp(`(${escape_regex(query)})`, 'gi');
   const parts = text.split(regex);
-  
-  return parts.map((part, index) => 
+
+  return parts.map((part, index) =>
     regex.test(part) ? (
       <mark key={index} style={{ backgroundColor: '#ffeb3b', padding: '0 2px' }}>
         {part}

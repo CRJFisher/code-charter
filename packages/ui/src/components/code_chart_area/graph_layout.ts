@@ -1,5 +1,4 @@
-import ELK from 'elkjs/lib/elk.bundled.js';
-import { Node, Edge } from '@xyflow/react';
+import ELK, { ElkNode } from 'elkjs/lib/elk.bundled.js';
 import { CodeChartNode, CodeChartEdge, isCodeNode, isModuleNode } from './chart_types';
 import { CodeNodeData } from './code_function_node';
 import { ModuleNodeData } from './chart_node_types';
@@ -14,7 +13,7 @@ const layoutCache = new LayoutCache();
 const dimensionCache = new LayoutCache();
 
 // ELK layout options from configuration
-const elkOptions = {
+const elkOptions: Record<string, string> = {
   'elk.algorithm': CONFIG.layout.elk.algorithm,
   'elk.direction': CONFIG.layout.elk.direction,
   'elk.spacing.nodeNode': String(CONFIG.layout.elk.spacing.nodeNode),
@@ -25,24 +24,133 @@ const elkOptions = {
   'elk.layered.nodePlacement.strategy': CONFIG.layout.elk.nodePlacement.strategy,
 };
 
-export interface LayoutOptions {
-  animate?: boolean;
-  animationDuration?: number;
-  constraints?: LayoutConstraint[];
+// Module group internal padding for ELK compound nodes
+const MODULE_PADDING = 40;
+
+/**
+ * Build a hierarchical ELK graph where module nodes contain their children.
+ * Edges are assigned to the lowest common ancestor container.
+ */
+function build_elk_graph(
+  nodes: CodeChartNode[],
+  edges: CodeChartEdge[]
+): ElkNode {
+  // Separate module groups from function nodes
+  const module_nodes = nodes.filter(n => n.type === 'module_group');
+  const function_nodes = nodes.filter(n => n.type !== 'module_group');
+
+  // Build a set of module IDs for quick lookup
+  const module_ids = new Set(module_nodes.map(n => n.id));
+
+  // Group function nodes by parentId
+  const children_by_parent = new Map<string, CodeChartNode[]>();
+  const top_level_functions: CodeChartNode[] = [];
+
+  for (const fn of function_nodes) {
+    if (fn.parentId && module_ids.has(fn.parentId)) {
+      if (!children_by_parent.has(fn.parentId)) {
+        children_by_parent.set(fn.parentId, []);
+      }
+      children_by_parent.get(fn.parentId)?.push(fn);
+    } else {
+      top_level_functions.push(fn);
+    }
+  }
+
+  // Build set of node IDs in each module for edge routing
+  const node_to_module = new Map<string, string>();
+  for (const fn of function_nodes) {
+    if (fn.parentId && module_ids.has(fn.parentId)) {
+      node_to_module.set(fn.id, fn.parentId);
+    }
+  }
+
+  // Classify edges: internal to a module, cross-module, or top-level
+  const module_internal_edges = new Map<string, typeof edges>();
+  const root_edges: typeof edges = [];
+
+  for (const edge of edges) {
+    // Skip module-to-module edges (they connect compound nodes directly)
+    if (module_ids.has(edge.source) || module_ids.has(edge.target)) {
+      root_edges.push(edge);
+      continue;
+    }
+
+    const source_module = node_to_module.get(edge.source);
+    const target_module = node_to_module.get(edge.target);
+
+    if (source_module && target_module && source_module === target_module) {
+      // Both endpoints in the same module → internal edge
+      if (!module_internal_edges.has(source_module)) {
+        module_internal_edges.set(source_module, []);
+      }
+      module_internal_edges.get(source_module)?.push(edge);
+    } else {
+      // Cross-module or involves top-level node → root edge
+      root_edges.push(edge);
+    }
+  }
+
+  // Build ELK compound nodes for modules
+  const elk_module_children: ElkNode[] = module_nodes.map(mod => {
+    const children = children_by_parent.get(mod.id) || [];
+    const internal_edges = module_internal_edges.get(mod.id) || [];
+
+    return {
+      id: mod.id,
+      layoutOptions: {
+        ...elkOptions,
+        'elk.padding': `[top=${MODULE_PADDING + 30},left=${MODULE_PADDING},bottom=${MODULE_PADDING},right=${MODULE_PADDING}]`,
+      },
+      children: children.map(child => ({
+        id: child.id,
+        width: child.width || CONFIG.node.default.width,
+        height: child.height || CONFIG.node.default.height,
+      })),
+      edges: internal_edges.map(e => ({
+        id: e.id,
+        sources: [e.source],
+        targets: [e.target],
+      })),
+    };
+  });
+
+  // Build top-level function ELK nodes
+  const elk_top_level: ElkNode[] = top_level_functions.map(fn => ({
+    id: fn.id,
+    width: fn.width || CONFIG.node.default.width,
+    height: fn.height || CONFIG.node.default.height,
+  }));
+
+  return {
+    id: 'root',
+    layoutOptions: elkOptions,
+    children: [...elk_module_children, ...elk_top_level],
+    edges: root_edges.map(e => ({
+      id: e.id,
+      sources: [e.source],
+      targets: [e.target],
+    })),
+  };
 }
 
-export interface LayoutConstraint {
-  type: 'topBottom' | 'leftRight';
-  from: string;
-  to: string;
+/**
+ * Recursively collect all ELK nodes into a flat id→ElkNode map.
+ */
+function flatten_elk_nodes(elk_node: ElkNode, result: Map<string, ElkNode> = new Map()): Map<string, ElkNode> {
+  if (elk_node.id !== 'root') {
+    result.set(elk_node.id, elk_node);
+  }
+  for (const child of elk_node.children || []) {
+    flatten_elk_nodes(child, result);
+  }
+  return result;
 }
 
 export async function applyHierarchicalLayout(
   nodes: CodeChartNode[],
   edges: CodeChartEdge[],
-  options: LayoutOptions = {}
 ): Promise<CodeChartNode[]> {
-  // If no nodes, return empty array
   if (nodes.length === 0) {
     return [];
   }
@@ -55,44 +163,45 @@ export async function applyHierarchicalLayout(
     return cached;
   }
 
-  // Convert React Flow nodes to ELK nodes
-  const elkNodes = nodes.map(node => ({
-    id: node.id,
-    width: node.width || CONFIG.node.default.width,
-    height: node.height || CONFIG.node.default.height,
-  }));
-
-  // Convert React Flow edges to ELK edges
-  const elkEdges = edges.map(edge => ({
-    id: edge.id,
-    sources: [edge.source],
-    targets: [edge.target],
-  }));
+  // Build hierarchical ELK graph
+  const elk_graph = build_elk_graph(nodes, edges);
 
   try {
-    // Use retry logic for layout calculation
     const layoutedNodes = await withRetry(
       async () => {
-        // Run ELK layout
-        const layouted = await elk.layout({
-          id: 'root',
-          children: elkNodes,
-          edges: elkEdges,
-          layoutOptions: elkOptions,
-        });
+        const layouted = await elk.layout(elk_graph);
+        const elk_positions = flatten_elk_nodes(layouted);
 
         // Apply positions back to React Flow nodes
         return nodes.map(node => {
-          const elkNode = layouted.children?.find(n => n.id === node.id);
-          if (!elkNode) {
+          const elk_node = elk_positions.get(node.id);
+          if (!elk_node) {
             return node;
           }
 
+          if (node.type === 'module_group') {
+            // Module groups get absolute position and ELK-computed dimensions
+            return {
+              ...node,
+              position: {
+                x: elk_node.x || 0,
+                y: elk_node.y || 0,
+              },
+              style: {
+                ...node.style,
+                width: elk_node.width,
+                height: elk_node.height,
+              },
+            };
+          }
+
+          // Function nodes: position is relative to parent (if parentId exists,
+          // ELK already computed it relative to the compound node)
           return {
             ...node,
             position: {
-              x: elkNode.x || 0,
-              y: elkNode.y || 0,
+              x: elk_node.x || 0,
+              y: elk_node.y || 0,
             },
           };
         });
@@ -106,9 +215,7 @@ export async function applyHierarchicalLayout(
       }
     );
 
-    // Cache the result
     layoutCache.set(cacheKey, layoutedNodes);
-    
     return layoutedNodes;
   } catch (error) {
     console.error('Error applying ELK layout:', error);
@@ -117,11 +224,10 @@ export async function applyHierarchicalLayout(
       'error',
       { error: error instanceof Error ? error.message : String(error) }
     );
-    
-    // Try fallback layout
+
     return ErrorRecovery.tryWithFallback(
       async () => {
-        throw error; // Re-throw to trigger fallback
+        throw error;
       },
       async () => applyFallbackLayout(nodes, edges),
       (err) => {
@@ -205,8 +311,8 @@ export function applyFallbackLayout(
     if (!adjacency.has(edge.target)) {
       adjacency.set(edge.target, new Set());
     }
-    adjacency.get(edge.source)!.add(edge.target);
-    adjacency.get(edge.target)!.add(edge.source);
+    adjacency.get(edge.source)?.add(edge.target);
+    adjacency.get(edge.target)?.add(edge.source);
   });
   
   // DFS to find connected components
@@ -231,12 +337,12 @@ export function applyFallbackLayout(
   
   // Layout nodes
   const layoutedNodes = [...nodes];
-  let currentX = 0;
+  const currentX = 0;
   let currentY = 0;
   let rowHeight = 0;
   
   // Layout each group
-  nodeGroups.forEach((group, groupId) => {
+  nodeGroups.forEach((group) => {
     const groupNodes = layoutedNodes.filter(n => group.has(n.id));
     
     // Layout nodes in this group

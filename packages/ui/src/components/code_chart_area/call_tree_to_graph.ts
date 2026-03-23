@@ -1,9 +1,6 @@
-import { Node, Edge } from "@xyflow/react";
 import type { CallableNode } from "@code-charter/types";
 import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import { symbol_display_name } from "./symbol_display";
-import { CodeNodeData } from "./code_function_node";
-import { ModuleNodeData } from "./chart_node_types";
 import { calculateNodeDimensions } from "./graph_layout";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import type { ClusterColor } from "./theme_config";
@@ -96,7 +93,7 @@ export function generateReactFlowElements(
         if (!module_connections.has(parent_module_id)) {
           module_connections.set(parent_module_id, new Set());
         }
-        module_connections.get(parent_module_id)!.add(child_module_id);
+        module_connections.get(parent_module_id)?.add(child_module_id);
       }
 
       // Recursively add child nodes
@@ -115,42 +112,18 @@ export function generateReactFlowElements(
   }
 
   // After all function nodes are added, add module group nodes
+  // Positions and dimensions are placeholders — ELK computes them via hierarchical layout
   if (node_groups && node_groups.length > 0) {
-    const module_nodes: Node[] = [];
+    const module_nodes: CodeChartNode[] = [];
 
     node_groups.forEach((group, index) => {
       const module_id = `module_${index}`;
-
-      // Calculate module bounds based on member nodes
-      const member_nodes = nodes.filter(n => n.parentId === module_id);
-      let min_x = Infinity, min_y = Infinity, max_x = -Infinity, max_y = -Infinity;
-
-      if (member_nodes.length > 0) {
-        member_nodes.forEach(node => {
-          const x = node.position.x;
-          const y = node.position.y;
-          const width = node.width || 200;
-          const height = node.height || 100;
-
-          min_x = Math.min(min_x, x);
-          min_y = Math.min(min_y, y);
-          max_x = Math.max(max_x, x + width);
-          max_y = Math.max(max_y, y + height);
-        });
-      } else {
-        // Default positioning if no members
-        min_x = index * 500;
-        min_y = 0;
-        max_x = min_x + 400;
-        max_y = min_y + 300;
-      }
-
-      const padding = 40;
       const cluster_index = group.metadata?.cluster_index ?? index;
+
       const module_node: CodeChartNode = {
         id: module_id,
         type: "module_group",
-        position: { x: min_x - padding, y: min_y - padding },
+        position: { x: 0, y: 0 },
         data: {
           module_name: `Module ${index + 1}`,
           description: group.description || "",
@@ -159,8 +132,6 @@ export function generateReactFlowElements(
           quality_score: group.metadata?.quality_score,
         },
         style: {
-          width: max_x - min_x + padding * 2,
-          height: max_y - min_y + padding * 2,
           borderRadius: "15px",
           padding: "20px",
           zIndex: -1,
@@ -170,7 +141,7 @@ export function generateReactFlowElements(
     });
 
     // Add module nodes at the beginning so they render behind
-    nodes.unshift(...module_nodes as CodeChartNode[]);
+    nodes.unshift(...module_nodes);
 
     // Build cluster index lookup for module edge coloring
     const module_id_to_cluster_index = new Map<string, number>();

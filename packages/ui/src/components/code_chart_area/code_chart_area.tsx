@@ -11,7 +11,6 @@ import {
   ReactFlowProvider,
   useStore,
   ReactFlowState as XYFlowState,
-  useReactFlow,
   type ReactFlowInstance,
   MiniMap,
 } from "@xyflow/react";
@@ -19,8 +18,7 @@ import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import "@xyflow/react/dist/style.css";
 
 import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
-import { CodeNodeData } from "./code_function_node";
-import { applyHierarchicalLayout, calculateNodeDimensions } from "./graph_layout";
+import { applyHierarchicalLayout } from "./graph_layout";
 import { zoomAwareNodeTypes } from "./chart_node_types";
 import { generateReactFlowElements } from "./call_tree_to_graph";
 import { LoadingIndicator } from "./loading_indicator";
@@ -66,7 +64,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const [nodes, setNodes, onNodesChange] = useNodesState<CodeChartNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<CodeChartEdge>([]);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
-  const [callGraphNodes, setCallChart] = useState<Record<string, CallableNode> | null>(null);
+  const [, setCallChart] = useState<Record<string, CallableNode> | null>(null);
   const [description_status, set_description_status] = useState<DescriptionStatus>(DescriptionStatus.LoadingDescriptions);
   const [error, setError] = useState<string | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
@@ -78,7 +76,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const miniMapNodeColor = useMemo(() => createMiniMapNodeColor(themeStyles.colors), [themeStyles.colors]);
 
   // Use keyboard navigation hook
-  const { selectedNodeId } = useKeyboardNavigation({
+  useKeyboardNavigation({
     onNodeNavigate: (nodeId) => {
       // Auto-pan to the selected node
       if (reactFlowInstance.current) {
@@ -148,6 +146,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       return;
     }
 
+    let cancelled = false;
+
     const fetchData = async () => {
       try {
         setError(null);
@@ -156,14 +156,15 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol_id);
         if (savedState) {
+          if (cancelled) return;
           setNodes(savedState.nodes);
           setEdges(savedState.edges);
-          // Note: viewport will be set via onInit callback
           set_description_status(DescriptionStatus.Ready);
           return;
         }
 
         const docstring_summaries = await getDescriptions(selectedEntryPoint.symbol_id);
+        if (cancelled) return;
         if (!docstring_summaries) {
           throw new Error("Failed to load code tree descriptions");
         }
@@ -171,6 +172,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 
         set_description_status(DescriptionStatus.DetectingModules);
         const nodeGroups = await detectModules();
+        if (cancelled) return;
         nodeGroupsRef.current = nodeGroups;
 
         // Generate all nodes and edges from the call tree
@@ -183,11 +185,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 
         // Apply hierarchical layout
         const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
+        if (cancelled) return;
 
         setNodes(layoutedNodes);
         setEdges(flowEdges);
         set_description_status(DescriptionStatus.Ready);
       } catch (err) {
+        if (cancelled) return;
         const error = err instanceof Error ? err : new Error("An error occurred");
         setError(error.message);
         set_description_status(DescriptionStatus.Error);
@@ -200,13 +204,17 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           'error',
           [
             { label: 'Retry', action: () => fetchData() },
-            { label: 'Dismiss', action: () => {} },
+            { label: 'Dismiss', action: () => undefined },
           ]
         );
       }
     };
 
     fetchData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedEntryPoint, getDescriptions, detectModules, setNodes, setEdges]);
 
   const getVisibilityClassNames = (show: boolean): string => {

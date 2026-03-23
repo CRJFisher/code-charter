@@ -2,9 +2,10 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CodeFunctionNode } from './code_function_node';
 import { ZoomAwareNode, ModuleGroupNode } from './chart_node_types';
-import { NodeProps } from '@xyflow/react';
+import { NodeProps, useStore } from '@xyflow/react';
 import '@testing-library/jest-dom';
 import { ThemeProviderComponent } from '../../theme/theme_context';
+import { navigateToFile } from './editor_navigation';
 
 const render_with_theme = (ui: React.ReactElement) => {
   return render(
@@ -30,8 +31,11 @@ jest.mock('@xyflow/react', () => ({
   },
 }));
 
-describe('Accessibility Features', () => {
-  const mockNodeProps = {
+const mocked_navigate = jest.mocked(navigateToFile);
+const mocked_use_store = jest.mocked(useStore);
+
+function create_node_props(overrides: Partial<NodeProps> = {}): NodeProps {
+  return {
     id: 'test-node',
     data: {
       function_name: 'testFunction',
@@ -51,12 +55,17 @@ describe('Accessibility Features', () => {
     deletable: true,
     positionAbsoluteX: 0,
     positionAbsoluteY: 0,
-  } as unknown as NodeProps;
+    ...overrides,
+  } as NodeProps;
+}
+
+describe('Accessibility Features', () => {
+  const mockNodeProps = create_node_props();
 
   describe('CodeFunctionNode Accessibility', () => {
     it('should have proper ARIA attributes', () => {
-      render(<CodeFunctionNode {...mockNodeProps} />);
-      
+      render_with_theme(<CodeFunctionNode {...mockNodeProps} />);
+
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Function: testFunction'));
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Test function description'));
@@ -66,45 +75,43 @@ describe('Accessibility Features', () => {
     });
 
     it('should show selected state in ARIA attributes', () => {
-      const selectedProps = { ...mockNodeProps, selected: true } as unknown as NodeProps;
-      render(<CodeFunctionNode {...selectedProps} />);
-      
+      const selectedProps = create_node_props({ selected: true });
+      render_with_theme(<CodeFunctionNode {...selectedProps} />);
+
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-selected', 'true');
     });
 
     it('should handle keyboard navigation', () => {
-      const { navigateToFile } = require('./editor_navigation');
-      render(<CodeFunctionNode {...mockNodeProps} />);
-      
+      render_with_theme(<CodeFunctionNode {...mockNodeProps} />);
+
       const node = screen.getByRole('button');
-      
+
       // Test Enter key
       fireEvent.keyDown(node, { key: 'Enter' });
-      expect(navigateToFile).toHaveBeenCalledWith({
+      expect(mocked_navigate).toHaveBeenCalledWith({
         file_path: '/test/file.ts',
         line_number: 42,
       });
-      
+
       // Test Space key
-      navigateToFile.mockClear();
+      mocked_navigate.mockClear();
       fireEvent.keyDown(node, { key: ' ' });
-      expect(navigateToFile).toHaveBeenCalledWith({
+      expect(mocked_navigate).toHaveBeenCalledWith({
         file_path: '/test/file.ts',
         line_number: 42,
       });
     });
 
     it('should have proper ARIA label for entry point', () => {
-      const entryPointProps = {
-        ...mockNodeProps,
-        data: { ...(mockNodeProps as any).data, is_entry_point: true },
-      } as unknown as NodeProps;
-      render(<CodeFunctionNode {...entryPointProps} />);
-      
+      const entryPointProps = create_node_props({
+        data: { ...mockNodeProps.data, is_entry_point: true },
+      });
+      render_with_theme(<CodeFunctionNode {...entryPointProps} />);
+
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Entry point function'));
-      
+
       // Check for entry point indicator
       const entryIndicator = screen.getByLabelText('Entry point');
       expect(entryIndicator).toBeInTheDocument();
@@ -113,9 +120,8 @@ describe('Accessibility Features', () => {
 
   describe('ZoomAwareNode Accessibility', () => {
     it('should have simplified ARIA label when zoomed out', () => {
-      const { useStore } = require('@xyflow/react');
-      useStore.mockReturnValue(0.3); // Zoomed out
-      
+      mocked_use_store.mockReturnValue(0.3); // Zoomed out
+
       render_with_theme(<ZoomAwareNode {...mockNodeProps} />);
 
       const node = screen.getByRole('button');
@@ -124,16 +130,14 @@ describe('Accessibility Features', () => {
     });
 
     it('should handle keyboard events in zoomed out view', () => {
-      const { useStore } = require('@xyflow/react');
-      const { navigateToFile } = require('./editor_navigation');
-      useStore.mockReturnValue(0.3); // Zoomed out
+      mocked_use_store.mockReturnValue(0.3); // Zoomed out
 
       render_with_theme(<ZoomAwareNode {...mockNodeProps} />);
-      
+
       const node = screen.getByRole('button');
       fireEvent.keyDown(node, { key: 'Enter' });
-      
-      expect(navigateToFile).toHaveBeenCalledWith({
+
+      expect(mocked_navigate).toHaveBeenCalledWith({
         file_path: '/test/file.ts',
         line_number: 42,
       });
@@ -142,18 +146,16 @@ describe('Accessibility Features', () => {
 
   describe('ModuleGroupNode Accessibility', () => {
     it('should have proper ARIA attributes for module', () => {
-      const { useStore } = require('@xyflow/react');
-      useStore.mockReturnValue(0.3); // Zoomed out to show modules
-      
-      const moduleProps = {
-        ...mockNodeProps,
+      mocked_use_store.mockReturnValue(0.3); // Zoomed out to show modules
+
+      const moduleProps = create_node_props({
         data: {
           module_name: 'TestModule',
           description: 'Test module description',
           member_count: 5,
           is_expanded: true,
         },
-      } as unknown as NodeProps;
+      });
 
       render_with_theme(<ModuleGroupNode {...moduleProps} />);
 
@@ -164,21 +166,19 @@ describe('Accessibility Features', () => {
     });
 
     it('should handle missing description gracefully', () => {
-      const { useStore } = require('@xyflow/react');
-      useStore.mockReturnValue(0.3); // Zoomed out
+      mocked_use_store.mockReturnValue(0.3); // Zoomed out
 
-      const moduleProps = {
-        ...mockNodeProps,
+      const moduleProps = create_node_props({
         data: {
           module_name: 'TestModule',
           description: '',
           member_count: 3,
           is_expanded: true,
         },
-      } as unknown as NodeProps;
+      });
 
       render_with_theme(<ModuleGroupNode {...moduleProps} />);
-      
+
       const module = screen.getByRole('group');
       expect(module).toHaveAttribute('aria-label', 'Module: TestModule. No description. Contains 3 functions.');
     });
@@ -186,12 +186,12 @@ describe('Accessibility Features', () => {
 
   describe('Focus Management', () => {
     it('should show focus indicators on selected nodes', () => {
-      const selectedProps = { ...mockNodeProps, selected: true } as unknown as NodeProps;
-      const { container } = render(<CodeFunctionNode {...selectedProps} />);
-      
+      const selectedProps = create_node_props({ selected: true });
+      const { container } = render_with_theme(<CodeFunctionNode {...selectedProps} />);
+
       const node = container.querySelector('[role="button"]');
       const styles = window.getComputedStyle(node as Element);
-      
+
       // Check for visual focus indicator (thicker border)
       expect(styles.borderWidth).toBe('3px');
     });
