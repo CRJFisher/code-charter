@@ -1,11 +1,11 @@
 ---
 id: TASK-17
 title: Fix React Flow state management and virtualization robustness
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-03-23 13:49'
-updated_date: '2026-03-23 22:15'
+updated_date: '2026-03-23 22:39'
 labels: []
 dependencies: []
 ---
@@ -31,6 +31,7 @@ After fixing the critical correctness bugs in task-16, several robustness issues
 
 ## Implementation Plan
 
+<!-- SECTION:PLAN:BEGIN -->
 1. Fix ErrorBoundary render condition (remove errorInfo requirement from render check)
 2. Fix graph_layout test nodes (add missing `type: "code_function"`, clear dimension cache between tests)
 3. Fix edge animated contradiction (remove `animated` from both defaultEdgeOptions and individual edges)
@@ -40,32 +41,10 @@ After fixing the critical correctness bugs in task-16, several robustness issues
 7. Fix code_chart_area.tsx stale closures: onNodeNavigate uses reactFlowInstance.getNode(), handleSaveState/handleExportState use instance.getNodes()/getEdges()
 8. Fix search_panel.tsx: move fuzzyMatch to module scope, replace useStore with getNodes/getNode from useReactFlow, use functional setNodes
 9. Fix search_panel.test.tsx: restructure mocks from useStore to getNodes/getNode, fix test data and assertions
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
-### Approach
-Addressed all 9 acceptance criteria in a single pass, fixing production code and tests together.
-
-### Features modified
-- **Virtualization pipeline** (virtual_renderer.tsx, code_chart_area.tsx): Removed `useZoomCulling` (viewport-unaware hash-based sampling that could hide visible nodes) and `onlyRenderVisibleElements` (redundant with `useVirtualNodes`). The system now has a single virtualization layer: `getVisibleNodes` + `useVirtualNodes`.
-- **State management** (search_panel.tsx, keyboard_navigation.tsx, code_chart_area.tsx): All `setNodes` calls now use functional updaters to avoid replacing stale arrays. All callbacks that need node data now read it imperatively via `getNodes()`/`getNode()`/`getEdges()` instead of closing over snapshot arrays.
-- **SearchPanel** (search_panel.tsx): Replaced `useStore` subscription with `getNodes()` from `useReactFlow`, eliminating re-renders on every drag/selection. Moved `fuzzyMatch` to module scope to fix temporal dead zone issue.
-- **Edge animation** (call_tree_to_graph.ts, code_chart_area.tsx): Removed contradictory `animated` settings from both `defaultEdgeOptions` and individual edges. React Flow defaults to `animated: false`.
-- **ErrorBoundary** (error_boundary.tsx): Fixed render condition that required `errorInfo` before showing fallback UI. `getDerivedStateFromError` fires before `componentDidCatch`, so `errorInfo` is null on the first render after an error.
-
-### Technical decisions
-- Chose to remove `useZoomCulling` entirely rather than making it viewport-aware, since `useVirtualNodes` already handles viewport culling correctly. The hash-based 30% sampling was fundamentally flawed.
-- Removing `onlyRenderVisibleElements` allows React Flow to render buffer nodes (edge-connected neighbors slightly outside viewport), preventing edge clipping.
-- The `searchResults` useMemo depends on `getNodes` (a stable ref), so it only recomputes on query changes. This is intentional -- avoids re-renders on drag/selection.
-
-### Modified files
-- `packages/ui/src/components/code_chart_area/virtual_renderer.tsx` - Removed `useZoomCulling`, cleaned up unused imports
-- `packages/ui/src/components/code_chart_area/code_chart_area.tsx` - Removed virtualization layers, fixed stale closures, stabilized callbacks
-- `packages/ui/src/components/code_chart_area/chart_config.ts` - Removed orphaned `zoom.culling` config
-- `packages/ui/src/components/code_chart_area/search_panel.tsx` - Replaced useStore with getNodes, functional setNodes, module-level fuzzyMatch
-- `packages/ui/src/components/code_chart_area/keyboard_navigation.tsx` - Functional setNodes updaters
-- `packages/ui/src/components/code_chart_area/call_tree_to_graph.ts` - Removed `animated: false` from edges
-- `packages/ui/src/error/error_boundary.tsx` - Fixed render condition, added synthetic ErrorInfo fallback
-- `packages/ui/src/components/code_chart_area/error_handling.test.tsx` - Fixed ErrorBoundary tests
-- `packages/ui/src/components/code_chart_area/graph_layout.test.ts` - Added node types, cache clearing
-- `packages/ui/src/components/code_chart_area/search_panel.test.tsx` - Restructured mocks for new API
+<!-- SECTION:NOTES:BEGIN -->
+All 9 acceptance criteria completed. Removed viewport-unaware useZoomCulling, fixed dual setNodes conflicts with functional updaters, eliminated stale closures via imperative getNodes/getNode/getEdges, resolved edge animation contradiction, removed invalid a11y key, fixed ErrorBoundary lifecycle race. All 137 tests pass, 0 type errors.
+<!-- SECTION:NOTES:END -->
