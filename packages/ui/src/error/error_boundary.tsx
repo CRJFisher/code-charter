@@ -57,6 +57,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.hasError && this.state.error) {
       const { maxRetries = 3 } = this.props;
       const canRetry = this.state.errorCount <= maxRetries;
+      // getDerivedStateFromError fires before componentDidCatch, so errorInfo
+      // may be null on the first render after an error. Provide a stub to satisfy the type.
       const info = this.state.errorInfo ?? { componentStack: '' } as ErrorInfo;
 
       // Use custom fallback if provided

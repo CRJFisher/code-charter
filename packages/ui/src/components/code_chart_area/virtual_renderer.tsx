@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { Node, Edge } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 import { CONFIG } from './chart_config';
 
@@ -172,5 +171,3 @@ function getArrow(direction: string): string {
     default: return '';
   }
 }
-
-

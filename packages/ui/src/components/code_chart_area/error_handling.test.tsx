@@ -33,6 +33,7 @@ describe('Error Handling', () => {
     // Suppress console errors for error boundary tests
     const originalError = console.error;
     beforeEach(() => {
+      should_throw = true;
       console.error = jest.fn();
     });
     afterEach(() => {

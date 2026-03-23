@@ -102,6 +102,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     return results
       .sort((a, b) => b.score - a.score)
       .slice(0, maxResults);
+  // getNodes is a stable ref from useReactFlow; nodes are read imperatively
+  // so that search only recomputes on query/maxResults changes, not on drag/selection
   }, [query, maxResults, getNodes]);
 
   // Handle node selection
