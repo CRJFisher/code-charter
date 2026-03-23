@@ -173,6 +173,9 @@ cython_debug/
 .codex/
 .cursorrules
 
+# TypeScript build info
+*.tsbuildinfo
+
 # Turbo
 .turbo/
 CLAUDE.local.md
