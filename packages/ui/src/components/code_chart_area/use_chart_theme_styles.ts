@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTheme } from '../../theme/theme_context';
 import { getThemeColors } from './theme_config';
+import { CONFIG } from './chart_config';
 
 /**
  * Hook that provides theme-aware styles for React Flow components
@@ -20,7 +21,7 @@ export function useFlowThemeStyles() {
     // Utility functions for common style patterns
     getNodeStyle: (selected: boolean = false, isEntryPoint: boolean = false) => ({
       backgroundColor: isEntryPoint ? colors.node.background.entryPoint : colors.node.background.default,
-      border: `${selected ? 3 : 2}px solid ${selected ? colors.node.border.selected : colors.node.border.default}`,
+      border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px solid ${selected ? colors.node.border.selected : colors.node.border.default}`,
       color: colors.node.text.default,
       transition: 'all 0.3s ease',
     }),

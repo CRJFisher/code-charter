@@ -1,7 +1,8 @@
 import React from "react";
-import { Handle, Position, NodeProps } from "@xyflow/react";
+import { Handle, Position, NodeProps, Node } from "@xyflow/react";
 import { navigateToFile } from "./editor_navigation";
 import { useFlowThemeStyles } from "./use_chart_theme_styles";
+import { CONFIG } from "./chart_config";
 
 export interface CodeNodeData extends Record<string, unknown> {
   function_name: string;
@@ -12,8 +13,10 @@ export interface CodeNodeData extends Record<string, unknown> {
   symbol: string;
 }
 
-const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
-  const data = props.data as CodeNodeData;
+type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
+
+const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {
+  const data = props.data;
   const { selected } = props;
   const themeStyles = useFlowThemeStyles();
 
@@ -42,7 +45,7 @@ const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
     backgroundColor: data.is_entry_point
       ? themeStyles.colors.node.background.entryPoint
       : themeStyles.colors.node.background.default,
-    border: `${selected ? 3 : data.is_entry_point ? 2 : 1}px solid ${
+    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px solid ${
       selected ? themeStyles.colors.node.border.selected : themeStyles.colors.node.border.default
     }`,
     minWidth: "200px",
@@ -122,14 +125,12 @@ const CodeFunctionNodeComponent: React.FC<NodeProps> = (props) => {
 };
 
 export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps, nextProps) => {
-  const prev_data = prevProps.data as CodeNodeData;
-  const next_data = nextProps.data as CodeNodeData;
   return (
-    prev_data.function_name === next_data.function_name &&
-    prev_data.description === next_data.description &&
-    prev_data.file_path === next_data.file_path &&
-    prev_data.line_number === next_data.line_number &&
-    prev_data.is_entry_point === next_data.is_entry_point &&
+    prevProps.data.function_name === nextProps.data.function_name &&
+    prevProps.data.description === nextProps.data.description &&
+    prevProps.data.file_path === nextProps.data.file_path &&
+    prevProps.data.line_number === nextProps.data.line_number &&
+    prevProps.data.is_entry_point === nextProps.data.is_entry_point &&
     prevProps.selected === nextProps.selected &&
     prevProps.id === nextProps.id
   );

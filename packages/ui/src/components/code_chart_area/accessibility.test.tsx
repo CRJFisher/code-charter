@@ -2,10 +2,12 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CodeFunctionNode } from './code_function_node';
 import { ZoomAwareNode, ModuleGroupNode } from './chart_node_types';
-import { NodeProps, useStore } from '@xyflow/react';
+import { NodeProps, Node } from '@xyflow/react';
 import '@testing-library/jest-dom';
 import { ThemeProviderComponent } from '../../theme/theme_context';
 import { navigateToFile } from './editor_navigation';
+import { CodeNodeData } from './code_function_node';
+import { ModuleNodeData } from './chart_node_types';
 
 const render_with_theme = (ui: React.ReactElement) => {
   return render(
@@ -20,10 +22,14 @@ jest.mock('./editor_navigation', () => ({
   navigateToFile: jest.fn(),
 }));
 
-// Mock React Flow store
+// Mock React Flow store — execute the selector against a mock state
+let mock_zoom = 0.5;
 jest.mock('@xyflow/react', () => ({
   ...jest.requireActual('@xyflow/react'),
-  useStore: jest.fn(() => 0.5), // Default zoom level
+  useStore: jest.fn((selector: (state: any) => any) => {
+    const mock_state = { transform: [0, 0, mock_zoom], nodes: [] };
+    return selector(mock_state);
+  }),
   Handle: () => null,
   Position: {
     Top: 'top',
@@ -32,9 +38,11 @@ jest.mock('@xyflow/react', () => ({
 }));
 
 const mocked_navigate = jest.mocked(navigateToFile);
-const mocked_use_store = jest.mocked(useStore);
 
-function create_node_props(overrides: Partial<NodeProps> = {}): NodeProps {
+type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
+type ModuleGroupNodeType = Node<ModuleNodeData, 'module_group'>;
+
+function create_code_node_props(overrides: Partial<NodeProps<CodeFunctionNodeType>> = {}): NodeProps<CodeFunctionNodeType> {
   return {
     id: 'test-node',
     data: {
@@ -56,15 +64,43 @@ function create_node_props(overrides: Partial<NodeProps> = {}): NodeProps {
     positionAbsoluteX: 0,
     positionAbsoluteY: 0,
     ...overrides,
-  } as NodeProps;
+  } as NodeProps<CodeFunctionNodeType>;
+}
+
+function create_module_node_props(overrides: Partial<NodeProps<ModuleGroupNodeType>> = {}): NodeProps<ModuleGroupNodeType> {
+  return {
+    id: 'test-module',
+    data: {
+      module_name: 'TestModule',
+      description: 'Test module description',
+      member_count: 5,
+      is_expanded: true,
+      cluster_index: 0,
+    },
+    selected: false,
+    type: 'module_group',
+    zIndex: 0,
+    isConnectable: true,
+    dragging: false,
+    draggable: true,
+    selectable: true,
+    deletable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+    ...overrides,
+  } as NodeProps<ModuleGroupNodeType>;
 }
 
 describe('Accessibility Features', () => {
-  const mockNodeProps = create_node_props();
+  beforeEach(() => {
+    mock_zoom = 0.5; // Reset to default (zoomed in)
+  });
+
+  const mockCodeProps = create_code_node_props();
 
   describe('CodeFunctionNode Accessibility', () => {
     it('should have proper ARIA attributes', () => {
-      render_with_theme(<CodeFunctionNode {...mockNodeProps} />);
+      render_with_theme(<CodeFunctionNode {...mockCodeProps} />);
 
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Function: testFunction'));
@@ -75,7 +111,7 @@ describe('Accessibility Features', () => {
     });
 
     it('should show selected state in ARIA attributes', () => {
-      const selectedProps = create_node_props({ selected: true });
+      const selectedProps = create_code_node_props({ selected: true });
       render_with_theme(<CodeFunctionNode {...selectedProps} />);
 
       const node = screen.getByRole('button');
@@ -83,7 +119,7 @@ describe('Accessibility Features', () => {
     });
 
     it('should handle keyboard navigation', () => {
-      render_with_theme(<CodeFunctionNode {...mockNodeProps} />);
+      render_with_theme(<CodeFunctionNode {...mockCodeProps} />);
 
       const node = screen.getByRole('button');
 
@@ -104,8 +140,8 @@ describe('Accessibility Features', () => {
     });
 
     it('should have proper ARIA label for entry point', () => {
-      const entryPointProps = create_node_props({
-        data: { ...mockNodeProps.data, is_entry_point: true },
+      const entryPointProps = create_code_node_props({
+        data: { ...mockCodeProps.data, is_entry_point: true },
       });
       render_with_theme(<CodeFunctionNode {...entryPointProps} />);
 
@@ -120,9 +156,9 @@ describe('Accessibility Features', () => {
 
   describe('ZoomAwareNode Accessibility', () => {
     it('should have simplified ARIA label when zoomed out', () => {
-      mocked_use_store.mockReturnValue(0.3); // Zoomed out
+      mock_zoom = 0.3; // Zoomed out
 
-      render_with_theme(<ZoomAwareNode {...mockNodeProps} />);
+      render_with_theme(<ZoomAwareNode {...mockCodeProps} />);
 
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', 'Function: testFunction. Press Enter to open source code.');
@@ -130,9 +166,9 @@ describe('Accessibility Features', () => {
     });
 
     it('should handle keyboard events in zoomed out view', () => {
-      mocked_use_store.mockReturnValue(0.3); // Zoomed out
+      mock_zoom = 0.3; // Zoomed out
 
-      render_with_theme(<ZoomAwareNode {...mockNodeProps} />);
+      render_with_theme(<ZoomAwareNode {...mockCodeProps} />);
 
       const node = screen.getByRole('button');
       fireEvent.keyDown(node, { key: 'Enter' });
@@ -146,16 +182,9 @@ describe('Accessibility Features', () => {
 
   describe('ModuleGroupNode Accessibility', () => {
     it('should have proper ARIA attributes for module', () => {
-      mocked_use_store.mockReturnValue(0.3); // Zoomed out to show modules
+      mock_zoom = 0.3; // Zoomed out to show modules
 
-      const moduleProps = create_node_props({
-        data: {
-          module_name: 'TestModule',
-          description: 'Test module description',
-          member_count: 5,
-          is_expanded: true,
-        },
-      });
+      const moduleProps = create_module_node_props();
 
       render_with_theme(<ModuleGroupNode {...moduleProps} />);
 
@@ -166,14 +195,15 @@ describe('Accessibility Features', () => {
     });
 
     it('should handle missing description gracefully', () => {
-      mocked_use_store.mockReturnValue(0.3); // Zoomed out
+      mock_zoom = 0.3; // Zoomed out
 
-      const moduleProps = create_node_props({
+      const moduleProps = create_module_node_props({
         data: {
           module_name: 'TestModule',
           description: '',
           member_count: 3,
           is_expanded: true,
+          cluster_index: 0,
         },
       });
 
@@ -186,7 +216,7 @@ describe('Accessibility Features', () => {
 
   describe('Focus Management', () => {
     it('should show focus indicators on selected nodes', () => {
-      const selectedProps = create_node_props({ selected: true });
+      const selectedProps = create_code_node_props({ selected: true });
       const { container } = render_with_theme(<CodeFunctionNode {...selectedProps} />);
 
       const node = container.querySelector('[role="button"]');

@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 import { errorNotificationManager } from './error_handling';
+import { useFlowThemeStyles } from './use_chart_theme_styles';
 
 export interface KeyboardNavigationProps {
   onNodeNavigate?: (nodeId: string) => void;
@@ -115,6 +116,8 @@ function showKeyboardShortcuts() {
 
 // Skip link component for accessibility
 export function SkipToGraph() {
+  const themeStyles = useFlowThemeStyles();
+
   const handleSkip = () => {
     const graphElement = document.querySelector('.react-flow');
     if (graphElement instanceof HTMLElement) {
@@ -143,8 +146,9 @@ export function SkipToGraph() {
         e.currentTarget.style.width = 'auto';
         e.currentTarget.style.height = 'auto';
         e.currentTarget.style.padding = '8px';
-        e.currentTarget.style.backgroundColor = '#fff';
-        e.currentTarget.style.border = '2px solid #000';
+        e.currentTarget.style.backgroundColor = themeStyles.colors.ui.background.panel;
+        e.currentTarget.style.border = `2px solid ${themeStyles.colors.ui.border}`;
+        e.currentTarget.style.color = themeStyles.colors.ui.text.primary;
         e.currentTarget.style.zIndex = '9999';
       }}
       onBlur={(e) => {
