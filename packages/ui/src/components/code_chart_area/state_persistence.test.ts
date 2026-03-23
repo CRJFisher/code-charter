@@ -5,9 +5,9 @@ import {
   exportGraphState,
   importGraphState,
   GraphState
-} from "../state_persistence";
+} from "./state_persistence";
 import { Edge, Viewport } from "@xyflow/react";
-import { CodeChartNode, CodeChartEdge } from "../react_flow_types";
+import { CodeChartNode, CodeChartEdge } from "./chart_types";
 
 describe("state_persistence", () => {
   const mockNodes = [

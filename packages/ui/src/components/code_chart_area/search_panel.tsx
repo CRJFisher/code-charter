@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
-import { CodeChartNode, CodeChartEdge } from './react_flow_types';
-import { symbol_display_name } from './symbol_utils';
+import { CodeChartNode, CodeChartEdge } from './chart_types';
+import { symbol_display_name } from './symbol_display';
 
 export interface SearchResult {
   nodeId: string;

@@ -1,5 +1,5 @@
 import { Viewport } from '@xyflow/react';
-import { CodeChartNode, CodeChartEdge } from './react_flow_types';
+import { CodeChartNode, CodeChartEdge } from './chart_types';
 
 export interface GraphState {
   nodes: CodeChartNode[];

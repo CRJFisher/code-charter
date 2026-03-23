@@ -1,18 +1,17 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { Node, Edge } from '@xyflow/react';
-import { CodeChartNode, CodeChartEdge, isCodeNode, isModuleNode } from './react_flow_types';
+import { CodeChartNode, CodeChartEdge, isCodeNode, isModuleNode } from './chart_types';
 import { CodeNodeData } from './code_function_node';
-import { ModuleNodeData } from './zoom_aware_node';
-import { LayoutCache, PerformanceMonitor } from './performance_utils';
+import { ModuleNodeData } from './chart_node_types';
+import { LayoutCache } from './layout_cache';
 import { withRetry, LayoutError, ErrorRecovery, errorLogger } from './error_handling';
-import { CONFIG } from './config';
+import { CONFIG } from './chart_config';
 
 const elk = new ELK();
 
 // Create cache instances
 const layoutCache = new LayoutCache();
 const dimensionCache = new LayoutCache();
-const perfMonitor = new PerformanceMonitor();
 
 // ELK layout options from configuration
 const elkOptions = {
@@ -55,8 +54,6 @@ export async function applyHierarchicalLayout(
     console.log('[Layout] Using cached layout');
     return cached;
   }
-
-  perfMonitor.startMeasure('elk-layout');
 
   // Convert React Flow nodes to ELK nodes
   const elkNodes = nodes.map(node => ({
@@ -131,8 +128,6 @@ export async function applyHierarchicalLayout(
         console.log('[Layout] Falling back to grid layout due to:', err.message);
       }
     );
-  } finally {
-    perfMonitor.endMeasure('elk-layout', nodes.length, edges.length);
   }
 }
 

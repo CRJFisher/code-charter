@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { errorNotificationManager, ErrorNotification } from './error_handling';
-import { CONFIG } from './config';
-import { useFlowThemeStyles } from './use_flow_theme_styles';
+import { errorNotificationManager, ErrorNotification } from './error_notification_manager';
+import { CONFIG } from '../components/code_chart_area/chart_config';
+import { useFlowThemeStyles } from '../components/code_chart_area/use_chart_theme_styles';
 
 export interface ErrorNotificationsProps {
   position?: 'top' | 'bottom';

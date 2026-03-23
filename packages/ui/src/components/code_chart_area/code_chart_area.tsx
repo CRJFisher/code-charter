@@ -15,26 +15,28 @@ import {
   type ReactFlowInstance,
   MiniMap,
 } from "@xyflow/react";
-import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
+import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import "@xyflow/react/dist/style.css";
-import "./flow_theme.css";
+
 import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
 import { CodeNodeData } from "./code_function_node";
-import { applyHierarchicalLayout, calculateNodeDimensions } from "./elk_layout";
-import { zoomAwareNodeTypes } from "./zoom_aware_node";
-import { generateReactFlowElements } from "./react_flow_data_transform";
+import { applyHierarchicalLayout, calculateNodeDimensions } from "./graph_layout";
+import { zoomAwareNodeTypes } from "./chart_node_types";
+import { generateReactFlowElements } from "./call_tree_to_graph";
 import { LoadingIndicator } from "./loading_indicator";
 import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } from "./state_persistence";
 import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
-import { useDebounce, useThrottle, getVisibleNodes, PerformanceMonitor } from "./performance_utils";
-import { clearLayoutCaches } from "./elk_layout";
+import { useDebounce } from "../../hooks/use_debounce";
+import { useThrottle } from "../../hooks/use_throttle";
+import { getVisibleNodes } from "./virtual_renderer";
+import { clearLayoutCaches } from "./graph_layout";
 import { useVirtualNodes, useZoomCulling, ViewportIndicator } from "./virtual_renderer";
 import { SearchPanel } from "./search_panel";
-import { ErrorBoundary } from "./error_boundary";
-import { ErrorNotifications, useErrorNotification } from "./error_notifications";
+import { ErrorBoundary } from "../../error/error_boundary";
+import { ErrorNotifications, useErrorNotification } from "../../error/error_notifications";
 import { handleReactFlowError, errorLogger } from "./error_handling";
-import { CONFIG } from "./config";
-import { useFlowThemeStyles } from "./use_flow_theme_styles";
+import { CONFIG } from "./chart_config";
+import { useFlowThemeStyles } from "./use_chart_theme_styles";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
@@ -71,7 +73,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
   const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
-  const perfMonitor = useRef(new PerformanceMonitor());
   const { notify } = useErrorNotification();
   const themeStyles = useFlowThemeStyles();
   const miniMapNodeColor = useMemo(() => createMiniMapNodeColor(themeStyles.colors), [themeStyles.colors]);
@@ -151,7 +152,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       try {
         setError(null);
         set_description_status(DescriptionStatus.LoadingDescriptions);
-        perfMonitor.current.startMeasure('data-fetch');
 
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol_id);
@@ -187,7 +187,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         setNodes(layoutedNodes);
         setEdges(flowEdges);
         set_description_status(DescriptionStatus.Ready);
-        perfMonitor.current.endMeasure('data-fetch', layoutedNodes.length, flowEdges.length);
       } catch (err) {
         const error = err instanceof Error ? err : new Error("An error occurred");
         setError(error.message);

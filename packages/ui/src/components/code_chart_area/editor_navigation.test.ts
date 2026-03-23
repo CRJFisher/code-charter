@@ -1,4 +1,4 @@
-import { navigateToFile } from "../navigation_utils";
+import { navigateToFile } from "./editor_navigation";
 
 describe("navigateToFile", () => {
   let originalAcquireVsCodeApi: any;

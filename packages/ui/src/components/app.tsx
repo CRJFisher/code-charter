@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import "./App.css";
+
 import Sidebar from "./side_bar";
-import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area_react_flow";
+import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area";
 import { useBackend } from "../hooks/use_backend";
 import { DocstringSummaries, NodeGroup, CallGraph, CallableNode } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";

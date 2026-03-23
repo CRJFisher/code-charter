@@ -1,7 +1,43 @@
 import React, { useMemo } from 'react';
 import { Node, Edge } from '@xyflow/react';
-import { CodeChartNode, CodeChartEdge } from './react_flow_types';
-import { CONFIG } from './config';
+import { CodeChartNode, CodeChartEdge } from './chart_types';
+import { CONFIG } from './chart_config';
+
+// Virtualization helper to determine visible nodes
+export function getVisibleNodes(
+  nodes: any[],
+  viewport: { x: number; y: number; zoom: number },
+  containerWidth: number,
+  containerHeight: number,
+  buffer: number = 100
+): Set<string> {
+  const visibleNodeIds = new Set<string>();
+
+  // Calculate viewport bounds with buffer
+  const viewBounds = {
+    left: -viewport.x / viewport.zoom - buffer,
+    right: (-viewport.x + containerWidth) / viewport.zoom + buffer,
+    top: -viewport.y / viewport.zoom - buffer,
+    bottom: (-viewport.y + containerHeight) / viewport.zoom + buffer,
+  };
+
+  // Check each node if it's within viewport
+  nodes.forEach(node => {
+    const nodeRight = node.position.x + (node.width || 200);
+    const nodeBottom = node.position.y + (node.height || 100);
+
+    if (
+      node.position.x <= viewBounds.right &&
+      nodeRight >= viewBounds.left &&
+      node.position.y <= viewBounds.bottom &&
+      nodeBottom >= viewBounds.top
+    ) {
+      visibleNodeIds.add(node.id);
+    }
+  });
+
+  return visibleNodeIds;
+}
 
 export interface VirtualRendererProps {
   nodes: CodeChartNode[];

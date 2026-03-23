@@ -1,9 +1,9 @@
 import React from 'react';
 import { render, act } from '@testing-library/react';
-import { ThemeProviderComponent, useTheme } from '../theme_context';
-import { VSCodeThemeProvider } from '../vscode_theme_provider';
-import { StandaloneThemeProvider } from '../standalone_theme_provider';
-import { darkTheme, lightTheme } from '../default_themes';
+import { ThemeProviderComponent, useTheme } from './theme_context';
+import { VSCodeThemeProvider } from './vscode_theme_provider';
+import { StandaloneThemeProvider } from './standalone_theme_provider';
+import { darkTheme, lightTheme } from './default_themes';
 
 /**
  * Helper component that consumes the theme context

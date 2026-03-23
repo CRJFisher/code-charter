@@ -2,9 +2,9 @@ import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { useStore, ReactFlowState } from "@xyflow/react";
 import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
-import { navigateToFile } from "./navigation_utils";
-import { CONFIG } from "./config";
-import { useFlowThemeStyles } from "./use_flow_theme_styles";
+import { navigateToFile } from "./editor_navigation";
+import { CONFIG } from "./chart_config";
+import { useFlowThemeStyles } from "./use_chart_theme_styles";
 import { get_cluster_color } from "./theme_config";
 
 const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;

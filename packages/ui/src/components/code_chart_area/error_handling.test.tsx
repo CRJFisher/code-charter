@@ -1,9 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ErrorBoundary, DefaultErrorFallback } from '../error_boundary';
-import { withRetry, ErrorRecovery, LayoutError, errorLogger, errorNotificationManager } from '../error_handling';
-import { ErrorNotifications } from '../error_notifications';
-import { ThemeProviderComponent } from '../../../theme/theme_context';
+import { ErrorBoundary, DefaultErrorFallback } from '../../error/error_boundary';
+import { withRetry, ErrorRecovery, LayoutError, errorLogger, errorNotificationManager } from './error_handling';
+import { ErrorNotifications } from '../../error/error_notifications';
+import { ThemeProviderComponent } from '../../theme/theme_context';
 import '@testing-library/jest-dom';
 
 const render_with_theme = (ui: React.ReactElement) => {

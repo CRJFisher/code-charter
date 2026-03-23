@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
-import { CodeChartNode, CodeChartEdge } from './react_flow_types';
+import { CodeChartNode, CodeChartEdge } from './chart_types';
 import { errorNotificationManager } from './error_handling';
 
 export interface KeyboardNavigationProps {

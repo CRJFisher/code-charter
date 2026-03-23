@@ -1,12 +1,12 @@
-import { applyHierarchicalLayout, calculateNodeDimensions } from "../elk_layout";
+import { applyHierarchicalLayout, calculateNodeDimensions } from "./graph_layout";
 import { Node, Edge } from "@xyflow/react";
-import { CodeChartNode } from "../react_flow_types";
+import { CodeChartNode } from "./chart_types";
 import ELK from "elkjs/lib/elk.bundled";
 
 // Mock ELK
 jest.mock("elkjs/lib/elk.bundled");
 
-describe("elk_layout", () => {
+describe("graph_layout", () => {
   const mockELK = ELK as jest.MockedClass<typeof ELK>;
   
   beforeEach(() => {

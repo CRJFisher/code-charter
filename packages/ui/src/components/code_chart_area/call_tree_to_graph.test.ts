@@ -1,4 +1,4 @@
-import { generateReactFlowElements } from "../react_flow_data_transform";
+import { generateReactFlowElements } from "./call_tree_to_graph";
 import type { CallableNode, CallReference, AnyDefinition, SymbolId, SymbolName } from "@code-charter/types";
 import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 

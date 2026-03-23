@@ -1,6 +1,6 @@
 import { Node, Edge } from "@xyflow/react";
 import { CodeNodeData } from "./code_function_node";
-import { ModuleNodeData } from "./zoom_aware_node";
+import { ModuleNodeData } from "./chart_node_types";
 
 // Define the specific node types used in our React Flow implementation
 export type CodeChartNode = Node<CodeNodeData | ModuleNodeData>;

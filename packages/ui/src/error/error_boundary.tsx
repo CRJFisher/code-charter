@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { CONFIG } from './config';
-import { useFlowThemeStyles } from './use_flow_theme_styles';
+import { CONFIG } from '../components/code_chart_area/chart_config';
+import { useFlowThemeStyles } from '../components/code_chart_area/use_chart_theme_styles';
 
 export interface ErrorBoundaryState {
   hasError: boolean;

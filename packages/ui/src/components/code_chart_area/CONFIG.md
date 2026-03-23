@@ -4,11 +4,12 @@ This document describes the configuration system for the React Flow visualizatio
 
 ## Overview
 
-All configuration constants have been extracted into a central `config.ts` file to improve maintainability and make customization easier. The configuration is organized into logical sections for different aspects of the visualization.
+All configuration constants have been extracted into a central `chart_config.ts` file to improve maintainability and make customization easier. The configuration is organized into logical sections for different aspects of the visualization.
 
 ## Configuration Structure
 
 ### Layout Configuration (`LAYOUT_CONFIG`)
+
 - **ELK Layout Options**: Controls the hierarchical layout algorithm
   - `algorithm`: Layout algorithm to use (default: 'layered')
   - `spacing.nodeNode`: Space between nodes (default: 50)
@@ -22,6 +23,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `delayMs`: Delay between retries (default: 500ms)
 
 ### Node Configuration (`NODE_CONFIG`)
+
 - **Default Dimensions**: Default node size
   - `width`: Default width (default: 250)
   - `height`: Default height (default: 120)
@@ -38,6 +40,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `scale.hover`: Scale on hover (default: 1.05)
 
 ### Zoom Configuration (`ZOOM_CONFIG`)
+
 - **Levels**: Zoom constraints
   - `min`: Minimum zoom level (default: 0.1)
   - `max`: Maximum zoom level (default: 2.5)
@@ -46,6 +49,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `threshold`: Zoom level for culling (default: 0.3)
 
 ### Animation Configuration (`ANIMATION_CONFIG`)
+
 - **Duration**: Animation timings
   - `fitView`: Fit view animation (default: 500ms)
   - `panToNode`: Pan to node animation (default: 300ms)
@@ -55,6 +59,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `save`: Save operation debounce (default: 1000ms)
 
 ### Performance Configuration (`PERFORMANCE_CONFIG`)
+
 - **Node Thresholds**: Performance optimization triggers
   - `largeGraph`: Threshold for large graph optimizations (default: 200)
   - `showStats`: Show performance stats threshold (default: 100)
@@ -64,6 +69,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `defaultBuffer`: Default buffer size (default: 50)
 
 ### Color Configuration (`COLOR_CONFIG`)
+
 - **Node Colors**: Node appearance colors
   - `background.default`: Default node background
   - `background.module`: Module node background
@@ -83,6 +89,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `error.text`: Error text color
 
 ### Spacing Configuration (`SPACING_CONFIG`)
+
 - **Padding**: Internal spacing
   - `small`: 4px
   - `medium`: 8px
@@ -104,6 +111,7 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `xlarge`: 18px
 
 ### Error Configuration (`ERROR_CONFIG`)
+
 - **Retry**: Error retry settings
   - `maxRetries`: Maximum retry attempts (default: 3)
   - `timeout`: Operation timeout (default: 30000ms)
@@ -114,7 +122,9 @@ All configuration constants have been extracted into a central `config.ts` file 
   - `maxErrors`: Maximum stored errors (default: 100)
 
 ### Z-Index Configuration (`Z_INDEX`)
+
 Defines layering order for UI elements:
+
 - `background`: 0
 - `nodes`: 1
 - `edges`: 2
@@ -127,27 +137,28 @@ Defines layering order for UI elements:
 Import the configuration in your component:
 
 ```typescript
-import { CONFIG } from './config';
+import { CONFIG } from "./chart_config";
 
 // Use specific configuration
 const nodeWidth = CONFIG.node.default.width;
 const primaryColor = CONFIG.color.ui.button.primary;
 
 // Or import specific sections
-import { NODE_CONFIG, COLOR_CONFIG } from './config';
+import { NODE_CONFIG, COLOR_CONFIG } from "./chart_config";
 ```
 
 ## Customization
 
-To customize the configuration, modify the values in `config.ts`. All components using the configuration will automatically use the new values.
+To customize the configuration, modify the values in `chart_config.ts`. All components using the configuration will automatically use the new values.
 
 Example customization:
+
 ```typescript
 // Increase node spacing
 LAYOUT_CONFIG.elk.spacing.nodeNode = 75;
 
 // Change color scheme
-COLOR_CONFIG.ui.button.primary = '#00a86b';
+COLOR_CONFIG.ui.button.primary = "#00a86b";
 
 // Adjust performance thresholds
 PERFORMANCE_CONFIG.nodes.largeGraph = 300;
@@ -158,5 +169,5 @@ PERFORMANCE_CONFIG.nodes.largeGraph = 300;
 All configuration objects are defined with TypeScript `as const` assertions, providing full type safety and autocompletion. Type definitions are exported for each configuration section.
 
 ```typescript
-import type { NodeConfig, ColorConfig } from './config';
+import type { NodeConfig, ColorConfig } from "./chart_config";
 ```

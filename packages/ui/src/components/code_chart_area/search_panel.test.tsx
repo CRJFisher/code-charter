@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SearchPanel } from '../search_panel';
+import { SearchPanel } from './search_panel';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@testing-library/jest-dom';
 

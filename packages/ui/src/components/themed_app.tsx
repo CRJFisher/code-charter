@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeProviderComponent } from '../theme';
-import { App, AppProps } from './App';
+import { App, AppProps } from './app';
 
 /**
  * App component wrapped with theme provider

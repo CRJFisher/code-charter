@@ -1,8 +1,8 @@
 import React from "react";
-import { CodeChartAreaReactFlowWrapper } from "./code_chart_area_react_flow";
+import { CodeChartAreaReactFlowWrapper } from "../code_chart_area";
 import type { CallableNode, AnyDefinition, SymbolId, SymbolName } from "@code-charter/types";
 import { DocstringSummaries, NodeGroup } from "@code-charter/types";
-import { CodeIndexStatus } from "../loading_status";
+import { CodeIndexStatus } from "../../loading_status";
 
 // Test component to verify React Flow integration
 export const TestReactFlowComponent: React.FC = () => {

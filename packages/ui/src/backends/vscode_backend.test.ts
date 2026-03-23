@@ -1,4 +1,4 @@
-import { VSCodeBackend } from '../vscode_backend';
+import { VSCodeBackend } from './vscode_backend';
 
 // Mock acquireVsCodeApi
 const mock_post_message = jest.fn();

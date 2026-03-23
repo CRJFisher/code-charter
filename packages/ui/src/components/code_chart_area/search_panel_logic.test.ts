@@ -1,4 +1,4 @@
-import { SearchPanel } from '../search_panel';
+import { SearchPanel } from './search_panel';
 
 describe('Search Logic', () => {
   describe('Fuzzy Matching', () => {

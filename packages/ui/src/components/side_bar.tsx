@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useBackend } from "../hooks/use_backend";
 import type { CallGraph, CallableNode, CallReference, SymbolId } from "@code-charter/types";
+import { symbol_display_name } from "./code_chart_area/symbol_display";
 
 function count_nodes(top_level_node: SymbolId, graph: CallGraph, visited_nodes: Set<SymbolId> = new Set<SymbolId>()): number {
   const node = graph.nodes.get(top_level_node);
@@ -14,11 +15,6 @@ function count_nodes(top_level_node: SymbolId, graph: CallGraph, visited_nodes: 
     visited_nodes.add(resolved_id);
     return acc + count_nodes(resolved_id, graph, visited_nodes);
   }, 1);
-}
-
-function symbol_display_name(symbol: string): string {
-  const parts = symbol.split(':');
-  return parts[parts.length - 1] || symbol;
 }
 
 interface SidebarProps {

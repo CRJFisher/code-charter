@@ -1,4 +1,4 @@
-import { symbol_display_name } from "../symbol_utils";
+import { symbol_display_name } from "./symbol_display";
 
 describe("symbol_display_name", () => {
   it("should extract name from v0.8 SymbolId format (colon-separated)", () => {

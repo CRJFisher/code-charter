@@ -1,6 +1,6 @@
 import React from "react";
-import { CONFIG } from "./config";
-import { useFlowThemeStyles } from "./use_flow_theme_styles";
+import { CONFIG } from "./chart_config";
+import { useFlowThemeStyles } from "./use_chart_theme_styles";
 
 interface LoadingIndicatorProps {
   status: string;

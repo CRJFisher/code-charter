@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { CodeFunctionNode } from '../code_function_node';
-import { ZoomAwareNode, ModuleGroupNode } from '../zoom_aware_node';
+import { CodeFunctionNode } from './code_function_node';
+import { ZoomAwareNode, ModuleGroupNode } from './chart_node_types';
 import { NodeProps } from '@xyflow/react';
 import '@testing-library/jest-dom';
-import { ThemeProviderComponent } from '../../../theme/theme_context';
+import { ThemeProviderComponent } from '../../theme/theme_context';
 
 const render_with_theme = (ui: React.ReactElement) => {
   return render(
@@ -15,7 +15,7 @@ const render_with_theme = (ui: React.ReactElement) => {
 };
 
 // Mock navigation utilities
-jest.mock('../navigation_utils', () => ({
+jest.mock('./editor_navigation', () => ({
   navigateToFile: jest.fn(),
 }));
 
@@ -74,7 +74,7 @@ describe('Accessibility Features', () => {
     });
 
     it('should handle keyboard navigation', () => {
-      const { navigateToFile } = require('../navigation_utils');
+      const { navigateToFile } = require('./editor_navigation');
       render(<CodeFunctionNode {...mockNodeProps} />);
       
       const node = screen.getByRole('button');
@@ -125,7 +125,7 @@ describe('Accessibility Features', () => {
 
     it('should handle keyboard events in zoomed out view', () => {
       const { useStore } = require('@xyflow/react');
-      const { navigateToFile } = require('../navigation_utils');
+      const { navigateToFile } = require('./editor_navigation');
       useStore.mockReturnValue(0.3); // Zoomed out
 
       render_with_theme(<ZoomAwareNode {...mockNodeProps} />);

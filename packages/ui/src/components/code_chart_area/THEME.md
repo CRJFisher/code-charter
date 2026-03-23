@@ -9,6 +9,7 @@ The React Flow visualization now fully supports VSCode themes when running insid
 ## Architecture
 
 ### Theme Detection
+
 - **VSCode Mode**: Automatically detects and uses the current VSCode theme
 - **Standalone Mode**: Provides light and dark theme options with a theme switcher
 
@@ -24,26 +25,25 @@ The React Flow visualization now fully supports VSCode themes when running insid
    - Applies CSS variables for theme colors
    - Manages theme transitions
 
-3. **Theme Styles Hook (`use_flow_theme_styles.ts`)**
+3. **Theme Styles Hook (`use_chart_theme_styles.ts`)**
    - Provides theme-aware styles to components
    - Offers utility functions for common style patterns
    - Ensures consistent theming across all components
 
-4. **Theme CSS (`flow_theme.css`)**
-   - Global CSS for smooth theme transitions
-   - Theme-specific styles for React Flow controls
-   - Handles built-in React Flow component theming
+4. **Theme CSS**
+   - Theme-specific styles are applied inline via `use_chart_theme_styles.ts`
+   - Ensures consistent theming across all components
 
 ## Usage
 
 ### In Components
 
 ```typescript
-import { useFlowThemeStyles } from './use_flow_theme_styles';
+import { useFlowThemeStyles } from './use_chart_theme_styles';
 
 const MyComponent = () => {
   const themeStyles = useFlowThemeStyles();
-  
+
   return (
     <div style={themeStyles.getNodeStyle(selected, isEntryPoint)}>
       {/* Component content */}
@@ -65,15 +65,18 @@ const MyComponent = () => {
 ## Theme Colors
 
 ### Node Colors
+
 - **Background**: Different for default, module, and entry point nodes
 - **Border**: Changes based on selection state and node type
 - **Text**: Primary, secondary, and tertiary text colors
 
 ### Edge Colors
+
 - **Default**: Subtle color for unselected edges
 - **Selected**: Highlighted color for selected edges
 
 ### UI Colors
+
 - **Backgrounds**: Panel, overlay, and minimap backgrounds
 - **Buttons**: Primary, secondary, danger, and disabled states
 - **Status**: Error, warning, success, and info colors
@@ -82,6 +85,7 @@ const MyComponent = () => {
 ## VSCode Integration
 
 When running in VSCode:
+
 - Theme colors are automatically extracted from VSCode's current theme
 - All color changes in VSCode are reflected in real-time
 - No manual theme switching is needed
@@ -89,6 +93,7 @@ When running in VSCode:
 ## Standalone Mode
 
 When running outside VSCode:
+
 - Light and dark themes are available
 - Theme preference is persisted in localStorage
 - Smooth transitions between themes
@@ -97,6 +102,7 @@ When running outside VSCode:
 ## Theme Transitions
 
 All theme changes include smooth CSS transitions for:
+
 - Background colors
 - Border colors
 - Text colors
@@ -129,6 +135,7 @@ To create custom themes:
 ## Testing
 
 Theme support includes:
+
 - Automatic theme detection tests
 - Color contrast validation
 - Theme switching functionality

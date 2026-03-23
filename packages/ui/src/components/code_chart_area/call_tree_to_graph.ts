@@ -1,11 +1,11 @@
 import { Node, Edge } from "@xyflow/react";
 import type { CallableNode } from "@code-charter/types";
 import { DocstringSummaries, NodeGroup } from "@code-charter/types";
-import { symbol_display_name } from "./symbol_utils";
+import { symbol_display_name } from "./symbol_display";
 import { CodeNodeData } from "./code_function_node";
-import { ModuleNodeData } from "./zoom_aware_node";
-import { calculateNodeDimensions } from "./elk_layout";
-import { CodeChartNode, CodeChartEdge } from "./react_flow_types";
+import { ModuleNodeData } from "./chart_node_types";
+import { calculateNodeDimensions } from "./graph_layout";
+import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import type { ClusterColor } from "./theme_config";
 
 export interface ReactFlowElements {

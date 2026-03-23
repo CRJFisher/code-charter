@@ -1,4 +1,4 @@
-import { MockBackend } from '../mock_backend';
+import { MockBackend } from './mock_backend';
 
 describe('MockBackend', () => {
   let backend: MockBackend;
