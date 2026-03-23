@@ -179,3 +179,4 @@ cython_debug/
 # Turbo
 .turbo/
 CLAUDE.local.md
+.eslintcache
