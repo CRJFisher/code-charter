@@ -69,10 +69,6 @@ const ZOOM_CONFIG = {
     max: 2.5,
     threshold: 0.45,
   },
-  // Culling
-  culling: {
-    threshold: 0.3,
-  },
 } as const;
 
 // Animation Configuration

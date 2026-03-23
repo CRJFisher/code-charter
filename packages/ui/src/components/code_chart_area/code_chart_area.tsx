@@ -26,9 +26,8 @@ import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } fro
 import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
 import { useDebounce } from "../../hooks/use_debounce";
 import { useThrottle } from "../../hooks/use_throttle";
-import { getVisibleNodes } from "./virtual_renderer";
 import { clearLayoutCaches } from "./graph_layout";
-import { useVirtualNodes, useZoomCulling, ViewportIndicator } from "./virtual_renderer";
+import { getVisibleNodes, useVirtualNodes, ViewportIndicator } from "./virtual_renderer";
 import { SearchPanel } from "./search_panel";
 import { ErrorBoundary } from "../../error/error_boundary";
 import { ErrorNotifications, useErrorNotification } from "../../error/error_notifications";
@@ -51,7 +50,6 @@ const ariaLabelConfig = {
   'node.a11yDescription.default': 'Press Enter to select this node. Use arrow keys to navigate.',
   'node.a11yDescription.keyboardDisabled': 'Keyboard navigation is disabled',
   'edge.a11yDescription.default': 'Connection between functions. Press Enter to focus.',
-  'canvas.a11yDescription': 'Code flow visualization canvas. Use Tab to navigate nodes.',
 };
 
 const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
@@ -76,20 +74,19 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const miniMapNodeColor = useMemo(() => createMiniMapNodeColor(themeStyles.colors), [themeStyles.colors]);
 
   // Use keyboard navigation hook
-  useKeyboardNavigation({
-    onNodeNavigate: (nodeId) => {
-      // Auto-pan to the selected node
-      if (reactFlowInstance.current) {
-        const node = nodes.find(n => n.id === nodeId);
-        if (node) {
-          reactFlowInstance.current.setCenter(node.position.x, node.position.y, {
-            duration: CONFIG.animation.duration.panToNode,
-            zoom: reactFlowInstance.current.getZoom(),
-          });
-        }
+  const on_node_navigate = useCallback((nodeId: string) => {
+    if (reactFlowInstance.current) {
+      const node = reactFlowInstance.current.getNode(nodeId);
+      if (node) {
+        reactFlowInstance.current.setCenter(node.position.x, node.position.y, {
+          duration: CONFIG.animation.duration.panToNode,
+          zoom: reactFlowInstance.current.getZoom(),
+        });
       }
-    },
-  });
+    }
+  }, []);
+  const keyboard_nav_props = useMemo(() => ({ onNodeNavigate: on_node_navigate }), [on_node_navigate]);
+  useKeyboardNavigation(keyboard_nav_props);
 
   // Monitor zoom level and viewport
   const viewportX = useStore((state: XYFlowState) => state.transform[0]);
@@ -123,12 +120,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     );
   }, [nodes, debouncedViewport]);
 
-  // Apply zoom-based culling for performance
-  const culledNodes = useZoomCulling(nodes, viewportZoom, CONFIG.zoom.culling.threshold);
-
   // Apply virtual rendering for large graphs
   const { virtualNodes, virtualEdges, hiddenNodeCount } = useVirtualNodes({
-    nodes: nodes.length > CONFIG.performance.nodes.largeGraph ? culledNodes : nodes,
+    nodes,
     edges,
     visibleNodeIds: nodes.length > CONFIG.performance.nodes.largeGraph ? visibleNodeIds : new Set(),
     renderBuffer: CONFIG.performance.virtualRender.renderBuffer,
@@ -222,20 +216,20 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   };
 
   // Throttle save operations for performance
-  const handleSaveState = useThrottle(useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selectedEntryPoint || !reactFlowInstance) return;
+  const handleSaveState = useThrottle(useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
+    if (!selectedEntryPoint || !instance) return;
 
-    const viewport = reactFlowInstance.getViewport();
-    saveGraphState(nodes, edges, viewport, selectedEntryPoint.symbol_id);
-  }, [nodes, edges, selectedEntryPoint]), CONFIG.animation.debounce.save);
+    const viewport = instance.getViewport();
+    saveGraphState(instance.getNodes(), instance.getEdges(), viewport, selectedEntryPoint.symbol_id);
+  }, [selectedEntryPoint]), CONFIG.animation.debounce.save);
 
   // Export state to file
-  const handleExportState = useCallback((reactFlowInstance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selectedEntryPoint || !reactFlowInstance) return;
+  const handleExportState = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
+    if (!selectedEntryPoint || !instance) return;
 
-    const viewport = reactFlowInstance.getViewport();
-    exportGraphState(nodes, edges, viewport, selectedEntryPoint.symbol_id);
-  }, [nodes, edges, selectedEntryPoint]);
+    const viewport = instance.getViewport();
+    exportGraphState(instance.getNodes(), instance.getEdges(), viewport, selectedEntryPoint.symbol_id);
+  }, [selectedEntryPoint]);
 
   // Handle React Flow initialization
   const onInit = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
@@ -340,11 +334,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           edgesFocusable={true}
           autoPanOnNodeFocus={true}
           ariaLabelConfig={ariaLabelConfig}
-          onlyRenderVisibleElements={true}
           minZoom={CONFIG.zoom.levels.min}
           maxZoom={CONFIG.zoom.levels.max}
           defaultEdgeOptions={{
-            animated: true,
             style: themeStyles.getEdgeStyle(false),
             ariaLabel: 'Function call',
           }}

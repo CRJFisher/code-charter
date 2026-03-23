@@ -1,4 +1,4 @@
-import { applyHierarchicalLayout, calculateNodeDimensions } from "./graph_layout";
+import { applyHierarchicalLayout, calculateNodeDimensions, clearLayoutCaches } from "./graph_layout";
 import { Node, Edge } from "@xyflow/react";
 import { CodeChartNode } from "./chart_types";
 import ELK from "elkjs/lib/elk.bundled";
@@ -8,9 +8,10 @@ jest.mock("elkjs/lib/elk.bundled");
 
 describe("graph_layout", () => {
   const mockELK = ELK as jest.MockedClass<typeof ELK>;
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
+    clearLayoutCaches();
     // Default mock implementation that returns the layout based on input
     mockELK.mockImplementation((() => ({
       layout: jest.fn((graph: any) => {
@@ -33,6 +34,7 @@ describe("graph_layout", () => {
     it("should calculate dimensions based on function name length", () => {
       const shortNameNode = {
         id: "1",
+        type: "code_function",
         position: { x: 0, y: 0 },
         data: {
           function_name: "fn",
@@ -48,6 +50,7 @@ describe("graph_layout", () => {
     it("should increase width for longer function names", () => {
       const longNameNode = {
         id: "1",
+        type: "code_function",
         position: { x: 0, y: 0 },
         data: {
           function_name: "thisIsAVeryLongFunctionNameThatShouldIncreaseWidth",
@@ -62,6 +65,7 @@ describe("graph_layout", () => {
     it("should increase height for longer descriptions", () => {
       const longSummaryNode = {
         id: "1",
+        type: "code_function",
         position: { x: 0, y: 0 },
         data: {
           function_name: "function",
@@ -76,6 +80,7 @@ describe("graph_layout", () => {
     it("should respect maximum width", () => {
       const hugeNode = {
         id: "1",
+        type: "code_function",
         position: { x: 0, y: 0 },
         data: {
           function_name: "a".repeat(100),

@@ -173,36 +173,4 @@ function getArrow(direction: string): string {
   }
 }
 
-/**
- * Performance optimization hook that provides node culling based on zoom level
- */
-export function useZoomCulling(
-  nodes: CodeChartNode[],
-  zoom: number,
-  threshold: number = 0.3
-): CodeChartNode[] {
-  return useMemo(() => {
-    if (zoom >= threshold) {
-      return nodes; // Show all nodes when zoomed in
-    }
-    
-    // When zoomed out, only show important nodes
-    return nodes.filter(node => {
-      // Always show entry points
-      if (node.data?.is_entry_point) return true;
-      
-      // Show module nodes
-      if (node.type === 'module_group') return true;
-      
-      // For other nodes, use a sampling strategy
-      // This could be enhanced with importance scoring
-      const hash = node.id.split('').reduce((acc, char) => {
-        return ((acc << 5) - acc) + char.charCodeAt(0);
-      }, 0);
-      
-      // Show approximately 30% of nodes when zoomed out
-      return Math.abs(hash) % 10 < 3;
-    });
-  }, [nodes, zoom, threshold]);
-}
 
