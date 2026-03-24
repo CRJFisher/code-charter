@@ -83,7 +83,6 @@ export function generateReactFlowElements(
         source: node.symbol_id,
         target: target_symbol,
         type: "default",
-        animated: false,
         ariaLabel: `Call from ${symbol_display_name(node.symbol_id)} to ${symbol_display_name(target_symbol)}`,
       });
 
@@ -163,7 +162,6 @@ export function generateReactFlowElements(
           source,
           target,
           type: "default",
-          animated: false,
           style: {
             stroke: edge_color,
             strokeWidth: 3,

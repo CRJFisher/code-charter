@@ -21,8 +21,10 @@ describe('Error Handling', () => {
   });
 
   describe('ErrorBoundary', () => {
-    const ThrowError: React.FC<{ shouldThrow: boolean }> = ({ shouldThrow }) => {
-      if (shouldThrow) {
+    // Use a mutable ref so we can change behavior before retry
+    let should_throw = true;
+    const ThrowError: React.FC<{ shouldThrow?: boolean }> = ({ shouldThrow }) => {
+      if (shouldThrow ?? should_throw) {
         throw new Error('Test error');
       }
       return <div>No error</div>;
@@ -31,6 +33,7 @@ describe('Error Handling', () => {
     // Suppress console errors for error boundary tests
     const originalError = console.error;
     beforeEach(() => {
+      should_throw = true;
       console.error = jest.fn();
     });
     afterEach(() => {
@@ -50,15 +53,16 @@ describe('Error Handling', () => {
 
       expect(screen.getByRole('alert')).toBeInTheDocument();
       expect(screen.getByText(/Something went wrong/)).toBeInTheDocument();
-      expect(screen.getByText(/Test error/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Test error/).length).toBeGreaterThan(0);
       expect(onError).toHaveBeenCalled();
     });
 
     it('should allow retry with retry button', () => {
-      const { rerender } = render(
+      should_throw = true;
+      render(
         <ThemeProviderComponent forceStandalone>
           <ErrorBoundary>
-            <ThrowError shouldThrow={true} />
+            <ThrowError />
           </ErrorBoundary>
         </ThemeProviderComponent>
       );
@@ -66,16 +70,9 @@ describe('Error Handling', () => {
       const retryButton = screen.getByText(/Try Again/);
       expect(retryButton).toBeInTheDocument();
 
-      // Click retry - component should re-render
+      // Stop throwing before clicking retry so re-render succeeds
+      should_throw = false;
       fireEvent.click(retryButton);
-
-      rerender(
-        <ThemeProviderComponent forceStandalone>
-          <ErrorBoundary>
-            <ThrowError shouldThrow={false} />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
 
       expect(screen.getByText('No error')).toBeInTheDocument();
     });

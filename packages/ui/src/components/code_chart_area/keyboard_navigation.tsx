@@ -49,8 +49,8 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
           }
           
           if (targetNodeId) {
-            // Deselect all nodes
-            setNodes(nodes.map(n => ({ ...n, selected: n.id === targetNodeId })));
+            // Deselect all nodes and select target
+            setNodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: n.id === targetNodeId })));
             
             // Focus on the target node element
             const targetElement = document.querySelector(`[data-id="${targetNodeId}"]`);
@@ -83,7 +83,7 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
       case 'Escape':
         // Deselect all nodes
         event.preventDefault();
-        setNodes(nodes.map(n => ({ ...n, selected: false })));
+        setNodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: false })));
         break;
 
       case '?':

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 
 export interface SearchResult {
@@ -16,24 +16,41 @@ export interface SearchPanelProps {
   maxResults?: number;
 }
 
-export const SearchPanel: React.FC<SearchPanelProps> = ({ 
-  onNodeSelect, 
-  maxResults = 10 
+// Fuzzy matching algorithm (module-level to avoid TDZ issues)
+function fuzzy_match(query: string, target: string): number {
+  let query_index = 0;
+  let target_index = 0;
+  let matches = 0;
+
+  while (query_index < query.length && target_index < target.length) {
+    if (query[query_index] === target[target_index]) {
+      matches++;
+      query_index++;
+    }
+    target_index++;
+  }
+
+  return query_index === query.length ? matches / query.length : 0;
+}
+
+export const SearchPanel: React.FC<SearchPanelProps> = ({
+  onNodeSelect,
+  maxResults = 10
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { setCenter, setNodes } = useReactFlow<CodeChartNode, CodeChartEdge>();
-  const nodes = useStore((state: ReactFlowState) => state.nodes as CodeChartNode[]);
-  
+  const { setCenter, setNodes, getNodes, getNode } = useReactFlow<CodeChartNode, CodeChartEdge>();
+
   // Search algorithm with fuzzy matching
   const searchResults = useMemo(() => {
     if (!query.trim()) return [];
-    
+
     const lowerQuery = query.toLowerCase();
     const results: SearchResult[] = [];
-    
+    const nodes = getNodes();
+
     nodes.forEach(node => {
       if (!node.data) return;
       const node_data = node.data as Record<string, unknown>;
@@ -42,9 +59,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       const lowerName = nodeName.toLowerCase();
       const description = String(node_data.description || '');
       const lower_description = description.toLowerCase();
-      
+
       let score = 0;
-      
+
       // Exact match gets highest score
       if (lowerName === lowerQuery) {
         score = 100;
@@ -63,12 +80,12 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       }
       // Fuzzy match
       else {
-        const fuzzyScore = fuzzyMatch(lowerQuery, lowerName);
+        const fuzzyScore = fuzzy_match(lowerQuery, lowerName);
         if (fuzzyScore > 0) {
           score = fuzzyScore * 30;
         }
       }
-      
+
       if (score > 0) {
         results.push({
           nodeId: node.id,
@@ -80,79 +97,64 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         });
       }
     });
-    
+
     // Sort by score and limit results
     return results
       .sort((a, b) => b.score - a.score)
       .slice(0, maxResults);
-  }, [query, nodes, maxResults]);
-  
-  // Fuzzy matching algorithm
-  const fuzzyMatch = (query: string, target: string): number => {
-    let queryIndex = 0;
-    let targetIndex = 0;
-    let matches = 0;
-    
-    while (queryIndex < query.length && targetIndex < target.length) {
-      if (query[queryIndex] === target[targetIndex]) {
-        matches++;
-        queryIndex++;
-      }
-      targetIndex++;
-    }
-    
-    return queryIndex === query.length ? matches / query.length : 0;
-  };
-  
+  // getNodes is a stable ref from useReactFlow; nodes are read imperatively
+  // so that search only recomputes on query/maxResults changes, not on drag/selection
+  }, [query, maxResults, getNodes]);
+
   // Handle node selection
   const selectNode = useCallback((nodeId: string) => {
-    const node = nodes.find(n => n.id === nodeId);
+    const node = getNode(nodeId);
     if (!node) return;
-    
+
     // Deselect all nodes and select the found one
-    setNodes(nodes.map(n => ({
+    setNodes((current_nodes) => current_nodes.map(n => ({
       ...n,
       selected: n.id === nodeId,
     })));
-    
+
     // Center the view on the selected node
     setCenter(node.position.x, node.position.y, {
       zoom: 1,
       duration: 500,
     });
-    
+
     // Close search panel
     setIsOpen(false);
     setQuery('');
-    
+
     // Notify parent component
     if (onNodeSelect) {
       onNodeSelect(nodeId);
     }
-  }, [nodes, setNodes, setCenter, onNodeSelect]);
-  
+  }, [getNode, setNodes, setCenter, onNodeSelect]);
+
   // Keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => 
+        setSelectedIndex(prev =>
           prev < searchResults.length - 1 ? prev + 1 : prev
         );
         break;
-        
+
       case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex(prev => prev > 0 ? prev - 1 : prev);
         break;
-        
+
       case 'Enter':
         e.preventDefault();
         if (searchResults[selectedIndex]) {
           selectNode(searchResults[selectedIndex].nodeId);
         }
         break;
-        
+
       case 'Escape':
         e.preventDefault();
         setIsOpen(false);
@@ -160,7 +162,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         break;
     }
   }, [searchResults, selectedIndex, selectNode]);
-  
+
   // Global keyboard shortcut for search
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -177,18 +179,18 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         }
       }
     };
-    
+
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
-  
+
   // Reset selected index when results change
   useEffect(() => {
     if (searchResults.length > 0) {
       setSelectedIndex(0);
     }
   }, [searchResults.length]);
-  
+
   return (
     <>
       {/* Search Button */}
@@ -227,7 +229,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           borderRadius: '2px',
         }}>/</kbd>
       </button>
-      
+
       {/* Search Panel */}
       {isOpen && (
         <div
@@ -270,7 +272,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               aria-controls="search-results-list"
             />
           </div>
-          
+
           {/* Search Results */}
           <div
             id="search-results"
@@ -286,10 +288,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 textAlign: 'center',
                 color: '#666',
               }}>
-                No results found for &quot;{query}&quot;
+                No results found for "{query}"
               </div>
             )}
-            
+
             <ul
               id="search-results-list"
               role="listbox"
@@ -364,7 +366,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               ))}
             </ul>
           </div>
-          
+
           {/* Footer */}
           <div style={{
             padding: '8px 12px',
