@@ -5,14 +5,18 @@ import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
 import { navigateToFile } from "./editor_navigation";
 import { CONFIG } from "./chart_config";
 import { useFlowThemeStyles } from "./use_chart_theme_styles";
-import { get_cluster_color } from "./theme_config";
+import { get_cluster_color, ThemeColorConfig } from "./theme_config";
+import type { CodeFunctionNodeType, ModuleGroupNodeType } from "./chart_types";
 
 const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
-const ZoomAwareNodeComponent: React.FC<NodeProps> = (props) => {
-  const zoom = useStore((state: ReactFlowState) => state.transform[2]);
-  const isZoomedOut = zoom < ZOOM_THRESHOLD;
-  const data = props.data as CodeNodeData;
+// Derived boolean selector — only triggers re-renders on threshold crossings,
+// not on every micro zoom change. This makes React.memo comparators effective.
+const select_is_zoomed_out = (state: ReactFlowState) => state.transform[2] < ZOOM_THRESHOLD;
+
+const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {
+  const isZoomedOut = useStore(select_is_zoomed_out);
+  const data = props.data;
   const { selected } = props;
   const themeStyles = useFlowThemeStyles();
 
@@ -105,16 +109,15 @@ export interface ModuleNodeData extends Record<string, unknown> {
   quality_score?: number;
 }
 
-function get_quality_color(score: number): string {
-  if (score >= 0.7) return '#4caf50';
-  if (score >= 0.4) return '#ff9800';
-  return '#f44336';
+function get_quality_color(score: number, colors: ThemeColorConfig): string {
+  if (score >= 0.7) return colors.ui.success.text;
+  if (score >= 0.4) return colors.ui.warning.text;
+  return colors.ui.error.text;
 }
 
-const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
-  const data = props.data as ModuleNodeData;
-  const zoom = useStore((state: ReactFlowState) => state.transform[2]);
-  const isZoomedOut = zoom < ZOOM_THRESHOLD;
+const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (props) => {
+  const data = props.data;
+  const isZoomedOut = useStore(select_is_zoomed_out);
   const { selected } = props;
   const themeStyles = useFlowThemeStyles();
 
@@ -205,7 +208,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: get_quality_color(data.quality_score),
+              backgroundColor: get_quality_color(data.quality_score, themeStyles.colors),
             }}
             aria-hidden="true"
           />
@@ -224,28 +227,22 @@ const ModuleGroupNodeComponent: React.FC<NodeProps> = (props) => {
 
 // Memoize components for performance
 export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prevProps, nextProps) => {
-  const prevData = prevProps.data as CodeNodeData;
-  const nextData = nextProps.data as CodeNodeData;
-  
   return (
-    prevData.function_name === nextData.function_name &&
-    prevData.description === nextData.description &&
-    prevData.is_entry_point === nextData.is_entry_point &&
+    prevProps.data.function_name === nextProps.data.function_name &&
+    prevProps.data.description === nextProps.data.description &&
+    prevProps.data.is_entry_point === nextProps.data.is_entry_point &&
     prevProps.selected === nextProps.selected &&
     prevProps.id === nextProps.id
   );
 });
 
 export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prevProps, nextProps) => {
-  const prevData = prevProps.data as ModuleNodeData;
-  const nextData = nextProps.data as ModuleNodeData;
-
   return (
-    prevData.module_name === nextData.module_name &&
-    prevData.description === nextData.description &&
-    prevData.member_count === nextData.member_count &&
-    prevData.cluster_index === nextData.cluster_index &&
-    prevData.quality_score === nextData.quality_score &&
+    prevProps.data.module_name === nextProps.data.module_name &&
+    prevProps.data.description === nextProps.data.description &&
+    prevProps.data.member_count === nextProps.data.member_count &&
+    prevProps.data.cluster_index === nextProps.data.cluster_index &&
+    prevProps.data.quality_score === nextProps.data.quality_score &&
     prevProps.selected === nextProps.selected &&
     prevProps.id === nextProps.id
   );

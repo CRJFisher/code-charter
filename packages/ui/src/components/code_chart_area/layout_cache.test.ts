@@ -10,8 +10,8 @@ describe('Performance Utilities', () => {
     it('should cache and retrieve layout data', () => {
       const cache = new LayoutCache();
       const nodes = [
-        { id: '1', position: { x: 0, y: 0 } },
-        { id: '2', position: { x: 100, y: 100 } },
+        { id: '1', width: 200, height: 100 },
+        { id: '2', width: 200, height: 100 },
       ];
       const edges = [{ source: '1', target: '2' }];
 
@@ -23,15 +23,15 @@ describe('Performance Utilities', () => {
       expect(cache.size()).toBe(1);
     });
 
-    it('should generate consistent keys for same data', () => {
+    it('should generate consistent keys for same data regardless of node order', () => {
       const cache = new LayoutCache();
       const nodes1 = [
-        { id: '2', position: { x: 100, y: 100 } },
-        { id: '1', position: { x: 0, y: 0 } },
+        { id: '2', width: 200, height: 100 },
+        { id: '1', width: 200, height: 100 },
       ];
       const nodes2 = [
-        { id: '1', position: { x: 0, y: 0 } },
-        { id: '2', position: { x: 100, y: 100 } },
+        { id: '1', width: 200, height: 100 },
+        { id: '2', width: 200, height: 100 },
       ];
       const edges = [{ source: '1', target: '2' }];
 
@@ -41,19 +41,61 @@ describe('Performance Utilities', () => {
       expect(key1).toBe(key2);
     });
 
-    it('should implement LRU eviction', () => {
+    it('should implement LRU eviction with get() promotion', () => {
       const cache = new LayoutCache();
-      // Set max size to 50
 
-      for (let i = 0; i < 60; i++) {
-        const nodes = [{ id: `node-${i}`, position: { x: i, y: i } }];
-        const edges: any[] = [];
-        const key = cache.generateKey(nodes, edges);
-        cache.set(key, { data: i });
+      // Fill cache to capacity (50 entries)
+      for (let i = 0; i < 50; i++) {
+        cache.set(`key-${i}`, { data: i });
       }
-
-      // Should have evicted oldest entries
       expect(cache.size()).toBe(50);
+
+      // Access key-0 (the oldest), promoting it to most-recent
+      expect(cache.get('key-0')).toEqual({ data: 0 });
+
+      // Add 1 more entry, which should evict key-1 (now the least recently used)
+      cache.set('key-50', { data: 50 });
+      expect(cache.size()).toBe(50);
+
+      // key-0 was promoted by get(), so it should survive
+      expect(cache.get('key-0')).toEqual({ data: 0 });
+
+      // key-1 was never accessed after insertion, so it should be evicted
+      expect(cache.get('key-1')).toBeNull();
+
+      // key-50 was just inserted, so it should exist
+      expect(cache.get('key-50')).toEqual({ data: 50 });
+    });
+
+    it('should generate the same key regardless of node positions', () => {
+      const cache = new LayoutCache();
+      const nodes_before = [
+        { id: '1', width: 200, height: 100, position: { x: 0, y: 0 } },
+        { id: '2', width: 200, height: 100, position: { x: 0, y: 0 } },
+      ];
+      const nodes_after = [
+        { id: '1', width: 200, height: 100, position: { x: 50, y: 120 } },
+        { id: '2', width: 200, height: 100, position: { x: 300, y: 400 } },
+      ];
+      const edges = [{ source: '1', target: '2' }];
+
+      expect(cache.generateKey(nodes_before, edges)).toBe(cache.generateKey(nodes_after, edges));
+    });
+
+    it('should generate different keys when parentId differs', () => {
+      const cache = new LayoutCache();
+      const nodes1 = [{ id: '1', width: 200, height: 100, parentId: 'module-a' }];
+      const nodes2 = [{ id: '1', width: 200, height: 100, parentId: 'module-b' }];
+
+      expect(cache.generateKey(nodes1, [])).not.toBe(cache.generateKey(nodes2, []));
+    });
+
+    it('should generate different keys when dimensions differ', () => {
+      const cache = new LayoutCache();
+      const nodes1 = [{ id: '1', width: 200, height: 100 }];
+      const nodes2 = [{ id: '1', width: 300, height: 150 }];
+
+      expect(cache.generateKey(nodes1, [])).not.toBe(cache.generateKey(nodes2, []));
     });
   });
 

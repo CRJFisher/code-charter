@@ -1,7 +1,5 @@
 import ELK, { ElkNode } from 'elkjs/lib/elk.bundled.js';
 import { CodeChartNode, CodeChartEdge, isCodeNode, isModuleNode } from './chart_types';
-import { CodeNodeData } from './code_function_node';
-import { ModuleNodeData } from './chart_node_types';
 import { LayoutCache } from './layout_cache';
 import { withRetry, LayoutError, ErrorRecovery, errorLogger } from './error_handling';
 import { CONFIG } from './chart_config';
@@ -256,13 +254,11 @@ export function calculateNodeDimensions(node: CodeChartNode): { width: number; h
   let description_length = 0;
   
   if (isCodeNode(node)) {
-    const data = node.data as CodeNodeData;
-    functionNameLength = (data.function_name || '').length;
-    description_length = (data.description || '').length;
+    functionNameLength = (node.data.function_name || '').length;
+    description_length = (node.data.description || '').length;
   } else if (isModuleNode(node)) {
-    const data = node.data as ModuleNodeData;
-    functionNameLength = (data.module_name || '').length;
-    description_length = (data.description || '').length;
+    functionNameLength = (node.data.module_name || '').length;
+    description_length = (node.data.description || '').length;
   }
   
   // Width calculation (with max/min constraints)
