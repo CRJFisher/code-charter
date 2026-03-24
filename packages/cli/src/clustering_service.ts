@@ -70,7 +70,7 @@ export class ClusteringService {
     });
 
     const grouped_clusters = this.group_clusters_by_label(
-      result.labels,
+      result.optimal.labels,
       index_to_func
     );
     const ordered_clusters = this.order_clusters_by_centroid(

@@ -481,7 +481,7 @@ async function run_clustering(docstrings, call_tree, embeddings_map) {
 
   // Group by label
   const groups = {};
-  result.labels.forEach((label, idx) => {
+  result.optimal.labels.forEach((label, idx) => {
     if (!groups[label]) groups[label] = [];
     groups[label].push(index_to_func[idx]);
   });

@@ -1,6 +1,6 @@
 /**
  * Supported clustering algorithms.
- * Matches the algorithms available in clustering-tfjs v0.4.0.
+ * Matches the algorithms available in clustering-tfjs v0.5.0.
  */
 export type ClusteringAlgorithm = 'spectral' | 'kmeans' | 'agglomerative';
 

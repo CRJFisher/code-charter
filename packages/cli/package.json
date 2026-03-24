@@ -19,7 +19,7 @@
     "@ariadnejs/types": "^0.8.0",
     "@code-charter/types": "^0.0.1",
     "@huggingface/transformers": "^3.7.1",
-    "clustering-tfjs": "^0.1.0"
+    "clustering-tfjs": "^0.5.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

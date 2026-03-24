@@ -96,6 +96,6 @@
     "@huggingface/transformers": "^3.7.1",
     "@tensorflow/tfjs-node": "^4.10.0",
     "@vscode/python-extension": "^1.0.5",
-    "clustering-tfjs": "^0.3.1"
+    "clustering-tfjs": "^0.5.0"
   }
 }
