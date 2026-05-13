@@ -82,7 +82,7 @@ def unused():
         return p.endsWith(".py") && !p.includes("test");
       });
       
-      projectManager.onCallGraphChanged((graph) => {
+      projectManager.on_call_graph_changed((graph) => {
         callGraphUpdates.push({
           timestamp: Date.now(),
           nodeCount: graph.nodes.size,
@@ -189,7 +189,7 @@ def additional_util():  # New function added during refactor
       // Wait for updates
       await new Promise(resolve => setTimeout(resolve, 600));
       
-      const currentGraph = projectManager.getCallGraph();
+      const currentGraph = projectManager.get_call_graph();
       const nodeKeys = Array.from(currentGraph.nodes.keys());
       
       // Old file functions should be gone
@@ -217,7 +217,7 @@ def additional_util():  # New function added during refactor
       const filePath = path.join(tempDir, "src", "rapid.py");
       let updateCount = 0;
       
-      projectManager.onCallGraphChanged(() => {
+      projectManager.on_call_graph_changed(() => {
         updateCount++;
       });
       
@@ -284,7 +284,7 @@ def additional_util():  # New function added during refactor
       await mockFileWatcherCallbacks.onCreate(vscode.Uri.file(problematicPath));
       
       // Should have recovered and added the file
-      const graph = projectManager.getCallGraph();
+      const graph = projectManager.get_call_graph();
       const nodeKeys = Array.from(graph.nodes.keys());
       
       if (process.platform !== "win32") {

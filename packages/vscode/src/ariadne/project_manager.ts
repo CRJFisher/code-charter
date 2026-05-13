@@ -12,8 +12,7 @@ export class AriadneProjectManager {
   private file_filter: (path: string) => boolean;
   private on_call_graph_changed_emitter = new vscode.EventEmitter<CallGraph>();
 
-  // Public event that fires when the call graph changes
-  public readonly onCallGraphChanged = this.on_call_graph_changed_emitter.event;
+  public readonly on_call_graph_changed = this.on_call_graph_changed_emitter.event;
 
   constructor(
     workspace_path: string,
@@ -29,30 +28,69 @@ export class AriadneProjectManager {
     "venv", ".venv", "env", ".env",
   ]);
 
+  private static readonly SUPPORTED_EXTENSIONS = new Set([
+    ".ts", ".tsx", ".js", ".jsx", ".py", ".rs",
+  ]);
+
+  private static is_supported(file_path: string): boolean {
+    const ext = path.extname(file_path).toLowerCase();
+    return AriadneProjectManager.SUPPORTED_EXTENSIONS.has(ext);
+  }
+
+  // Strings ariadne emits via console.warn for non-actionable parse-time gaps.
+  // We suppress them during indexing because they fire once per affected
+  // definition and would otherwise drown the dev console for any non-trivial
+  // workspace.
+  private static readonly ARIADNE_WARN_PREFIXES = [
+    "Could not find body scope for",
+    "Could not find colon in class definition",
+    "Circular inheritance detected",
+  ];
+
+  private static with_quiet_ariadne_warnings<T>(fn: () => T): T {
+    const original_warn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (typeof first === "string" &&
+          AriadneProjectManager.ARIADNE_WARN_PREFIXES.some(p => first.startsWith(p))) {
+        return;
+      }
+      original_warn.apply(console, args);
+    };
+    try {
+      return fn();
+    } finally {
+      console.warn = original_warn;
+    }
+  }
+
   /**
    * Initialize the project by loading all files and setting up watchers
    */
   async initialize(): Promise<CallGraph> {
-    console.log("Initializing AriadneProjectManager...");
-
     this.project = new Project();
     await this.project.initialize(this.workspace_path as FilePath);
 
-    // Scan filesystem and add files that pass the filter
     const files = await this.scan_files(this.workspace_path);
-    for (const file_path of files) {
-      try {
-        const content = await fs.promises.readFile(file_path, "utf-8");
-        this.project.update_file(file_path as FilePath, content);
-      } catch (error) {
-        console.error(`Error updating file ${file_path}:`, error);
+    let indexed = 0;
+    let skipped = 0;
+    const project = this.project;
+    await AriadneProjectManager.with_quiet_ariadne_warnings(async () => {
+      for (const file_path of files) {
+        try {
+          const content = await fs.promises.readFile(file_path, "utf-8");
+          project.update_file(file_path as FilePath, content);
+          indexed++;
+        } catch {
+          // Parse failures are non-fatal — the file is omitted from the graph.
+          skipped++;
+        }
       }
-    }
+    });
+    console.log(`AriadneProjectManager: indexed ${indexed} files, skipped ${skipped}`);
 
-    // Set up file watchers
     this.setup_file_watchers();
 
-    // Return initial call graph
     return this.project.get_call_graph();
   }
 
@@ -74,6 +112,9 @@ export class AriadneProjectManager {
           results.push(...await this.scan_files(full_path));
         }
       } else if (entry.isFile() || entry.isSymbolicLink()) {
+        if (!AriadneProjectManager.is_supported(full_path)) {
+          continue;
+        }
         try {
           if (this.file_filter(full_path)) {
             results.push(full_path);
@@ -90,12 +131,17 @@ export class AriadneProjectManager {
    * Update a file in the project
    */
   private async update_file_in_project(file_path: string): Promise<void> {
+    if (!this.project) {
+      return;
+    }
+    const project = this.project;
     try {
       const content = await fs.promises.readFile(file_path, "utf-8");
-      this.project!.update_file(file_path as FilePath, content);
-      console.log(`Updated file in project: ${file_path}`);
-    } catch (error) {
-      console.error(`Error updating file ${file_path}:`, error);
+      AriadneProjectManager.with_quiet_ariadne_warnings(() => {
+        project.update_file(file_path as FilePath, content);
+      });
+    } catch {
+      // Parse failures are non-fatal; the file is omitted from the call graph.
     }
   }
 
@@ -107,46 +153,43 @@ export class AriadneProjectManager {
     const pattern = new vscode.RelativePattern(this.workspace_path, "**/*");
     this.file_watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-    // Handle file creation
+    const passes_filters = (file_path: string): boolean => {
+      return AriadneProjectManager.is_supported(file_path) && this.file_filter(file_path);
+    };
+
     this.disposables.push(
       this.file_watcher.onDidCreate(async (uri) => {
-        if (this.file_filter(uri.fsPath)) {
+        if (passes_filters(uri.fsPath)) {
           await this.update_file_in_project(uri.fsPath);
           this.emit_call_graph_changed();
         }
       })
     );
 
-    // Handle file changes
     this.disposables.push(
       this.file_watcher.onDidChange(async (uri) => {
-        if (this.file_filter(uri.fsPath)) {
+        if (passes_filters(uri.fsPath)) {
           await this.update_file_in_project(uri.fsPath);
           this.emit_call_graph_changed();
         }
       })
     );
 
-    // Handle file deletion
     this.disposables.push(
       this.file_watcher.onDidDelete((uri) => {
-        if (this.file_filter(uri.fsPath)) {
-          this.project!.remove_file(uri.fsPath as FilePath);
-          console.log(`Removed file from project: ${uri.fsPath}`);
+        if (passes_filters(uri.fsPath) && this.project) {
+          this.project.remove_file(uri.fsPath as FilePath);
           this.emit_call_graph_changed();
         }
       })
     );
 
-    // Also watch for text document changes for more granular updates
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument(async (event) => {
         const document = event.document;
-
-        // Only process if it's a file in our workspace and matches our filter
         if (document.uri.scheme === "file" && document.uri.fsPath.startsWith(this.workspace_path)) {
           try {
-            if (this.file_filter(document.uri.fsPath)) {
+            if (passes_filters(document.uri.fsPath)) {
               this.handle_document_change(document);
             }
           } catch (error) {
@@ -161,9 +204,13 @@ export class AriadneProjectManager {
    * Handle incremental document changes
    */
   private handle_document_change(document: vscode.TextDocument): void {
-    this.project!.update_file(document.uri.fsPath as FilePath, document.getText());
-
-    // Debounce the call graph update to avoid too many updates
+    if (!this.project) {
+      return;
+    }
+    const project = this.project;
+    AriadneProjectManager.with_quiet_ariadne_warnings(() => {
+      project.update_file(document.uri.fsPath as FilePath, document.getText());
+    });
     this.debounce_call_graph_update();
   }
 
@@ -186,14 +233,14 @@ export class AriadneProjectManager {
    * Emit that the call graph has changed
    */
   private emit_call_graph_changed(): void {
-    const call_graph = this.project!.get_call_graph();
+    if (!this.project) {
+      return;
+    }
+    const call_graph = this.project.get_call_graph();
     this.on_call_graph_changed_emitter.fire(call_graph);
   }
 
-  /**
-   * Get the current call graph
-   */
-  getCallGraph(): CallGraph {
+  get_call_graph(): CallGraph {
     if (!this.project) {
       return { nodes: new Map(), entry_points: [] };
     }

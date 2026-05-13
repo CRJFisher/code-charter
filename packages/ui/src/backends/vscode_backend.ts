@@ -2,19 +2,32 @@ import {
   CodeCharterBackend,
   NodeGroup,
   DocstringSummaries,
-  CallGraph
+  CallGraph,
+  SerializedCallGraph,
+  deserialize_call_graph,
 } from "@code-charter/types";
 
 interface VsCodeApi {
-  postMessage(message: any): void;
+  postMessage(message: unknown): void;
 }
 
-type ResponseMessage = {
+interface ResponseMessage<T = unknown> {
   id: string;
   command: string;
-  data?: any;
-  [key: string]: any;
-};
+  data?: T;
+}
+
+let cached_vscode_api: VsCodeApi | undefined;
+function get_vscode_api(): VsCodeApi {
+  if (cached_vscode_api) {
+    return cached_vscode_api;
+  }
+  if (typeof acquireVsCodeApi !== "function") {
+    throw new Error("VSCode API not available");
+  }
+  cached_vscode_api = acquireVsCodeApi();
+  return cached_vscode_api;
+}
 
 /**
  * VSCode backend adapter that wraps the existing postMessage API
@@ -24,19 +37,14 @@ export class VSCodeBackend implements CodeCharterBackend {
   private messageQueue: Map<string, (response: ResponseMessage) => void> = new Map();
 
   constructor() {
-    if (typeof acquireVsCodeApi === "function") {
-      this.vscode = acquireVsCodeApi();
-    } else {
-      throw new Error("VSCode API not available");
-    }
+    this.vscode = get_vscode_api();
 
-    // Set up message handler
     window.addEventListener("message", (event: MessageEvent) => {
       const message: ResponseMessage = event.data;
       const { id } = message;
 
-      if (this.messageQueue.has(id)) {
-        const resolve = this.messageQueue.get(id)!;
+      const resolve = this.messageQueue.get(id);
+      if (resolve) {
         resolve(message);
         this.messageQueue.delete(id);
       }
@@ -45,8 +53,8 @@ export class VSCodeBackend implements CodeCharterBackend {
 
   async getCallGraph(): Promise<CallGraph | undefined> {
     try {
-      const response = await this.sendMessageWithResponse("getCallGraph");
-      return response.data;
+      const response = await this.sendMessageWithResponse<SerializedCallGraph>("getCallGraph");
+      return response.data ? deserialize_call_graph(response.data) : undefined;
     } catch (error) {
       console.error("Error getting call graph:", error);
       return undefined;
@@ -55,7 +63,7 @@ export class VSCodeBackend implements CodeCharterBackend {
 
   async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
     try {
-      const response = await this.sendMessageWithResponse("clusterCodeTree", { topLevelFunctionSymbol });
+      const response = await this.sendMessageWithResponse<NodeGroup[]>("clusterCodeTree", { topLevelFunctionSymbol });
       return response.data || [];
     } catch (error) {
       console.error("Error clustering:", error);
@@ -65,7 +73,7 @@ export class VSCodeBackend implements CodeCharterBackend {
 
   async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
     try {
-      const response = await this.sendMessageWithResponse("getCodeTreeDescriptions", { topLevelFunctionSymbol });
+      const response = await this.sendMessageWithResponse<DocstringSummaries>("getCodeTreeDescriptions", { topLevelFunctionSymbol });
       return response.data;
     } catch (error) {
       console.error("Error getting code tree descriptions:", error);
@@ -82,14 +90,16 @@ export class VSCodeBackend implements CodeCharterBackend {
     }
   }
 
-  private sendMessageWithResponse(command: string, payload: any = {}): Promise<ResponseMessage> {
+  private sendMessageWithResponse<T = unknown>(
+    command: string,
+    payload: Record<string, unknown> = {}
+  ): Promise<ResponseMessage<T>> {
     return new Promise((resolve) => {
       const messageId = Math.random().toString(36).substring(7);
-      this.messageQueue.set(messageId, resolve);
+      this.messageQueue.set(messageId, resolve as (response: ResponseMessage) => void);
       this.vscode.postMessage({ id: messageId, command, ...payload });
     });
   }
 }
 
-// Global declaration for VSCode API
 declare function acquireVsCodeApi(): VsCodeApi;

@@ -82,7 +82,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
 
       // Should handle binary files without crashing
       expect(projectManager).toBeDefined();
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
     });
 
@@ -96,7 +96,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       await projectManager.initialize();
 
       // Should handle large files without issues
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       // Large files should be processed normally
     });
@@ -122,7 +122,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       await projectManager.initialize();
 
       // Should handle symlinks without issues
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       const nodeSymbols = Array.from(callGraph.nodes.keys());
       // Should find the original function
@@ -144,7 +144,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       await projectManager.initialize();
 
       // Should find the deeply nested file
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       const nodeSymbols = Array.from(callGraph.nodes.keys());
       expect(nodeSymbols.some(s => s.includes("deep"))).toBe(true);
@@ -162,7 +162,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
 
       // Should complete without errors
       expect(projectManager).toBeDefined();
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes.size).toBe(0);
     });
@@ -194,7 +194,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       await projectManager.initialize();
 
       // Should handle all valid files
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes.size).toBeGreaterThan(0);
     });
@@ -212,7 +212,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       );
       await projectManager.initialize();
 
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       const nodeSymbols = Array.from(callGraph.nodes.keys());
       // Should find both Python files
@@ -250,7 +250,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       }
 
       // Should handle concurrent operations
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes.size).toBeGreaterThanOrEqual(10);
     });
@@ -289,7 +289,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       projectManager = new AriadneProjectManager(tempDir, weirdFilter);
       await projectManager.initialize();
 
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       const nodeSymbols = Array.from(callGraph.nodes.keys());
       // Should find Python file
@@ -304,7 +304,7 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       projectManager = new AriadneProjectManager(tempDir);
       
       // Get call graph before initialize
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes).toBeDefined();

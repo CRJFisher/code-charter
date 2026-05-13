@@ -6,13 +6,13 @@ import * as path from 'path';
  */
 export class UIDevWatcher {
   private watcher: vscode.FileSystemWatcher | undefined;
-  private onChangeCallback: () => void;
+  private on_change_callback: () => void;
 
   constructor(
     private context: vscode.ExtensionContext,
-    onChangeCallback: () => void
+    on_change_callback: () => void
   ) {
-    this.onChangeCallback = onChangeCallback;
+    this.on_change_callback = on_change_callback;
   }
 
   start(): void {
@@ -20,14 +20,13 @@ export class UIDevWatcher {
       return;
     }
 
-    // Watch the UI package dist folder
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
+    const workspace_folders = vscode.workspace.workspaceFolders;
+    if (!workspace_folders) {
       return;
     }
 
-    const uiDistPath = path.join(
-      workspaceFolders[0].uri.fsPath,
+    const ui_dist_path = path.join(
+      workspace_folders[0].uri.fsPath,
       'packages',
       'ui',
       'dist',
@@ -35,24 +34,23 @@ export class UIDevWatcher {
     );
 
     const pattern = new vscode.RelativePattern(
-      path.dirname(uiDistPath),
+      path.dirname(ui_dist_path),
       'standalone.global.js'
     );
 
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-    // Debounce to avoid multiple rapid reloads
-    let debounceTimer: NodeJS.Timeout;
-    const debouncedCallback = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+    let debounce_timer: NodeJS.Timeout;
+    const debounced_callback = () => {
+      clearTimeout(debounce_timer);
+      debounce_timer = setTimeout(() => {
         console.log('UI package changed, reloading webview...');
-        this.onChangeCallback();
+        this.on_change_callback();
       }, 1000);
     };
 
-    this.watcher.onDidChange(debouncedCallback);
-    this.watcher.onDidCreate(debouncedCallback);
+    this.watcher.onDidChange(debounced_callback);
+    this.watcher.onDidCreate(debounced_callback);
 
     this.context.subscriptions.push(this.watcher);
 

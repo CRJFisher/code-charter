@@ -1,67 +1,79 @@
 {
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "ecmaVersion": 2020,
-      "sourceType": "module"
-    },
-    "plugins": ["@typescript-eslint"],
-    "extends": [
-      "eslint:recommended",
-      "plugin:@typescript-eslint/recommended"
-    ],
-    "rules": {
-      "@typescript-eslint/naming-convention": [
-        "error",
-        {
-          "selector": "default",
-          "format": ["camelCase"]
-        },
-        {
-          "selector": "variable",
-          "format": ["camelCase", "UPPER_CASE", "PascalCase"]
-        },
-        {
-          "selector": "function",
-          "format": ["camelCase", "PascalCase"]
-        },
-        {
-          "selector": "parameter",
-          "format": ["camelCase"]
-        },
-        {
-          "selector": "memberLike",
-          "modifiers": ["private"],
-          "format": ["camelCase"],
-          "leadingUnderscore": "require"
-        },
-        {
-          "selector": "typeLike",
-          "format": ["PascalCase"]
-        },
-        {
-          "selector": "enumMember",
-          "format": ["UPPER_CASE"]
-        },
-        {
-          "selector": "property",
-          "format": ["camelCase", "PascalCase"]
-        },
-        {
-          "selector": "method",
-          "format": ["camelCase", "PascalCase"]
-        },
-        {
-          "selector": "importSpecifier",
-          "format": ["camelCase", "PascalCase"]
-        },
-        {
-          "selector": "importNamespaceSpecifier",
-          "format": ["camelCase", "PascalCase"]
-        },
-        {
-          "selector": "importDefaultSpecifier",
-          "format": ["camelCase", "PascalCase"]
-        }
-      ]
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "rules": {
+    "@typescript-eslint/naming-convention": [
+      "error",
+      {
+        "selector": "default",
+        "format": ["snake_case"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": "variable",
+        "format": ["snake_case", "UPPER_CASE"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": "parameter",
+        "format": ["snake_case"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": "memberLike",
+        "modifiers": ["private"],
+        "format": ["snake_case"],
+        "leadingUnderscore": "allow"
+      },
+      {
+        "selector": "typeLike",
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "enumMember",
+        "format": ["UPPER_CASE", "PascalCase"]
+      },
+      {
+        "selector": "objectLiteralProperty",
+        "format": null
+      },
+      {
+        "selector": "typeProperty",
+        "format": null
+      },
+      {
+        "selector": "method",
+        "format": ["snake_case"]
+      },
+      {
+        "selector": "objectLiteralMethod",
+        "format": ["camelCase", "snake_case"]
+      },
+      {
+        "selector": "classProperty",
+        "modifiers": ["static", "readonly"],
+        "format": ["UPPER_CASE", "snake_case"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/__tests__/**/*"],
+      "rules": {
+        "@typescript-eslint/naming-convention": "off",
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-unused-vars": "off"
+      }
     }
-  }
+  ]
+}

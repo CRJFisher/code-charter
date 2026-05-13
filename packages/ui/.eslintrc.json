@@ -20,5 +20,14 @@
   },
   "rules": {
     "react/react-in-jsx-scope": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["*.config.js"],
+      "env": {
+        "node": true,
+        "commonjs": true
+      }
+    }
+  ]
 }

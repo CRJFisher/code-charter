@@ -3,43 +3,29 @@ import * as vscode from 'vscode';
 /**
  * Generate HTML content for the webview that loads the UI package
  */
-export function getWebviewContent(
+export function get_webview_content(
   webview: vscode.Webview,
-  extensionUri: vscode.Uri,
-  colorCustomizations: any,
-  isDevelopment: boolean = false,
-  devServerUrl: string = 'http://localhost:3000'
+  extension_uri: vscode.Uri,
+  color_customizations: Record<string, string>,
 ): string {
-  // Load from dev server in development mode, or from built files in production
-  const scriptUri = isDevelopment
-    ? `${devServerUrl}/standalone.global.js`
-    : webview.asWebviewUri(
-        vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.global.js')
-      );
-  
-  const styleUri = isDevelopment
-    ? `${devServerUrl}/standalone.css`
-    : webview.asWebviewUri(
-        vscode.Uri.joinPath(extensionUri, 'node_modules', '@code-charter', 'ui', 'dist', 'standalone.css')
-      );
+  const ui_dist_uri = vscode.Uri.joinPath(extension_uri, '..', 'ui', 'dist');
+  const script_uri = webview.asWebviewUri(vscode.Uri.joinPath(ui_dist_uri, 'standalone.global.js'));
+  const style_uri = webview.asWebviewUri(vscode.Uri.joinPath(ui_dist_uri, 'standalone.css'));
 
-  // Generate CSS variables for VSCode theme colors
-  const editorColors = generateEditorColors(colorCustomizations);
-
-  // Use a nonce to only allow a specific script to be run
-  const nonce = getNonce();
+  const editor_colors = generate_editor_colors(color_customizations);
+  const nonce = get_nonce();
 
   return `<!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} ${isDevelopment ? devServerUrl : ''} 'unsafe-inline'; script-src 'nonce-${nonce}' ${isDevelopment ? devServerUrl : ''}; connect-src ${isDevelopment ? devServerUrl : ''};">
-      <link href="${styleUri}" rel="stylesheet">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">
+      <link href="${style_uri}" rel="stylesheet">
       <title>Code Charter</title>
       <style>
         :root {
-          ${editorColors}
+          ${editor_colors}
         }
         body {
           margin: 0;
@@ -53,9 +39,8 @@ export function getWebviewContent(
     </head>
     <body>
       <div id="root"></div>
-      <script nonce="${nonce}" src="${scriptUri}"></script>
+      <script nonce="${nonce}" src="${script_uri}"></script>
       <script nonce="${nonce}">
-        // Initialize the UI
         if (window.CodeCharterUI) {
           window.CodeCharterUI.init();
         }
@@ -64,11 +49,8 @@ export function getWebviewContent(
     </html>`;
 }
 
-/**
- * Generate CSS variables for VSCode editor colors
- */
-function generateEditorColors(colorCustomizations: any): string {
-  const defaultColors = {
+function generate_editor_colors(color_customizations: Record<string, string>): string {
+  const default_colors = {
     'editor.background': '#1e1e1e',
     'editor.foreground': '#d4d4d4',
     'editor.selectionBackground': '#264f78',
@@ -80,23 +62,19 @@ function generateEditorColors(colorCustomizations: any): string {
     'editorLineNumber.activeForeground': '#c6c6c6',
     'editorGutter.background': '#252526',
     'panel.border': '#454545',
-    // Add more as needed
   };
 
-  let cssVars = '';
-  for (const [key, defaultValue] of Object.entries(defaultColors)) {
-    const customValue = colorCustomizations[key] || defaultValue;
-    const cssVarName = `--vscode-${key.replace(/\./g, '-')}`;
-    cssVars += `${cssVarName}: ${customValue};\n`;
+  let css_vars = '';
+  for (const [key, default_value] of Object.entries(default_colors)) {
+    const custom_value = color_customizations[key] || default_value;
+    const css_var_name = `--vscode-${key.replace(/\./g, '-')}`;
+    css_vars += `${css_var_name}: ${custom_value};\n`;
   }
 
-  return cssVars;
+  return css_vars;
 }
 
-/**
- * Generate a nonce for Content Security Policy
- */
-function getNonce(): string {
+function get_nonce(): string {
   let text = '';
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   for (let i = 0; i < 32; i++) {

@@ -2,8 +2,8 @@ import * as vscode from "vscode";
 import { addToGitignore } from "./files";
 import { navigateToDoc } from "./navigate";
 import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
-import type { DocstringSummaries } from "@code-charter/types";
-import { getWebviewContent } from "./webview_template";
+import { serialize_call_graph, type DocstringSummaries } from "@code-charter/types";
+import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { ClusteringService } from "./clustering/clustering_service";
 import { VscodeCacheStorage } from "./clustering/vscode_cache_storage";
@@ -49,14 +49,17 @@ async function show_webview_diagram(
   context: vscode.ExtensionContext,
   work_folder: vscode.Uri
 ) {
+  const is_development = process.env.CODE_CHARTER_DEV_MODE === "true"
+    || vscode.workspace.getConfiguration("code-charter-vscode").get("devMode", false);
+
   const panel = vscode.window.createWebviewPanel("codeDiagram", "Code Charter Diagram", vscode.ViewColumn.One, {
     enableScripts: true,
     retainContextWhenHidden: true,
     localResourceRoots: [
       vscode.Uri.file(context.extensionPath),
-      vscode.Uri.joinPath(context.extensionUri, "node_modules"),
+      vscode.Uri.joinPath(context.extensionUri, "..", "ui", "dist"),
     ],
-    ...(process.env.CODE_CHARTER_DEV_MODE === "true" ? {
+    ...(is_development ? {
       enableCommandUris: true,
       enableFindWidget: true
     } : {})
@@ -67,21 +70,16 @@ async function show_webview_diagram(
     webview_column = panel.viewColumn;
   });
 
-  const color_customizations = vscode.workspace.getConfiguration().get("workbench.colorCustomizations") || {};
-  const code_charter_config = vscode.workspace.getConfiguration("code-charter-vscode");
-  const is_development = process.env.CODE_CHARTER_DEV_MODE === "true" || code_charter_config.get("devMode", false);
-  const dev_server_url = code_charter_config.get("devServerUrl", "http://localhost:3000");
+  const color_customizations = vscode.workspace.getConfiguration().get<Record<string, string>>("workbench.colorCustomizations") || {};
 
-  const html_content = getWebviewContent(
+  const html_content = get_webview_content(
     panel.webview,
     context.extensionUri,
     color_customizations,
-    is_development,
-    dev_server_url
   );
 
   let call_graph: CallGraph | undefined;
-  let top_level_function_to_descriptions: { [key: string]: DocstringSummaries } = {};
+  const top_level_function_to_descriptions: { [key: string]: DocstringSummaries } = {};
   let project_manager: AriadneProjectManager | undefined;
   const embedding_provider = new LocalEmbeddingsProvider(
     (message: string, progress?: number) => {
@@ -119,37 +117,37 @@ async function show_webview_diagram(
               );
             });
 
-            project_manager.onCallGraphChanged((new_call_graph) => {
+            project_manager.on_call_graph_changed((new_call_graph) => {
               call_graph = new_call_graph;
               panel.webview.postMessage({
                 command: "callGraphUpdated",
-                data: new_call_graph
+                data: serialize_call_graph(new_call_graph)
               });
             });
 
             call_graph = await project_manager.initialize();
           } else {
-            call_graph = project_manager.getCallGraph();
+            call_graph = project_manager.get_call_graph();
           }
 
           if (!call_graph) {
             throw new Error("Call graph not found");
           }
-          panel.webview.postMessage({ id, command: "getCallGraphResponse", data: call_graph });
+          panel.webview.postMessage({ id, command: "getCallGraphResponse", data: serialize_call_graph(call_graph) });
         },
         getCodeTreeDescriptions: async () => {
-          const { topLevelFunctionSymbol } = other_fields;
+          const { topLevelFunctionSymbol: top_level_function_symbol } = other_fields;
           if (!call_graph) {
             throw new Error("Call graph not found");
           }
 
-          const descriptions = extract_descriptions(call_graph, topLevelFunctionSymbol);
-          top_level_function_to_descriptions[topLevelFunctionSymbol] = descriptions;
+          const descriptions = extract_descriptions(call_graph, top_level_function_symbol);
+          top_level_function_to_descriptions[top_level_function_symbol] = descriptions;
           panel.webview.postMessage({ id, command: "getCodeTreeDescriptionsResponse", data: descriptions });
         },
         clusterCodeTree: async () => {
-          const { topLevelFunctionSymbol } = other_fields;
-          const descriptions = top_level_function_to_descriptions[topLevelFunctionSymbol];
+          const { topLevelFunctionSymbol: top_level_function_symbol } = other_fields;
+          const descriptions = top_level_function_to_descriptions[top_level_function_symbol];
           if (!descriptions) {
             throw new Error("Descriptions not available. Call getCodeTreeDescriptions first.");
           }
@@ -178,10 +176,10 @@ async function show_webview_diagram(
           panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: node_groups });
         },
         navigateToDoc: async () => {
-          const { relativeDocPath, lineNumber } = other_fields;
+          const { relativeDocPath: relative_doc_path, lineNumber: line_number } = other_fields;
           const workspace_path = workspace_folders[0].uri.fsPath;
-          const file_uri = vscode.Uri.file(`${workspace_path}/${relativeDocPath}`);
-          await navigateToDoc(file_uri, lineNumber, webview_column);
+          const file_uri = vscode.Uri.file(`${workspace_path}/${relative_doc_path}`);
+          await navigateToDoc(file_uri, line_number, webview_column);
           panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
         },
       };
@@ -206,12 +204,10 @@ async function show_webview_diagram(
 
   if (is_development) {
     const dev_watcher = new UIDevWatcher(context, () => {
-      panel.webview.html = getWebviewContent(
+      panel.webview.html = get_webview_content(
         panel.webview,
         context.extensionUri,
         color_customizations,
-        is_development,
-        dev_server_url
       );
     });
     dev_watcher.start();
@@ -257,4 +253,6 @@ function extract_descriptions(
   return { docstrings, call_tree };
 }
 
-export function deactivate() {}
+export function deactivate(): void {
+  return;
+}

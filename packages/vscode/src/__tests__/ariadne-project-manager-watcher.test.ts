@@ -56,7 +56,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph was updated
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes).toBeDefined();
     });
@@ -79,7 +79,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph was updated
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes).toBeDefined();
       // Note: We can't verify specific content without mocking, but ariadne should handle it
@@ -98,7 +98,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph was updated (file should be removed)
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       // Note: We can't verify removal without mocking, but ariadne should handle it
     });
@@ -118,7 +118,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph doesn't include JS files
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       const nodeSymbols = Array.from(callGraph.nodes.keys());
       expect(nodeSymbols.some(s => s.includes("test.js"))).toBe(false);
     });
@@ -148,7 +148,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph was updated
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       expect(callGraph.nodes).toBeDefined();
       // Note: We can't verify specific content without mocking, but ariadne should handle it
@@ -175,7 +175,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph wasn't updated with outside files
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       const nodeSymbols = Array.from(callGraph.nodes.keys());
       expect(nodeSymbols.some(s => s.includes("/other/"))).toBe(false);
     });
@@ -201,7 +201,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       }
 
       // Verify the call graph wasn't updated with non-file scheme documents
-      const callGraph = projectManager.getCallGraph();
+      const callGraph = projectManager.get_call_graph();
       expect(callGraph).toBeDefined();
       // Non-file scheme documents shouldn't affect the call graph
     });
@@ -212,7 +212,7 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       const callGraphChangedHandler = jest.fn();
       
       projectManager = new AriadneProjectManager(tempDir);
-      projectManager.onCallGraphChanged(callGraphChangedHandler);
+      projectManager.on_call_graph_changed(callGraphChangedHandler);
       await projectManager.initialize();
 
       // Trigger a file change that should cause call graph update
