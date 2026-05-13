@@ -209,7 +209,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedEntryPoint, getDescriptions, detectModules, setNodes, setEdges]);
+    // Depend only on the entry point id. Including the function props would
+    // cancel-and-restart on every App render (their closures are recreated
+    // each render), creating an infinite loop with the .finally state updates
+    // in App.fetch_descriptions.
+  }, [selectedEntryPoint?.symbol_id]);
 
   const getVisibilityClassNames = (show: boolean): string => {
     return show ? "visible" : "invisible";

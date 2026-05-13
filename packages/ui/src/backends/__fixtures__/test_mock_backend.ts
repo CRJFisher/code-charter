@@ -62,7 +62,7 @@ export class TestMockBackend implements CodeCharterBackend {
     return this.config.callGraph;
   }
 
-  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
+  async get_code_tree_descriptions(_top_level_function_symbol: string): Promise<DocstringSummaries | undefined> {
     await this.simulate_delay();
     this.check_error();
     return {
@@ -71,13 +71,13 @@ export class TestMockBackend implements CodeCharterBackend {
     };
   }
 
-  async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
+  async clusterCodeTree(_top_level_function_symbol: string): Promise<NodeGroup[]> {
     await this.simulate_delay();
     this.check_error();
     return [];
   }
 
-  async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
+  async navigateToDoc(_file_path: string, _line_number: number): Promise<void> {
     await this.simulate_delay();
     this.check_error();
   }

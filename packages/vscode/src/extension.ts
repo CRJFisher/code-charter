@@ -176,19 +176,28 @@ async function show_webview_diagram(
           panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: node_groups });
         },
         navigateToDoc: async () => {
-          const { relativeDocPath: relative_doc_path, lineNumber: line_number } = other_fields;
-          const workspace_path = workspace_folders[0].uri.fsPath;
-          const file_uri = vscode.Uri.file(`${workspace_path}/${relative_doc_path}`);
+          const { file_path, line_number } = other_fields;
+          const file_uri = vscode.Uri.file(file_path);
           await navigateToDoc(file_uri, line_number, webview_column);
           panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
         },
       };
 
       const handler = command_handlers[command];
-      if (handler) {
+      try {
+        if (!handler) {
+          throw new Error(`Unsupported command: ${command}`);
+        }
         await handler();
-      } else {
-        throw new Error(`Unsupported command: ${command}`);
+      } catch (err) {
+        const error_message = err instanceof Error ? err.message : String(err);
+        const error_stack = err instanceof Error ? err.stack : undefined;
+        console.error(`[code-charter] command "${command}" failed:`, err);
+        panel.webview.postMessage({
+          id,
+          command: `${command}Response`,
+          error: { message: error_message, stack: error_stack },
+        });
       }
     },
     undefined,

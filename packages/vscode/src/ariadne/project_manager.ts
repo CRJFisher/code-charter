@@ -47,7 +47,7 @@ export class AriadneProjectManager {
     "Circular inheritance detected",
   ];
 
-  private static with_quiet_ariadne_warnings<T>(fn: () => T): T {
+  private static async with_quiet_ariadne_warnings<T>(fn: () => T | Promise<T>): Promise<T> {
     const original_warn = console.warn;
     console.warn = (...args: unknown[]) => {
       const first = args[0];
@@ -58,7 +58,7 @@ export class AriadneProjectManager {
       original_warn.apply(console, args);
     };
     try {
-      return fn();
+      return await fn();
     } finally {
       console.warn = original_warn;
     }

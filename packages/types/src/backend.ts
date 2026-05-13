@@ -48,5 +48,5 @@ export interface CodeCharterBackend {
   /**
    * Navigate to a specific document location
    */
-  navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void>;
+  navigateToDoc(file_path: string, line_number: number): Promise<void>;
 }

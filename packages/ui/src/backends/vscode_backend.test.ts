@@ -1,14 +1,17 @@
 import { VSCodeBackend } from './vscode_backend';
 
-// Mock acquireVsCodeApi
+type MessageListener = (event: MessageEvent) => void;
+
 const mock_post_message = jest.fn();
-(global as any).acquireVsCodeApi = jest.fn(() => ({
+globalThis.acquireVsCodeApi = jest.fn(() => ({
   postMessage: mock_post_message,
+  getState: jest.fn(),
+  setState: jest.fn(),
 }));
 
 describe('VSCodeBackend', () => {
   let backend: VSCodeBackend;
-  let message_handler: ((event: MessageEvent) => void) | undefined;
+  let message_handler: MessageListener;
 
   beforeEach(() => {
     mock_post_message.mockClear();
@@ -16,9 +19,11 @@ describe('VSCodeBackend', () => {
     // Capture the message event handler from addEventListener
     const add_spy = jest.spyOn(window, 'addEventListener');
     backend = new VSCodeBackend();
-    message_handler = add_spy.mock.calls.find(
-      (call) => call[0] === 'message'
-    )?.[1] as any;
+    const captured = add_spy.mock.calls.find((call) => call[0] === 'message')?.[1];
+    if (typeof captured !== 'function') {
+      throw new Error('VSCodeBackend did not register a message listener');
+    }
+    message_handler = captured as MessageListener;
     add_spy.mockRestore();
   });
 
@@ -32,7 +37,7 @@ describe('VSCodeBackend', () => {
       const promise = backend.getCallGraph();
 
       const posted = mock_post_message.mock.calls[0][0];
-      message_handler!(new MessageEvent('message', {
+      message_handler(new MessageEvent('message', {
         data: { id: posted.id, command: 'getCallGraph', data: mock_data }
       }));
 
@@ -57,7 +62,7 @@ describe('VSCodeBackend', () => {
       };
 
       const posted = mock_post_message.mock.calls[0][0];
-      message_handler!(new MessageEvent('message', {
+      message_handler(new MessageEvent('message', {
         data: { id: posted.id, command: 'getCodeTreeDescriptions', data: mock_descriptions }
       }));
 
@@ -72,10 +77,10 @@ describe('VSCodeBackend', () => {
 
       const posted = mock_post_message.mock.calls[0][0];
       expect(posted.command).toBe('navigateToDoc');
-      expect(posted.relativeDocPath).toBe('src/test.ts');
-      expect(posted.lineNumber).toBe(42);
+      expect(posted.file_path).toBe('src/test.ts');
+      expect(posted.line_number).toBe(42);
 
-      message_handler!(new MessageEvent('message', {
+      message_handler(new MessageEvent('message', {
         data: { id: posted.id, command: 'navigateToDoc' }
       }));
 
@@ -89,7 +94,7 @@ describe('VSCodeBackend', () => {
       const promise = backend.clusterCodeTree('main');
 
       const posted = mock_post_message.mock.calls[0][0];
-      message_handler!(new MessageEvent('message', {
+      message_handler(new MessageEvent('message', {
         data: { id: posted.id, command: 'clusterCodeTree', data: mock_clusters }
       }));
 
@@ -100,8 +105,8 @@ describe('VSCodeBackend', () => {
 
   describe('concurrent requests', () => {
     it('handles multiple concurrent requests with different IDs', async () => {
-      const promise1 = backend.getCallGraph();
-      const promise2 = backend.get_code_tree_descriptions('symbol');
+      void backend.getCallGraph();
+      void backend.get_code_tree_descriptions('symbol');
 
       expect(mock_post_message).toHaveBeenCalledTimes(2);
 
@@ -115,7 +120,7 @@ describe('VSCodeBackend', () => {
     it('ignores messages with unknown IDs', async () => {
       const promise = backend.getCallGraph();
 
-      message_handler!(new MessageEvent('message', {
+      message_handler(new MessageEvent('message', {
         data: { id: 'wrong-id', command: 'getCallGraph', data: {} }
       }));
 

@@ -1,15 +1,5 @@
 // Navigation utilities for opening files in VS Code
-import { isVSCodeContext } from '../../platform/vscode_detection';
-
-// Cache the VS Code API instance at module scope so acquireVsCodeApi() is called once
-let cached_vscode_api: ReturnType<typeof acquireVsCodeApi> | null = null;
-
-function get_vscode_api(): ReturnType<typeof acquireVsCodeApi> {
-  if (!cached_vscode_api) {
-    cached_vscode_api = acquireVsCodeApi();
-  }
-  return cached_vscode_api;
-}
+import { get_vscode_api, isVSCodeContext } from '../../platform/vscode_detection';
 
 export interface NavigateOptions {
   file_path: string;
@@ -22,15 +12,19 @@ export function navigateToFile(options: NavigateOptions): void {
 
   try {
     if (isVSCodeContext()) {
+      // Fire-and-forget request to the extension's navigateToDoc handler.
+      // The shared VS Code API instance is owned by vscode_detection so the
+      // backend bridge and these click handlers don't fight over the one-shot
+      // acquireVsCodeApi() call.
       get_vscode_api().postMessage({
-        command: 'openFile',
+        command: 'navigateToDoc',
         file_path,
         line_number,
         column_number,
       });
     } else {
-      const vscodeUrl = `vscode://file/${file_path}:${line_number}:${column_number}`;
-      window.open(vscodeUrl, '_blank');
+      const vscode_url = `vscode://file/${file_path}:${line_number}:${column_number}`;
+      window.open(vscode_url, '_blank');
     }
   } catch (error) {
     console.error('Failed to navigate to file:', error);
