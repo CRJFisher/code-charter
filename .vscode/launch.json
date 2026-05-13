@@ -17,62 +17,27 @@
             }
         },
         {
-            "name": "Debug UI Package (Node)",
+            "name": "Watch UI Build",
             "type": "node",
             "request": "launch",
             "cwd": "${workspaceFolder}/packages/ui",
             "runtimeExecutable": "npm",
             "runtimeArgs": [
                 "run",
-                "debug:watch"
-            ],
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen",
-            "outFiles": [
-                "${workspaceFolder}/packages/ui/src/**/*.ts",
-                "${workspaceFolder}/packages/ui/src/**/*.tsx"
-            ],
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/packages/ui/**",
-                "!**/node_modules/**"
-            ]
-        },
-        {
-            "name": "Start UI Dev Server",
-            "type": "node",
-            "request": "launch",
-            "cwd": "${workspaceFolder}/packages/ui",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": [
-                "run",
-                "dev:all"
+                "dev"
             ],
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
-        },
-        {
-            "name": "Attach to UI Dev Server",
-            "type": "chrome",
-            "request": "attach",
-            "port": 9222,
-            "webRoot": "${workspaceFolder}/packages/ui",
-            "sourceMaps": true,
-            "sourceMapPathOverrides": {
-                "webpack:///./*": "${webRoot}/*"
-            }
         }
     ],
     "compounds": [
         {
-            "name": "Debug Both (Separate Terminals)",
+            "name": "Debug Extension + Watch UI",
             "configurations": [
-                "Start UI Dev Server",
+                "Watch UI Build",
                 "Debug VS Code Extension"
             ],
             "stopAll": true,
@@ -80,20 +45,6 @@
                 "hidden": false,
                 "group": "1_debug",
                 "order": 1
-            }
-        },
-        {
-            "name": "Debug UI in Node + Extension",
-            "configurations": [
-                "Debug UI Package (Node)",
-                "Start UI Dev Server",
-                "Debug VS Code Extension"
-            ],
-            "stopAll": true,
-            "presentation": {
-                "hidden": false,
-                "group": "1_debug",
-                "order": 2
             }
         }
     ]
