@@ -76,6 +76,13 @@ export function generateReactFlowElements(
       const target_symbol = call.resolutions[0]?.symbol_id;
       if (!target_symbol) return;
 
+      // Skip calls that do not resolve to a node in the rendered graph
+      // (e.g. higher-order calls through a `parameter:` symbol, external
+      // library calls). Emitting an edge to a non-existent node would make
+      // ELK fail with "Referenced shape does not exist".
+      const child_node = docstring_summaries.call_tree[target_symbol];
+      if (!child_node) return;
+
       // Add edge
       const edge_id = `${node.symbol_id}-${target_symbol}`;
       edges.push({
@@ -96,11 +103,8 @@ export function generateReactFlowElements(
       }
 
       // Recursively add child nodes
-      const child_node = docstring_summaries.call_tree[target_symbol];
-      if (child_node) {
-        const child_x = position.x + (index - node.enclosed_calls.length / 2) * 250;
-        add_function_node(child_node, false, { x: child_x, y: child_y });
-      }
+      const child_x = position.x + (index - node.enclosed_calls.length / 2) * 250;
+      add_function_node(child_node, false, { x: child_x, y: child_y });
     });
   };
 
