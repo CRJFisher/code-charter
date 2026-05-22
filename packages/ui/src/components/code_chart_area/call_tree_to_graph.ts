@@ -20,13 +20,19 @@ export function generateReactFlowElements(
   const edges: CodeChartEdge[] = [];
   const visited = new Set<string>();
 
+  // Module IDs are namespaced to the entrypoint so they do not collide
+  // with module IDs from other entrypoints. ReactFlow keys DOM elements
+  // by node/edge id; if two entrypoints both produced `module_0`, switching
+  // between them would leave stale SVG geometry from the previous render.
+  const module_id_prefix = `${selected_entry_point.symbol_id}__module`;
+
   // Define the mappings for module clustering
   const compound_id_to_group: { [compound_id: string]: NodeGroup } = {};
   const symbol_to_compound_id: { [symbol: string]: string } = {};
 
   // Process node_groups to populate the mappings
   (node_groups || []).forEach((group, index) => {
-    const compound_id = `module_${index}`;
+    const compound_id = `${module_id_prefix}_${index}`;
     compound_id_to_group[compound_id] = group;
     for (const member_symbol of group.memberSymbols) {
       symbol_to_compound_id[member_symbol] = compound_id;
@@ -120,7 +126,7 @@ export function generateReactFlowElements(
     const module_nodes: CodeChartNode[] = [];
 
     node_groups.forEach((group, index) => {
-      const module_id = `module_${index}`;
+      const module_id = `${module_id_prefix}_${index}`;
       const cluster_index = group.metadata?.cluster_index ?? index;
 
       const module_node: CodeChartNode = {
@@ -149,7 +155,7 @@ export function generateReactFlowElements(
     // Build cluster index lookup for module edge coloring
     const module_id_to_cluster_index = new Map<string, number>();
     node_groups.forEach((group, idx) => {
-      module_id_to_cluster_index.set(`module_${idx}`, group.metadata?.cluster_index ?? idx);
+      module_id_to_cluster_index.set(`${module_id_prefix}_${idx}`, group.metadata?.cluster_index ?? idx);
     });
 
     // Add edges between modules after all connections are tracked

@@ -190,20 +190,24 @@ describe("generateReactFlowElements", () => {
       const module_nodes = nodes.filter(n => n.type === "module_group");
       expect(module_nodes).toHaveLength(2);
 
-      // Function nodes should have parentId set
+      // Function nodes should have parentId set. Module IDs are namespaced
+      // to the entrypoint to avoid collisions across entrypoints.
+      const module_0 = `${node1.symbol_id}__module_0`;
+      const module_1 = `${node1.symbol_id}__module_1`;
+
       const func_node1 = nodes.find(n => n.id === node1.symbol_id);
       const func_node2 = nodes.find(n => n.id === node2.symbol_id);
-      expect(func_node1?.parentId).toBe("module_0");
-      expect(func_node2?.parentId).toBe("module_0");
+      expect(func_node1?.parentId).toBe(module_0);
+      expect(func_node2?.parentId).toBe(module_0);
 
       const func_node3 = nodes.find(n => n.id === node3.symbol_id);
-      expect(func_node3?.parentId).toBe("module_1");
+      expect(func_node3?.parentId).toBe(module_1);
 
       // Should have inter-module edge
       const module_edges = edges.filter(e => e.id.startsWith("module-edge-"));
       expect(module_edges).toHaveLength(1);
-      expect(module_edges[0].source).toBe("module_0");
-      expect(module_edges[0].target).toBe("module_1");
+      expect(module_edges[0].source).toBe(module_0);
+      expect(module_edges[0].target).toBe(module_1);
     });
 
     it("should handle empty node groups", () => {

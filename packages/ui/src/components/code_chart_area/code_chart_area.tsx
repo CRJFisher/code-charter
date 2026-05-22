@@ -147,6 +147,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         setError(null);
         set_description_status(DescriptionStatus.LoadingDescriptions);
 
+        // Clear any graph data from the previous entrypoint before loading
+        // the new one. Without this, stale nodes/edges remain in ReactFlow's
+        // internal store during the async window, and module IDs (now
+        // namespaced per-entrypoint) from the previous render can leak
+        // through the virtual-renderer's empty-viewport fallback.
+        setNodes([]);
+        setEdges([]);
+
         // Check for saved state first
         const savedState = loadGraphState(selectedEntryPoint.symbol_id);
         if (savedState) {
