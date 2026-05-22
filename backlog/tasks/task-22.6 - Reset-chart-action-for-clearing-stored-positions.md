@@ -23,7 +23,7 @@ A user-visible action clears all stored position overrides for the current chart
 <!-- AC:BEGIN -->
 
 - [ ] #1 A Reset chart control is reachable from the chart toolbar
-- [ ] #2 Activating it clears the chart's stored positions and re-runs the auto-layout
+- [ ] #2 Activating it clears all stored position overrides for the current chart and re-runs the auto-layout
 - [ ] #3 Confirmation is required before clearing
 - [ ] #4 After reset the chart renders identically to a never-customized chart
 - [ ] #5 The action is keyboard-reachable
