@@ -83,22 +83,42 @@ describe("compute_parent_resize", () => {
     expect(Math.abs(r.parent_dy)).toBe(0);
   });
 
-  it("does NOT shift when children are past the right/bottom (no teleport on inward drag)", () => {
-    // Children are inside the module but with slack on the right (max_x < width).
-    // We should shrink, but NOT shift children — otherwise the just-dropped
-    // node teleports.
+  it("tightens the left/top when children leave slack inside the module", () => {
+    // Single child sits 50px right of the left padding and 20px below the top
+    // padding (slack on both sides). The resize should tighten width/height
+    // AND shift the parent so that the visible left/top borders move inward.
     const nodes: CodeChartNode[] = [
       module_node("m", 0, 0, 500, 300),
       fn_node("a", "m", PAD + 50, PAD_TOP + 20, 100, 50),
     ];
     const r = expect_present(compute_parent_resize("m", nodes));
-    expect(r.child_dx).toBe(0);
-    expect(r.child_dy).toBe(0);
-    expect(Math.abs(r.parent_dx)).toBe(0);
-    expect(Math.abs(r.parent_dy)).toBe(0);
-    // Width hugs the child at its current (offset) position
-    expect(r.width).toBe(PAD + 50 + 100 + PAD);
-    expect(r.height).toBe(PAD_TOP + 20 + 50 + PAD);
+    // Child shifts left+up by the slack; parent shifts right+down inversely
+    expect(r.child_dx).toBe(-50);
+    expect(r.child_dy).toBe(-20);
+    expect(r.parent_dx).toBe(50);
+    expect(r.parent_dy).toBe(20);
+    // Tight dims: child width/height + padding on all sides
+    expect(r.width).toBe(100 + 2 * PAD);
+    expect(r.height).toBe(50 + PAD_TOP + PAD);
+  });
+
+  it("preserves the dragged child's absolute position when shifting", () => {
+    // Verify the no-teleport invariant: after apply_parent_resize, the child's
+    // absolute position (parent.position + child.position) is unchanged.
+    const nodes: CodeChartNode[] = [
+      module_node("m", 100, 200, 500, 300),
+      fn_node("a", "m", PAD + 50, PAD_TOP + 20, 100, 50),
+    ];
+    const child_absolute_before = {
+      x: 100 + (PAD + 50),
+      y: 200 + (PAD_TOP + 20),
+    };
+    const r = expect_present(compute_parent_resize("m", nodes));
+    const updated = apply_parent_resize(nodes, r);
+    const parent = expect_present(updated.find(n => n.id === "m"));
+    const child = expect_present(updated.find(n => n.id === "a"));
+    expect(parent.position.x + child.position.x).toBe(child_absolute_before.x);
+    expect(parent.position.y + child.position.y).toBe(child_absolute_before.y);
   });
 
   it("shifts children + parent when children sit past the top-left padding", () => {
@@ -198,15 +218,4 @@ describe("apply_parent_resize", () => {
     expect(top_level.position).toEqual({ x: 0, y: 0 });
   });
 
-  it("leaves children alone when no shift is needed", () => {
-    const nodes: CodeChartNode[] = [
-      module_node("m", 0, 0, 500, 300),
-      fn_node("a", "m", PAD + 50, PAD_TOP + 20, 100, 50),
-    ];
-    const r = expect_present(compute_parent_resize("m", nodes));
-    const updated = apply_parent_resize(nodes, r);
-    const child = expect_present(updated.find(n => n.id === "a"));
-    // Child stays exactly where the user dropped it
-    expect(child.position).toEqual({ x: PAD + 50, y: PAD_TOP + 20 });
-  });
 });

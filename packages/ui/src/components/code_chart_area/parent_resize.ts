@@ -56,15 +56,22 @@ export function compute_parent_resize(
   const pad_side = CONFIG.layout.module.innerPadding;
   const pad_top = pad_side + CONFIG.layout.module.headerHeight;
 
-  // Only shift children + parent when children have spilled past the top or
-  // left padding line. Otherwise, leave them where the user dropped them —
-  // shifting on every inward drag teleports the dropped node.
-  const child_dx = min_x < pad_side ? pad_side - min_x : 0;
-  const child_dy = min_y < pad_top ? pad_top - min_y : 0;
+  // Always shift so the bounding box's top-left sits at (pad_side, pad_top),
+  // and shift the parent inversely so children stay visually stationary.
+  // For child at local cA with parent at absolute X:
+  //   new_absolute = (X + parent_dx) + (cA + child_dx)
+  //                = (X - D)         + (cA + D)            = X + cA
+  // So shifting unconditionally preserves every child's absolute position;
+  // only the parent's border moves. This is required to tighten the left/top
+  // when children are dragged inward (creating slack on those sides) — the
+  // right/bottom shrink automatically via max_x/max_y, but the left/top need
+  // an explicit shift.
+  const child_dx = pad_side - min_x;
+  const child_dy = pad_top - min_y;
 
-  // After (optional) shift, the bounding box's left/top sits at (pad_side, pad_top).
-  // Its right/bottom sits at (max_x + child_dx, max_y + child_dy). The new dims
-  // wrap that with pad_side on right/bottom.
+  // After the shift, the bounding box's left/top sits at (pad_side, pad_top)
+  // and its right/bottom at (max_x + child_dx, max_y + child_dy). Wrap with
+  // pad_side on the right/bottom.
   const new_width = (max_x + child_dx) + pad_side;
   const new_height = (max_y + child_dy) + pad_side;
 
