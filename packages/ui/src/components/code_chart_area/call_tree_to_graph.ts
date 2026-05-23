@@ -3,6 +3,7 @@ import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import { symbol_display_name } from "./symbol_display";
 import { calculateNodeDimensions } from "./graph_layout";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
+import { CONFIG } from "./chart_config";
 import type { ClusterColor } from "./theme_config";
 
 export interface ReactFlowElements {
@@ -66,7 +67,18 @@ export function generateReactFlowElements(
         symbol: node.symbol_id,
       },
       parentId: parent_module_id,
-      extent: parent_module_id ? "parent" : undefined,
+      // CoordinateExtent (in parent-local coords) clamps the child's top edge
+      // below the module's header. `extent: "parent"` is ignored when
+      // expandParent is true, so we'd otherwise have no header guard. We use
+      // a large finite x-range (rather than Infinity) so the value survives
+      // JSON round-trip via state_persistence.
+      extent: parent_module_id
+        ? [
+            [-1e9, CONFIG.layout.module.headerHeight],
+            [1e9, 1e9],
+          ]
+        : undefined,
+      expandParent: parent_module_id ? true : undefined,
     };
 
     // Calculate dimensions
@@ -142,7 +154,6 @@ export function generateReactFlowElements(
         },
         style: {
           borderRadius: "15px",
-          padding: "20px",
           zIndex: -1,
         },
       };

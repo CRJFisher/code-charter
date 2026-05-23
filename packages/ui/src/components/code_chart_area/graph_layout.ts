@@ -23,7 +23,8 @@ const elkOptions: Record<string, string> = {
 };
 
 // Module group internal padding for ELK compound nodes
-const MODULE_PADDING = 40;
+const MODULE_PADDING = CONFIG.layout.module.innerPadding;
+const MODULE_HEADER_HEIGHT = CONFIG.layout.module.headerHeight;
 
 /**
  * Build a hierarchical ELK graph where module nodes contain their children.
@@ -98,7 +99,7 @@ function build_elk_graph(
       id: mod.id,
       layoutOptions: {
         ...elkOptions,
-        'elk.padding': `[top=${MODULE_PADDING + 30},left=${MODULE_PADDING},bottom=${MODULE_PADDING},right=${MODULE_PADDING}]`,
+        'elk.padding': `[top=${MODULE_PADDING + MODULE_HEADER_HEIGHT},left=${MODULE_PADDING},bottom=${MODULE_PADDING},right=${MODULE_PADDING}]`,
       },
       children: children.map(child => ({
         id: child.id,

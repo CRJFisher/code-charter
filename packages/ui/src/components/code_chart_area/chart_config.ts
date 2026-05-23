@@ -29,6 +29,13 @@ const LAYOUT_CONFIG = {
     maxAttempts: 2,
     delayMs: 500,
   },
+  // Module compound-node geometry. innerPadding is the gap between the
+  // module border and its child function nodes on left/right/bottom. The
+  // top gap is innerPadding + headerHeight to leave room for the title bar.
+  module: {
+    innerPadding: 40,
+    headerHeight: 30,
+  },
 } as const;
 
 // Node Configuration

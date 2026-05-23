@@ -21,6 +21,7 @@ import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
 import { applyHierarchicalLayout } from "./graph_layout";
 import { zoomAwareNodeTypes } from "./chart_node_types";
 import { generateReactFlowElements } from "./call_tree_to_graph";
+import { compute_parent_resize, apply_parent_resize } from "./parent_resize";
 import { LoadingIndicator } from "./loading_indicator";
 import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } from "./state_persistence";
 import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
@@ -227,13 +228,26 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     return show ? "visible" : "invisible";
   };
 
-  // Throttle save operations for performance
+  // Throttle save operations for performance (manual Save button)
   const handleSaveState = useThrottle(useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selectedEntryPoint || !instance) return;
 
     const viewport = instance.getViewport();
     saveGraphState(instance.getNodes(), instance.getEdges(), viewport, selectedEntryPoint.symbol_id);
   }, [selectedEntryPoint]), CONFIG.animation.debounce.save);
+
+  // Debounced autosave driven by local state. Reading `nodes`/`edges` directly
+  // (rather than `instance.getNodes()`) avoids a race with React Flow's
+  // internal store: after `setNodes(...)` from a drag-stop resize, the local
+  // state is already the source of truth.
+  const debounced_nodes = useDebounce(nodes, CONFIG.animation.debounce.save);
+  const debounced_edges = useDebounce(edges, CONFIG.animation.debounce.save);
+  useEffect(() => {
+    if (description_status !== DescriptionStatus.Ready) return;
+    if (!selectedEntryPoint || !reactFlowInstance.current) return;
+    const viewport = reactFlowInstance.current.getViewport();
+    saveGraphState(debounced_nodes, debounced_edges, viewport, selectedEntryPoint.symbol_id);
+  }, [debounced_nodes, debounced_edges, description_status, selectedEntryPoint?.symbol_id]);
 
   // Export state to file
   const handleExportState = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
@@ -353,13 +367,19 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             ariaLabel: 'Function call',
           }}
           onInit={onInit}
-          onNodeDragStop={() => {
-            // Auto-save on node position change
-            setTimeout(() => {
-              if (reactFlowInstance.current) {
-                handleSaveState(reactFlowInstance.current);
-              }
-            }, CONFIG.animation.duration.saveDelay);
+          onNodeDragStop={(_evt, node) => {
+            // Shrink-fit the parent module to its children's bounding box.
+            // Children's positions are relative to the parent, so after a drag
+            // there may be slack on the right/bottom that expandParent didn't
+            // remove. Autosave runs separately in the nodes-effect below, so
+            // the saved snapshot reflects the post-resize state.
+            if (node.type !== "code_function") return;
+            const parent_id = node.parentId;
+            if (!parent_id) return;
+            setNodes(current => {
+              const resize = compute_parent_resize(parent_id, current);
+              return resize ? apply_parent_resize(current, resize) : current;
+            });
           }}
           aria-label="Code flow diagram showing function calls and dependencies"
           role="application"
