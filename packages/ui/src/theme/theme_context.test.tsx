@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, act } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { ThemeProviderComponent, useTheme } from './theme_context';
 import { VSCodeThemeProvider } from './vscode_theme_provider';
 import { StandaloneThemeProvider } from './standalone_theme_provider';
@@ -45,7 +45,9 @@ describe('ThemeProviderComponent', () => {
 
   it('throws when useTheme() is used outside the provider', () => {
     // Suppress the React error boundary console output
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {
+      // silence React's expected error log during this test
+    });
 
     expect(() => render(<ThemeConsumer />)).toThrow(
       'useTheme must be used within a ThemeProvider'

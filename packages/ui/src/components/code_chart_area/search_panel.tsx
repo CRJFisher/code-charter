@@ -288,7 +288,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 textAlign: 'center',
                 color: '#666',
               }}>
-                No results found for "{query}"
+                No results found for &ldquo;{query}&rdquo;
               </div>
             )}
 

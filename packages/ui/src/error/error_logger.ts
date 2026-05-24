@@ -1,17 +1,21 @@
+type Severity = 'info' | 'warning' | 'error' | 'critical';
+
+interface ErrorEntry {
+  timestamp: number;
+  error: Error;
+  context?: unknown;
+  severity: Severity;
+}
+
 export class ErrorLogger {
-  private errors: Array<{
-    timestamp: number;
-    error: Error;
-    context?: any;
-    severity: 'info' | 'warning' | 'error' | 'critical';
-  }> = [];
+  private errors: ErrorEntry[] = [];
   private maxErrors: number;
 
-  constructor(maxErrors: number = 100) {
+  constructor(maxErrors = 100) {
     this.maxErrors = maxErrors;
   }
 
-  log(error: Error, severity: 'info' | 'warning' | 'error' | 'critical' = 'error', context?: any) {
+  log(error: Error, severity: Severity = 'error', context?: unknown) {
     const errorEntry = {
       timestamp: Date.now(),
       error,

@@ -62,7 +62,7 @@ export interface ClusterSummary {
 export function generate_cluster_summaries(
   clusters: string[][],
   docstrings: Record<string, string>,
-  max_terms: number = 5
+  max_terms = 5
 ): ClusterSummary[] {
   // Build global term frequency across all clusters
   const global_freq = new Map<string, number>();

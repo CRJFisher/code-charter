@@ -25,7 +25,7 @@ jest.mock('./editor_navigation', () => ({
 let mock_zoom = 0.5;
 jest.mock('@xyflow/react', () => ({
   ...jest.requireActual('@xyflow/react'),
-  useStore: jest.fn((selector: (state: any) => any) => {
+  useStore: jest.fn((selector: (state: { transform: number[]; nodes: unknown[] }) => unknown) => {
     const mock_state = { transform: [0, 0, mock_zoom], nodes: [] };
     return selector(mock_state);
   }),

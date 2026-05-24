@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 
 // Hook for throttling function calls
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number
 ): T {

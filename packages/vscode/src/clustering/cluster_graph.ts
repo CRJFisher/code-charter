@@ -50,7 +50,7 @@ export function get_cluster_depth_levels(
   cluster_graph: ClusterGraph,
   visited_nodes: Set<string> = new Set(),
   cluster_id_depth_levels: Record<string, Set<number>> = {},
-  depth: number = 0
+  depth = 0
 ): Record<string, Set<number>> {
   if (cluster_id_depth_levels[start_cluster_id] === undefined) {
     cluster_id_depth_levels[start_cluster_id] = new Set();

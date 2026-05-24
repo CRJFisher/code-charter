@@ -2,6 +2,10 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CONFIG } from '../components/code_chart_area/chart_config';
 import { useFlowThemeStyles } from '../components/code_chart_area/use_chart_theme_styles';
 
+function noop_retry(): void {
+  // intentionally empty — used when retries are exhausted but the fallback still needs a callable
+}
+
 export interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -66,7 +70,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         return this.props.fallback(
           this.state.error,
           info,
-          canRetry ? this.retry : () => {}
+          canRetry ? this.retry : noop_retry
         );
       }
 

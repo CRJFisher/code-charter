@@ -1,16 +1,21 @@
-import { pipeline } from "@huggingface/transformers";
+import { pipeline as load_pipeline, FeatureExtractionPipeline } from "@huggingface/transformers";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 
 export interface EmbeddingProvider {
-  getEmbeddings(texts: string[]): Promise<number[][]>;
+  get_embeddings(texts: string[]): Promise<number[][]>;
 }
 
+const load_feature_extractor = load_pipeline as (
+  task: "feature-extraction",
+  model: string,
+) => Promise<FeatureExtractionPipeline>;
+
 export class LocalEmbeddingsProvider implements EmbeddingProvider {
-  private static MODEL_ID = "Xenova/all-MiniLM-L6-v2";
-  private static CACHE_DIR_NAME = "code-charter-models";
-  private _pipeline: any = null;
+  private static readonly MODEL_ID = "Xenova/all-MiniLM-L6-v2";
+  private static readonly CACHE_DIR_NAME = "code-charter-models";
+  private pipeline: FeatureExtractionPipeline | null = null;
   private initialization_promise: Promise<void> | null = null;
 
   constructor(
@@ -44,7 +49,7 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
   }
 
   private async initialize_pipeline(): Promise<void> {
-    if (this._pipeline) {
+    if (this.pipeline) {
       return;
     }
 
@@ -52,11 +57,11 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
       return this.initialization_promise;
     }
 
-    this.initialization_promise = this._do_initialize();
+    this.initialization_promise = this.do_initialize();
     return this.initialization_promise;
   }
 
-  private async _do_initialize(): Promise<void> {
+  private async do_initialize(): Promise<void> {
     try {
       this.progress_callback?.("Initializing local embeddings model...", 0);
 
@@ -68,7 +73,7 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
         20
       );
 
-      this._pipeline = await pipeline(
+      this.pipeline = await load_feature_extractor(
         "feature-extraction",
         LocalEmbeddingsProvider.MODEL_ID
       );
@@ -80,10 +85,10 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
     }
   }
 
-  async getEmbeddings(texts: string[]): Promise<number[][]> {
+  async get_embeddings(texts: string[]): Promise<number[][]> {
     await this.initialize_pipeline();
 
-    if (!this._pipeline) {
+    if (!this.pipeline) {
       throw new Error("Pipeline not initialized");
     }
 
@@ -94,12 +99,12 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
       for (let i = 0; i < texts.length; i += batch_size) {
         const batch = texts.slice(i, Math.min(i + batch_size, texts.length));
 
-        const output = await this._pipeline(batch, {
+        const output = await this.pipeline(batch, {
           pooling: "mean",
           normalize: true,
         });
 
-        const embeddings = await output.tolist();
+        const embeddings = (await output.tolist()) as number[][];
         all_embeddings.push(...embeddings);
 
         if (texts.length > batch_size && this.progress_callback) {

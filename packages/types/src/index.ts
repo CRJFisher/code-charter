@@ -10,6 +10,9 @@ export * from './theme';
 // Export clustering types
 export * from './clustering';
 
+// Export docstring helper
+export { get_docstring } from './docstring';
+
 // Re-export commonly used types from ariadnejs
 export type { CallableNode, CallGraph, CallReference, IndirectReachability, SymbolId, SymbolName, AnyDefinition } from '@ariadnejs/types';
 

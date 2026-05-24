@@ -3,12 +3,12 @@ import React, { useEffect, useState } from "react";
 import Sidebar from "./side_bar";
 import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area";
 import { useBackend } from "../hooks/use_backend";
-import { DocstringSummaries, NodeGroup, CallGraph, CallableNode } from "@code-charter/types";
+import { DocstringSummaries, NodeGroup, CallGraph, CallableNode, CodeCharterBackend } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
 import { ThemeSwitcher } from "../theme";
 
 async function detect_entry_points(
-  backend: any,
+  backend: CodeCharterBackend,
   set_call_graph: React.Dispatch<React.SetStateAction<CallGraph | null>>,
   set_status_message: React.Dispatch<React.SetStateAction<CodeIndexStatus>>
 ) {
@@ -25,18 +25,20 @@ async function detect_entry_points(
   set_status_message(CodeIndexStatus.Ready);
 }
 
+type DescriptionsPromise = Promise<DocstringSummaries | undefined>;
+
 async function fetch_descriptions(
-  backend: any,
+  backend: CodeCharterBackend,
   node_symbol: string,
-  ongoing_tasks: Map<string, Promise<any>>,
-  set_ongoing_descriptions: React.Dispatch<React.SetStateAction<Map<string, Promise<any>>>>
-): Promise<any> {
-  if (ongoing_tasks.has(node_symbol)) {
-    return ongoing_tasks.get(node_symbol);
+  ongoing_tasks: Map<string, DescriptionsPromise>,
+  set_ongoing_descriptions: React.Dispatch<React.SetStateAction<Map<string, DescriptionsPromise>>>
+): DescriptionsPromise {
+  const in_flight = ongoing_tasks.get(node_symbol);
+  if (in_flight) {
+    return in_flight;
   }
 
   const promise = backend.get_code_tree_descriptions(node_symbol)
-    .then((descriptions: DocstringSummaries) => descriptions)
     .finally(() =>
       set_ongoing_descriptions((ongoing_descriptions) => {
         ongoing_descriptions.delete(node_symbol);
@@ -50,15 +52,14 @@ async function fetch_descriptions(
 
 export interface AppProps {
   className?: string;
-  forceStandalone?: boolean;
 }
 
-export const App: React.FC<AppProps> = ({ className = "", forceStandalone = false }) => {
+export const App: React.FC<AppProps> = ({ className = "" }) => {
   const { backend } = useBackend();
   const [call_graph, set_call_graph] = useState<CallGraph | null>(null);
   const [selected_entry_point, set_selected_entry_point] = useState<CallableNode | null>(null);
   const [status_message, set_status_message] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
-  const [ongoing_descriptions, set_ongoing_descriptions] = useState<Map<string, Promise<any>>>(new Map());
+  const [ongoing_descriptions, set_ongoing_descriptions] = useState<Map<string, DescriptionsPromise>>(new Map());
 
   useEffect(() => {
     detect_entry_points(backend, set_call_graph, set_status_message);

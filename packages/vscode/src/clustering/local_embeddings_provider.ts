@@ -1,42 +1,45 @@
-import { pipeline } from '@huggingface/transformers';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
+import { pipeline as load_pipeline, FeatureExtractionPipeline } from "@huggingface/transformers";
+import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
 
 export interface EmbeddingProvider {
-    getEmbeddings(texts: string[]): Promise<number[][]>;
+    get_embeddings(texts: string[]): Promise<number[][]>;
 }
 
+const load_feature_extractor = load_pipeline as (
+    task: "feature-extraction",
+    model: string,
+) => Promise<FeatureExtractionPipeline>;
+
 export class LocalEmbeddingsProvider implements EmbeddingProvider {
-    private static MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
-    private static CACHE_DIR_NAME = 'code-charter-models';
-    private pipeline: any = null; // Type is complex, using any for now
-    private initializationPromise: Promise<void> | null = null;
+    private static readonly MODEL_ID = "Xenova/all-MiniLM-L6-v2";
+    private static readonly CACHE_DIR_NAME = "code-charter-models";
+    private pipeline: FeatureExtractionPipeline | null = null;
+    private initialization_promise: Promise<void> | null = null;
 
     constructor(
-        private progressCallback?: (message: string, increment?: number) => void
+        private progress_callback?: (message: string, increment?: number) => void,
     ) {}
 
     private get_cache_dir(): string {
-        // Use OS-specific cache directory
         const home_dir = os.homedir();
         let cache_base: string;
-        
-        if (process.platform === 'win32') {
-            cache_base = process.env.LOCALAPPDATA || path.join(home_dir, 'AppData', 'Local');
-        } else if (process.platform === 'darwin') {
-            cache_base = path.join(home_dir, 'Library', 'Caches');
+
+        if (process.platform === "win32") {
+            cache_base = process.env.LOCALAPPDATA || path.join(home_dir, "AppData", "Local");
+        } else if (process.platform === "darwin") {
+            cache_base = path.join(home_dir, "Library", "Caches");
         } else {
-            cache_base = process.env.XDG_CACHE_HOME || path.join(home_dir, '.cache');
+            cache_base = process.env.XDG_CACHE_HOME || path.join(home_dir, ".cache");
         }
-        
+
         const cache_dir = path.join(cache_base, LocalEmbeddingsProvider.CACHE_DIR_NAME);
-        
-        // Ensure directory exists
+
         if (!fs.existsSync(cache_dir)) {
             fs.mkdirSync(cache_dir, { recursive: true });
         }
-        
+
         return cache_dir;
     }
 
@@ -45,72 +48,66 @@ export class LocalEmbeddingsProvider implements EmbeddingProvider {
             return;
         }
 
-        if (this.initializationPromise) {
-            return this.initializationPromise;
+        if (this.initialization_promise) {
+            return this.initialization_promise;
         }
 
-        this.initializationPromise = this._do_initialize();
-        return this.initializationPromise;
+        this.initialization_promise = this.do_initialize();
+        return this.initialization_promise;
     }
 
-    private async _do_initialize(): Promise<void> {
+    private async do_initialize(): Promise<void> {
         try {
-            this.progressCallback?.('Initializing local embeddings model...', 0);
-            
+            this.progress_callback?.("Initializing local embeddings model...", 0);
+
             const cache_dir = this.get_cache_dir();
-            
-            // Set environment variable for Transformers.js cache
             process.env.TRANSFORMERS_CACHE = cache_dir;
-            
-            this.progressCallback?.('Loading model (this may take a few minutes on first run)...', 20);
-            
-            // Create the pipeline
-            // Note: progress_callback might not be supported in newer versions
-            this.pipeline = await pipeline('feature-extraction', LocalEmbeddingsProvider.MODEL_ID);
-            
-            this.progressCallback?.('Model loaded successfully!', 100);
+
+            this.progress_callback?.("Loading model (this may take a few minutes on first run)...", 20);
+
+            this.pipeline = await load_feature_extractor(
+                "feature-extraction",
+                LocalEmbeddingsProvider.MODEL_ID,
+            );
+
+            this.progress_callback?.("Model loaded successfully!", 100);
         } catch (error) {
-            this.progressCallback?.('Failed to load local embeddings model', 100);
+            this.progress_callback?.("Failed to load local embeddings model", 100);
             throw new Error(`Failed to initialize local embeddings: ${error}`);
         }
     }
 
-    async getEmbeddings(texts: string[]): Promise<number[][]> {
+    async get_embeddings(texts: string[]): Promise<number[][]> {
         await this.initialize_pipeline();
-        
+
         if (!this.pipeline) {
-            throw new Error('Pipeline not initialized');
+            throw new Error("Pipeline not initialized");
         }
 
         try {
-            // Process texts in batches to avoid memory issues
             const batch_size = 32;
             const all_embeddings: number[][] = [];
-            
+
             for (let i = 0; i < texts.length; i += batch_size) {
                 const batch = texts.slice(i, Math.min(i + batch_size, texts.length));
-                
-                // Generate embeddings with mean pooling and normalization
-                const output = await this.pipeline(batch, { 
-                    pooling: 'mean', 
-                    normalize: true 
+
+                const output = await this.pipeline(batch, {
+                    pooling: "mean",
+                    normalize: true,
                 });
-                
-                // Convert tensor to array
-                const embeddings = await output.tolist();
+
+                const embeddings = (await output.tolist()) as number[][];
                 all_embeddings.push(...embeddings);
-                
-                // Report progress if processing many texts
-                if (texts.length > batch_size && this.progressCallback) {
-                    const progress = Math.round((i + batch.length) / texts.length * 100);
-                    this.progressCallback(`Processing embeddings: ${progress}%`);
+
+                if (texts.length > batch_size && this.progress_callback) {
+                    const progress = Math.round(((i + batch.length) / texts.length) * 100);
+                    this.progress_callback(`Processing embeddings: ${progress}%`);
                 }
             }
-            
+
             return all_embeddings;
         } catch (error) {
             throw new Error(`Failed to generate embeddings: ${error}`);
         }
     }
-
 }

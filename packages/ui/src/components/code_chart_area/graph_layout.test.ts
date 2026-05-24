@@ -1,10 +1,14 @@
 import { applyHierarchicalLayout, calculateNodeDimensions, clearLayoutCaches } from "./graph_layout";
-import { Node, Edge } from "@xyflow/react";
+import { Edge } from "@xyflow/react";
 import { CodeChartNode } from "./chart_types";
-import ELK from "elkjs/lib/elk.bundled";
+import ELK, { ElkNode } from "elkjs/lib/elk.bundled";
 
 // Mock ELK
 jest.mock("elkjs/lib/elk.bundled");
+
+const not_used = (): never => {
+  throw new Error('not used in test');
+};
 
 describe("graph_layout", () => {
   const mockELK = ELK as jest.MockedClass<typeof ELK>;
@@ -13,21 +17,24 @@ describe("graph_layout", () => {
     jest.clearAllMocks();
     clearLayoutCaches();
     // Default mock implementation that returns the layout based on input
-    mockELK.mockImplementation((() => ({
-      layout: jest.fn((graph: any) => {
-        // Return a layout result based on the input graph
-        return Promise.resolve({
-          id: graph.id || 'root',
-          children: (graph.children || []).map((child: any, index: number) => ({
-            id: child.id,
-            x: 100,
-            y: 50 + index * 100,
-            width: child.width || 200,
-            height: child.height || 80,
-          })),
-        });
-      }),
-    })) as any);
+    const layout_mock = jest.fn((graph: ElkNode) => Promise.resolve({
+      id: graph.id || 'root',
+      children: (graph.children || []).map((child: ElkNode, index: number) => ({
+        id: child.id,
+        x: 100,
+        y: 50 + index * 100,
+        width: child.width || 200,
+        height: child.height || 80,
+      })),
+    }));
+    const stub_instance: InstanceType<typeof ELK> = {
+      layout: layout_mock as InstanceType<typeof ELK>['layout'],
+      knownLayoutAlgorithms: not_used,
+      knownLayoutOptions: not_used,
+      knownLayoutCategories: not_used,
+      terminateWorker: not_used,
+    };
+    mockELK.mockImplementation(() => stub_instance);
   });
 
   describe("calculateNodeDimensions", () => {
@@ -144,18 +151,21 @@ describe("graph_layout", () => {
     });
 
     it("should preserve node data and other properties", async () => {
-      const nodes = [
+      const nodes: CodeChartNode[] = [
         {
           id: "node1",
           position: { x: 0, y: 0 },
           data: {
             function_name: "func1",
             description: "Description 1",
+            file_path: "/test/file.ts",
+            line_number: 1,
+            symbol: "test::func1",
             custom_field: "value",
           },
-          type: "custom",
+          type: "code_function",
         },
-      ] as unknown as CodeChartNode[];
+      ];
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       const layoutedNodes = await applyHierarchicalLayout(nodes, []);
@@ -213,9 +223,14 @@ describe("graph_layout", () => {
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       
       // Make ELK throw an error
-      mockELK.mockImplementationOnce((() => ({
+      const failing_instance: InstanceType<typeof ELK> = {
         layout: jest.fn().mockRejectedValue(new Error("Layout failed")),
-      })) as any);
+        knownLayoutAlgorithms: not_used,
+        knownLayoutOptions: not_used,
+        knownLayoutCategories: not_used,
+        terminateWorker: not_used,
+      };
+      mockELK.mockImplementationOnce(() => failing_instance);
 
       const result = await applyHierarchicalLayout(nodes, []);
       

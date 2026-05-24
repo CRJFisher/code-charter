@@ -1,21 +1,19 @@
 import { Project } from "@ariadnejs/core";
-import type { CallableNode } from "@ariadnejs/types";
+import type { CallableNode, FilePath } from "@ariadnejs/types";
 import type {
   ClusterSummariesFile,
   ClusterSummaryEntry,
   CacheFile,
-  DocstringInfo,
 } from "@code-charter/types";
+import { get_docstring } from "@code-charter/types";
 import { LocalEmbeddingsProvider } from "./local_embeddings_provider";
 import { ClusteringService } from "./clustering_service";
 import { FsCacheStorage } from "./fs_cache_storage";
-import { RegexDocstringProvider } from "./regex_docstring_provider";
 import { compute_content_hash, compute_source_hash } from "./content_hash";
 import { generate_cluster_summaries } from "./heuristic_summarizer";
 import { ProgressReporter } from "./progress";
 import * as fs from "fs";
 import * as path from "path";
-import * as crypto from "crypto";
 
 const SKIP_DIRS = new Set([
   "node_modules",
@@ -91,13 +89,17 @@ function build_cluster_dependencies(
     const source_cluster = symbol_to_cluster.get(symbol);
     if (source_cluster === undefined) continue;
 
+    const source_depends_on = depends_on.get(source_cluster);
+    if (!source_depends_on) continue;
+
     for (const call of node.enclosed_calls) {
       for (const resolution of call.resolutions) {
         const target_cluster = symbol_to_cluster.get(resolution.symbol_id);
-        if (target_cluster !== undefined && target_cluster !== source_cluster) {
-          depends_on.get(source_cluster)!.add(target_cluster);
-          depended_on_by.get(target_cluster)!.add(source_cluster);
-        }
+        if (target_cluster === undefined || target_cluster === source_cluster) continue;
+        const target_depended_on_by = depended_on_by.get(target_cluster);
+        if (!target_depended_on_by) continue;
+        source_depends_on.add(target_cluster);
+        target_depended_on_by.add(source_cluster);
       }
     }
   }
@@ -109,7 +111,7 @@ function build_cluster_dependencies(
  * Run the full code-charter init pipeline on a target directory.
  *
  * 1. Scan source files and build call graph via @ariadnejs/core
- * 2. Extract docstrings with RegexDocstringProvider
+ * 2. Read native docstrings from each CallableNode's definition
  * 3. Generate embeddings with LocalEmbeddingsProvider
  * 4. Run spectral clustering via clustering-tfjs
  * 5. Generate heuristic cluster descriptions
@@ -144,7 +146,7 @@ export async function run_init(target_dir: string): Promise<void> {
   for (const file_path of source_files) {
     const content = fs.readFileSync(file_path, "utf-8");
     const relative_path = path.relative(resolved_dir, file_path);
-    project.update_file(relative_path as any, content);
+    project.update_file(relative_path as FilePath, content);
     file_contents.set(relative_path, content);
   }
 
@@ -156,28 +158,18 @@ export async function run_init(target_dir: string): Promise<void> {
 
   progress.detail(`Call graph: ${Object.keys(call_tree).length} symbols`);
 
-  // Step 2: Extract docstrings
-  progress.report("Extracting docstrings...");
-  const docstring_provider = new RegexDocstringProvider();
+  // Step 2: Read docstrings from ariadne's native extraction
+  progress.report("Reading docstrings...");
   const docstrings: Record<string, string> = {};
   let documented_count = 0;
 
-  for (const [relative_path, content] of file_contents) {
-    const file_docstrings = docstring_provider.get_docstrings(relative_path, content);
-
-    for (const [symbol_name, info] of file_docstrings) {
-      // Only include symbols that exist in the call graph
-      if (call_tree[symbol_name]) {
-        docstrings[symbol_name] = info.body;
-        documented_count++;
-      }
-    }
-  }
-
-  // Add fallback descriptions for undocumented symbols
-  for (const symbol of Object.keys(call_tree)) {
-    if (!docstrings[symbol]) {
-      docstrings[symbol] = symbol;
+  for (const [symbol_id, node] of Object.entries(call_tree)) {
+    const docstring = get_docstring(node.definition);
+    if (docstring) {
+      docstrings[symbol_id] = docstring;
+      documented_count++;
+    } else {
+      docstrings[symbol_id] = node.name;
     }
   }
 
@@ -249,7 +241,7 @@ export async function run_init(target_dir: string): Promise<void> {
   progress.detail(`Wrote ${summaries_path}`);
 
   // Write .code-charter/cache.json (gitignored)
-  const all_embeddings = await embeddings_provider.getEmbeddings(
+  const all_embeddings = await embeddings_provider.get_embeddings(
     Object.values(docstrings)
   );
   const symbols = Object.keys(docstrings);

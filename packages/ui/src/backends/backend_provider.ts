@@ -9,11 +9,10 @@ export enum BackendType {
 
 export interface BackendConfig {
   type: BackendType;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
-// Global declaration for VSCode API detection
-declare const acquireVsCodeApi: any;
+declare const acquireVsCodeApi: unknown;
 
 export function detect_backend_config(): BackendConfig {
   if (typeof acquireVsCodeApi !== "undefined") {

@@ -1,4 +1,5 @@
 import { MockBackend } from './mock_backend';
+import type { SymbolId } from '@code-charter/types';
 
 describe('MockBackend', () => {
   let backend: MockBackend;
@@ -10,19 +11,20 @@ describe('MockBackend', () => {
   describe('getCallGraph', () => {
     it('returns a call graph with nodes and entry_points', async () => {
       const result = await backend.getCallGraph();
-      expect(result).toBeDefined();
-      expect(result!.nodes).toBeInstanceOf(Map);
-      expect(result!.nodes.size).toBe(3);
-      expect(result!.entry_points.length).toBe(1);
+      if (!result) throw new Error('expected call graph');
+      expect(result.nodes).toBeInstanceOf(Map);
+      expect(result.nodes.size).toBe(3);
+      expect(result.entry_points.length).toBe(1);
     });
 
     it('returns nodes with correct structure', async () => {
       const result = await backend.getCallGraph();
-      const main_node = result!.nodes.get('main.ts:main' as any);
-      expect(main_node).toBeDefined();
-      expect(main_node!.symbol_id).toBe('main.ts:main');
-      expect(main_node!.definition).toBeDefined();
-      expect(main_node!.enclosed_calls.length).toBe(2);
+      if (!result) throw new Error('expected call graph');
+      const main_node = result.nodes.get('main.ts:main' as SymbolId);
+      if (!main_node) throw new Error('expected main node');
+      expect(main_node.symbol_id).toBe('main.ts:main');
+      expect(main_node.definition).toBeDefined();
+      expect(main_node.enclosed_calls.length).toBe(2);
     });
   });
 
@@ -39,10 +41,10 @@ describe('MockBackend', () => {
   describe('get_code_tree_descriptions', () => {
     it('returns docstring descriptions for a function', async () => {
       const result = await backend.get_code_tree_descriptions('main.ts:main');
-      expect(result).toBeDefined();
-      expect(result!.docstrings).toBeDefined();
-      expect(result!.call_tree).toBeDefined();
-      expect(result!.docstrings['main.ts:main']).toBeDefined();
+      if (!result) throw new Error('expected descriptions');
+      expect(result.docstrings).toBeDefined();
+      expect(result.call_tree).toBeDefined();
+      expect(result.docstrings['main.ts:main']).toBeDefined();
     });
   });
 

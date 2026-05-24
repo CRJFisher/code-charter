@@ -1,5 +1,3 @@
-import { SearchPanel } from './search_panel';
-
 describe('Search Logic', () => {
   describe('Fuzzy Matching', () => {
     // Extract the fuzzy match logic for testing
@@ -49,7 +47,7 @@ describe('Search Logic', () => {
   });
 
   describe('Search Scoring', () => {
-    const calculateScore = (query: string, name: string, description: string = ''): number => {
+    const calculateScore = (query: string, name: string, description = ''): number => {
       const lowerQuery = query.toLowerCase();
       const lowerName = name.toLowerCase();
       const lower_description = description.toLowerCase();
@@ -130,11 +128,18 @@ describe('Search Logic', () => {
       },
     ];
 
-    const filterNodes = (nodes: any[], query: string, maxResults: number = 10) => {
+    type MockNode = {
+      id: string;
+      type: string;
+      data: { function_name?: string; module_name?: string; description?: string };
+    };
+    type MockResult = { nodeId: string; nodeName: string; nodeType: string };
+
+    const filterNodes = (nodes: MockNode[], query: string, maxResults = 10): MockResult[] => {
       if (!query.trim()) return [];
-      
+
       const lowerQuery = query.toLowerCase();
-      const results: any[] = [];
+      const results: MockResult[] = [];
       
       nodes.forEach(node => {
         const name = node.data.function_name || node.data.module_name || '';

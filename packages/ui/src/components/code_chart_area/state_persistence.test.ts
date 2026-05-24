@@ -6,22 +6,36 @@ import {
   importGraphState,
   GraphState
 } from "./state_persistence";
-import { Edge, Viewport } from "@xyflow/react";
+import { Viewport } from "@xyflow/react";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
 
 describe("state_persistence", () => {
-  const mockNodes = [
+  const mockNodes: CodeChartNode[] = [
     {
       id: "node1",
       position: { x: 100, y: 100 },
-      data: { label: "Node 1" },
+      type: "code_function",
+      data: {
+        function_name: "Node 1",
+        description: "",
+        file_path: "/test/n1.ts",
+        line_number: 1,
+        symbol: "test::n1",
+      },
     },
     {
       id: "node2",
       position: { x: 200, y: 200 },
-      data: { label: "Node 2" },
+      type: "code_function",
+      data: {
+        function_name: "Node 2",
+        description: "",
+        file_path: "/test/n2.ts",
+        line_number: 1,
+        symbol: "test::n2",
+      },
     },
-  ] as unknown as CodeChartNode[];
+  ];
 
   const mockEdges: CodeChartEdge[] = [
     {
@@ -195,7 +209,7 @@ describe("state_persistence", () => {
         setAttribute: jest.fn(),
         click: clickSpy,
       };
-      createElementSpy.mockReturnValue(mockLink as any);
+      createElementSpy.mockReturnValue(mockLink as Partial<HTMLAnchorElement> as HTMLAnchorElement);
       
       exportGraphState(mockNodes, mockEdges, mockViewport, entryPoint);
       
@@ -217,7 +231,7 @@ describe("state_persistence", () => {
         setAttribute: jest.fn(),
         click: jest.fn(),
       };
-      createElementSpy.mockReturnValue(mockLink as any);
+      createElementSpy.mockReturnValue(mockLink as Partial<HTMLAnchorElement> as HTMLAnchorElement);
       
       exportGraphState(mockNodes, mockEdges, mockViewport, "test::func/with<>special*chars");
       
@@ -229,12 +243,14 @@ describe("state_persistence", () => {
   });
 
   describe("importGraphState", () => {
-    let mockFileReader: {
-      onload: ((e: any) => void) | null;
+    interface MockFileReader {
+      onload: ((e: { target: { result: string } }) => void) | null;
       onerror: (() => void) | null;
       readAsText: jest.Mock;
       result?: string;
-    };
+    }
+
+    let mockFileReader: MockFileReader;
 
     beforeEach(() => {
       mockFileReader = {
@@ -243,9 +259,14 @@ describe("state_persistence", () => {
         readAsText: jest.fn(),
         result: undefined,
       };
-      
-      // Mock FileReader constructor
-      (global as any).FileReader = jest.fn(() => mockFileReader);
+
+      // Mock FileReader constructor on globalThis. The full DOM type chain
+      // is too rich to satisfy here, so install via defineProperty.
+      Object.defineProperty(globalThis, 'FileReader', {
+        configurable: true,
+        writable: true,
+        value: jest.fn(() => mockFileReader),
+      });
     });
 
     it("should successfully import valid graph state", (done) => {
@@ -269,7 +290,7 @@ describe("state_persistence", () => {
       // Simulate file read completion
       mockFileReader.readAsText(file);
       mockFileReader.result = JSON.stringify(validState);
-      mockFileReader.onload?.({ target: { result: JSON.stringify(validState) } } as any);
+      mockFileReader.onload?.({ target: { result: JSON.stringify(validState) } });
 
       expect(onError).not.toHaveBeenCalled();
     });
@@ -285,7 +306,7 @@ describe("state_persistence", () => {
       importGraphState(file, onSuccess, onError);
 
       mockFileReader.readAsText(file);
-      mockFileReader.onload?.({ target: { result: "invalid json" } } as any);
+      mockFileReader.onload?.({ target: { result: "invalid json" } });
 
       expect(onSuccess).not.toHaveBeenCalled();
     });
@@ -306,7 +327,7 @@ describe("state_persistence", () => {
       importGraphState(file, onSuccess, onError);
 
       mockFileReader.readAsText(file);
-      mockFileReader.onload?.({ target: { result: JSON.stringify(invalidState) } } as any);
+      mockFileReader.onload?.({ target: { result: JSON.stringify(invalidState) } });
 
       expect(onSuccess).not.toHaveBeenCalled();
     });
@@ -349,9 +370,10 @@ describe("state_persistence", () => {
 
         importGraphState(file, onSuccess, onError);
 
-        const reader = (FileReader as any).mock.results[index].value;
+        const reader_mock = jest.mocked(FileReader);
+        const reader = reader_mock.mock.results[index].value as MockFileReader;
         reader.readAsText(file);
-        reader.onload?.({ target: { result: JSON.stringify(invalidState) } } as any);
+        reader.onload?.({ target: { result: JSON.stringify(invalidState) } });
 
         expect(onSuccess).not.toHaveBeenCalled();
         expect(onError).toHaveBeenCalledWith("Invalid graph state file");

@@ -1,9 +1,21 @@
-// Layout cache for memoization
-export class LayoutCache {
-  private cache = new Map<string, any>();
+interface LayoutInputNode {
+  id: string;
+  width?: number;
+  height?: number;
+  parentId?: string;
+}
+
+interface LayoutInputEdge {
+  source: string;
+  target: string;
+}
+
+// LRU cache keyed by graph topology + dimensions; values are layout outputs.
+export class LayoutCache<T = unknown> {
+  private cache = new Map<string, T>();
   private maxSize = 50;
 
-  generateKey(nodes: any[], edges: any[]): string {
+  generateKey(nodes: LayoutInputNode[], edges: LayoutInputEdge[]): string {
     // Key captures layout inputs only: IDs, dimensions, parent relationships.
     // Positions are excluded because they are layout outputs.
     const nodeKey = nodes
@@ -17,7 +29,7 @@ export class LayoutCache {
     return `${nodeKey}__${edgeKey}`;
   }
 
-  get(key: string): any | null {
+  get(key: string): T | null {
     const value = this.cache.get(key);
     if (value === undefined) {
       return null;
@@ -28,7 +40,7 @@ export class LayoutCache {
     return value;
   }
 
-  set(key: string, value: any): void {
+  set(key: string, value: T): void {
     // Delete existing entry first to avoid spurious eviction when updating
     if (this.cache.has(key)) {
       this.cache.delete(key);

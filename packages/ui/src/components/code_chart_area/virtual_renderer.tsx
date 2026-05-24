@@ -2,13 +2,20 @@ import React, { useMemo } from 'react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 import { CONFIG } from './chart_config';
 
+interface ViewportNode {
+  id: string;
+  position: { x: number; y: number };
+  width?: number;
+  height?: number;
+}
+
 // Virtualization helper to determine visible nodes
 export function getVisibleNodes(
-  nodes: any[],
+  nodes: ViewportNode[],
   viewport: { x: number; y: number; zoom: number },
   containerWidth: number,
   containerHeight: number,
-  buffer: number = 100
+  buffer = 100
 ): Set<string> {
   const visibleNodeIds = new Set<string>();
 
@@ -115,10 +122,10 @@ export interface ViewportIndicatorProps {
   onClick?: () => void;
 }
 
-export const ViewportIndicator: React.FC<ViewportIndicatorProps> = React.memo(({ 
-  direction, 
-  count, 
-  onClick 
+const ViewportIndicatorImpl: React.FC<ViewportIndicatorProps> = ({
+  direction,
+  count,
+  onClick,
 }) => {
   if (count === 0) return null;
   
@@ -145,7 +152,9 @@ export const ViewportIndicator: React.FC<ViewportIndicatorProps> = React.memo(({
       {count} nodes {getArrow(direction)}
     </div>
   );
-});
+};
+ViewportIndicatorImpl.displayName = 'ViewportIndicator';
+export const ViewportIndicator = React.memo(ViewportIndicatorImpl);
 
 function getPositionStyle(direction: string): React.CSSProperties {
   switch (direction) {

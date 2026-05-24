@@ -7,8 +7,8 @@ import { CONFIG } from './chart_config';
 const elk = new ELK();
 
 // Create cache instances
-const layoutCache = new LayoutCache();
-const dimensionCache = new LayoutCache();
+const layoutCache = new LayoutCache<CodeChartNode[]>();
+const dimensionCache = new LayoutCache<{ width: number; height: number }>();
 
 // ELK layout options from configuration
 const elkOptions: Record<string, string> = {

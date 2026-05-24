@@ -19,14 +19,14 @@ export function useFlowThemeStyles() {
     isDark,
     
     // Utility functions for common style patterns
-    getNodeStyle: (selected: boolean = false, isEntryPoint: boolean = false) => ({
+    getNodeStyle: (selected = false, isEntryPoint = false) => ({
       backgroundColor: isEntryPoint ? colors.node.background.entryPoint : colors.node.background.default,
       border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px solid ${selected ? colors.node.border.selected : colors.node.border.default}`,
       color: colors.node.text.default,
       transition: 'all 0.3s ease',
     }),
     
-    getEdgeStyle: (selected: boolean = false) => ({
+    getEdgeStyle: (selected = false) => ({
       stroke: selected ? colors.edge.strokeSelected : colors.edge.stroke,
       strokeWidth: 2,
     }),

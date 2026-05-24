@@ -1,7 +1,7 @@
 import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { useStore, ReactFlowState } from "@xyflow/react";
-import { CodeFunctionNode, CodeNodeData } from "./code_function_node";
+import { CodeFunctionNode } from "./code_function_node";
 import { navigateToFile } from "./editor_navigation";
 import { CONFIG } from "./chart_config";
 import { useFlowThemeStyles } from "./use_chart_theme_styles";

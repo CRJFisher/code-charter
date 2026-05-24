@@ -8,6 +8,7 @@ import {
   type ClusterEvaluation as LibClusterEvaluation,
   type FindOptimalClustersOptions,
 } from "clustering-tfjs";
+import * as tf from "@tensorflow/tfjs-node";
 import type {
   ClusteringConfig,
   ClusteringResult,
@@ -19,15 +20,10 @@ import type {
  * Log TF.js memory usage for diagnostics.
  */
 function log_memory(label: string): void {
-  try {
-    const tf = require("@tensorflow/tfjs-node");
-    const mem = tf.memory();
-    console.log(
-      `[clustering-adapter] ${label}: tensors=${mem.numTensors}, bytes=${mem.numBytes}`
-    );
-  } catch {
-    // tfjs-node not available, skip memory logging
-  }
+  const mem = tf.memory();
+  console.log(
+    `[clustering-adapter] ${label}: tensors=${mem.numTensors}, bytes=${mem.numBytes}`
+  );
 }
 
 /**

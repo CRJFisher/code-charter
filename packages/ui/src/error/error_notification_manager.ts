@@ -14,7 +14,7 @@ export class ErrorNotificationManager {
   private listeners: ((notifications: ErrorNotification[]) => void)[] = [];
   private autoDismissDelay: number;
 
-  constructor(autoDismissDelay: number = 5000) {
+  constructor(autoDismissDelay = 5000) {
     this.autoDismissDelay = autoDismissDelay;
   }
 

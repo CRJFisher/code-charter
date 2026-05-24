@@ -168,7 +168,7 @@ export function normalize_matrix(matrix: number[][]): number[][] {
 export function create_combined_matrix(
   similarity_matrix: number[][],
   adjacency_matrix: number[][],
-  weight: number = 0.5
+  weight = 0.5
 ): number[][] {
   const n = similarity_matrix.length;
   const similarity_normalized = normalize_matrix(similarity_matrix);

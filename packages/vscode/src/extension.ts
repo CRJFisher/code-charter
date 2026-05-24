@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { addToGitignore } from "./files";
-import { navigateToDoc } from "./navigate";
+import { add_to_gitignore } from "./files";
+import { navigate_to_doc } from "./navigate";
 import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
-import { serialize_call_graph, type DocstringSummaries } from "@code-charter/types";
+import { serialize_call_graph, get_docstring, type DocstringSummaries } from "@code-charter/types";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { ClusteringService } from "./clustering/clustering_service";
@@ -38,7 +38,7 @@ async function generate_diagram(context: vscode.ExtensionContext) {
   );
   if (!dir_exists) {
     await vscode.workspace.fs.createDirectory(work_dir);
-    addToGitignore(extension_folder);
+    add_to_gitignore(extension_folder);
   }
 
   await show_webview_diagram(workspace_folders, context, work_dir);
@@ -178,7 +178,7 @@ async function show_webview_diagram(
         navigateToDoc: async () => {
           const { file_path, line_number } = other_fields;
           const file_uri = vscode.Uri.file(file_path);
-          await navigateToDoc(file_uri, line_number, webview_column);
+          await navigate_to_doc(file_uri, line_number, webview_column);
           panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
         },
       };
@@ -245,9 +245,7 @@ function extract_descriptions(
 
     call_tree[symbol] = node;
 
-    // Use ariadne's docstring if available, fall back to display name
-    const def = node.definition;
-    const docstring = ("docstring" in def && typeof def.docstring === "string") ? def.docstring : undefined;
+    const docstring = get_docstring(node.definition);
     docstrings[symbol] = docstring || symbol_repo_local_name(symbol);
 
     for (const call_ref of node.enclosed_calls) {

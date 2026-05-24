@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useBackend } from "../hooks/use_backend";
 import type { CallGraph, CallableNode, CallReference, SymbolId } from "@code-charter/types";
 import { symbol_display_name } from "./code_chart_area/symbol_display";
@@ -25,7 +25,6 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_descriptions_loading }) => {
-  const { backend } = useBackend();
   const [is_sidebar_open, set_is_sidebar_open] = useState(true);
 
   const toggle_sidebar = () => {

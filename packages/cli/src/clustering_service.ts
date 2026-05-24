@@ -76,7 +76,6 @@ export class ClusteringService {
     const ordered_clusters = this.order_clusters_by_centroid(
       grouped_clusters,
       embeddings,
-      func_to_index
     );
 
     await this.cache_storage.write_json(
@@ -94,7 +93,7 @@ export class ClusteringService {
     const summary_keys = Object.keys(summaries);
 
     const embeddings =
-      await this.embedding_provider.getEmbeddings(summary_texts);
+      await this.embedding_provider.get_embeddings(summary_texts);
 
     const result: Record<string, number[]> = {};
     embeddings.forEach((embedding, index) => {
@@ -240,7 +239,6 @@ export class ClusteringService {
   private order_clusters_by_centroid(
     clusters: string[][],
     embeddings: Record<string, number[]>,
-    func_to_index: Record<string, number>
   ): string[][] {
     const cluster_distances: Array<{ cluster: string[]; distance: number }> =
       [];

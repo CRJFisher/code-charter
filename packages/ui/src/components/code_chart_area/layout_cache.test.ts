@@ -181,7 +181,7 @@ describe('Performance Utilities', () => {
   describe('Performance Benchmarks', () => {
     it('should handle 1000+ nodes efficiently', () => {
       const nodes: CodeChartNode[] = [];
-      const edges: any[] = [];
+      const edges: { id: string; source: string; target: string }[] = [];
 
       // Generate large graph
       for (let i = 0; i < 1000; i++) {

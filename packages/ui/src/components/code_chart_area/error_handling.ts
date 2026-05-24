@@ -5,6 +5,10 @@ export { errorNotificationManager, ErrorNotificationManager, type ErrorNotificat
 
 import { errorNotificationManager } from '../../error/error_notification_manager';
 
+function noop(): void {
+  // intentionally empty — placeholder action for dismiss-style notifications
+}
+
 // Chart-specific error types
 export class LayoutError extends Error {
   constructor(message: string, public readonly nodeCount?: number, public readonly edgeCount?: number) {
@@ -35,7 +39,7 @@ export function handleReactFlowError(error: Error): void {
     errorNotificationManager.notify(
       `Unexpected error: ${error.message}`,
       'error',
-      [{ label: 'Dismiss', action: () => {} }]
+      [{ label: 'Dismiss', action: noop }]
     );
   }
 }

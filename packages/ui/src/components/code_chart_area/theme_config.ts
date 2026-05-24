@@ -211,21 +211,25 @@ export function getThemeColors(theme: Theme): ThemeColorConfig {
 /**
  * Get CSS variables for theme colors
  */
+function is_string_record(value: unknown): value is { [k: string]: unknown } {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export function getThemeCssVariables(colors: ThemeColorConfig): Record<string, string> {
   const vars: Record<string, string> = {};
-  
-  // Recursively convert nested object to CSS variables
-  function addVars(obj: any, prefix: string) {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'string') {
-        vars[`--flow-${prefix}-${key}`] = value;
-      } else if (typeof value === 'object') {
-        addVars(value, `${prefix}-${key}`);
+
+  function walk(value: unknown, prefix: string) {
+    if (typeof value === 'string') {
+      vars[`--flow-${prefix}`] = value;
+    } else if (is_string_record(value)) {
+      for (const [k, v] of Object.entries(value)) {
+        walk(v, `${prefix}-${k}`);
       }
     }
+    // Arrays (cluster palette) are intentionally skipped — not representable as a single CSS var
   }
-  
-  addVars(colors, 'theme');
+
+  walk(colors, 'theme');
   return vars;
 }
 

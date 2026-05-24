@@ -28,16 +28,3 @@ export interface CacheFile {
   symbols: string[];
 }
 
-/**
- * Docstring extraction types.
- */
-export interface DocstringInfo {
-  symbol_name: string;
-  raw: string;
-  body: string;
-  line: number;
-}
-
-export interface DocstringProvider {
-  get_docstrings(file_path: string, content: string): Map<string, DocstringInfo>;
-}

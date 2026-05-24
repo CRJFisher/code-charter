@@ -31,10 +31,10 @@ export function compute_source_hash(
   file_contents: Map<string, string>
 ): string {
   const hash = crypto.createHash("sha256");
-  const sorted_keys = Array.from(file_contents.keys()).sort();
-  for (const key of sorted_keys) {
+  const sorted_entries = Array.from(file_contents.entries()).sort(([a], [b]) => a.localeCompare(b));
+  for (const [key, value] of sorted_entries) {
     hash.update(key);
-    hash.update(file_contents.get(key)!);
+    hash.update(value);
   }
   return hash.digest("hex").substring(0, 16);
 }

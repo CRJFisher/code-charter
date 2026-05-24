@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ErrorBoundary, DefaultErrorFallback } from '../../error/error_boundary';
+import { ErrorBoundary } from '../../error/error_boundary';
 import { withRetry, ErrorRecovery, LayoutError, errorLogger, errorNotificationManager } from './error_handling';
 import { ErrorNotifications } from '../../error/error_notifications';
 import { ThemeProviderComponent } from '../../theme/theme_context';
@@ -114,7 +114,7 @@ describe('Error Handling', () => {
     });
 
     it('should use custom fallback component', () => {
-      const customFallback = jest.fn((error, errorInfo, retry) => (
+      const customFallback = jest.fn((error: Error) => (
         <div>Custom error: {error.message}</div>
       ));
 
@@ -178,7 +178,9 @@ describe('Error Handling', () => {
           delayMs: 10,
           onRetry,
         });
-      } catch {}
+      } catch {
+        // expected — assertions below check the retry side-effects
+      }
 
       expect(onRetry).toHaveBeenCalledWith(1, expect.any(Error));
     });
