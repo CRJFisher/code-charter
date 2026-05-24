@@ -3,7 +3,7 @@ id: task-9.2
 title: Add support for Ollama embeddings as alternative provider
 status: To Do
 assignee: []
-created_date: '2025-08-03'
+created_date: "2025-08-03"
 labels:
   - embeddings
   - ollama

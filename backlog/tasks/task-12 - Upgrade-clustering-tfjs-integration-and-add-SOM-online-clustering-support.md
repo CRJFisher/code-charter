@@ -1,9 +1,10 @@
 ---
-id: task-12
+id: TASK-12
 title: Upgrade clustering-tfjs integration and add SOM online clustering support
 status: To Do
 assignee: []
 created_date: '2026-03-19'
+updated_date: '2026-05-24 14:09'
 labels: []
 dependencies:
   - task-11
@@ -11,30 +12,34 @@ dependencies:
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 Upgrade code-charter's clustering-tfjs dependency from v0.1.3 to v0.4.0, fix the critical API mismatch bug (result.labels vs result.optimal.labels masked by an incorrect custom .d.ts), introduce a clustering adapter abstraction layer, add SOM (Self-Organizing Map) support for online/incremental re-clustering as code changes, and expose algorithm selection to users via VS Code settings. This task synthesizes findings from 15 parallel research and planning agents that investigated the clustering-tfjs library API, all available algorithms, and the integration architecture needed.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
-- [ ] Delete the outdated custom clustering-tfjs.d.ts that masks a runtime bug where result.labels should be result.optimal.labels
-- [ ] Upgrade clustering-tfjs dependency from ^0.1.0 to ^0.4.0 in packages/vscode/package.json
-- [ ] Delete clustering_service_old.ts dead code
-- [ ] Fix result.labels to result.optimal.labels in clustering_service.ts
-- [ ] Create a clustering_adapter.ts abstraction layer that wraps clustering-tfjs behind a ClusteringConfig/ClusteringResult interface and handles Clustering.init() initialization
-- [ ] Add ClusteringAlgorithm and ClusteringConfig and ClusteringResult types to @code-charter/types
-- [ ] Refactor clustering_service.ts to use the adapter instead of direct findOptimalClusters import
-- [ ] Add VS Code settings for clusteringAlgorithm (spectral/kmeans/agglomerative/som) with spectral as default
-- [ ] Add SOM-based clustering option using a 2-phase approach: SOM fit then agglomerative grouping on weight vectors to produce final NodeGroup clusters
-- [ ] Implement incremental re-clustering via SOM partialFit() hooked into AriadneProjectManager.onCallGraphChanged events
-- [ ] Add SOM state persistence via saveToJSON/loadFromJSON for instant clustering on project reopen
-- [ ] Replace the pure JS cosine similarity loop in createSimilarityMatrix with tensor-based batch computation
-- [ ] Add per-cluster color assignments in react_flow_data_transform.ts replacing the hardcoded gray
-- [ ] Add cluster quality metrics (silhouette score) to the NodeGroup metadata returned to the UI
-- [ ] Write unit tests for extracted pure clustering logic functions
-- [ ] Write integration tests for the findOptimalClusters contract against the new library version
-- [ ] Verify @tensorflow/tfjs-node is loaded at runtime for 5-20x performance over pure JS backend
+<!-- AC:BEGIN -->
+- [ ] #1 Delete the outdated custom clustering-tfjs.d.ts that masks a runtime bug where result.labels should be result.optimal.labels
+- [ ] #2 Upgrade clustering-tfjs dependency from ^0.1.0 to ^0.4.0 in packages/vscode/package.json
+- [ ] #3 Delete clustering_service_old.ts dead code
+- [ ] #4 Fix result.labels to result.optimal.labels in clustering_service.ts
+- [ ] #5 Create a clustering_adapter.ts abstraction layer that wraps clustering-tfjs behind a ClusteringConfig/ClusteringResult interface and handles Clustering.init() initialization
+- [ ] #6 Add ClusteringAlgorithm and ClusteringConfig and ClusteringResult types to @code-charter/types
+- [ ] #7 Refactor clustering_service.ts to use the adapter instead of direct findOptimalClusters import
+- [ ] #8 Add VS Code settings for clusteringAlgorithm (spectral/kmeans/agglomerative/som) with spectral as default
+- [ ] #9 Add SOM-based clustering option using a 2-phase approach: SOM fit then agglomerative grouping on weight vectors to produce final NodeGroup clusters
+- [ ] #10 Implement incremental re-clustering via SOM partialFit() hooked into AriadneProjectManager.onCallGraphChanged events
+- [ ] #11 Add SOM state persistence via saveToJSON/loadFromJSON for instant clustering on project reopen
+- [ ] #12 Replace the pure JS cosine similarity loop in createSimilarityMatrix with tensor-based batch computation
+- [ ] #13 Add per-cluster color assignments in react_flow_data_transform.ts replacing the hardcoded gray
+- [ ] #14 Add cluster quality metrics (silhouette score) to the NodeGroup metadata returned to the UI
+- [ ] #15 Write unit tests for extracted pure clustering logic functions
+- [ ] #16 Write integration tests for the findOptimalClusters contract against the new library version
+- [ ] #17 Verify @tensorflow/tfjs-node is loaded at runtime for 5-20x performance over pure JS backend
+<!-- AC:END -->
 
 ## Implementation Plan
 
+<!-- SECTION:PLAN:BEGIN -->
 ### Research Summary
 
 15 parallel Opus agents investigated the clustering-tfjs library (5 researchers) and planned the code-charter integration (10 planners). Key findings:
@@ -187,3 +192,10 @@ Spectral clustering is architecturally correct for code-charter because:
 - The existing `findOptimalClusters` sweep automatically selects optimal k
 
 SOM becomes the recommended choice when users want live-updating clusters or have large codebases where spectral's O(n²) cost is noticeable.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Phases 1-2 shipped via task-11 and task-24 (clustering-tfjs upgraded to 0.5.0, adapter layer, clustering_logic.ts extracted, settings added, dead .d.ts and clustering_service_old.ts deleted). Remaining scope: SOM online clustering only — re-scope or split into a new task focused on SOM partialFit + state persistence + incremental re-clustering.
+<!-- SECTION:NOTES:END -->

@@ -1,37 +1,46 @@
 ---
-id: task-13
+id: TASK-13
 title: Migrate from @ariadnejs v0.5.x to v0.8.0
-status: In Progress
+status: Done
 assignee:
-  - '@claude'
-created_date: '2026-03-19'
-updated_date: '2026-03-20'
+  - "@claude"
+created_date: "2026-03-19"
+updated_date: "2026-05-24 14:09"
 labels: []
 dependencies: []
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
+
 The ariadne code intelligence library has been completely rewritten between v0.5.x and v0.8.0. Code-charter depends on @ariadnejs/core (v0.5.18) and @ariadnejs/types (v0.5.15) across all three packages (types, vscode, ui). The v0.8.0 API introduces branded types (SymbolId, FilePath, SymbolName), renamed core types (CallGraphNode→CallableNode, Call→CallReference), restructured CallGraph (top_level_nodes→entry_points, edges removed), changed Project API (add_or_update_file→update_file, requires initialize()), and multi-candidate call resolution (Call.symbol→CallReference.resolutions[]). This is a comprehensive migration touching ~20 files across all packages.
+
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 
-- [ ] All package.json dependencies updated to @ariadnejs v0.8.0
-- [ ] @code-charter/types re-exports new types (CallableNode CallGraph CallReference SymbolId etc)
-- [ ] AriadneProjectManager uses new Project API (initialize + update_file + load_project)
-- [ ] All CallGraphNode references replaced with CallableNode throughout codebase
-- [ ] All node.symbol accesses replaced with node.symbol_id
-- [ ] All node.calls accesses replaced with node.enclosed_calls with resolution traversal
-- [ ] All Def property accesses migrated (definition.file_path→definition.location.file_path and definition.range.start.row→definition.location.start_line)
-- [ ] All CallGraph.top_level_nodes replaced with CallGraph.entry_points
-- [ ] All CallGraph.edges usages removed (edges are now implicit)
-- [ ] UI components render correctly with new data shapes
-- [ ] All mock data updated to new type shapes
-- [ ] All tests pass with new API
-- [ ] TypeScript compilation succeeds with zero type errors
-- [ ] clustering_service_old.ts deleted (no legacy code)
+<!-- AC:BEGIN -->
+
+- [ ] #1 All package.json dependencies updated to @ariadnejs v0.8.0
+- [ ] #2 @code-charter/types re-exports new types (CallableNode CallGraph CallReference SymbolId etc)
+- [ ] #3 AriadneProjectManager uses new Project API (initialize + update_file + load_project)
+- [ ] #4 All CallGraphNode references replaced with CallableNode throughout codebase
+- [ ] #5 All node.symbol accesses replaced with node.symbol_id
+- [ ] #6 All node.calls accesses replaced with node.enclosed_calls with resolution traversal
+- [ ] #7 All Def property accesses migrated (definition.file_path→definition.location.file_path and definition.range.start.row→definition.location.start_line)
+- [ ] #8 All CallGraph.top_level_nodes replaced with CallGraph.entry_points
+- [ ] #9 All CallGraph.edges usages removed (edges are now implicit)
+- [ ] #10 UI components render correctly with new data shapes
+- [ ] #11 All mock data updated to new type shapes
+- [ ] #12 All tests pass with new API
+- [ ] #13 TypeScript compilation succeeds with zero type errors
+- [ ] #14 clustering_service_old.ts deleted (no legacy code)
+<!-- AC:END -->
 
 ## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
 
 ### Overview
 
@@ -39,30 +48,30 @@ This is a direct migration with no adapter/shim layer (per project rule: NO BACK
 
 ### Complete API Change Reference
 
-| Old (v0.5.x) | New (v0.8.0) | Notes |
-|---|---|---|
-| `CallGraphNode` | `CallableNode` | Type rename |
-| `CallGraphNode.symbol: string` | `CallableNode.symbol_id: SymbolId` | Branded string |
-| `CallGraphNode.calls: Call[]` | `CallableNode.enclosed_calls: readonly CallReference[]` | Renamed + restructured |
-| `CallGraphNode.definition: Def` | `CallableNode.definition: AnyDefinition` | Union type |
-| `CallGraphNode.called_by: string[]` | _(removed)_ | No equivalent |
-| _(none)_ | `CallableNode.name: SymbolName` | New field: display name |
-| _(none)_ | `CallableNode.location: Location` | New field: location directly on node |
-| _(none)_ | `CallableNode.is_test: boolean` | New field |
-| `Call.symbol: string` | `CallReference.resolutions[].symbol_id: SymbolId` | Multi-candidate resolution |
-| `Call.range: SimpleRange` | `CallReference.location: Location` | Different shape |
-| `Call.kind: string` | `CallReference.call_type: "function" \| "method" \| "constructor"` | Renamed + typed |
-| `Def.file_path: string` | `AnyDefinition.location.file_path: FilePath` | Nested under `location` |
-| `Def.range.start.row` | `AnyDefinition.location.start_line` | Flattened, renamed |
-| `Def.range.end.row` | `AnyDefinition.location.end_line` | Flattened, renamed |
-| `Def.name: string` | `AnyDefinition.name: SymbolName` | Branded string |
-| `CallGraph.nodes: Map<string, CallGraphNode>` | `CallGraph.nodes: ReadonlyMap<SymbolId, CallableNode>` | ReadonlyMap + branded key |
-| `CallGraph.top_level_nodes: string[]` | `CallGraph.entry_points: readonly SymbolId[]` | Renamed |
-| `CallGraph.edges: CallGraphEdge[]` | _(removed)_ | Edges implicit via `enclosed_calls` |
-| `Project.add_or_update_file(path, content)` | `Project.update_file(path as FilePath, content)` | Renamed + branded type |
-| `Project.remove_file(path)` | `Project.remove_file(path as FilePath)` | Branded type |
-| _(none)_ | `Project.initialize()` | Required before `update_file` |
-| `get_call_graph(root_path, options)` | `load_project({ project_path }) + project.get_call_graph()` | Standalone function removed |
+| Old (v0.5.x)                                  | New (v0.8.0)                                                       | Notes                                |
+| --------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------ |
+| `CallGraphNode`                               | `CallableNode`                                                     | Type rename                          |
+| `CallGraphNode.symbol: string`                | `CallableNode.symbol_id: SymbolId`                                 | Branded string                       |
+| `CallGraphNode.calls: Call[]`                 | `CallableNode.enclosed_calls: readonly CallReference[]`            | Renamed + restructured               |
+| `CallGraphNode.definition: Def`               | `CallableNode.definition: AnyDefinition`                           | Union type                           |
+| `CallGraphNode.called_by: string[]`           | _(removed)_                                                        | No equivalent                        |
+| _(none)_                                      | `CallableNode.name: SymbolName`                                    | New field: display name              |
+| _(none)_                                      | `CallableNode.location: Location`                                  | New field: location directly on node |
+| _(none)_                                      | `CallableNode.is_test: boolean`                                    | New field                            |
+| `Call.symbol: string`                         | `CallReference.resolutions[].symbol_id: SymbolId`                  | Multi-candidate resolution           |
+| `Call.range: SimpleRange`                     | `CallReference.location: Location`                                 | Different shape                      |
+| `Call.kind: string`                           | `CallReference.call_type: "function" \| "method" \| "constructor"` | Renamed + typed                      |
+| `Def.file_path: string`                       | `AnyDefinition.location.file_path: FilePath`                       | Nested under `location`              |
+| `Def.range.start.row`                         | `AnyDefinition.location.start_line`                                | Flattened, renamed                   |
+| `Def.range.end.row`                           | `AnyDefinition.location.end_line`                                  | Flattened, renamed                   |
+| `Def.name: string`                            | `AnyDefinition.name: SymbolName`                                   | Branded string                       |
+| `CallGraph.nodes: Map<string, CallGraphNode>` | `CallGraph.nodes: ReadonlyMap<SymbolId, CallableNode>`             | ReadonlyMap + branded key            |
+| `CallGraph.top_level_nodes: string[]`         | `CallGraph.entry_points: readonly SymbolId[]`                      | Renamed                              |
+| `CallGraph.edges: CallGraphEdge[]`            | _(removed)_                                                        | Edges implicit via `enclosed_calls`  |
+| `Project.add_or_update_file(path, content)`   | `Project.update_file(path as FilePath, content)`                   | Renamed + branded type               |
+| `Project.remove_file(path)`                   | `Project.remove_file(path as FilePath)`                            | Branded type                         |
+| _(none)_                                      | `Project.initialize()`                                             | Required before `update_file`        |
+| `get_call_graph(root_path, options)`          | `load_project({ project_path }) + project.get_call_graph()`        | Standalone function removed          |
 
 ### Critical Pattern: Call Resolution Traversal
 
@@ -72,25 +81,33 @@ The biggest conceptual change is call traversal. In v0.5, `Call.symbol` gave a d
 // packages/vscode/src/ariadne/call_graph_utils.ts
 import type { CallReference, SymbolId } from "@ariadnejs/types";
 
-export function get_resolved_symbol_id(call_ref: CallReference): SymbolId | undefined {
+export function get_resolved_symbol_id(
+  call_ref: CallReference,
+): SymbolId | undefined {
   return call_ref.resolutions[0]?.symbol_id;
 }
 
 export function get_all_resolved_ids(call_ref: CallReference): SymbolId[] {
-  return call_ref.resolutions.map(r => r.symbol_id);
+  return call_ref.resolutions.map((r) => r.symbol_id);
 }
 ```
 
 Old pattern (~12 locations):
+
 ```typescript
-node.calls.forEach(call => { graph.nodes.get(call.symbol); });
+node.calls.forEach((call) => {
+  graph.nodes.get(call.symbol);
+});
 ```
 
 New pattern:
+
 ```typescript
-node.enclosed_calls.forEach(call_ref => {
+node.enclosed_calls.forEach((call_ref) => {
   const resolved_id = get_resolved_symbol_id(call_ref);
-  if (resolved_id) { graph.nodes.get(resolved_id); }
+  if (resolved_id) {
+    graph.nodes.get(resolved_id);
+  }
 });
 ```
 
@@ -99,19 +116,31 @@ node.enclosed_calls.forEach(call_ref => {
 ### Phase 1: Foundation — `@code-charter/types` Package
 
 **Files:**
+
 - `packages/types/package.json` — bump `@ariadnejs/types` from `^0.5.0` to `^0.8.0`
 - `packages/types/src/index.ts` — change re-exports
 - `packages/types/src/backend.ts` — update type references
 
 **`packages/types/src/index.ts` changes:**
+
 ```typescript
 // Old:
-export type { CallGraph, CallGraphNode } from '@ariadnejs/types';
+export type { CallGraph, CallGraphNode } from "@ariadnejs/types";
 // New:
-export type { CallGraph, CallableNode, CallReference, SymbolId, SymbolName, FilePath, AnyDefinition, Location } from '@ariadnejs/types';
+export type {
+  CallGraph,
+  CallableNode,
+  CallReference,
+  SymbolId,
+  SymbolName,
+  FilePath,
+  AnyDefinition,
+  Location,
+} from "@ariadnejs/types";
 ```
 
 **`packages/types/src/backend.ts` changes:**
+
 - Import: `CallGraphNode` → `CallableNode`
 - `TreeAndContextSummaries.callTreeWithFilteredOutNodes`: `Record<string, CallGraphNode>` → `Record<string, CallableNode>`
 - `CodeCharterBackend` interface: return types update via `CallGraph` shape change (no code change needed, type flows through)
@@ -121,6 +150,7 @@ export type { CallGraph, CallableNode, CallReference, SymbolId, SymbolName, File
 ### Phase 2: VSCode Backend — Project Manager & Shared Utilities
 
 **Files:**
+
 - `packages/vscode/package.json` — bump `@ariadnejs/core` to `^0.8.0`, `@ariadnejs/types` to `^0.8.0`
 - `packages/vscode/src/ariadne/project_manager.ts` — primary integration point
 - `packages/vscode/shared/codeGraph.ts` — shared utilities
@@ -145,12 +175,14 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 6. `getCallGraph()`: returns new `CallGraph` type (no code change, type flows through)
 
 **`shared/codeGraph.ts` changes:**
+
 - Remove `Def` import (no longer exists)
 - `CallGraphNode` → `CallableNode`
 - `countNodes` function: `node.calls.reduce(...)` → `node.enclosed_calls.reduce(...)` with resolution traversal
 - Re-exports: export `CallableNode` instead of `CallGraphNode`
 
 **`shared/symbols.ts` changes:**
+
 - Old `SymbolId` format split on `#` — new format is colon-separated `kind:file_path:sl:sc:el:ec:name`
 - Best approach: use `CallableNode.name` directly where possible (new field), keep string parser as fallback updated for new format
 - `symbolDisplayName`: split on `:`, take last segment (the name)
@@ -160,24 +192,26 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 ### Phase 3: Summarisation Pipeline
 
 **Files:**
+
 - `packages/vscode/src/summarise/summarise.ts` — heaviest downstream consumer (~8+ locations)
 - `packages/vscode/src/summarise/summariseClusters.ts` — cluster graph builder
 - `packages/vscode/src/summarise/caching.ts` — no changes needed (string keys agnostic to ariadne types)
 
 **`summarise.ts` — Detailed property access changes:**
 
-| Function | Old Access | New Access |
-|---|---|---|
-| `getAllDefinitionNodesFromCallGraph` | `node.symbol`, `node.calls.forEach(child => graph.nodes.get(child.symbol))` | `node.symbol_id`, `node.enclosed_calls.forEach(call_ref => { for (r of call_ref.resolutions) graph.nodes.get(r.symbol_id) })` |
-| `getSymbolToFunctionCode` | `n.definition.file_path`, `n.definition.range.start.row`, `n.definition.range.end.row` | `n.definition.location.file_path`, `n.definition.location.start_line`, `n.definition.location.end_line` |
-| `getFunctionBusinessLogic` | `node.symbol`, `hashText(node.symbol)` | `node.symbol_id`, `hashText(node.symbol_id)` |
-| `getCallGraphItemsWithFilteredOutFunctions` | `node.calls.filter(...)`, `child.symbol`, `{...node, calls: newChildren}` | `node.enclosed_calls.filter(...)`, resolution lookup, `{...node, enclosed_calls: newChildren}` |
+| Function                                    | Old Access                                                                             | New Access                                                                                                                    |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `getAllDefinitionNodesFromCallGraph`        | `node.symbol`, `node.calls.forEach(child => graph.nodes.get(child.symbol))`            | `node.symbol_id`, `node.enclosed_calls.forEach(call_ref => { for (r of call_ref.resolutions) graph.nodes.get(r.symbol_id) })` |
+| `getSymbolToFunctionCode`                   | `n.definition.file_path`, `n.definition.range.start.row`, `n.definition.range.end.row` | `n.definition.location.file_path`, `n.definition.location.start_line`, `n.definition.location.end_line`                       |
+| `getFunctionBusinessLogic`                  | `node.symbol`, `hashText(node.symbol)`                                                 | `node.symbol_id`, `hashText(node.symbol_id)`                                                                                  |
+| `getCallGraphItemsWithFilteredOutFunctions` | `node.calls.filter(...)`, `child.symbol`, `{...node, calls: newChildren}`              | `node.enclosed_calls.filter(...)`, resolution lookup, `{...node, enclosed_calls: newChildren}`                                |
 
 **Important**: `AnyDefinition` is a discriminated union but all variants have `.location`. The `.location` access is safe without type narrowing.
 
 **Line number indexing**: Old `range.start.row` was 0-based (tree-sitter). Verify if `location.start_line` is also 0-based. If 1-based, adjust `codeLines.slice()` calls accordingly.
 
 **`summariseClusters.ts` changes:**
+
 - `callGraph.nodes.get(member.symbol)` → needs `member.symbol as SymbolId` cast (or update `ClusterMember.symbol` type to `SymbolId`)
 - `node?.calls?.map(call => symbolToClusterId[call.symbol])` → iterate `node?.enclosed_calls` with resolution lookup
 
@@ -186,12 +220,14 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 ### Phase 4: Clustering Service
 
 **Files:**
+
 - `packages/vscode/src/clustering/clustering_service.ts` — adjacency matrix builder
 - `packages/vscode/src/clustering/clustering_service_old.ts` — **DELETE** (dead legacy code)
 - `packages/vscode/src/clustering/local_embeddings_provider.ts` — no changes (ariadne-agnostic)
 - `packages/vscode/src/clustering/embedding_provider_selector.ts` — no changes
 
 **`clustering_service.ts` changes:**
+
 - Import: `CallGraphNode` → `CallableNode, SymbolId, CallReference` from `@ariadnejs/types`
 - `cluster()` parameter: `Record<string, CallGraphNode>` → `Record<string, CallableNode>`
 - `createCombinedMatrix()`: the adjacency matrix loop changes from `node.calls.forEach(call => funcToIndex[call.symbol])` to `node.enclosed_calls.forEach(call_ref => { for (r of call_ref.resolutions) funcToIndex[r.symbol_id] })`
@@ -204,10 +240,12 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 **Files (7 source + 2 test):**
 
 **`packages/ui/package.json`:**
+
 - Bump `@ariadnejs/core` to `^0.8.0`
 - **Add** `@ariadnejs/types: "^0.8.0"` as direct dependency (v0.8 core no longer re-exports types)
 
 **`react_flow_data_transform.ts` — Densest concentration of changes:**
+
 - `CallGraphNode` → `CallableNode` in all signatures
 - `node.symbol` → `node.symbol_id` (~10 locations)
 - `node.definition.file_path` → `node.definition.location.file_path`
@@ -217,10 +255,12 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 - `symbolDisplayName(node.symbol)` → use `node.name as string` directly (new field on `CallableNode`)
 
 **`code_chart_area_react_flow.tsx`:**
+
 - `CallGraphNode` → `CallableNode` in imports, props, state
 - `selectedEntryPoint.symbol` → `selectedEntryPoint.symbol_id` (~7 locations)
 
 **`side_bar.tsx`:**
+
 - `call_graph.top_level_nodes.sort(...)` → `[...call_graph.entry_points].sort(...)` (must spread because readonly)
 - `node.symbol` → `node.symbol_id`
 - `node.calls` → `node.enclosed_calls` with resolution traversal
@@ -229,14 +269,17 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 - Display name: use `node.name` directly instead of parsing symbol string
 
 **`App.tsx`:**
+
 - `CallGraphNode` → `CallableNode` in state type
 - Default empty graph: `{ nodes: new Map(), top_level_nodes: [], edges: [] }` → `{ nodes: new Map(), entry_points: [] }`
 - `selected_entry_point?.symbol` → `selected_entry_point?.symbol_id`
 
 **`test_react_flow.tsx`:**
+
 - Rewrite mock `CallGraphNode` objects to `CallableNode` shape with all new required fields
 
 **`mock_backend.ts`:**
+
 - Complete rewrite of mock data construction:
   - All `CallGraphNode` → `CallableNode` with `symbol_id`, `name`, `enclosed_calls`, `location`, `definition` (AnyDefinition), `is_test`
   - `CallGraph`: remove `edges`, `top_level_nodes` → `entry_points`, `nodes` as `Map<SymbolId, CallableNode>`
@@ -244,6 +287,7 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
   - Create helper functions for branded type construction in mocks
 
 **`test_mock_backend.ts`:**
+
 - Fix broken `Backend` import → `CodeCharterBackend`
 - Default `getCallGraph()` return: `{ nodes: {}, edges: [] }` → `{ nodes: new Map(), entry_points: [] }`
 
@@ -252,6 +296,7 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 ### Phase 6: Tests
 
 **`ariadne-integration.test.ts`:**
+
 - Replace `import { get_call_graph } from "@ariadnejs/core"` with `import { load_project } from "@ariadnejs/core"`
 - API: `get_call_graph(path, options)` → `load_project({ project_path, file_filter }) + project.get_call_graph()`
 - Remove `callGraph.edges` assertions
@@ -260,11 +305,13 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 - `node.definition.range` → `node.location`
 
 **`ariadne-project-manager.test.ts` + watcher + edge-cases + integration:**
+
 - Minimal changes — assertions on `callGraph.nodes.size`, `nodes.keys()`, string-contains checks remain valid since `SymbolId` is structurally a string at runtime
 - Verify error messages match new `update_file()` method name
 - Integration test symbol key assertions may need format updates (new SymbolId format)
 
 **`react_flow_data_transform.test.ts`:**
+
 - `createMockNode` returns `CallableNode` instead of `CallGraphNode`
 - All `.calls = [child]` mutations must change — `CallableNode` has `readonly` properties, so construct nodes with `enclosed_calls` pre-set
 - Create helper for mock `CallReference` construction:
@@ -274,11 +321,18 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
     location: target.location,
     scope_id: "scope_0" as ScopeId,
     call_type: "function",
-    resolutions: [{ symbol_id: target.symbol_id, confidence: "certain", reason: { type: "direct" } }],
+    resolutions: [
+      {
+        symbol_id: target.symbol_id,
+        confidence: "certain",
+        reason: { type: "direct" },
+      },
+    ],
   });
   ```
 
 **`mock_backend.test.ts`:**
+
 - Fix import (`MockBackend` → `TestMockBackend`)
 - Update `mockCallGraph` to new shape
 - `expect(callGraph.nodes).toEqual({})` → `expect(callGraph.nodes.size).toBe(0)`
@@ -289,12 +343,11 @@ Strategy: Use `load_project()` for initial loading, keep `Project` reference for
 ### Verification Strategy
 
 At each phase:
+
 1. Run `npm run typecheck` in affected package(s)
 2. Run `npm run test` in affected package(s)
 
-After all phases:
-3. Run `npm run build` at root to verify cross-package compatibility
-4. Manual integration test: open a workspace in VSCode, trigger diagram generation, verify the call graph renders correctly
+After all phases: 3. Run `npm run build` at root to verify cross-package compatibility 4. Manual integration test: open a workspace in VSCode, trigger diagram generation, verify the call graph renders correctly
 
 ### Potential Pitfalls
 
@@ -315,25 +368,30 @@ After all phases:
 ### Complete File Inventory (20 files)
 
 **Phase 1 — Types (3 files):**
+
 - `packages/types/package.json`
 - `packages/types/src/index.ts`
 - `packages/types/src/backend.ts`
 
 **Phase 2 — VSCode Backend (4 files):**
+
 - `packages/vscode/package.json`
 - `packages/vscode/src/ariadne/project_manager.ts`
 - `packages/vscode/shared/codeGraph.ts`
 - `packages/vscode/shared/symbols.ts`
 
 **Phase 3 — Summarisation (2 files):**
+
 - `packages/vscode/src/summarise/summarise.ts`
 - `packages/vscode/src/summarise/summariseClusters.ts`
 
 **Phase 4 — Clustering (2 files):**
+
 - `packages/vscode/src/clustering/clustering_service.ts`
 - `packages/vscode/src/clustering/clustering_service_old.ts` _(delete)_
 
 **Phase 5 — UI (8 files):**
+
 - `packages/ui/package.json`
 - `packages/ui/src/components/code_chart_area/react_flow_data_transform.ts`
 - `packages/ui/src/components/code_chart_area/code_chart_area_react_flow.tsx`
@@ -344,6 +402,7 @@ After all phases:
 - `packages/ui/src/backends/test_mock_backend.ts`
 
 **Phase 6 — Tests (7 files):**
+
 - `packages/vscode/src/__tests__/ariadne-integration.test.ts`
 - `packages/vscode/src/__tests__/ariadne-project-manager.test.ts`
 - `packages/vscode/src/__tests__/ariadne-project-manager-watcher.test.ts`
@@ -353,31 +412,14 @@ After all phases:
 - `packages/ui/src/backends/__tests__/mock_backend.test.ts`
 
 **New file (1):**
+
 - `packages/vscode/src/ariadne/call_graph_utils.ts` _(shared helper for call resolution traversal)_
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
-## Implementation Notes
+<!-- SECTION:NOTES:BEGIN -->
 
-### Approach
-Bottom-up migration across all 3 packages (~30 files), following the 6-phase plan from the task spec. Used 10 parallel opus planning agents to analyze every file, then implemented all changes, then used 10 parallel opus reviewer agents to verify.
+Migration complete. All packages on @ariadnejs ^0.8.0. CallGraphNode → CallableNode, node.symbol → node.symbol_id, top_level_nodes → entry_points, node.calls → node.enclosed_calls with CallReference.resolutions traversal applied throughout vscode + ui + types. clustering_service_old.ts deleted.
 
-### Key Changes
-- **Types package**: Bumped @ariadnejs/types to ^0.8.0, re-exports CallableNode + branded types (SymbolId, FilePath, etc.)
-- **Project Manager**: Replaced manual scanDirectory/addFileToProject with load_project(), switched to absolute paths with FilePath casts
-- **New helper**: Created call_graph_utils.ts with get_resolved_symbol_id() for multi-candidate resolution traversal
-- **Summarise pipeline**: Full rewrite of node traversal (enclosed_calls + resolutions), CallableNode construction for filtered trees
-- **Clustering**: Updated adjacency matrix to iterate enclosed_calls/resolutions, deleted clustering_service_old.ts
-- **UI components**: All 8 files updated (side_bar, App, react_flow_data_transform, code_chart_area, symbol_utils, mock backends, test components)
-- **Tests**: All test files updated with new mock data shapes, assertions fixed
-
-### Technical Decisions
-- Used string-based keys (SymbolId is structurally string at runtime) to maintain compatibility with Record<string, ...> patterns
-- ClusterMember.symbol stays as string with SymbolId cast at CallGraph.nodes.get() boundary
-- node.name used directly (as string cast) instead of parsing SymbolId for display names
-- Location.start_line used directly for line numbers (0-based from tree-sitter, same as old range.start.row)
-
-### Modified Files (30 total)
-New: packages/vscode/src/ariadne/call_graph_utils.ts
-Deleted: packages/vscode/src/clustering/clustering_service_old.ts
-Modified: All package.json files, all source files listed in the implementation plan, all test files
+<!-- SECTION:NOTES:END -->

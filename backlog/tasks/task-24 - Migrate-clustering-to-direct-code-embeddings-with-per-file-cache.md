@@ -3,22 +3,26 @@ id: TASK-24
 title: Migrate clustering to direct code embeddings with per-file cache
 status: To Do
 assignee: []
-created_date: "2026-05-24 12:00"
-updated_date: "2026-05-24 13:00"
-labels: [clustering, embeddings, performance]
-dependencies: [task-14.1, task-14.3, task-15]
+created_date: '2026-05-24 12:00'
+updated_date: '2026-05-24 14:10'
+labels:
+  - clustering
+  - embeddings
+  - performance
+dependencies:
+  - task-14.1
+  - task-14.3
+  - task-15
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-
 The clustering pipeline currently embeds each function's **docstring** as the semantic representation. Switch the embedding input to the function's **source body**, swap the embedding model to `jinaai/jina-embeddings-v2-base-code` (768-dim, ALiBi context up to 8192 tokens, trained on code), and replace the whole-project MD5 embedding cache with a per-file content-addressed cache that invalidates one file at a time — mirroring the per-file invalidation pattern in `ariadne/packages/core/src/persistence/`.
 
 The claim that code embeddings cluster better than ariadne-extracted docstrings on this codebase's call-graph workloads is **not yet validated**. The plan therefore gates Phase 3 (the model swap) on a labelled-fixture quality benchmark; if jina-on-bodies does not beat MiniLM-on-docstrings on the benchmark, Phase 3 does not ship and the upstream change is rejected with a written record.
 
 Docstrings remain part of the UI surface (function-node descriptions, search) and the cluster-labelling heuristic. They are no longer fed into the embedding model.
-
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Decisions recorded inline (no separate ADR needed)
@@ -34,9 +38,7 @@ Docstrings remain part of the UI surface (function-node descriptions, search) an
 - **Model download lifecycle for v1**: auto-download on first use, no prompt, no API-key alternative. The user request explicitly accepts the trade-off: v1 prioritises zero-config; ergonomics (consent prompt, hosted-API option, upgrade-rebuild policy) are deferred. The `EmbeddingProvider` interface (`get_embeddings(texts: string[]): Promise<number[][]>`) is the seam for future providers — local-onnx, voyage-code-3 (API), OpenAI text-embedding-3, etc. — without changing the clustering layer.
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
-
 - [ ] #1 The embedding provider uses `jinaai/jina-embeddings-v2-base-code` with `dtype: 'q8'`, mean pooling, L2 normalisation; produces 768-dim vectors. The official repo's `onnx/model_quantized.onnx` is the loaded artefact
 - [ ] #2 An end-to-end probe with a ~8000-token input passed through the pipeline produces an output tensor of shape `[1, ≥8000, 768]` without truncation (not just that `tokenizer.model_max_length` reads back 8192)
 - [ ] #3 Embedding input for each `CallableNode` is the source slice from `definition.location`. A per-language test fixture (TypeScript, JavaScript, Python) asserts the extracted slice equals the expected function body byte-for-byte
@@ -62,11 +64,11 @@ Docstrings remain part of the UI surface (function-node descriptions, search) an
 - [ ] #23 **Q8 cross-platform tolerance**: on the committed fixture, cluster membership Jaccard between Linux-x64 and macOS-ARM runs is ≥ 0.95. Asserted in an integration test runnable on both platforms (CI may run one platform; the other is verified on a developer machine pre-merge)
 - [ ] #24 Cold-run on a 1000-function synthetic fixture completes under `NODE_OPTIONS=--max-old-space-size=2048` (i.e. < 2 GB peak heap)
 - [ ] #25 Stability of clustering output: three repeated runs against the committed labelled fixture produce cluster partitions with pairwise ARI ≥ 0.9 (clustering should not be wildly non-deterministic across runs)
-
 <!-- AC:END -->
 
 ## Implementation Plan
 
+<!-- SECTION:PLAN:BEGIN -->
 ### Phase 0 — Preflight and test infrastructure
 
 Set up the prerequisites before writing any pipeline code:
@@ -201,3 +203,10 @@ Update `backlog/docs/` and the per-package READMEs with the new cache layout, th
 - Persisting `last_run.log` to disk — AC #21's stderr summary line is sufficient for now.
 - Daemon mode / long-lived CLI process to avoid repeated model loads.
 - **Model download consent UX**: v1 auto-downloads silently on first use. Deferred follow-ups captured as subtasks: **task-24.1** (first-run consent prompt + upgrade-rebuild policy), **task-24.2** (pluggable provider configuration + API-key storage), **task-24.3** (VoyageAI `voyage-code-3` provider), **task-24.4** (OpenAI `text-embedding-3` provider), **task-24.5** (user-hosted Ollama provider). The Decisions section above commits to keeping the `EmbeddingProvider` interface as the seam so these can land without re-architecting the clustering layer.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLI package deleted. Phase 1 dedup section is obsolete (no duplicates remain). All package paths must retarget from packages/cli/* to packages/vscode/src/clustering/* (and packages/types where applicable). bench_clustering script lives at packages/vscode/scripts/ or a test fixture instead.
+<!-- SECTION:NOTES:END -->

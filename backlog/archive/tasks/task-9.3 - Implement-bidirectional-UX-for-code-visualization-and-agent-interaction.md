@@ -36,12 +36,10 @@ Enable seamless back-and-forth communication between code visualization UI and A
 ### Implementation Phases
 
 1. **MCP Sampling Interface** (preferred method):
-
    - Implement MCP tool sampling for supported operations
    - Handle limited coverage gracefully with fallback options
 
 2. **Agent Subprocess Detection**:
-
    - Build detection system for agent CLIs (claude code, gemini-cli, cursor-cli)
    - Implement authorization flow for detected agents
    - Create headless processing capability

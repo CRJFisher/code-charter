@@ -1,9 +1,10 @@
 ---
 id: TASK-15
 title: Replace RegexDocstringProvider with ariadne docstrings everywhere
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-23 09:29'
+updated_date: '2026-05-24 14:09'
 labels: []
 dependencies: []
 ---
@@ -16,10 +17,16 @@ The VS Code extension already uses ariadne's tree-sitter-extracted docstrings (n
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] CLI init_command uses ariadne docstrings instead of RegexDocstringProvider
-- [ ] cluster_pipeline.mjs uses ariadne docstrings instead of its inline regex extraction
-- [ ] RegexDocstringProvider class is deleted from both packages/cli and packages/vscode
-- [ ] DocstringProvider interface is removed from @code-charter/types if no longer needed
-- [ ] All existing tests pass with the new docstring source
-- [ ] Docstring coverage is equivalent or better than the regex approach
+- [ ] #1 CLI init_command uses ariadne docstrings instead of RegexDocstringProvider
+- [ ] #2 cluster_pipeline.mjs uses ariadne docstrings instead of its inline regex extraction
+- [ ] #3 RegexDocstringProvider class is deleted from both packages/cli and packages/vscode
+- [ ] #4 DocstringProvider interface is removed from @code-charter/types if no longer needed
+- [ ] #5 All existing tests pass with the new docstring source
+- [ ] #6 Docstring coverage is equivalent or better than the regex approach
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Completed in commit 30bda20. RegexDocstringProvider and DocstringProvider interface removed. CLI package deleted entirely. Ariadne tree-sitter docstrings are the sole source.
+<!-- SECTION:NOTES:END -->

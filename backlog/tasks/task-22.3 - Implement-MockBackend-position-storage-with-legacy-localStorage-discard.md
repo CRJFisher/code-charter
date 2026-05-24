@@ -1,10 +1,10 @@
 ---
 id: TASK-22.3
-title: Implement web-demo backend position storage with legacy localStorage discard
+title: Implement MockBackend position storage with legacy localStorage discard
 status: To Do
 assignee: []
 created_date: '2026-05-20 13:50'
-updated_date: '2026-05-22 12:03'
+updated_date: '2026-05-24 14:10'
 labels: []
 dependencies:
   - TASK-22.1

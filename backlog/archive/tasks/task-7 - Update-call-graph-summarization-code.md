@@ -3,7 +3,7 @@ id: task-7
 title: Update call-graph summarization code
 status: To Do
 assignee: []
-created_date: '2025-08-01'
+created_date: "2025-08-01"
 labels:
   - epic
 dependencies: []

@@ -3,7 +3,7 @@ id: task-7.1
 title: Replace LangChain with simpler agent solution
 status: To Do
 assignee: []
-created_date: '2025-08-01'
+created_date: "2025-08-01"
 labels: []
 dependencies: []
 parent_task_id: task-7
