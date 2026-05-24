@@ -18,134 +18,134 @@ import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import "@xyflow/react/dist/style.css";
 
 import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
-import { applyHierarchicalLayout } from "./graph_layout";
-import { zoomAwareNodeTypes } from "./chart_node_types";
-import { generateReactFlowElements } from "./call_tree_to_graph";
+import { apply_hierarchical_layout } from "./graph_layout";
+import { zoom_aware_node_types } from "./chart_node_types";
+import { generate_react_flow_elements } from "./call_tree_to_graph";
 import { compute_parent_resize, apply_parent_resize } from "./parent_resize";
 import { LoadingIndicator } from "./loading_indicator";
-import { saveGraphState, loadGraphState, exportGraphState, clearGraphState } from "./state_persistence";
-import { useKeyboardNavigation, SkipToGraph } from "./keyboard_navigation";
-import { useDebounce } from "../../hooks/use_debounce";
-import { useThrottle } from "../../hooks/use_throttle";
-import { clearLayoutCaches } from "./graph_layout";
-import { getVisibleNodes, useVirtualNodes, ViewportIndicator } from "./virtual_renderer";
+import { save_graph_state, load_graph_state, export_graph_state, clear_graph_state } from "./state_persistence";
+import { use_keyboard_navigation, SkipToGraph } from "./keyboard_navigation";
+import { use_debounce } from "../../hooks/use_debounce";
+import { use_throttle } from "../../hooks/use_throttle";
+import { clear_layout_caches } from "./graph_layout";
+import { get_visible_nodes, use_virtual_nodes, ViewportIndicator } from "./virtual_renderer";
 import { SearchPanel } from "./search_panel";
 import { ErrorBoundary } from "../../error/error_boundary";
-import { ErrorNotifications, useErrorNotification } from "../../error/error_notifications";
-import { handleReactFlowError, errorLogger } from "./error_handling";
+import { ErrorNotifications, use_error_notification } from "../../error/error_notifications";
+import { handle_react_flow_error, error_logger } from "./error_handling";
 import { CONFIG } from "./chart_config";
-import { useFlowThemeStyles } from "./use_chart_theme_styles";
+import { use_flow_theme_styles } from "./use_chart_theme_styles";
 
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
-  selectedEntryPoint: CallableNode | null;
-  screenWidthFraction: number;
-  getDescriptions: (nodeSymbol: string) => Promise<DocstringSummaries | undefined>;
-  detectModules: () => Promise<NodeGroup[] | undefined>;
-  indexingStatus: CodeIndexStatus;
+  selected_entry_point: CallableNode | null;
+  screen_width_fraction: number;
+  get_descriptions: (node_symbol: string) => Promise<DocstringSummaries | undefined>;
+  detect_modules: () => Promise<NodeGroup[] | undefined>;
+  indexing_status: CodeIndexStatus;
 }
 
 // ARIA label configuration for accessibility
-const ariaLabelConfig = {
+const aria_label_config = {
   'node.a11yDescription.default': 'Press Enter to select this node. Use arrow keys to navigate.',
   'node.a11yDescription.keyboardDisabled': 'Keyboard navigation is disabled',
   'edge.a11yDescription.default': 'Connection between functions. Press Enter to focus.',
 };
 
 const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
-  selectedEntryPoint,
-  screenWidthFraction,
-  getDescriptions,
-  detectModules,
-  indexingStatus,
+  selected_entry_point,
+  screen_width_fraction,
+  get_descriptions,
+  detect_modules,
+  indexing_status,
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<CodeChartNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<CodeChartEdge>([]);
-  const [zoomMode, setZoomMode] = useState<ZoomMode>("zoomedOut");
-  const [, setCallChart] = useState<Record<string, CallableNode> | null>(null);
+  const [nodes, set_nodes, on_nodes_change] = useNodesState<CodeChartNode>([]);
+  const [edges, set_edges, on_edges_change] = useEdgesState<CodeChartEdge>([]);
+  const [zoom_mode, set_zoom_mode] = useState<ZoomMode>("zoomedOut");
+  const [, set_call_chart] = useState<Record<string, CallableNode> | null>(null);
   const [description_status, set_description_status] = useState<DescriptionStatus>(DescriptionStatus.LoadingDescriptions);
-  const [error, setError] = useState<string | null>(null);
-  const [showMiniMap, setShowMiniMap] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const nodeGroupsRef = useRef<NodeGroup[] | undefined>(undefined);
-  const reactFlowInstance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
-  const { notify } = useErrorNotification();
-  const themeStyles = useFlowThemeStyles();
-  const miniMapNodeColor = useMemo(() => createMiniMapNodeColor(themeStyles.colors), [themeStyles.colors]);
+  const [error, set_error] = useState<string | null>(null);
+  const [show_mini_map, set_show_mini_map] = useState(true);
+  const container_ref = useRef<HTMLDivElement>(null);
+  const node_groups_ref = useRef<NodeGroup[] | undefined>(undefined);
+  const react_flow_instance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
+  const { notify } = use_error_notification();
+  const theme_styles = use_flow_theme_styles();
+  const mini_map_node_color = useMemo(() => create_mini_map_node_color(theme_styles.colors), [theme_styles.colors]);
 
   // Use keyboard navigation hook
-  const on_node_navigate = useCallback((nodeId: string) => {
-    if (reactFlowInstance.current) {
-      const node = reactFlowInstance.current.getNode(nodeId);
+  const on_node_navigate = useCallback((node_id: string) => {
+    if (react_flow_instance.current) {
+      const node = react_flow_instance.current.getNode(node_id);
       if (node) {
-        reactFlowInstance.current.setCenter(node.position.x, node.position.y, {
+        react_flow_instance.current.setCenter(node.position.x, node.position.y, {
           duration: CONFIG.animation.duration.panToNode,
-          zoom: reactFlowInstance.current.getZoom(),
+          zoom: react_flow_instance.current.getZoom(),
         });
       }
     }
   }, []);
-  const keyboard_nav_props = useMemo(() => ({ onNodeNavigate: on_node_navigate }), [on_node_navigate]);
-  useKeyboardNavigation(keyboard_nav_props);
+  const keyboard_nav_props = useMemo(() => ({ on_node_navigate: on_node_navigate }), [on_node_navigate]);
+  use_keyboard_navigation(keyboard_nav_props);
 
   // Monitor zoom level and viewport
-  const viewportX = useStore((state: XYFlowState) => state.transform[0]);
-  const viewportY = useStore((state: XYFlowState) => state.transform[1]);
-  const viewportZoom = useStore((state: XYFlowState) => state.transform[2]);
-  const viewport = useMemo(() => ({ x: viewportX, y: viewportY, zoom: viewportZoom }), [viewportX, viewportY, viewportZoom]);
+  const viewport_x = useStore((state: XYFlowState) => state.transform[0]);
+  const viewport_y = useStore((state: XYFlowState) => state.transform[1]);
+  const viewport_zoom = useStore((state: XYFlowState) => state.transform[2]);
+  const viewport = useMemo(() => ({ x: viewport_x, y: viewport_y, zoom: viewport_zoom }), [viewport_x, viewport_y, viewport_zoom]);
   const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
   // Debounce viewport changes for performance
-  const debouncedViewport = useDebounce(viewport, CONFIG.animation.debounce.viewport);
+  const debounced_viewport = use_debounce(viewport, CONFIG.animation.debounce.viewport);
 
   // Update zoom mode based on zoom level
   useEffect(() => {
-    const newZoomMode = viewportZoom < ZOOM_THRESHOLD ? "zoomedOut" : "zoomedIn";
-    if (newZoomMode !== zoomMode) {
-      setZoomMode(newZoomMode);
+    const new_zoom_mode = viewport_zoom < ZOOM_THRESHOLD ? "zoomedOut" : "zoomedIn";
+    if (new_zoom_mode !== zoom_mode) {
+      set_zoom_mode(new_zoom_mode);
     }
-  }, [viewportZoom, zoomMode]);
+  }, [viewport_zoom, zoom_mode]);
 
   // Memoize visible nodes for virtualization
-  const visibleNodeIds = useMemo(() => {
-    if (!containerRef.current || nodes.length === 0) {
+  const visible_node_ids = useMemo(() => {
+    if (!container_ref.current || nodes.length === 0) {
       return new Set<string>();
     }
 
-    return getVisibleNodes(
+    return get_visible_nodes(
       nodes,
-      debouncedViewport,
-      containerRef.current.clientWidth,
-      containerRef.current.clientHeight
+      debounced_viewport,
+      container_ref.current.clientWidth,
+      container_ref.current.clientHeight
     );
-  }, [nodes, debouncedViewport]);
+  }, [nodes, debounced_viewport]);
 
   // Apply virtual rendering for large graphs
-  const { virtualNodes, virtualEdges, hiddenNodeCount } = useVirtualNodes({
+  const { virtual_nodes, virtual_edges, hidden_node_count } = use_virtual_nodes({
     nodes,
     edges,
-    visibleNodeIds: nodes.length > CONFIG.performance.nodes.largeGraph ? visibleNodeIds : new Set(),
-    renderBuffer: CONFIG.performance.virtualRender.renderBuffer,
+    visible_node_ids: nodes.length > CONFIG.performance.nodes.largeGraph ? visible_node_ids : new Set(),
+    render_buffer: CONFIG.performance.virtualRender.render_buffer,
   });
 
   // Clear caches when entry point changes
   useEffect(() => {
-    if (selectedEntryPoint) {
-      clearLayoutCaches();
+    if (selected_entry_point) {
+      clear_layout_caches();
     }
-  }, [selectedEntryPoint?.symbol_id]);
+  }, [selected_entry_point?.symbol_id]);
 
   useEffect(() => {
-    if (!selectedEntryPoint) {
+    if (!selected_entry_point) {
       return;
     }
 
     let cancelled = false;
 
-    const fetchData = async () => {
+    const fetch_data = async () => {
       try {
-        setError(null);
+        set_error(null);
         set_description_status(DescriptionStatus.LoadingDescriptions);
 
         // Clear any graph data from the previous entrypoint before loading
@@ -153,67 +153,67 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         // internal store during the async window, and module IDs (now
         // namespaced per-entrypoint) from the previous render can leak
         // through the virtual-renderer's empty-viewport fallback.
-        setNodes([]);
-        setEdges([]);
+        set_nodes([]);
+        set_edges([]);
 
         // Check for saved state first
-        const savedState = loadGraphState(selectedEntryPoint.symbol_id);
-        if (savedState) {
+        const saved_state = load_graph_state(selected_entry_point.symbol_id);
+        if (saved_state) {
           if (cancelled) return;
-          setNodes(savedState.nodes);
-          setEdges(savedState.edges);
+          set_nodes(saved_state.nodes);
+          set_edges(saved_state.edges);
           set_description_status(DescriptionStatus.Ready);
           return;
         }
 
-        const docstring_summaries = await getDescriptions(selectedEntryPoint.symbol_id);
+        const docstring_summaries = await get_descriptions(selected_entry_point.symbol_id);
         if (cancelled) return;
         if (!docstring_summaries) {
           throw new Error("Failed to load code tree descriptions");
         }
-        setCallChart(docstring_summaries.call_tree);
+        set_call_chart(docstring_summaries.call_tree);
 
         set_description_status(DescriptionStatus.DetectingModules);
-        const nodeGroups = await detectModules();
+        const node_groups = await detect_modules();
         if (cancelled) return;
-        nodeGroupsRef.current = nodeGroups;
+        node_groups_ref.current = node_groups;
 
         // Generate all nodes and edges from the call tree
-        const { nodes: flowNodes, edges: flowEdges } = generateReactFlowElements(
-          selectedEntryPoint,
+        const { nodes: flow_nodes, edges: flow_edges } = generate_react_flow_elements(
+          selected_entry_point,
           docstring_summaries,
-          nodeGroups,
-          themeStyles.colors.cluster?.palette
+          node_groups,
+          theme_styles.colors.cluster?.palette
         );
 
         // Apply hierarchical layout
-        const layoutedNodes = await applyHierarchicalLayout(flowNodes, flowEdges);
+        const layouted_nodes = await apply_hierarchical_layout(flow_nodes, flow_edges);
         if (cancelled) return;
 
-        setNodes(layoutedNodes);
-        setEdges(flowEdges);
+        set_nodes(layouted_nodes);
+        set_edges(flow_edges);
         set_description_status(DescriptionStatus.Ready);
       } catch (err) {
         if (cancelled) return;
         const error = err instanceof Error ? err : new Error("An error occurred");
-        setError(error.message);
+        set_error(error.message);
         set_description_status(DescriptionStatus.Error);
-        errorLogger.log(error, 'error', { entryPoint: selectedEntryPoint.symbol_id });
-        handleReactFlowError(error);
+        error_logger.log(error, 'error', { entry_point: selected_entry_point.symbol_id });
+        handle_react_flow_error(error);
 
         // Show notification with retry option
         notify(
           'Failed to load visualization data',
           'error',
           [
-            { label: 'Retry', action: () => fetchData() },
+            { label: 'Retry', action: () => fetch_data() },
             { label: 'Dismiss', action: () => undefined },
           ]
         );
       }
     };
 
-    fetchData();
+    fetch_data();
 
     return () => {
       cancelled = true;
@@ -222,60 +222,60 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     // cancel-and-restart on every App render (their closures are recreated
     // each render), creating an infinite loop with the .finally state updates
     // in App.fetch_descriptions.
-  }, [selectedEntryPoint?.symbol_id]);
+  }, [selected_entry_point?.symbol_id]);
 
-  const getVisibilityClassNames = (show: boolean): string => {
+  const get_visibility_class_names = (show: boolean): string => {
     return show ? "visible" : "invisible";
   };
 
   // Throttle save operations for performance (manual Save button)
-  const handleSaveState = useThrottle(useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selectedEntryPoint || !instance) return;
+  const handle_save_state = use_throttle(useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
+    if (!selected_entry_point || !instance) return;
 
     const viewport = instance.getViewport();
-    saveGraphState(instance.getNodes(), instance.getEdges(), viewport, selectedEntryPoint.symbol_id);
-  }, [selectedEntryPoint]), CONFIG.animation.debounce.save);
+    save_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_entry_point.symbol_id);
+  }, [selected_entry_point]), CONFIG.animation.debounce.save);
 
   // Debounced autosave driven by local state. Reading `nodes`/`edges` directly
   // (rather than `instance.getNodes()`) avoids a race with React Flow's
-  // internal store: after `setNodes(...)` from a drag-stop resize, the local
+  // internal store: after `set_nodes(...)` from a drag-stop resize, the local
   // state is already the source of truth.
-  const debounced_nodes = useDebounce(nodes, CONFIG.animation.debounce.save);
-  const debounced_edges = useDebounce(edges, CONFIG.animation.debounce.save);
+  const debounced_nodes = use_debounce(nodes, CONFIG.animation.debounce.save);
+  const debounced_edges = use_debounce(edges, CONFIG.animation.debounce.save);
   useEffect(() => {
     if (description_status !== DescriptionStatus.Ready) return;
-    if (!selectedEntryPoint || !reactFlowInstance.current) return;
-    const viewport = reactFlowInstance.current.getViewport();
-    saveGraphState(debounced_nodes, debounced_edges, viewport, selectedEntryPoint.symbol_id);
-  }, [debounced_nodes, debounced_edges, description_status, selectedEntryPoint?.symbol_id]);
+    if (!selected_entry_point || !react_flow_instance.current) return;
+    const viewport = react_flow_instance.current.getViewport();
+    save_graph_state(debounced_nodes, debounced_edges, viewport, selected_entry_point.symbol_id);
+  }, [debounced_nodes, debounced_edges, description_status, selected_entry_point?.symbol_id]);
 
   // Export state to file
-  const handleExportState = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selectedEntryPoint || !instance) return;
+  const handle_export_state = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
+    if (!selected_entry_point || !instance) return;
 
     const viewport = instance.getViewport();
-    exportGraphState(instance.getNodes(), instance.getEdges(), viewport, selectedEntryPoint.symbol_id);
-  }, [selectedEntryPoint]);
+    export_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_entry_point.symbol_id);
+  }, [selected_entry_point]);
 
   // Handle React Flow initialization
-  const onInit = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selectedEntryPoint) return;
+  const on_init = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
+    if (!selected_entry_point) return;
 
-    reactFlowInstance.current = instance;
+    react_flow_instance.current = instance;
 
     // Check for saved viewport
-    const savedState = loadGraphState(selectedEntryPoint.symbol_id);
-    if (savedState?.viewport) {
-      instance.setViewport(savedState.viewport);
+    const saved_state = load_graph_state(selected_entry_point.symbol_id);
+    if (saved_state?.viewport) {
+      instance.setViewport(saved_state.viewport);
     }
-  }, [selectedEntryPoint]);
+  }, [selected_entry_point]);
 
-  if (indexingStatus !== CodeIndexStatus.Ready) {
+  if (indexing_status !== CodeIndexStatus.Ready) {
     return (
       <div
         className="chart-container"
         style={{
-          width: `${screenWidthFraction * 100}%`,
+          width: `${screen_width_fraction * 100}%`,
           height: "100vh",
           display: "flex",
           justifyContent: "center",
@@ -290,23 +290,23 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     );
   }
 
-  const showElements = selectedEntryPoint !== null && description_status === DescriptionStatus.Ready;
+  const show_elements = selected_entry_point !== null && description_status === DescriptionStatus.Ready;
 
   return (
     <>
       <SkipToGraph />
       <div
-        ref={containerRef}
+        ref={container_ref}
         className="chart-container"
         style={{
-          width: `${screenWidthFraction * 100}%`,
+          width: `${screen_width_fraction * 100}%`,
           height: "100vh",
           position: "relative",
         }}
         id="code-flow-graph"
       >
       <div
-        className={`loading-container ${getVisibilityClassNames(description_status !== DescriptionStatus.Ready)}`}
+        className={`loading-container ${get_visibility_class_names(description_status !== DescriptionStatus.Ready)}`}
         style={{
           position: "absolute",
           top: "50%",
@@ -331,7 +331,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         {description_status === DescriptionStatus.Error && error && (
           <div style={{
             padding: "20px",
-            ...themeStyles.getErrorStyle(),
+            ...theme_styles.get_error_style(),
             borderRadius: "4px",
             maxWidth: "400px",
           }}>
@@ -341,17 +341,17 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         )}
       </div>
 
-      <div className={getVisibilityClassNames(showElements)} style={{ width: "100%", height: "100%" }}>
+      <div className={get_visibility_class_names(show_elements)} style={{ width: "100%", height: "100%" }}>
         <ReactFlow
-          nodes={virtualNodes}
-          edges={virtualEdges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={zoomAwareNodeTypes}
+          nodes={virtual_nodes}
+          edges={virtual_edges}
+          onNodesChange={on_nodes_change}
+          onEdgesChange={on_edges_change}
+          nodeTypes={zoom_aware_node_types}
           fitView
           fitViewOptions={{
-            padding: CONFIG.viewport.fitView.padding,
-            duration: CONFIG.animation.duration.fitView,
+            padding: CONFIG.viewport.fit_view.padding,
+            duration: CONFIG.animation.duration.fit_view,
           }}
           nodesDraggable={true}
           nodesConnectable={false}
@@ -359,14 +359,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           nodesFocusable={true}
           edgesFocusable={true}
           autoPanOnNodeFocus={true}
-          ariaLabelConfig={ariaLabelConfig}
+          ariaLabelConfig={aria_label_config}
           minZoom={CONFIG.zoom.levels.min}
           maxZoom={CONFIG.zoom.levels.max}
           defaultEdgeOptions={{
-            style: themeStyles.getEdgeStyle(false),
+            style: theme_styles.get_edge_style(false),
             ariaLabel: 'Function call',
           }}
-          onInit={onInit}
+          onInit={on_init}
           onNodeDragStop={(_evt, node) => {
             // Shrink-fit the parent module to its children's bounding box.
             // Children's positions are relative to the parent, so after a drag
@@ -376,7 +376,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             if (node.type !== "code_function") return;
             const parent_id = node.parentId;
             if (!parent_id) return;
-            setNodes(current => {
+            set_nodes(current => {
               const resize = compute_parent_resize(parent_id, current);
               return resize ? apply_parent_resize(current, resize) : current;
             });
@@ -388,20 +388,20 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             variant={BackgroundVariant.Dots}
             gap={CONFIG.background.gap}
             size={CONFIG.background.size}
-            color={themeStyles.colors.background.dots}
+            color={theme_styles.colors.background.dots}
           />
           <Controls />
 
           {/* Mini Map */}
-          {showMiniMap && (
+          {show_mini_map && (
             <MiniMap
-              nodeColor={miniMapNodeColor}
+              nodeColor={mini_map_node_color}
               nodeStrokeWidth={CONFIG.minimap.nodeStrokeWidth}
               pannable
               zoomable
               style={{
-                backgroundColor: themeStyles.colors.ui.background.minimap,
-                border: `1px solid ${themeStyles.colors.ui.border}`,
+                backgroundColor: theme_styles.colors.ui.background.minimap,
+                border: `1px solid ${theme_styles.colors.ui.border}`,
               }}
             />
           )}
@@ -424,11 +424,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             <div
               style={{
                 padding: "5px 10px",
-                ...themeStyles.getOverlayStyle(),
+                ...theme_styles.get_overlay_style(),
                 fontSize: `${CONFIG.spacing.fontSize.medium}px`,
               }}
             >
-              {zoomMode === "zoomedOut" ? "Module View" : "Function View"}
+              {zoom_mode === "zoomedOut" ? "Module View" : "Function View"}
             </div>
 
             {/* Performance info */}
@@ -436,23 +436,23 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               <div
                 style={{
                   padding: "4px 8px",
-                  ...themeStyles.getOverlayStyle(),
+                  ...theme_styles.get_overlay_style(),
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
                   marginBottom: `${CONFIG.spacing.margin.small}px`,
                 }}
               >
-                {nodes.length} nodes • {virtualNodes.length} rendered • {hiddenNodeCount} hidden
+                {nodes.length} nodes • {virtual_nodes.length} rendered • {hidden_node_count} hidden
               </div>
             )}
 
             {/* Show indicators for hidden nodes */}
-            {hiddenNodeCount > CONFIG.performance.nodes.hideIndicator && (
+            {hidden_node_count > CONFIG.performance.nodes.hideIndicator && (
               <ViewportIndicator
                 direction="top"
-                count={Math.floor(hiddenNodeCount / 4)}
-                onClick={() => {
-                  if (reactFlowInstance.current) {
-                    reactFlowInstance.current.fitView({ padding: CONFIG.viewport.fitView.padding });
+                count={Math.floor(hidden_node_count / 4)}
+                on_click={() => {
+                  if (react_flow_instance.current) {
+                    react_flow_instance.current.fitView({ padding: CONFIG.viewport.fit_view.padding });
                   }
                 }}
               />
@@ -460,18 +460,18 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 
             {/* MiniMap Toggle */}
             <button
-              onClick={() => setShowMiniMap(!showMiniMap)}
+              onClick={() => set_show_mini_map(!show_mini_map)}
               style={{
-                ...themeStyles.getButtonStyle(showMiniMap ? 'primary' : 'secondary'),
+                ...theme_styles.get_button_style(show_mini_map ? 'primary' : 'secondary'),
                 padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                 fontSize: `${CONFIG.spacing.fontSize.small}px`,
                 borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                opacity: showMiniMap ? 1 : 0.7,
+                opacity: show_mini_map ? 1 : 0.7,
                 marginBottom: `${CONFIG.spacing.margin.small}px`,
               }}
-              aria-label={showMiniMap ? "Hide mini-map" : "Show mini-map"}
+              aria-label={show_mini_map ? "Hide mini-map" : "Show mini-map"}
             >
-              {showMiniMap ? "🗺️ Hide Map" : "🗺️ Show Map"}
+              {show_mini_map ? "🗺️ Hide Map" : "🗺️ Show Map"}
             </button>
 
             {/* Persistence controls */}
@@ -483,13 +483,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             >
               <button
                 onClick={() => {
-                  if (reactFlowInstance.current) {
-                    handleSaveState(reactFlowInstance.current);
+                  if (react_flow_instance.current) {
+                    handle_save_state(react_flow_instance.current);
                     notify("Graph state saved!", "info");
                   }
                 }}
                 style={{
-                  ...themeStyles.getButtonStyle('primary'),
+                  ...theme_styles.get_button_style('primary'),
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
@@ -499,12 +499,12 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               </button>
               <button
                 onClick={() => {
-                  if (reactFlowInstance.current) {
-                    handleExportState(reactFlowInstance.current);
+                  if (react_flow_instance.current) {
+                    handle_export_state(react_flow_instance.current);
                   }
                 }}
                 style={{
-                  ...themeStyles.getButtonStyle('secondary'),
+                  ...theme_styles.get_button_style('secondary'),
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
@@ -514,11 +514,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               </button>
               <button
                 onClick={() => {
-                  clearGraphState();
+                  clear_graph_state();
                   notify("Saved state cleared!", "info");
                 }}
                 style={{
-                  ...themeStyles.getButtonStyle('danger'),
+                  ...theme_styles.get_button_style('danger'),
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
                   fontSize: `${CONFIG.spacing.fontSize.small}px`,
                   borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
@@ -536,13 +536,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 };
 
 // MiniMap node color function factory
-function createMiniMapNodeColor(colors: ReturnType<typeof useFlowThemeStyles>['colors']) {
+function create_mini_map_node_color(colors: ReturnType<typeof use_flow_theme_styles>['colors']) {
   return (node: CodeChartNode): string => {
     if (node.type === 'module_group') {
       return colors.node.background.module;
     }
     if (node.data?.is_entry_point) {
-      return colors.node.background.entryPoint;
+      return colors.node.background.entry_point;
     }
     if (node.selected) {
       return colors.node.border.selected;
@@ -558,15 +558,15 @@ export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;
 export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (props) => {
   return (
     <ErrorBoundary
-      onError={(error, errorInfo) => {
-        errorLogger.log(error, 'critical', { errorInfo });
-        handleReactFlowError(error);
+      on_error={(error, error_info) => {
+        error_logger.log(error, 'critical', { error_info });
+        handle_react_flow_error(error);
       }}
-      maxRetries={CONFIG.error.retry.maxRetries}
+      max_retries={CONFIG.error.retry.max_retries}
     >
       <ReactFlowProvider>
         <CodeChartAreaReactFlowInner {...props} />
-        <ErrorNotifications position="bottom" maxNotifications={CONFIG.error.notifications.maxNotifications} />
+        <ErrorNotifications position="bottom" max_notifications={CONFIG.error.notifications.max_notifications} />
       </ReactFlowProvider>
     </ErrorBoundary>
   );

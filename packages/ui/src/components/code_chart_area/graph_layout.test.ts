@@ -1,4 +1,4 @@
-import { applyHierarchicalLayout, calculateNodeDimensions, clearLayoutCaches } from "./graph_layout";
+import { apply_hierarchical_layout, calculate_node_dimensions, clear_layout_caches } from "./graph_layout";
 import { Edge } from "@xyflow/react";
 import { CodeChartNode } from "./chart_types";
 import ELK, { ElkNode } from "elkjs/lib/elk.bundled";
@@ -15,7 +15,7 @@ describe("graph_layout", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    clearLayoutCaches();
+    clear_layout_caches();
     // Default mock implementation that returns the layout based on input
     const layout_mock = jest.fn((graph: ElkNode) => Promise.resolve({
       id: graph.id || 'root',
@@ -37,7 +37,7 @@ describe("graph_layout", () => {
     mockELK.mockImplementation(() => stub_instance);
   });
 
-  describe("calculateNodeDimensions", () => {
+  describe("calculate_node_dimensions", () => {
     it("should calculate dimensions based on function name length", () => {
       const shortNameNode = {
         id: "1",
@@ -49,7 +49,7 @@ describe("graph_layout", () => {
         },
       } as CodeChartNode;
 
-      const result = calculateNodeDimensions(shortNameNode);
+      const result = calculate_node_dimensions(shortNameNode);
       expect(result.width).toBeGreaterThanOrEqual(200); // MIN_WIDTH
       expect(result.height).toBeGreaterThan(50); // Base height
     });
@@ -65,7 +65,7 @@ describe("graph_layout", () => {
         },
       } as CodeChartNode;
 
-      const result = calculateNodeDimensions(longNameNode);
+      const result = calculate_node_dimensions(longNameNode);
       expect(result.width).toBeGreaterThan(300);
     });
 
@@ -80,7 +80,7 @@ describe("graph_layout", () => {
         },
       } as CodeChartNode;
 
-      const result = calculateNodeDimensions(longSummaryNode);
+      const result = calculate_node_dimensions(longSummaryNode);
       expect(result.height).toBeGreaterThan(80);
     });
 
@@ -95,7 +95,7 @@ describe("graph_layout", () => {
         },
       } as CodeChartNode;
 
-      const result = calculateNodeDimensions(hugeNode);
+      const result = calculate_node_dimensions(hugeNode);
       expect(result.width).toBeLessThanOrEqual(350); // MAX_WIDTH
       // Height has no max constraint, just check it's reasonable
       expect(result.height).toBeGreaterThan(100);
@@ -108,13 +108,13 @@ describe("graph_layout", () => {
         data: {},
       } as CodeChartNode;
 
-      const result = calculateNodeDimensions(nodeWithoutData);
+      const result = calculate_node_dimensions(nodeWithoutData);
       expect(result.width).toBe(200); // MIN_WIDTH
       expect(result.height).toBeGreaterThan(50); // Base height
     });
   });
 
-  describe("applyHierarchicalLayout", () => {
+  describe("apply_hierarchical_layout", () => {
     it("should apply ELK layout to nodes", async () => {
       const nodes = [
         {
@@ -140,12 +140,12 @@ describe("graph_layout", () => {
       // Mock console.error to suppress expected error output
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       
-      const layoutedNodes = await applyHierarchicalLayout(nodes, edges);
+      const layouted_nodes = await apply_hierarchical_layout(nodes, edges);
 
       // The current mock setup causes errors, but the function should still return nodes
-      expect(layoutedNodes).toHaveLength(2);
-      expect(layoutedNodes[0].id).toBe("node1");
-      expect(layoutedNodes[1].id).toBe("node2");
+      expect(layouted_nodes).toHaveLength(2);
+      expect(layouted_nodes[0].id).toBe("node1");
+      expect(layouted_nodes[1].id).toBe("node2");
       
       consoleErrorSpy.mockRestore();
     });
@@ -168,14 +168,17 @@ describe("graph_layout", () => {
       ];
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
-      const layoutedNodes = await applyHierarchicalLayout(nodes, []);
+      const layouted_nodes = await apply_hierarchical_layout(nodes, []);
 
-      expect(layoutedNodes[0].data).toEqual({
+      expect(layouted_nodes[0].data).toEqual({
         function_name: "func1",
         description: "Description 1",
+        file_path: "/test/file.ts",
+        line_number: 1,
+        symbol: "test::func1",
         custom_field: "value",
       });
-      expect(layoutedNodes[0].type).toBe("custom");
+      expect(layouted_nodes[0].type).toBe("code_function");
       consoleErrorSpy.mockRestore();
     });
 
@@ -195,7 +198,7 @@ describe("graph_layout", () => {
       ] as CodeChartNode[];
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
-      const result = await applyHierarchicalLayout(nodes, []);
+      const result = await apply_hierarchical_layout(nodes, []);
 
       // Just verify we get back positioned nodes
       expect(result).toHaveLength(2);
@@ -207,8 +210,8 @@ describe("graph_layout", () => {
     });
 
     it("should handle empty nodes array", async () => {
-      const layoutedNodes = await applyHierarchicalLayout([], []);
-      expect(layoutedNodes).toEqual([]);
+      const layouted_nodes = await apply_hierarchical_layout([], []);
+      expect(layouted_nodes).toEqual([]);
     });
 
     it("should handle layout errors gracefully", async () => {
@@ -232,7 +235,7 @@ describe("graph_layout", () => {
       };
       mockELK.mockImplementationOnce(() => failing_instance);
 
-      const result = await applyHierarchicalLayout(nodes, []);
+      const result = await apply_hierarchical_layout(nodes, []);
       
       // Should return nodes (original nodes with same structure)
       expect(result).toHaveLength(1);

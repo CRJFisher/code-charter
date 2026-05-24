@@ -10,105 +10,105 @@ interface ViewportNode {
 }
 
 // Virtualization helper to determine visible nodes
-export function getVisibleNodes(
+export function get_visible_nodes(
   nodes: ViewportNode[],
   viewport: { x: number; y: number; zoom: number },
-  containerWidth: number,
-  containerHeight: number,
+  container_width: number,
+  container_height: number,
   buffer = 100
 ): Set<string> {
-  const visibleNodeIds = new Set<string>();
+  const visible_node_ids = new Set<string>();
 
   // Calculate viewport bounds with buffer
-  const viewBounds = {
+  const view_bounds = {
     left: -viewport.x / viewport.zoom - buffer,
-    right: (-viewport.x + containerWidth) / viewport.zoom + buffer,
+    right: (-viewport.x + container_width) / viewport.zoom + buffer,
     top: -viewport.y / viewport.zoom - buffer,
-    bottom: (-viewport.y + containerHeight) / viewport.zoom + buffer,
+    bottom: (-viewport.y + container_height) / viewport.zoom + buffer,
   };
 
   // Check each node if it's within viewport
   nodes.forEach(node => {
-    const nodeRight = node.position.x + (node.width || 200);
-    const nodeBottom = node.position.y + (node.height || 100);
+    const node_right = node.position.x + (node.width || 200);
+    const node_bottom = node.position.y + (node.height || 100);
 
     if (
-      node.position.x <= viewBounds.right &&
-      nodeRight >= viewBounds.left &&
-      node.position.y <= viewBounds.bottom &&
-      nodeBottom >= viewBounds.top
+      node.position.x <= view_bounds.right &&
+      node_right >= view_bounds.left &&
+      node.position.y <= view_bounds.bottom &&
+      node_bottom >= view_bounds.top
     ) {
-      visibleNodeIds.add(node.id);
+      visible_node_ids.add(node.id);
     }
   });
 
-  return visibleNodeIds;
+  return visible_node_ids;
 }
 
 export interface VirtualRendererProps {
   nodes: CodeChartNode[];
   edges: CodeChartEdge[];
-  visibleNodeIds: Set<string>;
-  renderBuffer?: number;
+  visible_node_ids: Set<string>;
+  render_buffer?: number;
 }
 
 /**
  * Virtual rendering component that filters nodes and edges based on visibility
  * This significantly improves performance for large graphs
  */
-export function useVirtualNodes({
+export function use_virtual_nodes({
   nodes,
   edges,
-  visibleNodeIds,
-  renderBuffer = CONFIG.performance.virtualRender.defaultBuffer,
+  visible_node_ids,
+  render_buffer = CONFIG.performance.virtualRender.defaultBuffer,
 }: VirtualRendererProps): {
-  virtualNodes: CodeChartNode[];
-  virtualEdges: CodeChartEdge[];
-  hiddenNodeCount: number;
+  virtual_nodes: CodeChartNode[];
+  virtual_edges: CodeChartEdge[];
+  hidden_node_count: number;
 } {
   // Memoize virtual nodes to prevent unnecessary recalculations
-  const virtualNodes = useMemo(() => {
-    if (visibleNodeIds.size === 0) {
+  const virtual_nodes = useMemo(() => {
+    if (visible_node_ids.size === 0) {
       return nodes; // Return all nodes if no visibility info
     }
     
     // Add buffer nodes (nodes connected to visible nodes)
-    const expandedVisibleIds = new Set(visibleNodeIds);
+    const expanded_visible_ids = new Set(visible_node_ids);
     
-    if (renderBuffer > 0) {
+    if (render_buffer > 0) {
       edges.forEach(edge => {
-        if (visibleNodeIds.has(edge.source)) {
-          expandedVisibleIds.add(edge.target);
+        if (visible_node_ids.has(edge.source)) {
+          expanded_visible_ids.add(edge.target);
         }
-        if (visibleNodeIds.has(edge.target)) {
-          expandedVisibleIds.add(edge.source);
+        if (visible_node_ids.has(edge.target)) {
+          expanded_visible_ids.add(edge.source);
         }
       });
     }
     
-    return nodes.filter(node => expandedVisibleIds.has(node.id));
-  }, [nodes, visibleNodeIds, edges, renderBuffer]);
+    return nodes.filter(node => expanded_visible_ids.has(node.id));
+  }, [nodes, visible_node_ids, edges, render_buffer]);
   
   // Memoize virtual edges
-  const virtualEdges = useMemo(() => {
-    if (visibleNodeIds.size === 0) {
+  const virtual_edges = useMemo(() => {
+    if (visible_node_ids.size === 0) {
       return edges; // Return all edges if no visibility info
     }
     
-    const nodeIdSet = new Set(virtualNodes.map(n => n.id));
+    const node_id_set = new Set(virtual_nodes.map(n => n.id));
     
     // Only include edges where both source and target are rendered
     return edges.filter(edge => 
-      nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target)
+      node_id_set.has(edge.source) && node_id_set.has(edge.target)
     );
-  }, [edges, virtualNodes, visibleNodeIds]);
+  }, [edges, virtual_nodes, visible_node_ids]);
   
-  const hiddenNodeCount = nodes.length - virtualNodes.length;
+  const hidden_node_count = nodes.length - virtual_nodes.length;
   
   return {
-    virtualNodes,
-    virtualEdges,
-    hiddenNodeCount,
+    virtual_nodes,
+    virtual_edges,
+    hidden_node_count,
   };
 }
 
@@ -119,44 +119,44 @@ export function useVirtualNodes({
 export interface ViewportIndicatorProps {
   direction: 'top' | 'bottom' | 'left' | 'right';
   count: number;
-  onClick?: () => void;
+  on_click?: () => void;
 }
 
 const ViewportIndicatorImpl: React.FC<ViewportIndicatorProps> = ({
   direction,
   count,
-  onClick,
+  on_click,
 }) => {
   if (count === 0) return null;
   
-  const positionStyles: React.CSSProperties = {
+  const position_styles: React.CSSProperties = {
     position: 'absolute',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     color: '#ffffff',
     padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.medium + 4}px`,
     borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
     fontSize: `${CONFIG.spacing.fontSize.medium}px`,
-    cursor: onClick ? 'pointer' : 'default',
+    cursor: on_click ? 'pointer' : 'default',
     zIndex: CONFIG.zIndex.overlay,
-    ...getPositionStyle(direction),
+    ...get_position_style(direction),
   };
   
   return (
     <div 
-      style={positionStyles}
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
+      style={position_styles}
+      onClick={on_click}
+      role={on_click ? 'button' : undefined}
+      tabIndex={on_click ? 0 : undefined}
       aria-label={`${count} nodes ${direction} of viewport`}
     >
-      {count} nodes {getArrow(direction)}
+      {count} nodes {get_arrow(direction)}
     </div>
   );
 };
 ViewportIndicatorImpl.displayName = 'ViewportIndicator';
 export const ViewportIndicator = React.memo(ViewportIndicatorImpl);
 
-function getPositionStyle(direction: string): React.CSSProperties {
+function get_position_style(direction: string): React.CSSProperties {
   switch (direction) {
     case 'top':
       return { top: CONFIG.viewport.indicators.position.offset, left: '50%', transform: CONFIG.viewport.indicators.position.transform.horizontal };
@@ -171,7 +171,7 @@ function getPositionStyle(direction: string): React.CSSProperties {
   }
 }
 
-function getArrow(direction: string): string {
+function get_arrow(direction: string): string {
   switch (direction) {
     case 'top': return '↑';
     case 'bottom': return '↓';

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 
 // Hook for debouncing expensive operations
-export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+export function use_debounce<T>(value: T, delay: number): T {
+  const [debounced_value, set_debounced_value] = useState(value);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedValue(value);
+      set_debounced_value(value);
     }, delay);
 
     return () => {
@@ -14,5 +14,5 @@ export function useDebounce<T>(value: T, delay: number): T {
     };
   }, [value, delay]);
 
-  return debouncedValue;
+  return debounced_value;
 }

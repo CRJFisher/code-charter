@@ -77,15 +77,15 @@ function make_call_reference(
  * Mock backend implementation for testing and demos
  */
 export class MockBackend implements CodeCharterBackend {
-  async getCallGraph(): Promise<CallGraph | undefined> {
+  async get_call_graph(): Promise<CallGraph | undefined> {
     const main_node = make_mock_callable_node("main.ts:main", "main", "main.ts", 0, 9, [
       make_call_reference("utils.ts:processData", "processData", 4),
-      make_call_reference("api.ts:fetchData", "fetchData", 5),
+      make_call_reference("api.ts:fetch_data", "fetch_data", 5),
     ]);
     const process_data_node = make_mock_callable_node("utils.ts:processData", "processData", "utils.ts", 9, 19, [
-      make_call_reference("api.ts:fetchData", "fetchData", 14),
+      make_call_reference("api.ts:fetch_data", "fetch_data", 14),
     ]);
-    const fetch_data_node = make_mock_callable_node("api.ts:fetchData", "fetchData", "api.ts", 4, 14);
+    const fetch_data_node = make_mock_callable_node("api.ts:fetch_data", "fetch_data", "api.ts", 4, 14);
 
     const nodes = new Map<SymbolId, CallableNode>();
     nodes.set(main_node.symbol_id, main_node);
@@ -98,19 +98,19 @@ export class MockBackend implements CodeCharterBackend {
     };
   }
 
-  async clusterCodeTree(_top_level_function_symbol: string): Promise<NodeGroup[]> {
+  async cluster_code_tree(_top_level_function_symbol: string): Promise<NodeGroup[]> {
     return [
       {
         description: "Data Processing Functions",
-        memberSymbols: ["utils.ts:processData", "utils.ts:transformData", "utils.ts:validateData"]
+        member_symbols: ["utils.ts:processData", "utils.ts:transformData", "utils.ts:validateData"]
       },
       {
         description: "API Integration Layer",
-        memberSymbols: ["api.ts:fetchData", "api.ts:postData", "api.ts:handleError"]
+        member_symbols: ["api.ts:fetch_data", "api.ts:postData", "api.ts:handleError"]
       },
       {
         description: "Main Application Logic",
-        memberSymbols: ["main.ts:main", "main.ts:initialize", "main.ts:cleanup"]
+        member_symbols: ["main.ts:main", "main.ts:initialize", "main.ts:cleanup"]
       }
     ];
   }
@@ -123,7 +123,7 @@ export class MockBackend implements CodeCharterBackend {
       docstrings: {
         [top_level_function_symbol]: "Main entry point that orchestrates data processing and API calls",
         "utils.ts:processData": "Processes raw data into structured format",
-        "api.ts:fetchData": "Fetches data from external API endpoints"
+        "api.ts:fetch_data": "Fetches data from external API endpoints"
       },
       call_tree: {
         [top_level_function_symbol]: mock_node
@@ -131,7 +131,7 @@ export class MockBackend implements CodeCharterBackend {
     };
   }
 
-  async navigateToDoc(file_path: string, line_number: number): Promise<void> {
+  async navigate_to_doc(file_path: string, line_number: number): Promise<void> {
     console.log(`Mock navigation to ${file_path}:${line_number}`);
   }
 }

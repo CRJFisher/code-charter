@@ -13,20 +13,20 @@ interface LayoutInputEdge {
 // LRU cache keyed by graph topology + dimensions; values are layout outputs.
 export class LayoutCache<T = unknown> {
   private cache = new Map<string, T>();
-  private maxSize = 50;
+  private max_size = 50;
 
-  generateKey(nodes: LayoutInputNode[], edges: LayoutInputEdge[]): string {
+  generate_key(nodes: LayoutInputNode[], edges: LayoutInputEdge[]): string {
     // Key captures layout inputs only: IDs, dimensions, parent relationships.
     // Positions are excluded because they are layout outputs.
-    const nodeKey = nodes
+    const node_key = nodes
       .map(n => `${n.id}:${n.width ?? 0}:${n.height ?? 0}:${n.parentId ?? ''}`)
       .sort()
       .join('|');
-    const edgeKey = edges
+    const edge_key = edges
       .map(e => `${e.source}-${e.target}`)
       .sort()
       .join('|');
-    return `${nodeKey}__${edgeKey}`;
+    return `${node_key}__${edge_key}`;
   }
 
   get(key: string): T | null {
@@ -44,11 +44,11 @@ export class LayoutCache<T = unknown> {
     // Delete existing entry first to avoid spurious eviction when updating
     if (this.cache.has(key)) {
       this.cache.delete(key);
-    } else if (this.cache.size >= this.maxSize) {
+    } else if (this.cache.size >= this.max_size) {
       // Evict least recently used (first entry in Map iteration order)
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey !== undefined) {
-        this.cache.delete(firstKey);
+      const first_key = this.cache.keys().next().value;
+      if (first_key !== undefined) {
+        this.cache.delete(first_key);
       }
     }
     this.cache.set(key, value);

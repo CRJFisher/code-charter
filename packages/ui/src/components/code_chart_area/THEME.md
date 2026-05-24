@@ -39,13 +39,13 @@ The React Flow visualization now fully supports VSCode themes when running insid
 ### In Components
 
 ```typescript
-import { useFlowThemeStyles } from './use_chart_theme_styles';
+import { use_flow_theme_styles } from './use_chart_theme_styles';
 
 const MyComponent = () => {
-  const themeStyles = useFlowThemeStyles();
+  const theme_styles = use_flow_theme_styles();
 
   return (
-    <div style={themeStyles.getNodeStyle(selected, isEntryPoint)}>
+    <div style={theme_styles.get_node_style(selected, is_entry_point)}>
       {/* Component content */}
     </div>
   );
@@ -54,13 +54,13 @@ const MyComponent = () => {
 
 ### Available Style Functions
 
-- `getNodeStyle(selected, isEntryPoint)`: Node styling
-- `getEdgeStyle(selected)`: Edge styling
-- `getButtonStyle(variant)`: Button styling (primary/secondary/danger)
-- `getPanelStyle()`: Panel/container styling
-- `getOverlayStyle()`: Overlay/popup styling
-- `getErrorStyle()`: Error message styling
-- `getTextStyle(variant)`: Text styling (primary/secondary)
+- `get_node_style(selected, is_entry_point)`: Node styling
+- `get_edge_style(selected)`: Edge styling
+- `get_button_style(variant)`: Button styling (primary/secondary/danger)
+- `get_panel_style()`: Panel/container styling
+- `get_overlay_style()`: Overlay/popup styling
+- `get_error_style()`: Error message styling
+- `get_text_style(variant)`: Text styling (primary/secondary)
 
 ## Theme Colors
 
@@ -123,8 +123,8 @@ Transition duration: 0.3s with ease timing function
 To add new theme colors:
 
 1. Update `theme_config.ts` to map new colors
-2. Add CSS variables in `getThemeCssVariables`
-3. Use colors via `useFlowThemeStyles` hook
+2. Add CSS variables in `get_theme_css_variables`
+3. Use colors via `use_flow_theme_styles` hook
 
 To create custom themes:
 

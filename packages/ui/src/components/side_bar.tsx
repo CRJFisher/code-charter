@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useBackend } from "../hooks/use_backend";
+import { use_backend } from "../hooks/use_backend";
 import type { CallGraph, CallableNode, CallReference, SymbolId } from "@code-charter/types";
 import { symbol_display_name } from "./code_chart_area/symbol_display";
 
@@ -87,11 +87,11 @@ const FunctionsList: React.FC<FunctionsListProps> = ({
   on_select,
   are_node_descriptions_loading,
 }) => {
-  const { backend } = useBackend();
+  const { backend } = use_backend();
 
   const on_click_item = async (node: CallableNode) => {
     on_select(node);
-    await backend.navigateToDoc(node.definition.location.file_path, node.definition.location.start_line);
+    await backend.navigate_to_doc(node.definition.location.file_path, node.definition.location.start_line);
   };
 
   const tot_nodes_count_descending_symbols = useMemo(() => {

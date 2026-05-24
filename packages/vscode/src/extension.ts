@@ -104,7 +104,7 @@ async function show_webview_diagram(
       const { command, id, ...other_fields } = message;
 
       const command_handlers: { [key: string]: () => Promise<void> } = {
-        getCallGraph: async () => {
+        get_call_graph: async () => {
           const workspace_path = workspace_folders[0].uri.fsPath;
 
           if (!project_manager) {
@@ -120,7 +120,7 @@ async function show_webview_diagram(
             project_manager.on_call_graph_changed((new_call_graph) => {
               call_graph = new_call_graph;
               panel.webview.postMessage({
-                command: "callGraphUpdated",
+                command: "call_graph_updated",
                 data: serialize_call_graph(new_call_graph)
               });
             });
@@ -133,23 +133,23 @@ async function show_webview_diagram(
           if (!call_graph) {
             throw new Error("Call graph not found");
           }
-          panel.webview.postMessage({ id, command: "getCallGraphResponse", data: serialize_call_graph(call_graph) });
+          panel.webview.postMessage({ id, command: "get_call_graph_response", data: serialize_call_graph(call_graph) });
         },
-        getCodeTreeDescriptions: async () => {
-          const { topLevelFunctionSymbol: top_level_function_symbol } = other_fields;
+        get_code_tree_descriptions: async () => {
+          const { top_level_function_symbol } = other_fields;
           if (!call_graph) {
             throw new Error("Call graph not found");
           }
 
           const descriptions = extract_descriptions(call_graph, top_level_function_symbol);
           top_level_function_to_descriptions[top_level_function_symbol] = descriptions;
-          panel.webview.postMessage({ id, command: "getCodeTreeDescriptionsResponse", data: descriptions });
+          panel.webview.postMessage({ id, command: "get_code_tree_descriptions_response", data: descriptions });
         },
-        clusterCodeTree: async () => {
-          const { topLevelFunctionSymbol: top_level_function_symbol } = other_fields;
+        cluster_code_tree: async () => {
+          const { top_level_function_symbol } = other_fields;
           const descriptions = top_level_function_to_descriptions[top_level_function_symbol];
           if (!descriptions) {
-            throw new Error("Descriptions not available. Call getCodeTreeDescriptions first.");
+            throw new Error("Descriptions not available. Call get_code_tree_descriptions first.");
           }
 
           const clusters = await clustering_service.cluster(
@@ -169,17 +169,17 @@ async function show_webview_diagram(
 
             return {
               description: stored_cluster?.description || `Module ${i + 1}`,
-              memberSymbols: cluster,
+              member_symbols: cluster,
             };
           });
 
-          panel.webview.postMessage({ id, command: "clusterCodeTreeResponse", data: node_groups });
+          panel.webview.postMessage({ id, command: "cluster_code_tree_response", data: node_groups });
         },
-        navigateToDoc: async () => {
+        navigate_to_doc: async () => {
           const { file_path, line_number } = other_fields;
           const file_uri = vscode.Uri.file(file_path);
           await navigate_to_doc(file_uri, line_number, webview_column);
-          panel.webview.postMessage({ id, command: "navigateToDocResponse", data: { success: true } });
+          panel.webview.postMessage({ id, command: "navigate_to_doc_response", data: { success: true } });
         },
       };
 
@@ -195,7 +195,7 @@ async function show_webview_diagram(
         console.error(`[code-charter] command "${command}" failed:`, err);
         panel.webview.postMessage({
           id,
-          command: `${command}Response`,
+          command: `${command}_response`,
           error: { message: error_message, stack: error_stack },
         });
       }

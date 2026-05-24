@@ -1,8 +1,8 @@
-import { navigateToFile } from "./editor_navigation";
+import { navigate_to_file } from "./editor_navigation";
 
 type AcquireVsCodeApi = typeof globalThis.acquireVsCodeApi;
 
-describe("navigateToFile", () => {
+describe("navigate_to_file", () => {
   let original_acquire_vs_code_api: AcquireVsCodeApi | undefined;
   let mock_open: jest.SpyInstance<ReturnType<Window["open"]>, Parameters<Window["open"]>>;
   let console_error_spy: jest.SpyInstance;
@@ -16,6 +16,7 @@ describe("navigateToFile", () => {
 
     // Mock window.open
     mock_open = jest.spyOn(window, "open").mockImplementation(() => null);
+    mock_open.mockClear();
 
     // Mock console.error
     console_error_spy = jest.spyOn(console, "error").mockImplementation();
@@ -26,11 +27,12 @@ describe("navigateToFile", () => {
     if (original_acquire_vs_code_api) {
       globalThis.acquireVsCodeApi = original_acquire_vs_code_api;
     }
+    mock_open.mockRestore();
     console_error_spy.mockRestore();
   });
 
   it("should open vscode URL with correct file path and line number", () => {
-    navigateToFile({
+    navigate_to_file({
       file_path: "/Users/test/project/src/index.ts",
       line_number: 42,
     });
@@ -42,7 +44,7 @@ describe("navigateToFile", () => {
   });
 
   it("should handle file paths without leading slash", () => {
-    navigateToFile({
+    navigate_to_file({
       file_path: "src/components/App.tsx",
       line_number: 10,
     });
@@ -54,7 +56,7 @@ describe("navigateToFile", () => {
   });
 
   it("should handle line number 0", () => {
-    navigateToFile({
+    navigate_to_file({
       file_path: "/path/to/file.js",
       line_number: 0,
     });
@@ -66,7 +68,7 @@ describe("navigateToFile", () => {
   });
 
   it("should specify column number", () => {
-    navigateToFile({
+    navigate_to_file({
       file_path: "/test/file.ts",
       line_number: 5,
       column_number: 10,
@@ -79,7 +81,7 @@ describe("navigateToFile", () => {
   });
 
   it("should handle paths with spaces", () => {
-    navigateToFile({
+    navigate_to_file({
       file_path: "/Users/test/My Documents/project/file.ts",
       line_number: 1,
     });
@@ -91,7 +93,7 @@ describe("navigateToFile", () => {
   });
 
   it("should handle paths with special characters", () => {
-    navigateToFile({
+    navigate_to_file({
       file_path: "/path/to/file-with-dashes_and_underscores.ts",
       line_number: 100,
     });
@@ -109,7 +111,7 @@ describe("navigateToFile", () => {
       });
 
       expect(() => {
-        navigateToFile({
+        navigate_to_file({
           file_path: "/test/file.ts",
           line_number: 1,
         });
@@ -125,7 +127,7 @@ describe("navigateToFile", () => {
       mock_open.mockReturnValue(null);
 
       expect(() => {
-        navigateToFile({
+        navigate_to_file({
           file_path: "/test/file.ts",
           line_number: 1,
         });
@@ -145,7 +147,7 @@ describe("navigateToFile", () => {
       const mock_acquire_vs_code_api = jest.fn(() => mock_vscode);
       globalThis.acquireVsCodeApi = mock_acquire_vs_code_api;
 
-      navigateToFile({
+      navigate_to_file({
         file_path: "/test/file.ts",
         line_number: 10,
         column_number: 5,
@@ -153,7 +155,7 @@ describe("navigateToFile", () => {
 
       expect(mock_acquire_vs_code_api).toHaveBeenCalled();
       expect(mock_vscode.postMessage).toHaveBeenCalledWith({
-        command: "navigateToDoc",
+        command: "navigate_to_doc",
         file_path: "/test/file.ts",
         line_number: 10,
         column_number: 5,

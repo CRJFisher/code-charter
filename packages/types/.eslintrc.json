@@ -1,13 +1,22 @@
 {
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
-  ],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint"],
-  "parserOptions": {
-    "ecmaVersion": 2020,
-    "sourceType": "module"
-  },
-  "rules": {}
+  "parserOptions": { "ecmaVersion": 2020, "sourceType": "module" },
+  "rules": {
+    "@typescript-eslint/naming-convention": [
+      "error",
+      { "selector": "default", "format": ["snake_case"], "leadingUnderscore": "allow" },
+      { "selector": "variable", "format": ["snake_case", "UPPER_CASE"], "leadingUnderscore": "allow" },
+      { "selector": "parameter", "format": ["snake_case"], "leadingUnderscore": "allow" },
+      { "selector": "memberLike", "modifiers": ["private"], "format": ["snake_case"], "leadingUnderscore": "allow" },
+      { "selector": "typeLike", "format": ["PascalCase"] },
+      { "selector": "enumMember", "format": ["UPPER_CASE", "PascalCase"] },
+      { "selector": "objectLiteralProperty", "format": null },
+      { "selector": "typeProperty", "format": null },
+      { "selector": "method", "format": ["snake_case"] },
+      { "selector": "objectLiteralMethod", "format": ["camelCase", "snake_case"] },
+      { "selector": "classProperty", "modifiers": ["static", "readonly"], "format": ["UPPER_CASE", "snake_case"] }
+    ]
+  }
 }

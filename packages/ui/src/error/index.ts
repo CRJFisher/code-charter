@@ -1,5 +1,5 @@
-export { ErrorLogger, errorLogger } from './error_logger';
-export { withRetry, ErrorRecovery, type RetryOptions } from './retry';
-export { ErrorNotificationManager, errorNotificationManager, type ErrorNotification } from './error_notification_manager';
+export { ErrorLogger, error_logger } from './error_logger';
+export { with_retry, ErrorRecovery, type RetryOptions } from './retry';
+export { ErrorNotificationManager, error_notification_manager, type ErrorNotification } from './error_notification_manager';
 export { ErrorBoundary, DefaultErrorFallback, type ErrorBoundaryProps, type ErrorBoundaryState } from './error_boundary';
-export { ErrorNotifications, useErrorNotification, type ErrorNotificationsProps } from './error_notifications';
+export { ErrorNotifications, use_error_notification, type ErrorNotificationsProps } from './error_notifications';

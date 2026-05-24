@@ -6,13 +6,13 @@ import { App, AppProps } from './app';
  * App component wrapped with theme provider
  */
 export interface ThemedAppProps extends AppProps {
-  forceStandalone?: boolean;
+  force_standalone?: boolean;
 }
 
-export function ThemedApp({ forceStandalone, ...appProps }: ThemedAppProps) {
+export function ThemedApp({ force_standalone, ...app_props }: ThemedAppProps) {
   return (
-    <ThemeProviderComponent forceStandalone={forceStandalone}>
-      <App {...appProps} />
+    <ThemeProviderComponent force_standalone={force_standalone}>
+      <App {...app_props} />
     </ThemeProviderComponent>
   );
 }

@@ -1,36 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { errorNotificationManager, ErrorNotification } from './error_notification_manager';
+import { error_notification_manager, ErrorNotification } from './error_notification_manager';
 import { CONFIG } from '../components/code_chart_area/chart_config';
-import { useFlowThemeStyles } from '../components/code_chart_area/use_chart_theme_styles';
+import { use_flow_theme_styles } from '../components/code_chart_area/use_chart_theme_styles';
 
 export interface ErrorNotificationsProps {
   position?: 'top' | 'bottom';
-  maxNotifications?: number;
+  max_notifications?: number;
 }
 
 export const ErrorNotifications: React.FC<ErrorNotificationsProps> = ({
   position = 'bottom',
-  maxNotifications = 3,
+  max_notifications = 3,
 }) => {
-  const [notifications, setNotifications] = useState<ErrorNotification[]>([]);
+  const [notifications, set_notifications] = useState<ErrorNotification[]>([]);
 
   useEffect(() => {
     // Subscribe to notification updates
-    const unsubscribe = errorNotificationManager.subscribe((newNotifications) => {
-      setNotifications(newNotifications.slice(-maxNotifications));
+    const unsubscribe = error_notification_manager.subscribe((new_notifications) => {
+      set_notifications(new_notifications.slice(-max_notifications));
     });
 
     // Get initial notifications
-    setNotifications(errorNotificationManager.getNotifications().slice(-maxNotifications));
+    set_notifications(error_notification_manager.get_notifications().slice(-max_notifications));
 
     return unsubscribe;
-  }, [maxNotifications]);
+  }, [max_notifications]);
 
   if (notifications.length === 0) {
     return null;
   }
 
-  const containerStyles: React.CSSProperties = {
+  const container_styles: React.CSSProperties = {
     position: 'fixed',
     [position]: `${CONFIG.spacing.padding.xlarge}px`,
     right: `${CONFIG.spacing.padding.xlarge}px`,
@@ -42,12 +42,12 @@ export const ErrorNotifications: React.FC<ErrorNotificationsProps> = ({
   };
 
   return (
-    <div style={containerStyles} role="alert" aria-live="polite">
+    <div style={container_styles} role="alert" aria-live="polite">
       {notifications.map((notification) => (
         <NotificationItem
           key={notification.id}
           notification={notification}
-          onDismiss={() => errorNotificationManager.dismiss(notification.id)}
+          on_dismiss={() => error_notification_manager.dismiss(notification.id)}
         />
       ))}
     </div>
@@ -56,45 +56,45 @@ export const ErrorNotifications: React.FC<ErrorNotificationsProps> = ({
 
 interface NotificationItemProps {
   notification: ErrorNotification;
-  onDismiss: () => void;
+  on_dismiss: () => void;
 }
 
-const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDismiss }) => {
-  const [isExiting, setIsExiting] = useState(false);
-  const themeStyles = useFlowThemeStyles();
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, on_dismiss }) => {
+  const [is_exiting, set_is_exiting] = useState(false);
+  const theme_styles = use_flow_theme_styles();
 
-  const handleDismiss = () => {
-    setIsExiting(true);
-    setTimeout(onDismiss, 300);
+  const handle_dismiss = () => {
+    set_is_exiting(true);
+    setTimeout(on_dismiss, 300);
   };
 
-  const getBackgroundColor = () => {
+  const get_background_color = () => {
     switch (notification.severity) {
       case 'info':
-        return themeStyles.colors.ui.info.background;
+        return theme_styles.colors.ui.info.background;
       case 'warning':
-        return themeStyles.colors.ui.warning.background;
+        return theme_styles.colors.ui.warning.background;
       case 'error':
-        return themeStyles.colors.ui.error.background;
+        return theme_styles.colors.ui.error.background;
       default:
-        return themeStyles.colors.ui.background.panel;
+        return theme_styles.colors.ui.background.panel;
     }
   };
 
-  const getBorderColor = () => {
+  const get_border_color = () => {
     switch (notification.severity) {
       case 'info':
-        return themeStyles.colors.ui.info.border;
+        return theme_styles.colors.ui.info.border;
       case 'warning':
-        return themeStyles.colors.ui.warning.border;
+        return theme_styles.colors.ui.warning.border;
       case 'error':
-        return themeStyles.colors.ui.error.border;
+        return theme_styles.colors.ui.error.border;
       default:
-        return themeStyles.colors.ui.border;
+        return theme_styles.colors.ui.border;
     }
   };
 
-  const getIcon = () => {
+  const get_icon = () => {
     switch (notification.severity) {
       case 'info':
         return 'ℹ️';
@@ -107,23 +107,23 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
     }
   };
 
-  const itemStyles: React.CSSProperties = {
+  const item_styles: React.CSSProperties = {
     padding: `${CONFIG.spacing.padding.medium + 4}px ${CONFIG.spacing.padding.large}px`,
-    backgroundColor: getBackgroundColor(),
-    border: `1px solid ${getBorderColor()}`,
+    backgroundColor: get_background_color(),
+    border: `1px solid ${get_border_color()}`,
     borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
-    boxShadow: themeStyles.colors.shadow.default,
+    boxShadow: theme_styles.colors.shadow.default,
     display: 'flex',
     alignItems: 'flex-start',
     gap: `${CONFIG.spacing.padding.medium + 4}px`,
-    opacity: isExiting ? 0 : 1,
-    transform: isExiting ? 'translateX(100%)' : 'translateX(0)',
+    opacity: is_exiting ? 0 : 1,
+    transform: is_exiting ? 'translateX(100%)' : 'translateX(0)',
     transition: 'all 0.3s ease',
   };
 
   return (
-    <div style={itemStyles}>
-      <span style={{ fontSize: `${CONFIG.spacing.fontSize.xlarge + 2}px`, flexShrink: 0 }}>{getIcon()}</span>
+    <div style={item_styles}>
+      <span style={{ fontSize: `${CONFIG.spacing.fontSize.xlarge + 2}px`, flexShrink: 0 }}>{get_icon()}</span>
       
       <div style={{ flex: 1 }}>
         <div style={{ marginBottom: notification.actions ? `${CONFIG.spacing.margin.medium}px` : 0 }}>
@@ -137,25 +137,25 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
                 key={index}
                 onClick={() => {
                   action.action();
-                  handleDismiss();
+                  handle_dismiss();
                 }}
                 style={{
                   padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium + 4}px`,
                   backgroundColor: 'transparent',
-                  border: `1px solid ${getBorderColor()}`,
+                  border: `1px solid ${get_border_color()}`,
                   borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
                   cursor: 'pointer',
                   fontSize: `${CONFIG.spacing.fontSize.medium}px`,
-                  color: getBorderColor(),
+                  color: get_border_color(),
                   transition: 'background-color 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = getBorderColor();
+                  e.currentTarget.style.backgroundColor = get_border_color();
                   e.currentTarget.style.color = 'white';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = getBorderColor();
+                  e.currentTarget.style.color = get_border_color();
                 }}
               >
                 {action.label}
@@ -166,14 +166,14 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
       </div>
       
       <button
-        onClick={handleDismiss}
+        onClick={handle_dismiss}
         style={{
           background: 'none',
           border: 'none',
           cursor: 'pointer',
           padding: `${CONFIG.spacing.padding.small}px`,
           fontSize: `${CONFIG.spacing.fontSize.large}px`,
-          color: themeStyles.colors.ui.text.secondary,
+          color: theme_styles.colors.ui.text.secondary,
           flexShrink: 0,
         }}
         aria-label="Dismiss notification"
@@ -185,22 +185,22 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDis
 };
 
 // Hook for using error notifications
-export function useErrorNotification() {
+export function use_error_notification() {
   const notify = React.useCallback((
     message: string,
     severity: 'info' | 'warning' | 'error' = 'error',
     actions?: ErrorNotification['actions']
   ) => {
-    return errorNotificationManager.notify(message, severity, actions);
+    return error_notification_manager.notify(message, severity, actions);
   }, []);
 
   const dismiss = React.useCallback((id: string) => {
-    errorNotificationManager.dismiss(id);
+    error_notification_manager.dismiss(id);
   }, []);
 
-  const dismissAll = React.useCallback(() => {
-    errorNotificationManager.dismissAll();
+  const dismiss_all = React.useCallback(() => {
+    error_notification_manager.dismiss_all();
   }, []);
 
-  return { notify, dismiss, dismissAll };
+  return { notify, dismiss, dismiss_all };
 }

@@ -11,10 +11,10 @@ export type CodeChartNode = Node<CodeNodeData | ModuleNodeData>;
 export type CodeChartEdge = Edge;
 
 // Type guard functions
-export function isCodeNode(node: CodeChartNode): node is CodeFunctionNodeType {
+export function is_code_node(node: CodeChartNode): node is CodeFunctionNodeType {
   return node.type === "code_function";
 }
 
-export function isModuleNode(node: CodeChartNode): node is ModuleGroupNodeType {
+export function is_module_node(node: CodeChartNode): node is ModuleGroupNodeType {
   return node.type === "module_group";
 }

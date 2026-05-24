@@ -31,14 +31,14 @@ describe('VSCodeBackend', () => {
     expect(message_handler).toBeDefined();
   });
 
-  describe('getCallGraph', () => {
+  describe('get_call_graph', () => {
     it('should send message and resolve with data', async () => {
       const mock_data = { nodes: new Map(), entry_points: [] };
-      const promise = backend.getCallGraph();
+      const promise = backend.get_call_graph();
 
       const posted = mock_post_message.mock.calls[0][0];
       message_handler(new MessageEvent('message', {
-        data: { id: posted.id, command: 'getCallGraph', data: mock_data }
+        data: { id: posted.id, command: 'get_call_graph', data: mock_data }
       }));
 
       const result = await promise;
@@ -51,9 +51,9 @@ describe('VSCodeBackend', () => {
       const promise = backend.get_code_tree_descriptions('testSymbol');
 
       expect(mock_post_message).toHaveBeenCalledWith({
-        command: 'getCodeTreeDescriptions',
+        command: 'get_code_tree_descriptions',
         id: expect.any(String),
-        topLevelFunctionSymbol: 'testSymbol',
+        top_level_function_symbol: 'testSymbol',
       });
 
       const mock_descriptions = {
@@ -63,7 +63,7 @@ describe('VSCodeBackend', () => {
 
       const posted = mock_post_message.mock.calls[0][0];
       message_handler(new MessageEvent('message', {
-        data: { id: posted.id, command: 'getCodeTreeDescriptions', data: mock_descriptions }
+        data: { id: posted.id, command: 'get_code_tree_descriptions', data: mock_descriptions }
       }));
 
       const result = await promise;
@@ -71,31 +71,31 @@ describe('VSCodeBackend', () => {
     });
   });
 
-  describe('navigateToDoc', () => {
+  describe('navigate_to_doc', () => {
     it('should send message with correct parameters', async () => {
-      const promise = backend.navigateToDoc('src/test.ts', 42);
+      const promise = backend.navigate_to_doc('src/test.ts', 42);
 
       const posted = mock_post_message.mock.calls[0][0];
-      expect(posted.command).toBe('navigateToDoc');
+      expect(posted.command).toBe('navigate_to_doc');
       expect(posted.file_path).toBe('src/test.ts');
       expect(posted.line_number).toBe(42);
 
       message_handler(new MessageEvent('message', {
-        data: { id: posted.id, command: 'navigateToDoc' }
+        data: { id: posted.id, command: 'navigate_to_doc' }
       }));
 
       await promise;
     });
   });
 
-  describe('clusterCodeTree', () => {
+  describe('cluster_code_tree', () => {
     it('should return clusters from response', async () => {
-      const mock_clusters = [{ description: 'Test', memberSymbols: ['a'] }];
-      const promise = backend.clusterCodeTree('main');
+      const mock_clusters = [{ description: 'Test', member_symbols: ['a'] }];
+      const promise = backend.cluster_code_tree('main');
 
       const posted = mock_post_message.mock.calls[0][0];
       message_handler(new MessageEvent('message', {
-        data: { id: posted.id, command: 'clusterCodeTree', data: mock_clusters }
+        data: { id: posted.id, command: 'cluster_code_tree', data: mock_clusters }
       }));
 
       const result = await promise;
@@ -105,7 +105,7 @@ describe('VSCodeBackend', () => {
 
   describe('concurrent requests', () => {
     it('handles multiple concurrent requests with different IDs', async () => {
-      void backend.getCallGraph();
+      void backend.get_call_graph();
       void backend.get_code_tree_descriptions('symbol');
 
       expect(mock_post_message).toHaveBeenCalledTimes(2);
@@ -118,10 +118,10 @@ describe('VSCodeBackend', () => {
 
   describe('message routing', () => {
     it('ignores messages with unknown IDs', async () => {
-      const promise = backend.getCallGraph();
+      const promise = backend.get_call_graph();
 
       message_handler(new MessageEvent('message', {
-        data: { id: 'wrong-id', command: 'getCallGraph', data: {} }
+        data: { id: 'wrong-id', command: 'get_call_graph', data: {} }
       }));
 
       const timeout_promise = new Promise((_, reject) =>

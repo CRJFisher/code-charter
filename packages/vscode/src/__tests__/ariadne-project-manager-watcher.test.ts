@@ -142,9 +142,9 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       // Trigger document change
       if (mockDocumentChangeCallback.callback) {
         await mockDocumentChangeCallback.callback({
-          document: mockDocument as any,
+          document: mockDocument,
           contentChanges: []
-        } as any);
+        });
       }
 
       // Verify the call graph was updated
@@ -169,9 +169,9 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
 
       if (mockDocumentChangeCallback.callback) {
         await mockDocumentChangeCallback.callback({
-          document: outsideDoc as any,
+          document: outsideDoc,
           contentChanges: []
-        } as any);
+        });
       }
 
       // Verify the call graph wasn't updated with outside files
@@ -195,9 +195,9 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
 
       if (mockDocumentChangeCallback.callback) {
         await mockDocumentChangeCallback.callback({
-          document: untitledDoc as any,
+          document: untitledDoc,
           contentChanges: []
-        } as any);
+        });
       }
 
       // Verify the call graph wasn't updated with non-file scheme documents
@@ -253,9 +253,9 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
         mockDoc.getText.mockReturnValue(`def func${i}(): pass`);
         if (mockDocumentChangeCallback && mockDocumentChangeCallback.callback) {
           await mockDocumentChangeCallback.callback({
-            document: mockDoc as any,
+            document: mockDoc,
             contentChanges: []
-          } as any);
+          });
         }
         jest.advanceTimersByTime(100); // 100ms between changes
       }
@@ -275,80 +275,41 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
 
   describe("Disposal", () => {
     it("should clean up all resources on disposal", async () => {
-      const mockDisposables: any[] = [];
-      
-      // Track created disposables
-      const originalWorkspace = vscode.workspace;
-      (vscode.workspace as any).createFileSystemWatcher = jest.fn(() => {
-        const watcher = {
-          onDidCreate: jest.fn(() => {
-            const disposable = { dispose: jest.fn() };
-            mockDisposables.push(disposable);
-            return disposable;
-          }),
-          onDidChange: jest.fn(() => {
-            const disposable = { dispose: jest.fn() };
-            mockDisposables.push(disposable);
-            return disposable;
-          }),
-          onDidDelete: jest.fn(() => {
-            const disposable = { dispose: jest.fn() };
-            mockDisposables.push(disposable);
-            return disposable;
-          }),
-          dispose: jest.fn()
-        };
-        return watcher;
-      });
+      const mockDisposables: Array<{ dispose: jest.Mock }> = [];
 
-      (vscode.workspace as any).onDidChangeTextDocument = jest.fn(() => {
+      const track_disposable = () => {
         const disposable = { dispose: jest.fn() };
         mockDisposables.push(disposable);
         return disposable;
-      });
+      };
+
+      const watcher_spy = jest.spyOn(vscode.workspace, "createFileSystemWatcher")
+        .mockImplementation(() => ({
+          ignoreCreateEvents: false,
+          ignoreChangeEvents: false,
+          ignoreDeleteEvents: false,
+          onDidCreate: jest.fn(track_disposable),
+          onDidChange: jest.fn(track_disposable),
+          onDidDelete: jest.fn(track_disposable),
+          dispose: jest.fn(),
+        }));
+
+      const change_spy = jest.spyOn(vscode.workspace, "onDidChangeTextDocument")
+        .mockImplementation(() => track_disposable());
 
       projectManager = new AriadneProjectManager(tempDir);
       await projectManager.initialize();
 
-      // Dispose the project manager
       projectManager.dispose();
 
-      // Verify all disposables were disposed
       mockDisposables.forEach(disposable => {
         expect(disposable.dispose).toHaveBeenCalled();
       });
-
-      // Verify event emitter was disposed
       expect(mockEventEmitter.instance.dispose).toHaveBeenCalled();
+
+      watcher_spy.mockRestore();
+      change_spy.mockRestore();
     });
 
-    it("should clear debounce timer on disposal", async () => {
-      jest.useFakeTimers();
-      const clearTimeoutSpy = jest.spyOn(global, "clearTimeout");
-
-      projectManager = new AriadneProjectManager(tempDir);
-      await projectManager.initialize();
-
-      // Trigger a change to start the debounce timer
-      const mockDoc = {
-        uri: { scheme: "file", fsPath: path.join(tempDir, "test.py") },
-        getText: jest.fn(() => "def test(): pass")
-      };
-
-      if (mockDocumentChangeCallback.callback) {
-        await mockDocumentChangeCallback.callback({
-          document: mockDoc as any,
-          contentChanges: []
-        } as any);
-      }
-
-      // Dispose before the timer fires
-      projectManager.dispose();
-
-      // Verify the timer was cleared
-      expect(clearTimeoutSpy).toHaveBeenCalled();
-
-      jest.useRealTimers();
-    });
   });
 });

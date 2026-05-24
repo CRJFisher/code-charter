@@ -1,9 +1,9 @@
 import {
-  saveGraphState,
-  loadGraphState,
-  clearGraphState,
-  exportGraphState,
-  importGraphState,
+  save_graph_state,
+  load_graph_state,
+  clear_graph_state,
+  export_graph_state,
+  import_graph_state,
   GraphState
 } from "./state_persistence";
 import { Viewport } from "@xyflow/react";
@@ -51,7 +51,7 @@ describe("state_persistence", () => {
     zoom: 1.5,
   };
 
-  const entryPoint = "test::main";
+  const entry_point = "test::main";
 
   beforeEach(() => {
     // Clear localStorage before each test
@@ -61,11 +61,11 @@ describe("state_persistence", () => {
     jest.restoreAllMocks();
   });
 
-  describe("saveGraphState", () => {
+  describe("save_graph_state", () => {
     it("should save graph state to localStorage", () => {
       const setItemSpy = jest.spyOn(Storage.prototype, "setItem");
       
-      saveGraphState(mockNodes, mockEdges, mockViewport, entryPoint);
+      save_graph_state(mockNodes, mockEdges, mockViewport, entry_point);
       
       expect(setItemSpy).toHaveBeenCalledWith(
         "code-charter-react-flow-state",
@@ -76,7 +76,7 @@ describe("state_persistence", () => {
       expect(savedData.nodes).toEqual(mockNodes);
       expect(savedData.edges).toEqual(mockEdges);
       expect(savedData.viewport).toEqual(mockViewport);
-      expect(savedData.entryPoint).toBe(entryPoint);
+      expect(savedData.entry_point).toBe(entry_point);
       expect(savedData.timestamp).toBeDefined();
     });
 
@@ -87,7 +87,7 @@ describe("state_persistence", () => {
       });
       
       expect(() => {
-        saveGraphState(mockNodes, mockEdges, mockViewport, entryPoint);
+        save_graph_state(mockNodes, mockEdges, mockViewport, entry_point);
       }).not.toThrow();
       
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -99,25 +99,25 @@ describe("state_persistence", () => {
     });
   });
 
-  describe("loadGraphState", () => {
+  describe("load_graph_state", () => {
     it("should load graph state from localStorage", () => {
       const state = {
         nodes: mockNodes,
         edges: mockEdges,
         viewport: mockViewport,
-        entryPoint,
+        entry_point,
         timestamp: Date.now(),
       };
       
       localStorage.setItem("code-charter-react-flow-state", JSON.stringify(state));
       
-      const loaded = loadGraphState(entryPoint);
+      const loaded = load_graph_state(entry_point);
       
       expect(loaded).toEqual(state);
     });
 
     it("should return null if no saved state exists", () => {
-      const loaded = loadGraphState(entryPoint);
+      const loaded = load_graph_state(entry_point);
       
       expect(loaded).toBeNull();
     });
@@ -127,13 +127,13 @@ describe("state_persistence", () => {
         nodes: mockNodes,
         edges: mockEdges,
         viewport: mockViewport,
-        entryPoint: "different::entry",
+        entry_point: "different::entry",
         timestamp: Date.now(),
       };
       
       localStorage.setItem("code-charter-react-flow-state", JSON.stringify(state));
       
-      const loaded = loadGraphState(entryPoint);
+      const loaded = load_graph_state(entry_point);
       
       expect(loaded).toBeNull();
     });
@@ -144,13 +144,13 @@ describe("state_persistence", () => {
         nodes: mockNodes,
         edges: mockEdges,
         viewport: mockViewport,
-        entryPoint,
+        entry_point,
         timestamp: oldTimestamp,
       };
       
       localStorage.setItem("code-charter-react-flow-state", JSON.stringify(state));
       
-      const loaded = loadGraphState(entryPoint);
+      const loaded = load_graph_state(entry_point);
       
       expect(loaded).toBeNull();
     });
@@ -159,7 +159,7 @@ describe("state_persistence", () => {
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
       localStorage.setItem("code-charter-react-flow-state", "invalid json");
       
-      const loaded = loadGraphState(entryPoint);
+      const loaded = load_graph_state(entry_point);
       
       expect(loaded).toBeNull();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -171,11 +171,11 @@ describe("state_persistence", () => {
     });
   });
 
-  describe("clearGraphState", () => {
+  describe("clear_graph_state", () => {
     it("should remove graph state from localStorage", () => {
       localStorage.setItem("code-charter-react-flow-state", "some data");
       
-      clearGraphState();
+      clear_graph_state();
       
       expect(localStorage.getItem("code-charter-react-flow-state")).toBeNull();
     });
@@ -187,7 +187,7 @@ describe("state_persistence", () => {
       });
       
       expect(() => {
-        clearGraphState();
+        clear_graph_state();
       }).not.toThrow();
       
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -199,7 +199,7 @@ describe("state_persistence", () => {
     });
   });
 
-  describe("exportGraphState", () => {
+  describe("export_graph_state", () => {
     it("should create a download link with correct data", () => {
       const createElementSpy = jest.spyOn(document, "createElement");
       const clickSpy = jest.fn();
@@ -211,7 +211,7 @@ describe("state_persistence", () => {
       };
       createElementSpy.mockReturnValue(mockLink as Partial<HTMLAnchorElement> as HTMLAnchorElement);
       
-      exportGraphState(mockNodes, mockEdges, mockViewport, entryPoint);
+      export_graph_state(mockNodes, mockEdges, mockViewport, entry_point);
       
       expect(createElementSpy).toHaveBeenCalledWith("a");
       expect(mockLink.setAttribute).toHaveBeenCalledWith(
@@ -233,7 +233,7 @@ describe("state_persistence", () => {
       };
       createElementSpy.mockReturnValue(mockLink as Partial<HTMLAnchorElement> as HTMLAnchorElement);
       
-      exportGraphState(mockNodes, mockEdges, mockViewport, "test::func/with<>special*chars");
+      export_graph_state(mockNodes, mockEdges, mockViewport, "test::func/with<>special*chars");
       
       const downloadCall = mockLink.setAttribute.mock.calls.find(
         call => call[0] === "download"
@@ -242,7 +242,7 @@ describe("state_persistence", () => {
     });
   });
 
-  describe("importGraphState", () => {
+  describe("import_graph_state", () => {
     interface MockFileReader {
       onload: ((e: { target: { result: string } }) => void) | null;
       onerror: (() => void) | null;
@@ -274,109 +274,109 @@ describe("state_persistence", () => {
         nodes: mockNodes,
         edges: mockEdges,
         viewport: mockViewport,
-        entryPoint,
+        entry_point,
         timestamp: Date.now(),
       };
 
       const file = new File([JSON.stringify(validState)], "state.json");
-      const onSuccess = jest.fn((state) => {
+      const on_success = jest.fn((state) => {
         expect(state).toEqual(validState);
         done();
       });
-      const onError = jest.fn();
+      const on_error = jest.fn();
 
-      importGraphState(file, onSuccess, onError);
+      import_graph_state(file, on_success, on_error);
 
       // Simulate file read completion
       mockFileReader.readAsText(file);
       mockFileReader.result = JSON.stringify(validState);
       mockFileReader.onload?.({ target: { result: JSON.stringify(validState) } });
 
-      expect(onError).not.toHaveBeenCalled();
+      expect(on_error).not.toHaveBeenCalled();
     });
 
-    it("should call onError for invalid JSON", (done) => {
+    it("should call on_error for invalid JSON", (done) => {
       const file = new File(["invalid json"], "state.json");
-      const onSuccess = jest.fn();
-      const onError = jest.fn((error) => {
+      const on_success = jest.fn();
+      const on_error = jest.fn((error) => {
         expect(error).toContain("Unexpected token");
         done();
       });
 
-      importGraphState(file, onSuccess, onError);
+      import_graph_state(file, on_success, on_error);
 
       mockFileReader.readAsText(file);
       mockFileReader.onload?.({ target: { result: "invalid json" } });
 
-      expect(onSuccess).not.toHaveBeenCalled();
+      expect(on_success).not.toHaveBeenCalled();
     });
 
-    it("should call onError for missing required fields", (done) => {
+    it("should call on_error for missing required fields", (done) => {
       const invalidState = {
         nodes: mockNodes,
-        // missing edges, viewport, and entryPoint
+        // missing edges, viewport, and entry_point
       };
 
       const file = new File([JSON.stringify(invalidState)], "state.json");
-      const onSuccess = jest.fn();
-      const onError = jest.fn((error) => {
+      const on_success = jest.fn();
+      const on_error = jest.fn((error) => {
         expect(error).toBe("Invalid graph state file");
         done();
       });
 
-      importGraphState(file, onSuccess, onError);
+      import_graph_state(file, on_success, on_error);
 
       mockFileReader.readAsText(file);
       mockFileReader.onload?.({ target: { result: JSON.stringify(invalidState) } });
 
-      expect(onSuccess).not.toHaveBeenCalled();
+      expect(on_success).not.toHaveBeenCalled();
     });
 
     it("should handle file read errors", (done) => {
       const file = new File(["content"], "state.json");
-      const onSuccess = jest.fn();
-      const onError = jest.fn((error) => {
+      const on_success = jest.fn();
+      const on_error = jest.fn((error) => {
         expect(error).toBe("Failed to read file");
         done();
       });
 
-      importGraphState(file, onSuccess, onError);
+      import_graph_state(file, on_success, on_error);
 
       mockFileReader.readAsText(file);
       mockFileReader.onerror?.();
 
-      expect(onSuccess).not.toHaveBeenCalled();
+      expect(on_success).not.toHaveBeenCalled();
     });
 
     it("should validate all required fields are present", (done) => {
       const testCases = [
-        { edges: mockEdges, viewport: mockViewport, entryPoint }, // missing nodes
-        { nodes: mockNodes, viewport: mockViewport, entryPoint }, // missing edges
-        { nodes: mockNodes, edges: mockEdges, entryPoint }, // missing viewport
-        { nodes: mockNodes, edges: mockEdges, viewport: mockViewport }, // missing entryPoint
+        { edges: mockEdges, viewport: mockViewport, entry_point }, // missing nodes
+        { nodes: mockNodes, viewport: mockViewport, entry_point }, // missing edges
+        { nodes: mockNodes, edges: mockEdges, entry_point }, // missing viewport
+        { nodes: mockNodes, edges: mockEdges, viewport: mockViewport }, // missing entry_point
       ];
 
       let completed = 0;
       
       testCases.forEach((invalidState, index) => {
         const file = new File([JSON.stringify(invalidState)], `state${index}.json`);
-        const onSuccess = jest.fn();
-        const onError = jest.fn(() => {
+        const on_success = jest.fn();
+        const on_error = jest.fn(() => {
           completed++;
           if (completed === testCases.length) {
             done();
           }
         });
 
-        importGraphState(file, onSuccess, onError);
+        import_graph_state(file, on_success, on_error);
 
         const reader_mock = jest.mocked(FileReader);
         const reader = reader_mock.mock.results[index].value as MockFileReader;
         reader.readAsText(file);
         reader.onload?.({ target: { result: JSON.stringify(invalidState) } });
 
-        expect(onSuccess).not.toHaveBeenCalled();
-        expect(onError).toHaveBeenCalledWith("Invalid graph state file");
+        expect(on_success).not.toHaveBeenCalled();
+        expect(on_error).toHaveBeenCalledWith("Invalid graph state file");
       });
     });
   });

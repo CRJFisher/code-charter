@@ -179,8 +179,8 @@ describe('SearchPanel', () => {
   });
 
   it('should select node on Enter key', async () => {
-    const onNodeSelect = jest.fn();
-    renderSearchPanel({ onNodeSelect });
+    const on_node_select = jest.fn();
+    renderSearchPanel({ on_node_select });
 
     // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
@@ -199,12 +199,12 @@ describe('SearchPanel', () => {
       zoom: 1,
       duration: 500,
     });
-    expect(onNodeSelect).toHaveBeenCalledWith('node1');
+    expect(on_node_select).toHaveBeenCalledWith('node1');
   });
 
   it('should select node on click', async () => {
-    const onNodeSelect = jest.fn();
-    renderSearchPanel({ onNodeSelect });
+    const on_node_select = jest.fn();
+    renderSearchPanel({ on_node_select });
 
     // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
@@ -221,7 +221,7 @@ describe('SearchPanel', () => {
 
     expect(mockSetNodes).toHaveBeenCalledWith(expect.any(Function));
     expect(mockSetCenter).toHaveBeenCalled();
-    expect(onNodeSelect).toHaveBeenCalledWith('node1');
+    expect(on_node_select).toHaveBeenCalledWith('node1');
   });
 
   it('should close search panel on Escape key', async () => {
@@ -296,7 +296,7 @@ describe('SearchPanel', () => {
     mockGetNodes.mockReturnValue(manyNodes);
     mockGetNode.mockImplementation((id: string) => manyNodes.find(n => n.id === id));
 
-    renderSearchPanel({ maxResults: 5 });
+    renderSearchPanel({ max_results: 5 });
 
     // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));

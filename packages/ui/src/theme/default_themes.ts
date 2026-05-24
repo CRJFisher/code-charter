@@ -3,7 +3,7 @@ import { Theme } from '@code-charter/types';
 /**
  * Default dark theme based on VSCode's Dark+ theme
  */
-export const darkTheme: Theme = {
+export const dark_theme: Theme = {
   name: 'Dark',
   type: 'dark',
   colors: {
@@ -16,7 +16,7 @@ export const darkTheme: Theme = {
 /**
  * Default light theme based on VSCode's Light+ theme
  */
-export const lightTheme: Theme = {
+export const light_theme: Theme = {
   name: 'Light',
   type: 'light',
   colors: {
@@ -29,4 +29,4 @@ export const lightTheme: Theme = {
 /**
  * Default themes collection
  */
-export const defaultThemes = [darkTheme, lightTheme];
+export const default_themes = [dark_theme, light_theme];

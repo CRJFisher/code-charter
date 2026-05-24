@@ -1,28 +1,28 @@
 import { useEffect, useCallback } from 'react';
 import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
-import { errorNotificationManager } from './error_handling';
-import { useFlowThemeStyles } from './use_chart_theme_styles';
+import { error_notification_manager } from './error_handling';
+import { use_flow_theme_styles } from './use_chart_theme_styles';
 
 export interface KeyboardNavigationProps {
-  onNodeNavigate?: (nodeId: string) => void;
+  on_node_navigate?: (node_id: string) => void;
 }
 
-export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
-  const { getNodes, getEdges, setNodes, fitView } = useReactFlow<CodeChartNode, CodeChartEdge>();
-  const selectedNodeId = useStore((state: ReactFlowState) => 
+export function use_keyboard_navigation(props?: KeyboardNavigationProps) {
+  const { getNodes: get_nodes, getEdges: get_edges, setNodes: set_nodes, fitView: fit_view } = useReactFlow<CodeChartNode, CodeChartEdge>();
+  const selected_node_id = useStore((state: ReactFlowState) => 
     state.nodes.find(n => n.selected)?.id
   );
 
-  const handleKeyNavigation = useCallback((event: KeyboardEvent) => {
+  const handle_key_navigation = useCallback((event: KeyboardEvent) => {
     // Skip if user is typing in an input field
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
       return;
     }
 
-    const nodes = getNodes();
-    const edges = getEdges();
-    const selectedNode = nodes.find(n => n.selected);
+    const nodes = get_nodes();
+    const edges = get_edges();
+    const selected_node = nodes.find(n => n.selected);
 
     switch (event.key) {
       case 'Tab':
@@ -34,34 +34,34 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
       case 'ArrowLeft':
       case 'ArrowRight':
         // Navigate between connected nodes
-        if (selectedNode) {
+        if (selected_node) {
           event.preventDefault();
           
-          let targetNodeId: string | undefined;
+          let target_node_id: string | undefined;
           
           if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
             // Find parent nodes (incoming edges)
-            const incomingEdge = edges.find(e => e.target === selectedNode.id);
-            targetNodeId = incomingEdge?.source;
+            const incoming_edge = edges.find(e => e.target === selected_node.id);
+            target_node_id = incoming_edge?.source;
           } else {
             // Find child nodes (outgoing edges)
-            const outgoingEdge = edges.find(e => e.source === selectedNode.id);
-            targetNodeId = outgoingEdge?.target;
+            const outgoing_edge = edges.find(e => e.source === selected_node.id);
+            target_node_id = outgoing_edge?.target;
           }
           
-          if (targetNodeId) {
+          if (target_node_id) {
             // Deselect all nodes and select target
-            setNodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: n.id === targetNodeId })));
+            set_nodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: n.id === target_node_id })));
             
             // Focus on the target node element
-            const targetElement = document.querySelector(`[data-id="${targetNodeId}"]`);
-            if (targetElement instanceof HTMLElement) {
-              targetElement.focus();
+            const target_element = document.querySelector(`[data-id="${target_node_id}"]`);
+            if (target_element instanceof HTMLElement) {
+              target_element.focus();
             }
             
             // Notify parent component
-            if (props?.onNodeNavigate) {
-              props.onNodeNavigate(targetNodeId);
+            if (props?.on_node_navigate) {
+              props.on_node_navigate(target_node_id);
             }
           }
         }
@@ -72,7 +72,7 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
         // Fit view to show all nodes
         if (event.ctrlKey || event.metaKey) {
           event.preventDefault();
-          fitView({ padding: 0.2, duration: 500 });
+          fit_view({ padding: 0.2, duration: 500 });
         }
         break;
 
@@ -84,31 +84,31 @@ export function useKeyboardNavigation(props?: KeyboardNavigationProps) {
       case 'Escape':
         // Deselect all nodes
         event.preventDefault();
-        setNodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: false })));
+        set_nodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: false })));
         break;
 
       case '?':
         // Show keyboard shortcuts help
         if (event.shiftKey) {
           event.preventDefault();
-          showKeyboardShortcuts();
+          show_keyboard_shortcuts();
         }
         break;
     }
-  }, [getNodes, getEdges, setNodes, fitView, props]);
+  }, [get_nodes, get_edges, set_nodes, fit_view, props]);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyNavigation);
+    window.addEventListener('keydown', handle_key_navigation);
     return () => {
-      window.removeEventListener('keydown', handleKeyNavigation);
+      window.removeEventListener('keydown', handle_key_navigation);
     };
-  }, [handleKeyNavigation]);
+  }, [handle_key_navigation]);
 
-  return { selectedNodeId };
+  return { selected_node_id };
 }
 
-function showKeyboardShortcuts() {
-  errorNotificationManager.notify(
+function show_keyboard_shortcuts() {
+  error_notification_manager.notify(
     "Keyboard shortcuts: Tab (navigate nodes), Arrow keys (connected nodes), Enter/Space (open file), Escape (deselect), Ctrl+F (fit view), / (search), Shift+? (help)",
     "info"
   );
@@ -116,12 +116,12 @@ function showKeyboardShortcuts() {
 
 // Skip link component for accessibility
 export function SkipToGraph() {
-  const themeStyles = useFlowThemeStyles();
+  const theme_styles = use_flow_theme_styles();
 
-  const handleSkip = () => {
-    const graphElement = document.querySelector('.react-flow');
-    if (graphElement instanceof HTMLElement) {
-      graphElement.focus();
+  const handle_skip = () => {
+    const graph_element = document.querySelector('.react-flow');
+    if (graph_element instanceof HTMLElement) {
+      graph_element.focus();
     }
   };
 
@@ -130,7 +130,7 @@ export function SkipToGraph() {
       href="#code-flow-graph"
       onClick={(e) => {
         e.preventDefault();
-        handleSkip();
+        handle_skip();
       }}
       style={{
         position: 'absolute',
@@ -146,9 +146,9 @@ export function SkipToGraph() {
         e.currentTarget.style.width = 'auto';
         e.currentTarget.style.height = 'auto';
         e.currentTarget.style.padding = '8px';
-        e.currentTarget.style.backgroundColor = themeStyles.colors.ui.background.panel;
-        e.currentTarget.style.border = `2px solid ${themeStyles.colors.ui.border}`;
-        e.currentTarget.style.color = themeStyles.colors.ui.text.primary;
+        e.currentTarget.style.backgroundColor = theme_styles.colors.ui.background.panel;
+        e.currentTarget.style.border = `2px solid ${theme_styles.colors.ui.border}`;
+        e.currentTarget.style.color = theme_styles.colors.ui.text.primary;
         e.currentTarget.style.zIndex = '9999';
       }}
       onBlur={(e) => {

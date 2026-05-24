@@ -21,7 +21,7 @@ export class VSCodeThemeProvider implements ThemeProvider {
     if (typeof window !== 'undefined' && window.MutationObserver) {
       this.observer = new MutationObserver(() => {
         // Notify listeners when theme changes
-        const theme = this.getCurrentTheme();
+        const theme = this.get_current_theme();
         this.listeners.forEach(listener => listener(theme));
       });
 
@@ -33,28 +33,28 @@ export class VSCodeThemeProvider implements ThemeProvider {
     }
   }
 
-  getCurrentTheme(): Theme {
+  get_current_theme(): Theme {
     const colors = {} as ThemeColors;
-    const computedStyle = window.getComputedStyle(document.documentElement);
+    const computed_style = window.getComputedStyle(document.documentElement);
     
     // Read all CSS variables
-    for (const [key, cssVar] of Object.entries(CSS_VAR_MAP)) {
-      const value = computedStyle.getPropertyValue(cssVar).trim();
-      colors[key as keyof ThemeColors] = value || this.getDefaultColor(key as keyof ThemeColors);
+    for (const [key, css_var] of Object.entries(CSS_VAR_MAP)) {
+      const value = computed_style.getPropertyValue(css_var).trim();
+      colors[key as keyof ThemeColors] = value || this.get_default_color(key as keyof ThemeColors);
     }
     
     // Determine if it's a light or dark theme based on background color
-    const bgColor = colors['editor.background'];
-    const isDark = this.isColorDark(bgColor);
+    const bg_color = colors['editor.background'];
+    const is_dark = this.is_color_dark(bg_color);
     
     return {
       name: 'VSCode Theme',
-      type: isDark ? 'dark' : 'light',
+      type: is_dark ? 'dark' : 'light',
       colors
     };
   }
 
-  onThemeChange(callback: (theme: Theme) => void): () => void {
+  on_theme_change(callback: (theme: Theme) => void): () => void {
     this.listeners.add(callback);
     return () => {
       this.listeners.delete(callback);
@@ -72,7 +72,7 @@ export class VSCodeThemeProvider implements ThemeProvider {
   /**
    * Get default color for a key (fallback when CSS var is not available)
    */
-  private getDefaultColor(key: keyof ThemeColors): string {
+  private get_default_color(key: keyof ThemeColors): string {
     // These are fallback colors based on Dark+ theme
     const defaults: ThemeColors = {
       'editor.background': '#1e1e1e',
@@ -86,7 +86,7 @@ export class VSCodeThemeProvider implements ThemeProvider {
   /**
    * Determine if a color is dark
    */
-  private isColorDark(color: string): boolean {
+  private is_color_dark(color: string): boolean {
     // Simple heuristic: parse hex color and check luminance
     if (color.startsWith('#')) {
       const hex = color.substring(1);

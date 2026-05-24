@@ -26,8 +26,8 @@ const LAYOUT_CONFIG = {
   },
   // Retry Configuration
   retry: {
-    maxAttempts: 2,
-    delayMs: 500,
+    max_attempts: 2,
+    delay_ms: 500,
   },
   // Module compound-node geometry. innerPadding is the gap between the
   // module border and its child function nodes on left/right/bottom. The
@@ -47,14 +47,14 @@ const NODE_CONFIG = {
   },
   // Size Constraints
   constraints: {
-    minWidth: 200,
-    maxWidth: 350,
+    min_width: 200,
+    max_width: 350,
   },
   // Text Metrics
   text: {
-    basePadding: 20,
-    charWidth: 8,
-    lineHeight: 20,
+    base_padding: 20,
+    char_width: 8,
+    line_height: 20,
   },
   // Visual Properties
   visual: {
@@ -82,7 +82,7 @@ const ZOOM_CONFIG = {
 const ANIMATION_CONFIG = {
   // Durations (in ms)
   duration: {
-    fitView: 500,
+    fit_view: 500,
     panToNode: 300,
     saveDelay: 100,
   },
@@ -103,7 +103,7 @@ const PERFORMANCE_CONFIG = {
   },
   // Virtual Rendering
   virtualRender: {
-    renderBuffer: 25,
+    render_buffer: 25,
     defaultBuffer: 50,
   },
 } as const;
@@ -144,13 +144,13 @@ const SPACING_CONFIG = {
 const ERROR_CONFIG = {
   // Retry
   retry: {
-    maxRetries: 3,
+    max_retries: 3,
     timeout: 30000,
   },
   // Notifications
   notifications: {
-    maxNotifications: 3,
-    autoDismissDelay: 5000,
+    max_notifications: 3,
+    auto_dismiss_delay: 5000,
   },
   // Error Log
   errorLog: {
@@ -163,7 +163,7 @@ const MINIMAP_CONFIG = {
   nodeStrokeWidth: 3,
   colors: {
     moduleGroup: '#e0e0e0',
-    entryPoint: '#4caf50',
+    entry_point: '#4caf50',
     selected: '#0096FF',
     default: '#ff0072',
   },
@@ -178,7 +178,7 @@ const BACKGROUND_CONFIG = {
 
 // Viewport Configuration
 const VIEWPORT_CONFIG = {
-  fitView: {
+  fit_view: {
     padding: 0.2,
   },
   indicators: {

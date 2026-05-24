@@ -5,12 +5,12 @@ import { ZoomAwareNode, ModuleGroupNode } from './chart_node_types';
 import { NodeProps } from '@xyflow/react';
 import '@testing-library/jest-dom';
 import { ThemeProviderComponent } from '../../theme/theme_context';
-import { navigateToFile } from './editor_navigation';
+import { navigate_to_file } from './editor_navigation';
 import type { CodeFunctionNodeType, ModuleGroupNodeType } from './chart_types';
 
 const render_with_theme = (ui: React.ReactElement) => {
   return render(
-    <ThemeProviderComponent forceStandalone>
+    <ThemeProviderComponent force_standalone>
       {ui}
     </ThemeProviderComponent>
   );
@@ -18,7 +18,7 @@ const render_with_theme = (ui: React.ReactElement) => {
 
 // Mock navigation utilities
 jest.mock('./editor_navigation', () => ({
-  navigateToFile: jest.fn(),
+  navigate_to_file: jest.fn(),
 }));
 
 // Mock React Flow store — execute the selector against a mock state
@@ -36,7 +36,7 @@ jest.mock('@xyflow/react', () => ({
   },
 }));
 
-const mocked_navigate = jest.mocked(navigateToFile);
+const mocked_navigate = jest.mocked(navigate_to_file);
 
 function create_code_node_props(overrides: Partial<NodeProps<CodeFunctionNodeType>> = {}): NodeProps<CodeFunctionNodeType> {
   return {
@@ -136,10 +136,10 @@ describe('Accessibility Features', () => {
     });
 
     it('should have proper ARIA label for entry point', () => {
-      const entryPointProps = create_code_node_props({
+      const entry_pointProps = create_code_node_props({
         data: { ...mockCodeProps.data, is_entry_point: true },
       });
-      render_with_theme(<CodeFunctionNode {...entryPointProps} />);
+      render_with_theme(<CodeFunctionNode {...entry_pointProps} />);
 
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Entry point function'));

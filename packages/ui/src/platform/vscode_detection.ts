@@ -1,4 +1,6 @@
-// VS Code API interface
+// Mirrors the VS Code webview API exactly; method names are dictated by the
+// platform and cannot be renamed.
+/* eslint-disable @typescript-eslint/naming-convention, no-var */
 export interface VsCodeApi {
   postMessage(message: unknown): void;
   getState(): unknown;
@@ -6,12 +8,16 @@ export interface VsCodeApi {
 }
 
 declare global {
-  function acquireVsCodeApi(): VsCodeApi;
+  interface Window {
+    acquireVsCodeApi?: () => VsCodeApi;
+  }
+  var acquireVsCodeApi: (() => VsCodeApi) | undefined;
 }
+/* eslint-enable @typescript-eslint/naming-convention, no-var */
 
 // Helper to check if we're in a VS Code context
-export function isVSCodeContext(): boolean {
-  return typeof acquireVsCodeApi !== 'undefined';
+export function is_vscode_context(): boolean {
+  return typeof globalThis.acquireVsCodeApi === "function";
 }
 
 // VSCode allows `acquireVsCodeApi()` to be called at most ONCE per webview
@@ -22,9 +28,9 @@ export function get_vscode_api(): VsCodeApi {
   if (cached_vscode_api) {
     return cached_vscode_api;
   }
-  if (typeof acquireVsCodeApi !== 'function') {
-    throw new Error('VSCode API not available');
+  if (typeof globalThis.acquireVsCodeApi !== "function") {
+    throw new Error("VSCode API not available");
   }
-  cached_vscode_api = acquireVsCodeApi();
+  cached_vscode_api = globalThis.acquireVsCodeApi();
   return cached_vscode_api;
 }

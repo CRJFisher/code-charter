@@ -1,6 +1,6 @@
 import React from "react";
 import { CONFIG } from "./chart_config";
-import { useFlowThemeStyles } from "./use_chart_theme_styles";
+import { use_flow_theme_styles } from "./use_chart_theme_styles";
 
 interface LoadingIndicatorProps {
   status: string;
@@ -8,7 +8,7 @@ interface LoadingIndicatorProps {
 }
 
 export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, message }) => {
-  const themeStyles = useFlowThemeStyles();
+  const theme_styles = use_flow_theme_styles();
   return (
     <div style={{
       display: "flex",
@@ -19,8 +19,8 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
       <div className="react-flow-loading-spinner" style={{
         width: "40px",
         height: "40px",
-        border: `4px solid ${themeStyles.colors.ui.loading.track}`,
-        borderTop: `4px solid ${themeStyles.colors.ui.button.primary}`,
+        border: `4px solid ${theme_styles.colors.ui.loading.track}`,
+        borderTop: `4px solid ${theme_styles.colors.ui.button.primary}`,
         borderRadius: "50%",
         animation: "react-flow-spin 1s linear infinite",
       }} />
@@ -31,14 +31,14 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ status, mess
         <div style={{
           fontSize: `${CONFIG.spacing.fontSize.large}px`,
           fontWeight: "500",
-          color: themeStyles.colors.ui.text.primary,
+          color: theme_styles.colors.ui.text.primary,
           marginBottom: `${CONFIG.spacing.margin.small}px`,
         }}>
           {status}
         </div>
         <div style={{
           fontSize: "14px",
-          color: themeStyles.colors.ui.text.secondary,
+          color: theme_styles.colors.ui.text.secondary,
         }}>
           {message}
         </div>

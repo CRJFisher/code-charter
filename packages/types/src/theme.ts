@@ -23,21 +23,21 @@ export interface ThemeProvider {
   /**
    * Get the current theme
    */
-  getCurrentTheme(): Theme;
-  
+  get_current_theme(): Theme;
+
   /**
    * Set a new theme (only available in standalone mode)
    */
-  setTheme?(theme: Theme): void;
-  
+  set_theme?(theme: Theme): void;
+
   /**
    * Get available themes (only available in standalone mode)
    */
-  getAvailableThemes?(): Theme[];
-  
+  get_available_themes?(): Theme[];
+
   /**
    * Subscribe to theme changes
    */
-  onThemeChange(callback: (theme: Theme) => void): () => void;
+  on_theme_change(callback: (theme: Theme) => void): () => void;
 }
 

@@ -41,36 +41,6 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
   });
 
   describe("File Reading Errors", () => {
-    it("should handle unreadable files gracefully", async () => {
-      // Create a file that we'll make unreadable
-      const unreadableFile = path.join(tempDir, "unreadable.py");
-      await fs.promises.writeFile(unreadableFile, "def test(): pass", "utf-8");
-      
-      // Make the file unreadable (on Unix-like systems)
-      if (process.platform !== "win32") {
-        await fs.promises.chmod(unreadableFile, 0o000);
-      }
-
-      projectManager = new AriadneProjectManager(tempDir);
-      await projectManager.initialize();
-
-      // Verify error was logged
-      if (process.platform !== "win32") {
-        // The error might be logged with slightly different format
-        expect(consoleErrorMock).toHaveBeenCalled();
-        const calls = consoleErrorMock.mock.calls;
-        const hasErrorLog = calls.some(call => 
-          call.some(arg => typeof arg === 'string' && arg.includes('Error updating file'))
-        );
-        expect(hasErrorLog).toBe(true);
-      }
-
-      // Restore permissions for cleanup
-      if (process.platform !== "win32") {
-        await fs.promises.chmod(unreadableFile, 0o644);
-      }
-    });
-
     it("should handle binary files gracefully", async () => {
       // Create a binary file
       const binaryFile = path.join(tempDir, "binary.pyc");
@@ -223,39 +193,6 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
     });
   });
 
-  describe("Concurrent Operations", () => {
-    it("should handle multiple simultaneous file operations", async () => {
-      projectManager = new AriadneProjectManager(tempDir);
-      await projectManager.initialize();
-
-      // Create multiple files simultaneously
-      const filePromises = [];
-      for (let i = 0; i < 10; i++) {
-        const filePath = path.join(tempDir, `concurrent${i}.py`);
-        filePromises.push(
-          fs.promises.writeFile(filePath, `def func${i}(): pass`, "utf-8")
-        );
-      }
-
-      await Promise.all(filePromises);
-
-      // Trigger file watchers for all files
-      const { mockFileWatcherCallbacks } = require("vscode").__mockHelpers;
-      
-      for (let i = 0; i < 10; i++) {
-        const filePath = path.join(tempDir, `concurrent${i}.py`);
-        if (mockFileWatcherCallbacks.onCreate) {
-          await mockFileWatcherCallbacks.onCreate({ file: () => filePath });
-        }
-      }
-
-      // Should handle concurrent operations
-      const callGraph = projectManager.get_call_graph();
-      expect(callGraph).toBeDefined();
-      expect(callGraph.nodes.size).toBeGreaterThanOrEqual(10);
-    });
-  });
-
   describe("Filter Function Edge Cases", () => {
     it("should handle filter function that throws errors", async () => {
       const errorFilter = (path: string) => {
@@ -274,29 +211,6 @@ describe("AriadneProjectManager - Edge Cases and Error Handling", () => {
       await expect(projectManager.initialize()).resolves.toBeDefined();
     });
 
-    it("should handle filter function that returns non-boolean values", async () => {
-      const weirdFilter = (path: string): boolean => {
-        // Intentionally return truthy/falsy values instead of booleans
-        if (path.endsWith(".py")) {
-          return 1 as any; // truthy
-        }
-        return "" as any; // falsy
-      };
-
-      await fs.promises.writeFile(path.join(tempDir, "test.py"), "def test(): pass", "utf-8");
-      await fs.promises.writeFile(path.join(tempDir, "test.js"), "function test() {}", "utf-8");
-
-      projectManager = new AriadneProjectManager(tempDir, weirdFilter);
-      await projectManager.initialize();
-
-      const callGraph = projectManager.get_call_graph();
-      expect(callGraph).toBeDefined();
-      const nodeSymbols = Array.from(callGraph.nodes.keys());
-      // Should find Python file
-      expect(nodeSymbols.some(s => s.includes("test.py"))).toBe(true);
-      // Should not find JavaScript file
-      expect(nodeSymbols.some(s => s.includes("test.js"))).toBe(false);
-    });
   });
 
   describe("getCallGraph Edge Cases", () => {

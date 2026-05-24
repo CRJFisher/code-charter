@@ -24,7 +24,22 @@
       "argsIgnorePattern": "^_",
       "varsIgnorePattern": "^_",
       "caughtErrorsIgnorePattern": "^_"
-    }]
+    }],
+    "@typescript-eslint/naming-convention": [
+      "error",
+      { "selector": "default", "format": ["snake_case"], "leadingUnderscore": "allow" },
+      { "selector": "variable", "format": ["snake_case", "UPPER_CASE", "PascalCase"], "leadingUnderscore": "allow" },
+      { "selector": "function", "format": ["snake_case", "PascalCase"], "leadingUnderscore": "allow" },
+      { "selector": "parameter", "format": ["snake_case"], "leadingUnderscore": "allow" },
+      { "selector": "memberLike", "modifiers": ["private"], "format": ["snake_case"], "leadingUnderscore": "allow" },
+      { "selector": "typeLike", "format": ["PascalCase"] },
+      { "selector": "enumMember", "format": ["UPPER_CASE", "PascalCase"] },
+      { "selector": "objectLiteralProperty", "format": null },
+      { "selector": "typeProperty", "format": null },
+      { "selector": "method", "format": ["snake_case"] },
+      { "selector": "objectLiteralMethod", "format": ["camelCase", "snake_case"] },
+      { "selector": "classProperty", "modifiers": ["static", "readonly"], "format": ["UPPER_CASE", "snake_case"] }
+    ]
   },
   "overrides": [
     {
@@ -33,6 +48,10 @@
         "node": true,
         "commonjs": true
       }
+    },
+    {
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__/**/*"],
+      "rules": { "@typescript-eslint/naming-convention": "off" }
     }
   ]
 }

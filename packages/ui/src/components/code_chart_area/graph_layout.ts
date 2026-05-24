@@ -1,17 +1,17 @@
 import ELK, { ElkNode } from 'elkjs/lib/elk.bundled.js';
-import { CodeChartNode, CodeChartEdge, isCodeNode, isModuleNode } from './chart_types';
+import { CodeChartNode, CodeChartEdge, is_code_node, is_module_node } from './chart_types';
 import { LayoutCache } from './layout_cache';
-import { withRetry, LayoutError, ErrorRecovery, errorLogger } from './error_handling';
+import { with_retry, LayoutError, ErrorRecovery, error_logger } from './error_handling';
 import { CONFIG } from './chart_config';
 
 const elk = new ELK();
 
 // Create cache instances
-const layoutCache = new LayoutCache<CodeChartNode[]>();
-const dimensionCache = new LayoutCache<{ width: number; height: number }>();
+const layout_cache = new LayoutCache<CodeChartNode[]>();
+const dimension_cache = new LayoutCache<{ width: number; height: number }>();
 
 // ELK layout options from configuration
-const elkOptions: Record<string, string> = {
+const elk_options: Record<string, string> = {
   'elk.algorithm': CONFIG.layout.elk.algorithm,
   'elk.direction': CONFIG.layout.elk.direction,
   'elk.spacing.nodeNode': String(CONFIG.layout.elk.spacing.nodeNode),
@@ -98,7 +98,7 @@ function build_elk_graph(
     return {
       id: mod.id,
       layoutOptions: {
-        ...elkOptions,
+        ...elk_options,
         'elk.padding': `[top=${MODULE_PADDING + MODULE_HEADER_HEIGHT},left=${MODULE_PADDING},bottom=${MODULE_PADDING},right=${MODULE_PADDING}]`,
       },
       children: children.map(child => ({
@@ -123,7 +123,7 @@ function build_elk_graph(
 
   return {
     id: 'root',
-    layoutOptions: elkOptions,
+    layoutOptions: elk_options,
     children: [...elk_module_children, ...elk_top_level],
     edges: root_edges.map(e => ({
       id: e.id,
@@ -146,7 +146,7 @@ function flatten_elk_nodes(elk_node: ElkNode, result: Map<string, ElkNode> = new
   return result;
 }
 
-export async function applyHierarchicalLayout(
+export async function apply_hierarchical_layout(
   nodes: CodeChartNode[],
   edges: CodeChartEdge[],
 ): Promise<CodeChartNode[]> {
@@ -155,8 +155,8 @@ export async function applyHierarchicalLayout(
   }
 
   // Check cache first
-  const cacheKey = layoutCache.generateKey(nodes, edges);
-  const cached = layoutCache.get(cacheKey);
+  const cache_key = layout_cache.generate_key(nodes, edges);
+  const cached = layout_cache.get(cache_key);
   if (cached) {
     console.log('[Layout] Using cached layout');
     return cached;
@@ -166,7 +166,7 @@ export async function applyHierarchicalLayout(
   const elk_graph = build_elk_graph(nodes, edges);
 
   try {
-    const layoutedNodes = await withRetry(
+    const layouted_nodes = await with_retry(
       async () => {
         const layouted = await elk.layout(elk_graph);
         const elk_positions = flatten_elk_nodes(layouted);
@@ -206,29 +206,29 @@ export async function applyHierarchicalLayout(
         });
       },
       {
-        maxAttempts: CONFIG.layout.retry.maxAttempts,
-        delayMs: CONFIG.layout.retry.delayMs,
-        onRetry: (attempt, error) => {
+        max_attempts: CONFIG.layout.retry.max_attempts,
+        delay_ms: CONFIG.layout.retry.delay_ms,
+        on_retry: (attempt, error) => {
           console.warn(`[Layout] Retry attempt ${attempt} after error:`, error.message);
         },
       }
     );
 
-    layoutCache.set(cacheKey, layoutedNodes);
-    return layoutedNodes;
+    layout_cache.set(cache_key, layouted_nodes);
+    return layouted_nodes;
   } catch (error) {
     console.error('Error applying ELK layout:', error);
-    errorLogger.log(
+    error_logger.log(
       new LayoutError('ELK layout failed', nodes.length, edges.length),
       'error',
       { error: error instanceof Error ? error.message : String(error) }
     );
 
-    return ErrorRecovery.tryWithFallback(
+    return ErrorRecovery.try_with_fallback(
       async () => {
         throw error;
       },
-      async () => applyFallbackLayout(nodes, edges),
+      async () => apply_fallback_layout(nodes, edges),
       (err) => {
         console.log('[Layout] Falling back to grid layout due to:', err.message);
       }
@@ -237,55 +237,55 @@ export async function applyHierarchicalLayout(
 }
 
 // Helper function to calculate node dimensions based on content
-export function calculateNodeDimensions(node: CodeChartNode): { width: number; height: number } {
+export function calculate_node_dimensions(node: CodeChartNode): { width: number; height: number } {
   // Check cache first
-  const cacheKey = `dimension-${node.id}`;
-  const cached = dimensionCache.get(cacheKey);
+  const cache_key = `dimension-${node.id}`;
+  const cached = dimension_cache.get(cache_key);
   if (cached) {
     return cached;
   }
 
   // Base dimensions from configuration
-  const basePadding = CONFIG.node.text.basePadding;
-  const charWidth = CONFIG.node.text.charWidth;
-  const lineHeight = CONFIG.node.text.lineHeight;
+  const base_padding = CONFIG.node.text.base_padding;
+  const char_width = CONFIG.node.text.char_width;
+  const line_height = CONFIG.node.text.line_height;
   
   // Calculate based on content
-  let functionNameLength = 0;
+  let function_name_length = 0;
   let description_length = 0;
   
-  if (isCodeNode(node)) {
-    functionNameLength = (node.data.function_name || '').length;
+  if (is_code_node(node)) {
+    function_name_length = (node.data.function_name || '').length;
     description_length = (node.data.description || '').length;
-  } else if (isModuleNode(node)) {
-    functionNameLength = (node.data.module_name || '').length;
+  } else if (is_module_node(node)) {
+    function_name_length = (node.data.module_name || '').length;
     description_length = (node.data.description || '').length;
   }
   
   // Width calculation (with max/min constraints)
-  const minWidth = CONFIG.node.constraints.minWidth;
-  const maxWidth = CONFIG.node.constraints.maxWidth;
-  const calculatedWidth = Math.max(functionNameLength * charWidth, description_length * charWidth / 3) + basePadding * 2;
-  const width = Math.min(Math.max(calculatedWidth, minWidth), maxWidth);
+  const min_width = CONFIG.node.constraints.min_width;
+  const max_width = CONFIG.node.constraints.max_width;
+  const calculated_width = Math.max(function_name_length * char_width, description_length * char_width / 3) + base_padding * 2;
+  const width = Math.min(Math.max(calculated_width, min_width), max_width);
   
   // Height calculation based on text wrapping
-  const description_lines = Math.ceil((description_length * charWidth) / (width - basePadding * 2));
-  const height = basePadding * 2 + lineHeight * 2 + (description_lines * lineHeight);
+  const description_lines = Math.ceil((description_length * char_width) / (width - base_padding * 2));
+  const height = base_padding * 2 + line_height * 2 + (description_lines * line_height);
   
   const dimensions = { width, height };
-  dimensionCache.set(cacheKey, dimensions);
+  dimension_cache.set(cache_key, dimensions);
   return dimensions;
 }
 
 // Clear caches when needed
-export function clearLayoutCaches(): void {
-  layoutCache.clear();
-  dimensionCache.clear();
+export function clear_layout_caches(): void {
+  layout_cache.clear();
+  dimension_cache.clear();
   console.log('[Performance] Layout caches cleared');
 }
 
 // Fallback layout algorithm - simple grid layout
-export function applyFallbackLayout(
+export function apply_fallback_layout(
   nodes: CodeChartNode[],
   edges: CodeChartEdge[]
 ): Promise<CodeChartNode[]> {
@@ -296,7 +296,7 @@ export function applyFallbackLayout(
   const NODES_PER_ROW = Math.ceil(Math.sqrt(nodes.length));
   
   // Group nodes by their connections
-  const nodeGroups = new Map<string, Set<string>>();
+  const node_groups = new Map<string, Set<string>>();
   const processed = new Set<string>();
   
   // Build adjacency map
@@ -313,52 +313,52 @@ export function applyFallbackLayout(
   });
   
   // DFS to find connected components
-  const dfs = (nodeId: string, group: Set<string>) => {
-    if (processed.has(nodeId)) return;
-    processed.add(nodeId);
-    group.add(nodeId);
+  const dfs = (node_id: string, group: Set<string>) => {
+    if (processed.has(node_id)) return;
+    processed.add(node_id);
+    group.add(node_id);
     
-    const neighbors = adjacency.get(nodeId) || new Set();
+    const neighbors = adjacency.get(node_id) || new Set();
     neighbors.forEach(neighbor => dfs(neighbor, group));
   };
   
   // Find all connected components
-  let groupIndex = 0;
+  let group_index = 0;
   nodes.forEach(node => {
     if (!processed.has(node.id)) {
       const group = new Set<string>();
       dfs(node.id, group);
-      nodeGroups.set(`group-${groupIndex++}`, group);
+      node_groups.set(`group-${group_index++}`, group);
     }
   });
   
   // Layout nodes
-  const layoutedNodes = [...nodes];
-  const currentX = 0;
-  let currentY = 0;
-  let rowHeight = 0;
+  const layouted_nodes = [...nodes];
+  const current_x = 0;
+  let current_y = 0;
+  let row_height = 0;
   
   // Layout each group
-  nodeGroups.forEach((group) => {
-    const groupNodes = layoutedNodes.filter(n => group.has(n.id));
+  node_groups.forEach((group) => {
+    const group_nodes = layouted_nodes.filter(n => group.has(n.id));
     
     // Layout nodes in this group
-    groupNodes.forEach((node, index) => {
+    group_nodes.forEach((node, index) => {
       const col = index % NODES_PER_ROW;
       const row = Math.floor(index / NODES_PER_ROW);
       
       node.position = {
-        x: currentX + col * GRID_SPACING_X,
-        y: currentY + row * GRID_SPACING_Y,
+        x: current_x + col * GRID_SPACING_X,
+        y: current_y + row * GRID_SPACING_Y,
       };
       
-      rowHeight = Math.max(rowHeight, (row + 1) * GRID_SPACING_Y);
+      row_height = Math.max(row_height, (row + 1) * GRID_SPACING_Y);
     });
     
     // Move to next group position
-    currentY += rowHeight + GRID_SPACING_Y;
-    rowHeight = 0;
+    current_y += row_height + GRID_SPACING_Y;
+    row_height = 0;
   });
   
-  return Promise.resolve(layoutedNodes);
+  return Promise.resolve(layouted_nodes);
 }

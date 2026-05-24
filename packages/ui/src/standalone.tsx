@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { ThemedApp, create_backend, BackendType } from './index';
 import './styles/index.css';
 
-export function init(config?: { forceStandalone?: boolean }): void {
+export function init(config?: { force_standalone?: boolean }): void {
   const root_element = document.getElementById('root');
   if (!root_element) {
     console.error('CodeCharterUI: No root element found');
@@ -13,7 +13,7 @@ export function init(config?: { forceStandalone?: boolean }): void {
   const root = ReactDOM.createRoot(root_element);
   root.render(
     <React.StrictMode>
-      <ThemedApp forceStandalone={config?.forceStandalone} />
+      <ThemedApp force_standalone={config?.force_standalone} />
     </React.StrictMode>
   );
 }

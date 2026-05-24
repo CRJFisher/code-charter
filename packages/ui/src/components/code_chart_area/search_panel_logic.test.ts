@@ -2,21 +2,21 @@ describe('Search Logic', () => {
   describe('Fuzzy Matching', () => {
     // Extract the fuzzy match logic for testing
     const fuzzyMatch = (query: string, target: string): number => {
-      const lowerQuery = query.toLowerCase();
+      const lower_query = query.toLowerCase();
       const lowerTarget = target.toLowerCase();
       let queryIndex = 0;
       let targetIndex = 0;
       let matches = 0;
       
-      while (queryIndex < lowerQuery.length && targetIndex < lowerTarget.length) {
-        if (lowerQuery[queryIndex] === lowerTarget[targetIndex]) {
+      while (queryIndex < lower_query.length && targetIndex < lowerTarget.length) {
+        if (lower_query[queryIndex] === lowerTarget[targetIndex]) {
           matches++;
           queryIndex++;
         }
         targetIndex++;
       }
       
-      return queryIndex === lowerQuery.length ? matches / lowerQuery.length : 0;
+      return queryIndex === lower_query.length ? matches / lower_query.length : 0;
     };
 
     it('should match exact strings', () => {
@@ -48,26 +48,26 @@ describe('Search Logic', () => {
 
   describe('Search Scoring', () => {
     const calculateScore = (query: string, name: string, description = ''): number => {
-      const lowerQuery = query.toLowerCase();
-      const lowerName = name.toLowerCase();
+      const lower_query = query.toLowerCase();
+      const lower_name = name.toLowerCase();
       const lower_description = description.toLowerCase();
       
       let score = 0;
       
       // Exact match gets highest score
-      if (lowerName === lowerQuery) {
+      if (lower_name === lower_query) {
         score = 100;
       }
       // Starts with query
-      else if (lowerName.startsWith(lowerQuery)) {
+      else if (lower_name.startsWith(lower_query)) {
         score = 80;
       }
       // Contains query
-      else if (lowerName.includes(lowerQuery)) {
+      else if (lower_name.includes(lower_query)) {
         score = 60;
       }
       // Description contains query
-      else if (lower_description.includes(lowerQuery)) {
+      else if (lower_description.includes(lower_query)) {
         score = 40;
       }
       
@@ -133,35 +133,35 @@ describe('Search Logic', () => {
       type: string;
       data: { function_name?: string; module_name?: string; description?: string };
     };
-    type MockResult = { nodeId: string; nodeName: string; nodeType: string };
+    type MockResult = { node_id: string; node_name: string; nodeType: string };
 
-    const filterNodes = (nodes: MockNode[], query: string, maxResults = 10): MockResult[] => {
+    const filterNodes = (nodes: MockNode[], query: string, max_results = 10): MockResult[] => {
       if (!query.trim()) return [];
 
-      const lowerQuery = query.toLowerCase();
+      const lower_query = query.toLowerCase();
       const results: MockResult[] = [];
       
       nodes.forEach(node => {
         const name = node.data.function_name || node.data.module_name || '';
-        const lowerName = name.toLowerCase();
+        const lower_name = name.toLowerCase();
         
-        if (lowerName.includes(lowerQuery)) {
+        if (lower_name.includes(lower_query)) {
           results.push({
-            nodeId: node.id,
-            nodeName: name,
+            node_id: node.id,
+            node_name: name,
             nodeType: node.type,
           });
         }
       });
       
-      return results.slice(0, maxResults);
+      return results.slice(0, max_results);
     };
 
     it('should filter nodes by name', () => {
       const results = filterNodes(mockNodes, 'test');
       expect(results).toHaveLength(2);
-      expect(results.map(r => r.nodeName)).toContain('testFunction');
-      expect(results.map(r => r.nodeName)).toContain('TestModule');
+      expect(results.map(r => r.node_name)).toContain('testFunction');
+      expect(results.map(r => r.node_name)).toContain('TestModule');
     });
 
     it('should return empty array for empty query', () => {
@@ -188,7 +188,7 @@ describe('Search Logic', () => {
       
       const results = filterNodes(nodesWithoutNames, 'test');
       expect(results).toHaveLength(1);
-      expect(results[0].nodeName).toBe('test');
+      expect(results[0].node_name).toBe('test');
     });
   });
 });

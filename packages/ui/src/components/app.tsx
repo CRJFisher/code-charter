@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import Sidebar from "./side_bar";
 import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area";
-import { useBackend } from "../hooks/use_backend";
+import { use_backend } from "../hooks/use_backend";
 import { DocstringSummaries, NodeGroup, CallGraph, CallableNode, CodeCharterBackend } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
 import { ThemeSwitcher } from "../theme";
@@ -14,7 +14,7 @@ async function detect_entry_points(
 ) {
   set_status_message(CodeIndexStatus.Indexing);
 
-  const call_graph = await backend.getCallGraph();
+  const call_graph = await backend.get_call_graph();
 
   if (!call_graph) {
     set_status_message(CodeIndexStatus.Error);
@@ -51,11 +51,11 @@ async function fetch_descriptions(
 }
 
 export interface AppProps {
-  className?: string;
+  class_name?: string;
 }
 
-export const App: React.FC<AppProps> = ({ className = "" }) => {
-  const { backend } = useBackend();
+export const App: React.FC<AppProps> = ({ class_name = "" }) => {
+  const { backend } = use_backend();
   const [call_graph, set_call_graph] = useState<CallGraph | null>(null);
   const [selected_entry_point, set_selected_entry_point] = useState<CallableNode | null>(null);
   const [status_message, set_status_message] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
@@ -77,12 +77,12 @@ export const App: React.FC<AppProps> = ({ className = "" }) => {
     if (!top_level_node_symbol) {
       return;
     }
-    const new_node_groups = await backend.clusterCodeTree(top_level_node_symbol);
+    const new_node_groups = await backend.cluster_code_tree(top_level_node_symbol);
     return new_node_groups;
   }
 
   return (
-    <div className={`flex flex-col h-screen bg-vscodeBg text-vscodeFg ${className}`}>
+    <div className={`flex flex-col h-screen bg-vscodeBg text-vscodeFg ${class_name}`}>
       <div className="flex items-center justify-between p-2 border-b border-vscodeBorder">
         <h1 className="text-lg font-semibold">Code Charter</h1>
         <ThemeSwitcher />
@@ -96,11 +96,11 @@ export const App: React.FC<AppProps> = ({ className = "" }) => {
         />
         <div className="flex flex-1 bg-vscodeBg">
           <CodeChartArea
-            selectedEntryPoint={selected_entry_point}
-            screenWidthFraction={0.8}
-            getDescriptions={get_descriptions}
-            detectModules={() => detect_modules(selected_entry_point?.symbol_id)}
-            indexingStatus={status_message}
+            selected_entry_point={selected_entry_point}
+            screen_width_fraction={0.8}
+            get_descriptions={get_descriptions}
+            detect_modules={() => detect_modules(selected_entry_point?.symbol_id)}
+            indexing_status={status_message}
           />
         </div>
       </div>

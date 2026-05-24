@@ -18,7 +18,7 @@ export interface DocstringSummaries {
  */
 export interface NodeGroup {
   description: string;
-  memberSymbols: string[];
+  member_symbols: string[];
   metadata?: {
     algorithm_used: ClusteringAlgorithm;
     quality_score?: number;
@@ -33,20 +33,20 @@ export interface CodeCharterBackend {
   /**
    * Get the call graph for the current project
    */
-  getCallGraph(): Promise<CallGraph | undefined>;
+  get_call_graph(): Promise<CallGraph | undefined>;
 
   /**
    * Cluster code tree nodes into logical groups
    */
-  clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]>;
+  cluster_code_tree(top_level_function_symbol: string): Promise<NodeGroup[]>;
 
   /**
    * Get descriptions for a code tree starting from a given function (docstring extraction, no LLM)
    */
-  get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined>;
+  get_code_tree_descriptions(top_level_function_symbol: string): Promise<DocstringSummaries | undefined>;
 
   /**
    * Navigate to a specific document location
    */
-  navigateToDoc(file_path: string, line_number: number): Promise<void>;
+  navigate_to_doc(file_path: string, line_number: number): Promise<void>;
 }

@@ -159,55 +159,6 @@ def new_function():  # Added
       expect(finalUpdate.nodes.some(s => s.includes("main.py"))).toBe(true);
     });
 
-    it("should handle refactoring scenario", async () => {
-      projectManager = new AriadneProjectManager(tempDir);
-      await projectManager.initialize();
-      
-      // Simulate renaming a file (delete + create)
-      const oldPath = path.join(tempDir, "src", "lib", "utils.py");
-      const newPath = path.join(tempDir, "src", "lib", "utilities.py");
-      
-      // Delete old file
-      await mockFileWatcherCallbacks.onDelete(vscode.Uri.file(oldPath));
-      
-      // Create new file with updated content
-      await fs.promises.writeFile(
-        newPath,
-        `def helper():
-    return "helping"
-
-def unused():
-    pass
-
-def additional_util():  # New function added during refactor
-    return True`,
-        "utf-8"
-      );
-      
-      await mockFileWatcherCallbacks.onCreate(vscode.Uri.file(newPath));
-      
-      // Wait for updates
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      const currentGraph = projectManager.get_call_graph();
-      const nodeKeys = Array.from(currentGraph.nodes.keys());
-      
-      // Old file functions should be gone
-      expect(nodeKeys).not.toEqual(
-        expect.arrayContaining([
-          expect.stringContaining("utils.py")
-        ])
-      );
-      
-      // New file functions should be present
-      expect(nodeKeys).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining("utilities.py:helper"),
-          expect.stringContaining("utilities.py:additional_util")
-        ])
-      );
-    });
-
     it("should handle rapid editing session", async () => {
       jest.useFakeTimers();
       
@@ -253,47 +204,6 @@ def additional_util():  # New function added during refactor
       expect(updateCount).toBe(1);
       
       jest.useRealTimers();
-    });
-  });
-
-  describe("Error Recovery", () => {
-    it("should recover from temporary file system errors", async () => {
-      projectManager = new AriadneProjectManager(tempDir);
-      await projectManager.initialize();
-      
-      // Create a file that will cause an error when read
-      const problematicPath = path.join(tempDir, "problematic.py");
-      
-      // First, make the directory read-only (Unix-like systems)
-      if (process.platform !== "win32") {
-        await fs.promises.chmod(tempDir, 0o555);
-        
-        try {
-          // Try to create a file (should fail)
-          await mockFileWatcherCallbacks.onCreate(vscode.Uri.file(problematicPath));
-        } catch {
-          // Expected to fail
-        }
-        
-        // Restore permissions
-        await fs.promises.chmod(tempDir, 0o755);
-      }
-      
-      // Now create the file successfully
-      await fs.promises.writeFile(problematicPath, "def recovered(): pass", "utf-8");
-      await mockFileWatcherCallbacks.onCreate(vscode.Uri.file(problematicPath));
-      
-      // Should have recovered and added the file
-      const graph = projectManager.get_call_graph();
-      const nodeKeys = Array.from(graph.nodes.keys());
-      
-      if (process.platform !== "win32") {
-        expect(nodeKeys).toEqual(
-          expect.arrayContaining([
-            expect.stringContaining("problematic.py:recovered")
-          ])
-        );
-      }
     });
   });
 

@@ -5,7 +5,7 @@ import { create_backend, BackendConfig } from "../backends";
 /**
  * React hook for accessing the backend
  */
-export function useBackend(config?: BackendConfig) {
+export function use_backend(config?: BackendConfig) {
   const [backend] = useState<CodeCharterBackend>(() => create_backend(config));
 
   return { backend };

@@ -12,10 +12,8 @@ export interface BackendConfig {
   options?: Record<string, unknown>;
 }
 
-declare const acquireVsCodeApi: unknown;
-
 export function detect_backend_config(): BackendConfig {
-  if (typeof acquireVsCodeApi !== "undefined") {
+  if (typeof globalThis.acquireVsCodeApi === "function") {
     return { type: BackendType.VSCODE };
   }
   return { type: BackendType.MOCK };

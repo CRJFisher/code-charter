@@ -12,10 +12,10 @@ export interface ErrorNotification {
 export class ErrorNotificationManager {
   private notifications: ErrorNotification[] = [];
   private listeners: ((notifications: ErrorNotification[]) => void)[] = [];
-  private autoDismissDelay: number;
+  private auto_dismiss_delay: number;
 
-  constructor(autoDismissDelay = 5000) {
-    this.autoDismissDelay = autoDismissDelay;
+  constructor(auto_dismiss_delay = 5000) {
+    this.auto_dismiss_delay = auto_dismiss_delay;
   }
 
   notify(
@@ -32,11 +32,11 @@ export class ErrorNotificationManager {
     };
 
     this.notifications.push(notification);
-    this.notifyListeners();
+    this.notify_listeners();
 
     // Auto-dismiss info notifications after configured delay
     if (severity === 'info') {
-      setTimeout(() => this.dismiss(notification.id), this.autoDismissDelay);
+      setTimeout(() => this.dismiss(notification.id), this.auto_dismiss_delay);
     }
 
     return notification.id;
@@ -44,12 +44,12 @@ export class ErrorNotificationManager {
 
   dismiss(id: string) {
     this.notifications = this.notifications.filter(n => n.id !== id);
-    this.notifyListeners();
+    this.notify_listeners();
   }
 
-  dismissAll() {
+  dismiss_all() {
     this.notifications = [];
-    this.notifyListeners();
+    this.notify_listeners();
   }
 
   subscribe(listener: (notifications: ErrorNotification[]) => void) {
@@ -59,14 +59,14 @@ export class ErrorNotificationManager {
     };
   }
 
-  private notifyListeners() {
+  private notify_listeners() {
     this.listeners.forEach(listener => listener([...this.notifications]));
   }
 
-  getNotifications() {
+  get_notifications() {
     return [...this.notifications];
   }
 }
 
 // Global notification manager instance
-export const errorNotificationManager = new ErrorNotificationManager();
+export const error_notification_manager = new ErrorNotificationManager();

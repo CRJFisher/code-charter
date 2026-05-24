@@ -1,86 +1,87 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CONFIG } from '../components/code_chart_area/chart_config';
-import { useFlowThemeStyles } from '../components/code_chart_area/use_chart_theme_styles';
+import { use_flow_theme_styles } from '../components/code_chart_area/use_chart_theme_styles';
 
 function noop_retry(): void {
   // intentionally empty — used when retries are exhausted but the fallback still needs a callable
 }
 
 export interface ErrorBoundaryState {
-  hasError: boolean;
+  has_error: boolean;
   error: Error | null;
-  errorInfo: ErrorInfo | null;
-  errorCount: number;
+  error_info: ErrorInfo | null;
+  error_count: number;
 }
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
-  fallback?: (error: Error, errorInfo: ErrorInfo, retry: () => void) => ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-  maxRetries?: number;
+  fallback?: (error: Error, error_info: ErrorInfo, retry: () => void) => ReactNode;
+  on_error?: (error: Error, error_info: ErrorInfo) => void;
+  max_retries?: number;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
-      hasError: false,
+      has_error: false,
       error: null,
-      errorInfo: null,
-      errorCount: 0,
+      error_info: null,
+      error_count: 0,
     };
   }
 
+  // React lifecycle method — name is dictated by React.
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-    return { hasError: true, error };
+    return { has_error: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('React Flow Error Boundary caught an error:', error, errorInfo);
-    
-    this.setState(prevState => ({
-      errorInfo,
-      errorCount: prevState.errorCount + 1,
+  // React lifecycle method — name is dictated by React.
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  componentDidCatch(error: Error, error_info: ErrorInfo) {
+    console.error('React Flow Error Boundary caught an error:', error, error_info);
+
+    this.setState(prev_state => ({
+      error_info,
+      error_count: prev_state.error_count + 1,
     }));
 
-    // Call custom error handler if provided
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+    if (this.props.on_error) {
+      this.props.on_error(error, error_info);
     }
   }
 
   retry = () => {
     this.setState({
-      hasError: false,
+      has_error: false,
       error: null,
-      errorInfo: null,
+      error_info: null,
     });
   };
 
   render() {
-    if (this.state.hasError && this.state.error) {
-      const { maxRetries = 3 } = this.props;
-      const canRetry = this.state.errorCount <= maxRetries;
-      // getDerivedStateFromError fires before componentDidCatch, so errorInfo
+    if (this.state.has_error && this.state.error) {
+      const { max_retries = 3 } = this.props;
+      const can_retry = this.state.error_count <= max_retries;
+      // getDerivedStateFromError fires before componentDidCatch, so error_info
       // may be null on the first render after an error. Provide a stub to satisfy the type.
-      const info = this.state.errorInfo ?? { componentStack: '' } as ErrorInfo;
+      const info = this.state.error_info ?? ({ componentStack: '' } as ErrorInfo);
 
-      // Use custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback(
           this.state.error,
           info,
-          canRetry ? this.retry : noop_retry
+          can_retry ? this.retry : noop_retry
         );
       }
 
-      // Default error UI
       return <DefaultErrorFallback
         error={this.state.error}
-        errorInfo={info}
-        onRetry={canRetry ? this.retry : undefined}
-        retryCount={this.state.errorCount}
-        maxRetries={maxRetries}
+        error_info={info}
+        on_retry={can_retry ? this.retry : undefined}
+        retry_count={this.state.error_count}
+        max_retries={max_retries}
       />;
     }
 
@@ -90,39 +91,39 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
 interface DefaultErrorFallbackProps {
   error: Error;
-  errorInfo: ErrorInfo;
-  onRetry?: () => void;
-  retryCount: number;
-  maxRetries: number;
+  error_info: ErrorInfo;
+  on_retry?: () => void;
+  retry_count: number;
+  max_retries: number;
 }
 
 export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   error,
-  errorInfo,
-  onRetry,
-  retryCount,
-  maxRetries,
+  error_info,
+  on_retry,
+  retry_count,
+  max_retries,
 }) => {
-  const [showDetails, setShowDetails] = React.useState(false);
-  const themeStyles = useFlowThemeStyles();
+  const [show_details, set_show_details] = React.useState(false);
+  const theme_styles = use_flow_theme_styles();
 
   return (
     <div
       style={{
         padding: `${CONFIG.spacing.padding.xlarge}px`,
         margin: `${CONFIG.spacing.margin.xlarge}px auto`,
-        ...themeStyles.getErrorStyle(),
+        ...theme_styles.get_error_style(),
         borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
         maxWidth: '600px',
       }}
       role="alert"
       aria-live="assertive"
     >
-      <h2 style={{ color: themeStyles.colors.ui.error.text, marginBottom: '10px', fontSize: `${CONFIG.spacing.fontSize.xlarge}px` }}>
+      <h2 style={{ color: theme_styles.colors.ui.error.text, marginBottom: '10px', fontSize: `${CONFIG.spacing.fontSize.xlarge}px` }}>
         ⚠️ Something went wrong
       </h2>
-      
-      <p style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: themeStyles.colors.ui.text.secondary }}>
+
+      <p style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: theme_styles.colors.ui.text.secondary }}>
         The code visualization encountered an error. This might be temporary.
       </p>
 
@@ -130,24 +131,24 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
         <strong>Error:</strong> {error.message}
       </div>
 
-      {onRetry && (
+      {on_retry && (
         <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px` }}>
           <button
-            onClick={onRetry}
+            onClick={on_retry}
             style={{
-              ...themeStyles.getButtonStyle('primary'),
+              ...theme_styles.get_button_style('primary'),
               padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.large}px`,
               borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
               marginRight: '10px',
             }}
           >
-            🔄 Try Again ({retryCount}/{maxRetries})
+            🔄 Try Again ({retry_count}/{max_retries})
           </button>
-          
+
           <button
             onClick={() => window.location.reload()}
             style={{
-              ...themeStyles.getButtonStyle('secondary'),
+              ...theme_styles.get_button_style('secondary'),
               padding: `${CONFIG.spacing.padding.medium}px ${CONFIG.spacing.padding.large}px`,
               borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
             }}
@@ -157,8 +158,8 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
         </div>
       )}
 
-      {!onRetry && retryCount > maxRetries && (
-        <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: themeStyles.colors.ui.error.text }}>
+      {!on_retry && retry_count > max_retries && (
+        <div style={{ marginBottom: `${CONFIG.spacing.margin.large}px`, color: theme_styles.colors.ui.error.text }}>
           Maximum retry attempts reached. Please reload the page.
         </div>
       )}
@@ -167,19 +168,19 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
         <summary
           style={{
             cursor: 'pointer',
-            color: themeStyles.colors.ui.button.primary,
+            color: theme_styles.colors.ui.button.primary,
             marginBottom: '10px',
           }}
-          onClick={() => setShowDetails(!showDetails)}
+          onClick={() => set_show_details(!show_details)}
         >
-          {showDetails ? '▼' : '▶'} Technical Details
+          {show_details ? '▼' : '▶'} Technical Details
         </summary>
-        
+
         <div
           style={{
             marginTop: '10px',
             padding: '10px',
-            backgroundColor: themeStyles.colors.node.background.module,
+            backgroundColor: theme_styles.colors.node.background.module,
             borderRadius: `${CONFIG.spacing.borderRadius.medium}px`,
             fontSize: `${CONFIG.spacing.fontSize.medium}px`,
             fontFamily: 'monospace',
@@ -192,14 +193,14 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
           <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
             {error.stack}
           </pre>
-          
-          {errorInfo.componentStack && (
+
+          {error_info.componentStack && (
             <>
               <div style={{ marginTop: '15px', marginBottom: '10px' }}>
                 <strong>Component Stack:</strong>
               </div>
               <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                {errorInfo.componentStack}
+                {error_info.componentStack}
               </pre>
             </>
           )}
@@ -208,4 +209,3 @@ export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
     </div>
   );
 };
-

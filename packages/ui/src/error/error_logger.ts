@@ -9,33 +9,31 @@ interface ErrorEntry {
 
 export class ErrorLogger {
   private errors: ErrorEntry[] = [];
-  private maxErrors: number;
+  private max_errors: number;
 
-  constructor(maxErrors = 100) {
-    this.maxErrors = maxErrors;
+  constructor(max_errors = 100) {
+    this.max_errors = max_errors;
   }
 
   log(error: Error, severity: Severity = 'error', context?: unknown) {
-    const errorEntry = {
+    const error_entry = {
       timestamp: Date.now(),
       error,
       context,
       severity,
     };
 
-    this.errors.push(errorEntry);
+    this.errors.push(error_entry);
 
-    // Log to console with appropriate level
-    const consoleMethod = severity === 'info' ? 'log' : severity === 'warning' ? 'warn' : 'error';
-    console[consoleMethod](`[${severity.toUpperCase()}]`, error.message, context || '');
+    const console_method = severity === 'info' ? 'log' : severity === 'warning' ? 'warn' : 'error';
+    console[console_method](`[${severity.toUpperCase()}]`, error.message, context || '');
 
-    // Keep only last N errors to prevent memory leak
-    if (this.errors.length > this.maxErrors) {
-      this.errors = this.errors.slice(-this.maxErrors);
+    if (this.errors.length > this.max_errors) {
+      this.errors = this.errors.slice(-this.max_errors);
     }
   }
 
-  getErrors() {
+  get_errors() {
     return [...this.errors];
   }
 
@@ -43,11 +41,11 @@ export class ErrorLogger {
     this.errors = [];
   }
 
-  getErrorSummary() {
+  get_error_summary() {
     const summary = {
       total: this.errors.length,
-      byType: new Map<string, number>(),
-      bySeverity: {
+      by_type: new Map<string, number>(),
+      by_severity: {
         info: 0,
         warning: 0,
         error: 0,
@@ -56,9 +54,9 @@ export class ErrorLogger {
     };
 
     this.errors.forEach(entry => {
-      const errorType = entry.error.name || 'Unknown';
-      summary.byType.set(errorType, (summary.byType.get(errorType) || 0) + 1);
-      summary.bySeverity[entry.severity]++;
+      const error_type = entry.error.name || 'Unknown';
+      summary.by_type.set(error_type, (summary.by_type.get(error_type) || 0) + 1);
+      summary.by_severity[entry.severity]++;
     });
 
     return summary;
@@ -66,4 +64,4 @@ export class ErrorLogger {
 }
 
 // Global error logger instance
-export const errorLogger = new ErrorLogger();
+export const error_logger = new ErrorLogger();

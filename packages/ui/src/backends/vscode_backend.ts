@@ -36,7 +36,7 @@ interface PendingRequest {
 
 export class VSCodeBackend implements CodeCharterBackend {
   private vscode: VsCodeApi;
-  private messageQueue: Map<string, PendingRequest> = new Map();
+  private message_queue: Map<string, PendingRequest> = new Map();
 
   constructor() {
     this.vscode = get_vscode_api();
@@ -45,12 +45,12 @@ export class VSCodeBackend implements CodeCharterBackend {
       const message: ResponseMessage = event.data;
       const { id } = message;
 
-      const pending = this.messageQueue.get(id);
+      const pending = this.message_queue.get(id);
       if (!pending) {
         return;
       }
       clearTimeout(pending.timeout);
-      this.messageQueue.delete(id);
+      this.message_queue.delete(id);
       if (message.error) {
         const err = new Error(message.error.message);
         if (message.error.stack) {
@@ -63,9 +63,9 @@ export class VSCodeBackend implements CodeCharterBackend {
     });
   }
 
-  async getCallGraph(): Promise<CallGraph | undefined> {
+  async get_call_graph(): Promise<CallGraph | undefined> {
     try {
-      const response = await this.sendMessageWithResponse<SerializedCallGraph>("getCallGraph");
+      const response = await this.send_message_with_response<SerializedCallGraph>("get_call_graph");
       return response.data ? deserialize_call_graph(response.data) : undefined;
     } catch (error) {
       console.error("Error getting call graph:", error);
@@ -73,9 +73,12 @@ export class VSCodeBackend implements CodeCharterBackend {
     }
   }
 
-  async clusterCodeTree(topLevelFunctionSymbol: string): Promise<NodeGroup[]> {
+  async cluster_code_tree(top_level_function_symbol: string): Promise<NodeGroup[]> {
     try {
-      const response = await this.sendMessageWithResponse<NodeGroup[]>("clusterCodeTree", { topLevelFunctionSymbol });
+      const response = await this.send_message_with_response<NodeGroup[]>(
+        "cluster_code_tree",
+        { top_level_function_symbol }
+      );
       return response.data || [];
     } catch (error) {
       console.error("Error clustering:", error);
@@ -83,36 +86,39 @@ export class VSCodeBackend implements CodeCharterBackend {
     }
   }
 
-  async get_code_tree_descriptions(topLevelFunctionSymbol: string): Promise<DocstringSummaries | undefined> {
-    const response = await this.sendMessageWithResponse<DocstringSummaries>("getCodeTreeDescriptions", { topLevelFunctionSymbol });
+  async get_code_tree_descriptions(top_level_function_symbol: string): Promise<DocstringSummaries | undefined> {
+    const response = await this.send_message_with_response<DocstringSummaries>(
+      "get_code_tree_descriptions",
+      { top_level_function_symbol }
+    );
     return response.data;
   }
 
-  async navigateToDoc(file_path: string, line_number: number): Promise<void> {
+  async navigate_to_doc(file_path: string, line_number: number): Promise<void> {
     try {
-      await this.sendMessageWithResponse("navigateToDoc", { file_path, line_number });
+      await this.send_message_with_response("navigate_to_doc", { file_path, line_number });
     } catch (error) {
       console.error("Error navigating to document:", error);
       throw error;
     }
   }
 
-  private sendMessageWithResponse<T = unknown>(
+  private send_message_with_response<T = unknown>(
     command: string,
     payload: Record<string, unknown> = {}
   ): Promise<ResponseMessage<T>> {
     return new Promise<ResponseMessage<T>>((resolve, reject) => {
-      const messageId = Math.random().toString(36).substring(2);
+      const message_id = Math.random().toString(36).substring(2);
       const timeout = setTimeout(() => {
-        this.messageQueue.delete(messageId);
+        this.message_queue.delete(message_id);
         reject(new Error(`Webview command "${command}" timed out after ${REQUEST_TIMEOUT_MS}ms`));
       }, REQUEST_TIMEOUT_MS);
-      this.messageQueue.set(messageId, {
+      this.message_queue.set(message_id, {
         resolve: resolve as (response: ResponseMessage) => void,
         reject,
         timeout,
       });
-      this.vscode.postMessage({ id: messageId, command, ...payload });
+      this.vscode.postMessage({ id: message_id, command, ...payload });
     });
   }
 }

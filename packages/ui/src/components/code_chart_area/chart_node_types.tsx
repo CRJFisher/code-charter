@@ -2,9 +2,9 @@ import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { useStore, ReactFlowState } from "@xyflow/react";
 import { CodeFunctionNode } from "./code_function_node";
-import { navigateToFile } from "./editor_navigation";
+import { navigate_to_file } from "./editor_navigation";
 import { CONFIG } from "./chart_config";
-import { useFlowThemeStyles } from "./use_chart_theme_styles";
+import { use_flow_theme_styles } from "./use_chart_theme_styles";
 import { get_cluster_color, ThemeColorConfig } from "./theme_config";
 import type { CodeFunctionNodeType, ModuleGroupNodeType } from "./chart_types";
 
@@ -15,32 +15,32 @@ const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 const select_is_zoomed_out = (state: ReactFlowState) => state.transform[2] < ZOOM_THRESHOLD;
 
 const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {
-  const isZoomedOut = useStore(select_is_zoomed_out);
+  const is_zoomed_out = useStore(select_is_zoomed_out);
   const data = props.data;
   const { selected } = props;
-  const themeStyles = useFlowThemeStyles();
+  const theme_styles = use_flow_theme_styles();
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handle_click = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigateToFile({
+    navigate_to_file({
       file_path: data.file_path,
       line_number: data.line_number,
     });
   };
   
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handle_key_down = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      navigateToFile({
+      navigate_to_file({
         file_path: data.file_path,
         line_number: data.line_number,
       });
     }
   };
 
-  if (isZoomedOut) {
-    const simplifiedAriaLabel = `${data.is_entry_point ? 'Entry point' : 'Function'}: ${data.function_name}. Press Enter to open source code.`;
+  if (is_zoomed_out) {
+    const simplified_aria_label = `${data.is_entry_point ? 'Entry point' : 'Function'}: ${data.function_name}. Press Enter to open source code.`;
     
     // Simplified view when zoomed out
     return (
@@ -48,17 +48,17 @@ const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props
         style={{
           padding: `${CONFIG.spacing.padding.large}px ${CONFIG.spacing.padding.xlarge}px`,
           borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
-          ...themeStyles.getNodeStyle(selected, data.is_entry_point),
+          ...theme_styles.get_node_style(selected, data.is_entry_point),
           minWidth: "150px",
           textAlign: "center",
           cursor: "pointer",
           outline: "none",
         }}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
+        onClick={handle_click}
+        onKeyDown={handle_key_down}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = `scale(${CONFIG.node.visual.scale.hover})`;
-          e.currentTarget.style.boxShadow = themeStyles.colors.shadow.hover;
+          e.currentTarget.style.boxShadow = theme_styles.colors.shadow.hover;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "scale(1)";
@@ -66,20 +66,20 @@ const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props
         }}
         role="button"
         tabIndex={0}
-        aria-label={simplifiedAriaLabel}
+        aria-label={simplified_aria_label}
         aria-selected={selected}
       >
         <Handle
           type="target"
           position={Position.Top}
-          style={{ background: themeStyles.colors.ui.loading.spinner }}
+          style={{ background: theme_styles.colors.ui.loading.spinner }}
         />
         
         <div
           style={{
             fontWeight: "bold",
             fontSize: `${CONFIG.spacing.fontSize.large}px`,
-            color: data.is_entry_point ? themeStyles.colors.node.text.entryPoint : themeStyles.colors.node.text.default,
+            color: data.is_entry_point ? theme_styles.colors.node.text.entry_point : theme_styles.colors.node.text.default,
           }}
         >
           {data.is_entry_point && <span aria-label="Entry point">⮕ </span>}
@@ -89,7 +89,7 @@ const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props
         <Handle
           type="source"
           position={Position.Bottom}
-          style={{ background: themeStyles.colors.ui.loading.spinner }}
+          style={{ background: theme_styles.colors.ui.loading.spinner }}
         />
       </div>
     );
@@ -117,22 +117,22 @@ function get_quality_color(score: number, colors: ThemeColorConfig): string {
 
 const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (props) => {
   const data = props.data;
-  const isZoomedOut = useStore(select_is_zoomed_out);
+  const is_zoomed_out = useStore(select_is_zoomed_out);
   const { selected } = props;
-  const themeStyles = useFlowThemeStyles();
+  const theme_styles = use_flow_theme_styles();
 
   // Only show module groups when zoomed out
-  if (!isZoomedOut) {
+  if (!is_zoomed_out) {
     return null;
   }
 
-  const cluster_color = get_cluster_color(themeStyles.colors, data.cluster_index ?? 0);
+  const cluster_color = get_cluster_color(theme_styles.colors, data.cluster_index ?? 0);
 
-  const moduleStyles: React.CSSProperties = {
+  const module_styles: React.CSSProperties = {
     padding: `${CONFIG.spacing.padding.xlarge}px`,
     borderRadius: `${CONFIG.spacing.borderRadius.large}px`,
     backgroundColor: cluster_color.background,
-    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? themeStyles.colors.node.border.selected : cluster_color.border}`,
+    border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px ${selected ? 'solid' : 'dashed'} ${selected ? theme_styles.colors.node.border.selected : cluster_color.border}`,
     width: "100%",
     height: "100%",
     transition: "all 0.3s ease",
@@ -142,35 +142,35 @@ const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (prop
     outline: "none",
   };
 
-  const headerStyles: React.CSSProperties = {
+  const header_styles: React.CSSProperties = {
     fontWeight: "bold",
     fontSize: `${CONFIG.spacing.fontSize.xlarge}px`,
     marginBottom: "10px",
-    color: themeStyles.colors.ui.text.primary,
+    color: theme_styles.colors.ui.text.primary,
   };
 
-  const descriptionStyles: React.CSSProperties = {
+  const description_styles: React.CSSProperties = {
     fontSize: "14px",
-    color: themeStyles.colors.node.text.secondary,
+    color: theme_styles.colors.node.text.secondary,
     marginBottom: `${CONFIG.spacing.margin.medium}px`,
   };
 
-  const countStyles: React.CSSProperties = {
+  const count_styles: React.CSSProperties = {
     fontSize: `${CONFIG.spacing.fontSize.medium}px`,
-    color: themeStyles.colors.node.text.tertiary,
+    color: theme_styles.colors.node.text.tertiary,
   };
 
   const quality_label = data.quality_score !== undefined
     ? ` Cluster quality: ${(data.quality_score * 100).toFixed(0)} percent.`
     : '';
-  const moduleAriaLabel = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.${quality_label}`;
+  const module_aria_label = `Module: ${data.module_name}. ${data.description || 'No description'}. Contains ${data.member_count} functions.${quality_label}`;
 
   return (
     <div
-      style={moduleStyles}
+      style={module_styles}
       role="group"
       tabIndex={0}
-      aria-label={moduleAriaLabel}
+      aria-label={module_aria_label}
       aria-selected={selected}
     >
       <Handle
@@ -179,24 +179,24 @@ const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (prop
         style={{ background: cluster_color.border }}
       />
 
-      <div style={headerStyles}>
+      <div style={header_styles}>
         {data.module_name}
       </div>
 
       {data.description && (
-        <div style={descriptionStyles}>
+        <div style={description_styles}>
           {data.description}
         </div>
       )}
 
-      <div style={countStyles}>
+      <div style={count_styles}>
         {data.member_count} functions
       </div>
 
       {data.quality_score !== undefined && (
         <div style={{
           fontSize: '11px',
-          color: themeStyles.colors.node.text.tertiary,
+          color: theme_styles.colors.node.text.tertiary,
           marginTop: '4px',
           display: 'flex',
           alignItems: 'center',
@@ -208,7 +208,7 @@ const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (prop
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: get_quality_color(data.quality_score, themeStyles.colors),
+              backgroundColor: get_quality_color(data.quality_score, theme_styles.colors),
             }}
             aria-hidden="true"
           />
@@ -226,30 +226,30 @@ const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (prop
 };
 
 // Memoize components for performance
-export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prevProps, nextProps) => {
+export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prev_props, next_props) => {
   return (
-    prevProps.data.function_name === nextProps.data.function_name &&
-    prevProps.data.description === nextProps.data.description &&
-    prevProps.data.is_entry_point === nextProps.data.is_entry_point &&
-    prevProps.selected === nextProps.selected &&
-    prevProps.id === nextProps.id
+    prev_props.data.function_name === next_props.data.function_name &&
+    prev_props.data.description === next_props.data.description &&
+    prev_props.data.is_entry_point === next_props.data.is_entry_point &&
+    prev_props.selected === next_props.selected &&
+    prev_props.id === next_props.id
   );
 });
 
-export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prevProps, nextProps) => {
+export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prev_props, next_props) => {
   return (
-    prevProps.data.module_name === nextProps.data.module_name &&
-    prevProps.data.description === nextProps.data.description &&
-    prevProps.data.member_count === nextProps.data.member_count &&
-    prevProps.data.cluster_index === nextProps.data.cluster_index &&
-    prevProps.data.quality_score === nextProps.data.quality_score &&
-    prevProps.selected === nextProps.selected &&
-    prevProps.id === nextProps.id
+    prev_props.data.module_name === next_props.data.module_name &&
+    prev_props.data.description === next_props.data.description &&
+    prev_props.data.member_count === next_props.data.member_count &&
+    prev_props.data.cluster_index === next_props.data.cluster_index &&
+    prev_props.data.quality_score === next_props.data.quality_score &&
+    prev_props.selected === next_props.selected &&
+    prev_props.id === next_props.id
   );
 });
 
 // Updated node types mapping
-export const zoomAwareNodeTypes = {
+export const zoom_aware_node_types = {
   code_function: ZoomAwareNode,
   module_group: ModuleGroupNode,
 };

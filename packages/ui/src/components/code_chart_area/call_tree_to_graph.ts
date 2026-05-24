@@ -1,7 +1,7 @@
 import type { CallableNode } from "@code-charter/types";
 import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import { symbol_display_name } from "./symbol_display";
-import { calculateNodeDimensions } from "./graph_layout";
+import { calculate_node_dimensions } from "./graph_layout";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import { CONFIG } from "./chart_config";
 import type { ClusterColor } from "./theme_config";
@@ -11,7 +11,7 @@ export interface ReactFlowElements {
   edges: CodeChartEdge[];
 }
 
-export function generateReactFlowElements(
+export function generate_react_flow_elements(
   selected_entry_point: CallableNode,
   docstring_summaries: DocstringSummaries,
   node_groups: NodeGroup[] | undefined,
@@ -35,7 +35,7 @@ export function generateReactFlowElements(
   (node_groups || []).forEach((group, index) => {
     const compound_id = `${module_id_prefix}_${index}`;
     compound_id_to_group[compound_id] = group;
-    for (const member_symbol of group.memberSymbols) {
+    for (const member_symbol of group.member_symbols) {
       symbol_to_compound_id[member_symbol] = compound_id;
     }
   });
@@ -82,7 +82,7 @@ export function generateReactFlowElements(
     };
 
     // Calculate dimensions
-    const dimensions = calculateNodeDimensions(function_node);
+    const dimensions = calculate_node_dimensions(function_node);
     function_node.width = dimensions.width;
     function_node.height = dimensions.height;
 
@@ -148,7 +148,7 @@ export function generateReactFlowElements(
         data: {
           module_name: `Module ${index + 1}`,
           description: group.description || "",
-          member_count: group.memberSymbols.length,
+          member_count: group.member_symbols.length,
           cluster_index,
           quality_score: group.metadata?.quality_score,
         },

@@ -1,8 +1,8 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { LayoutCache } from './layout_cache';
-import { getVisibleNodes } from './virtual_renderer';
-import { useDebounce } from '../../hooks/use_debounce';
-import { calculateNodeDimensions } from './graph_layout';
+import { get_visible_nodes } from './virtual_renderer';
+import { use_debounce } from '../../hooks/use_debounce';
+import { calculate_node_dimensions } from './graph_layout';
 import { CodeChartNode } from './chart_types';
 
 describe('Performance Utilities', () => {
@@ -15,7 +15,7 @@ describe('Performance Utilities', () => {
       ];
       const edges = [{ source: '1', target: '2' }];
 
-      const key = cache.generateKey(nodes, edges);
+      const key = cache.generate_key(nodes, edges);
       const layoutData = { test: 'data' };
 
       cache.set(key, layoutData);
@@ -35,8 +35,8 @@ describe('Performance Utilities', () => {
       ];
       const edges = [{ source: '1', target: '2' }];
 
-      const key1 = cache.generateKey(nodes1, edges);
-      const key2 = cache.generateKey(nodes2, edges);
+      const key1 = cache.generate_key(nodes1, edges);
+      const key2 = cache.generate_key(nodes2, edges);
 
       expect(key1).toBe(key2);
     });
@@ -79,7 +79,7 @@ describe('Performance Utilities', () => {
       ];
       const edges = [{ source: '1', target: '2' }];
 
-      expect(cache.generateKey(nodes_before, edges)).toBe(cache.generateKey(nodes_after, edges));
+      expect(cache.generate_key(nodes_before, edges)).toBe(cache.generate_key(nodes_after, edges));
     });
 
     it('should generate different keys when parentId differs', () => {
@@ -87,7 +87,7 @@ describe('Performance Utilities', () => {
       const nodes1 = [{ id: '1', width: 200, height: 100, parentId: 'module-a' }];
       const nodes2 = [{ id: '1', width: 200, height: 100, parentId: 'module-b' }];
 
-      expect(cache.generateKey(nodes1, [])).not.toBe(cache.generateKey(nodes2, []));
+      expect(cache.generate_key(nodes1, [])).not.toBe(cache.generate_key(nodes2, []));
     });
 
     it('should generate different keys when dimensions differ', () => {
@@ -95,11 +95,11 @@ describe('Performance Utilities', () => {
       const nodes1 = [{ id: '1', width: 200, height: 100 }];
       const nodes2 = [{ id: '1', width: 300, height: 150 }];
 
-      expect(cache.generateKey(nodes1, [])).not.toBe(cache.generateKey(nodes2, []));
+      expect(cache.generate_key(nodes1, [])).not.toBe(cache.generate_key(nodes2, []));
     });
   });
 
-  describe('getVisibleNodes', () => {
+  describe('get_visible_nodes', () => {
     it('should identify visible nodes within viewport', () => {
       const nodes = [
         { id: '1', position: { x: 0, y: 0 }, width: 200, height: 100 },
@@ -108,7 +108,7 @@ describe('Performance Utilities', () => {
       ];
 
       const viewport = { x: 0, y: 0, zoom: 1 };
-      const visible = getVisibleNodes(nodes, viewport, 800, 600);
+      const visible = get_visible_nodes(nodes, viewport, 800, 600);
 
       expect(visible.has('1')).toBe(true);
       expect(visible.has('2')).toBe(true);
@@ -122,7 +122,7 @@ describe('Performance Utilities', () => {
       ];
 
       const viewport = { x: 0, y: 0, zoom: 1 };
-      const visible = getVisibleNodes(nodes, viewport, 800, 600, 100);
+      const visible = get_visible_nodes(nodes, viewport, 800, 600, 100);
 
       // Both nodes should be visible due to buffer
       expect(visible.has('1')).toBe(true);
@@ -136,7 +136,7 @@ describe('Performance Utilities', () => {
       ];
 
       const viewport = { x: 0, y: 0, zoom: 0.5 };
-      const visible = getVisibleNodes(nodes, viewport, 400, 300);
+      const visible = get_visible_nodes(nodes, viewport, 400, 300);
 
       // With zoom 0.5, more area is visible
       expect(visible.has('1')).toBe(true);
@@ -145,7 +145,7 @@ describe('Performance Utilities', () => {
   });
 
 
-  describe('useDebounce', () => {
+  describe('use_debounce', () => {
     beforeEach(() => {
       jest.useFakeTimers();
     });
@@ -157,7 +157,7 @@ describe('Performance Utilities', () => {
 
     it('should debounce value changes', async () => {
       const { result, rerender } = renderHook(
-        ({ value, delay }) => useDebounce(value, delay),
+        ({ value, delay }) => use_debounce(value, delay),
         { initialProps: { value: 'initial', delay: 500 } }
       );
 
@@ -211,7 +211,7 @@ describe('Performance Utilities', () => {
       const cache = new LayoutCache();
       const startTime = performance.now();
 
-      const key = cache.generateKey(nodes, edges);
+      const key = cache.generate_key(nodes, edges);
       cache.set(key, nodes);
       const retrieved = cache.get(key);
 
@@ -223,7 +223,7 @@ describe('Performance Utilities', () => {
 
       // Test visible nodes calculation
       const viewportStart = performance.now();
-      const visible = getVisibleNodes(
+      const visible = get_visible_nodes(
         nodes,
         { x: 0, y: 0, zoom: 1 },
         1920,
@@ -253,12 +253,12 @@ describe('Performance Utilities', () => {
 
       // First call should calculate
       const start1 = performance.now();
-      const dimensions1 = calculateNodeDimensions(testNode);
+      const dimensions1 = calculate_node_dimensions(testNode);
       const duration1 = performance.now() - start1;
 
       // Second call should use cache
       const start2 = performance.now();
-      const dimensions2 = calculateNodeDimensions(testNode);
+      const dimensions2 = calculate_node_dimensions(testNode);
       const duration2 = performance.now() - start2;
 
       expect(dimensions1).toEqual(dimensions2);

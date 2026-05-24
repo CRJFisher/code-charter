@@ -1,4 +1,4 @@
-import { generateReactFlowElements } from "./call_tree_to_graph";
+import { generate_react_flow_elements } from "./call_tree_to_graph";
 import type { CallableNode, CallReference, SymbolId, SymbolName } from "@code-charter/types";
 import { DocstringSummaries, NodeGroup } from "@code-charter/types";
 import type { FilePath, Location } from "@ariadnejs/types";
@@ -6,7 +6,7 @@ import type { ScopeId } from "@ariadnejs/types/dist/scopes";
 import type { FunctionDefinition } from "@ariadnejs/types/dist/symbol_definitions";
 import type { Resolution } from "@ariadnejs/types/dist/symbol_references";
 
-describe("generateReactFlowElements", () => {
+describe("generate_react_flow_elements", () => {
   function make_symbol(name: string): SymbolId {
     return `function:/test/${name}.ts:1:0:10:0:${name}` as SymbolId;
   }
@@ -84,7 +84,7 @@ describe("generateReactFlowElements", () => {
 
       const descriptions = create_mock_descriptions([parent, child]);
 
-      const { nodes, edges } = generateReactFlowElements(parent, descriptions, undefined);
+      const { nodes, edges } = generate_react_flow_elements(parent, descriptions, undefined);
 
       expect(nodes).toHaveLength(2);
       expect(edges).toHaveLength(1);
@@ -105,7 +105,7 @@ describe("generateReactFlowElements", () => {
       const node = create_mock_node("single");
       const descriptions = create_mock_descriptions([node]);
 
-      const { nodes, edges } = generateReactFlowElements(node, descriptions, undefined);
+      const { nodes, edges } = generate_react_flow_elements(node, descriptions, undefined);
 
       expect(nodes).toHaveLength(1);
       expect(edges).toHaveLength(0);
@@ -128,7 +128,7 @@ describe("generateReactFlowElements", () => {
 
       const descriptions = create_mock_descriptions([parent]);
 
-      const { nodes, edges } = generateReactFlowElements(parent, descriptions, undefined);
+      const { nodes, edges } = generate_react_flow_elements(parent, descriptions, undefined);
 
       expect(nodes).toHaveLength(1);
       expect(edges).toHaveLength(0);
@@ -156,7 +156,7 @@ describe("generateReactFlowElements", () => {
         },
       };
 
-      const { nodes, edges } = generateReactFlowElements(node_a, descriptions, undefined);
+      const { nodes, edges } = generate_react_flow_elements(node_a, descriptions, undefined);
 
       expect(nodes).toHaveLength(2);
       expect(edges).toHaveLength(2);
@@ -164,7 +164,7 @@ describe("generateReactFlowElements", () => {
   });
 
   describe("module grouping", () => {
-    it("should create module nodes when nodeGroups are provided", () => {
+    it("should create module nodes when node_groups are provided", () => {
       const node2 = create_mock_node("func2");
       const node3 = create_mock_node("func3");
       const node1 = create_mock_node("func1", [make_call_reference(node2), make_call_reference(node3)]);
@@ -174,15 +174,15 @@ describe("generateReactFlowElements", () => {
       const node_groups: NodeGroup[] = [
         {
           description: "Module 1 functions",
-          memberSymbols: [node1.symbol_id, node2.symbol_id],
+          member_symbols: [node1.symbol_id, node2.symbol_id],
         },
         {
           description: "Module 2 functions",
-          memberSymbols: [node3.symbol_id],
+          member_symbols: [node3.symbol_id],
         },
       ];
 
-      const { nodes, edges } = generateReactFlowElements(node1, descriptions, node_groups);
+      const { nodes, edges } = generate_react_flow_elements(node1, descriptions, node_groups);
 
       // Should have 3 function nodes + 2 module nodes
       expect(nodes).toHaveLength(5);
@@ -215,7 +215,7 @@ describe("generateReactFlowElements", () => {
       const descriptions = create_mock_descriptions([node]);
       const node_groups: NodeGroup[] = [];
 
-      const { nodes } = generateReactFlowElements(node, descriptions, node_groups);
+      const { nodes } = generate_react_flow_elements(node, descriptions, node_groups);
 
       const module_nodes = nodes.filter(n => n.type === "module_group");
       expect(module_nodes).toHaveLength(0);
@@ -227,7 +227,7 @@ describe("generateReactFlowElements", () => {
       const node = create_mock_node("method");
       const descriptions = create_mock_descriptions([node]);
 
-      const { nodes } = generateReactFlowElements(node, descriptions, undefined);
+      const { nodes } = generate_react_flow_elements(node, descriptions, undefined);
 
       expect(nodes[0].data.function_name).toBe("method");
     });
@@ -236,7 +236,7 @@ describe("generateReactFlowElements", () => {
       const node = create_mock_node("func");
       const descriptions = create_mock_descriptions([node]);
 
-      const { nodes } = generateReactFlowElements(node, descriptions, undefined);
+      const { nodes } = generate_react_flow_elements(node, descriptions, undefined);
 
       expect(nodes[0].data.file_path).toBe("/test/func.ts");
       expect(nodes[0].data.line_number).toBe(1);
@@ -248,7 +248,7 @@ describe("generateReactFlowElements", () => {
       // Remove the description for this node
       delete descriptions.docstrings[node.symbol_id];
 
-      const { nodes } = generateReactFlowElements(node, descriptions, undefined);
+      const { nodes } = generate_react_flow_elements(node, descriptions, undefined);
 
       expect(nodes).toHaveLength(1);
       expect(nodes[0].data.description).toBe("");

@@ -1,7 +1,7 @@
 import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { navigateToFile } from "./editor_navigation";
-import { useFlowThemeStyles } from "./use_chart_theme_styles";
+import { navigate_to_file } from "./editor_navigation";
+import { use_flow_theme_styles } from "./use_chart_theme_styles";
 import { CONFIG } from "./chart_config";
 import type { CodeFunctionNodeType } from "./chart_types";
 
@@ -17,35 +17,35 @@ export interface CodeNodeData extends Record<string, unknown> {
 const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {
   const data = props.data;
   const { selected } = props;
-  const themeStyles = useFlowThemeStyles();
+  const theme_styles = use_flow_theme_styles();
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handle_click = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigateToFile({
+    navigate_to_file({
       file_path: data.file_path,
       line_number: data.line_number,
     });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handle_key_down = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      navigateToFile({
+      navigate_to_file({
         file_path: data.file_path,
         line_number: data.line_number,
       });
     }
   };
 
-  const nodeStyles: React.CSSProperties = {
+  const node_styles: React.CSSProperties = {
     padding: "10px",
     borderRadius: "5px",
     backgroundColor: data.is_entry_point
-      ? themeStyles.colors.node.background.entryPoint
-      : themeStyles.colors.node.background.default,
+      ? theme_styles.colors.node.background.entry_point
+      : theme_styles.colors.node.background.default,
     border: `${selected ? CONFIG.node.visual.borderWidth.selected : CONFIG.node.visual.borderWidth.default}px solid ${
-      selected ? themeStyles.colors.node.border.selected : themeStyles.colors.node.border.default
+      selected ? theme_styles.colors.node.border.selected : theme_styles.colors.node.border.default
     }`,
     minWidth: "200px",
     maxWidth: "350px",
@@ -55,13 +55,13 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (pr
     position: "relative",
   };
 
-  const headerStyles: React.CSSProperties = {
+  const header_styles: React.CSSProperties = {
     fontWeight: "bold",
     fontSize: "14px",
     marginBottom: "8px",
     color: data.is_entry_point
-      ? themeStyles.colors.node.text.entryPoint
-      : themeStyles.colors.node.text.default,
+      ? theme_styles.colors.node.text.entry_point
+      : theme_styles.colors.node.text.default,
     display: "flex",
     alignItems: "center",
     gap: "4px",
@@ -69,24 +69,24 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (pr
 
   const description_styles: React.CSSProperties = {
     fontSize: "12px",
-    color: themeStyles.colors.node.text.secondary,
+    color: theme_styles.colors.node.text.secondary,
     lineHeight: "1.4",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   };
 
-  const handle_color = themeStyles.colors.edge.stroke;
+  const handle_color = theme_styles.colors.edge.stroke;
 
-  const ariaLabel = `${data.is_entry_point ? 'Entry point function' : 'Function'}: ${data.function_name}. ${data.description || 'No description available'}. Located at ${data.file_path} line ${data.line_number}. Press Enter to navigate to source code.`;
+  const aria_label = `${data.is_entry_point ? 'Entry point function' : 'Function'}: ${data.function_name}. ${data.description || 'No description available'}. Located at ${data.file_path} line ${data.line_number}. Press Enter to navigate to source code.`;
 
   return (
     <div
-      style={nodeStyles}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
+      style={node_styles}
+      onClick={handle_click}
+      onKeyDown={handle_key_down}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "scale(1.02)";
-        e.currentTarget.style.boxShadow = themeStyles.colors.shadow.hover;
+        e.currentTarget.style.boxShadow = theme_styles.colors.shadow.hover;
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "scale(1)";
@@ -94,7 +94,7 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (pr
       }}
       role="button"
       tabIndex={0}
-      aria-label={ariaLabel}
+      aria-label={aria_label}
       aria-selected={selected}
     >
       <Handle
@@ -103,7 +103,7 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (pr
         style={{ background: handle_color }}
       />
 
-      <div style={headerStyles}>
+      <div style={header_styles}>
         {data.is_entry_point && <span aria-label="Entry point">⮕</span>}
         <span>{data.function_name}</span>
       </div>
@@ -123,14 +123,14 @@ const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (pr
   );
 };
 
-export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prevProps, nextProps) => {
+export const CodeFunctionNode = React.memo(CodeFunctionNodeComponent, (prev_props, next_props) => {
   return (
-    prevProps.data.function_name === nextProps.data.function_name &&
-    prevProps.data.description === nextProps.data.description &&
-    prevProps.data.file_path === nextProps.data.file_path &&
-    prevProps.data.line_number === nextProps.data.line_number &&
-    prevProps.data.is_entry_point === nextProps.data.is_entry_point &&
-    prevProps.selected === nextProps.selected &&
-    prevProps.id === nextProps.id
+    prev_props.data.function_name === next_props.data.function_name &&
+    prev_props.data.description === next_props.data.description &&
+    prev_props.data.file_path === next_props.data.file_path &&
+    prev_props.data.line_number === next_props.data.line_number &&
+    prev_props.data.is_entry_point === next_props.data.is_entry_point &&
+    prev_props.selected === next_props.selected &&
+    prev_props.id === next_props.id
   );
 });

@@ -3,8 +3,8 @@ import { useReactFlow } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 
 export interface SearchResult {
-  nodeId: string;
-  nodeName: string;
+  node_id: string;
+  node_name: string;
   nodeType: string;
   description?: string;
   filePath?: string;
@@ -12,8 +12,8 @@ export interface SearchResult {
 }
 
 export interface SearchPanelProps {
-  onNodeSelect?: (nodeId: string) => void;
-  maxResults?: number;
+  on_node_select?: (node_id: string) => void;
+  max_results?: number;
 }
 
 // Fuzzy matching algorithm (module-level to avoid TDZ issues)
@@ -34,62 +34,62 @@ function fuzzy_match(query: string, target: string): number {
 }
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
-  onNodeSelect,
-  maxResults = 10
+  on_node_select,
+  max_results = 10
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { setCenter, setNodes, getNodes, getNode } = useReactFlow<CodeChartNode, CodeChartEdge>();
+  const [is_open, set_is_open] = useState(false);
+  const [query, set_query] = useState('');
+  const [selected_index, set_selected_index] = useState(0);
+  const input_ref = useRef<HTMLInputElement>(null);
+  const { setCenter: set_center, setNodes: set_nodes, getNodes: get_nodes, getNode: get_node } = useReactFlow<CodeChartNode, CodeChartEdge>();
 
   // Search algorithm with fuzzy matching
-  const searchResults = useMemo(() => {
+  const search_results = useMemo(() => {
     if (!query.trim()) return [];
 
-    const lowerQuery = query.toLowerCase();
+    const lower_query = query.toLowerCase();
     const results: SearchResult[] = [];
-    const nodes = getNodes();
+    const nodes = get_nodes();
 
     nodes.forEach(node => {
       if (!node.data) return;
       const node_data = node.data as Record<string, unknown>;
 
-      const nodeName = String(node_data.function_name || node_data.module_name || '');
-      const lowerName = nodeName.toLowerCase();
+      const node_name = String(node_data.function_name || node_data.module_name || '');
+      const lower_name = node_name.toLowerCase();
       const description = String(node_data.description || '');
       const lower_description = description.toLowerCase();
 
       let score = 0;
 
       // Exact match gets highest score
-      if (lowerName === lowerQuery) {
+      if (lower_name === lower_query) {
         score = 100;
       }
       // Starts with query
-      else if (lowerName.startsWith(lowerQuery)) {
+      else if (lower_name.startsWith(lower_query)) {
         score = 80;
       }
       // Contains query
-      else if (lowerName.includes(lowerQuery)) {
+      else if (lower_name.includes(lower_query)) {
         score = 60;
       }
       // Description contains query
-      else if (lower_description.includes(lowerQuery)) {
+      else if (lower_description.includes(lower_query)) {
         score = 40;
       }
       // Fuzzy match
       else {
-        const fuzzyScore = fuzzy_match(lowerQuery, lowerName);
-        if (fuzzyScore > 0) {
-          score = fuzzyScore * 30;
+        const fuzzy_score = fuzzy_match(lower_query, lower_name);
+        if (fuzzy_score > 0) {
+          score = fuzzy_score * 30;
         }
       }
 
       if (score > 0) {
         results.push({
-          nodeId: node.id,
-          nodeName,
+          node_id: node.id,
+          node_name,
           nodeType: node.type || 'unknown',
           description: description.substring(0, 100),
           filePath: node_data.file_path as string | undefined,
@@ -101,105 +101,105 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     // Sort by score and limit results
     return results
       .sort((a, b) => b.score - a.score)
-      .slice(0, maxResults);
-  // getNodes is a stable ref from useReactFlow; nodes are read imperatively
-  // so that search only recomputes on query/maxResults changes, not on drag/selection
-  }, [query, maxResults, getNodes]);
+      .slice(0, max_results);
+  // get_nodes is a stable ref from useReactFlow; nodes are read imperatively
+  // so that search only recomputes on query/max_results changes, not on drag/selection
+  }, [query, max_results, get_nodes]);
 
   // Handle node selection
-  const selectNode = useCallback((nodeId: string) => {
-    const node = getNode(nodeId);
+  const select_node = useCallback((node_id: string) => {
+    const node = get_node(node_id);
     if (!node) return;
 
     // Deselect all nodes and select the found one
-    setNodes((current_nodes) => current_nodes.map(n => ({
+    set_nodes((current_nodes) => current_nodes.map(n => ({
       ...n,
-      selected: n.id === nodeId,
+      selected: n.id === node_id,
     })));
 
     // Center the view on the selected node
-    setCenter(node.position.x, node.position.y, {
+    set_center(node.position.x, node.position.y, {
       zoom: 1,
       duration: 500,
     });
 
     // Close search panel
-    setIsOpen(false);
-    setQuery('');
+    set_is_open(false);
+    set_query('');
 
     // Notify parent component
-    if (onNodeSelect) {
-      onNodeSelect(nodeId);
+    if (on_node_select) {
+      on_node_select(node_id);
     }
-  }, [getNode, setNodes, setCenter, onNodeSelect]);
+  }, [get_node, set_nodes, set_center, on_node_select]);
 
   // Keyboard navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handle_key_down = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev =>
-          prev < searchResults.length - 1 ? prev + 1 : prev
+        set_selected_index(prev =>
+          prev < search_results.length - 1 ? prev + 1 : prev
         );
         break;
 
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : prev);
+        set_selected_index(prev => prev > 0 ? prev - 1 : prev);
         break;
 
       case 'Enter':
         e.preventDefault();
-        if (searchResults[selectedIndex]) {
-          selectNode(searchResults[selectedIndex].nodeId);
+        if (search_results[selected_index]) {
+          select_node(search_results[selected_index].node_id);
         }
         break;
 
       case 'Escape':
         e.preventDefault();
-        setIsOpen(false);
-        setQuery('');
+        set_is_open(false);
+        set_query('');
         break;
     }
-  }, [searchResults, selectedIndex, selectNode]);
+  }, [search_results, selected_index, select_node]);
 
   // Global keyboard shortcut for search
   useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    const handle_global_key_down = (e: KeyboardEvent) => {
       // Check for '/' key to open search
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const target = e.target as HTMLElement;
         // Don't open if user is typing in an input
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
           e.preventDefault();
-          setIsOpen(true);
+          set_is_open(true);
           requestAnimationFrame(() => {
-            inputRef.current?.focus();
+            input_ref.current?.focus();
           });
         }
       }
     };
 
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    window.addEventListener('keydown', handle_global_key_down);
+    return () => window.removeEventListener('keydown', handle_global_key_down);
   }, []);
 
   // Reset selected index when results change
   useEffect(() => {
-    if (searchResults.length > 0) {
-      setSelectedIndex(0);
+    if (search_results.length > 0) {
+      set_selected_index(0);
     }
-  }, [searchResults.length]);
+  }, [search_results.length]);
 
   return (
     <>
       {/* Search Button */}
       <button
         onClick={() => {
-          setIsOpen(true);
+          set_is_open(true);
           // Use requestAnimationFrame for more reliable focus
           requestAnimationFrame(() => {
-            inputRef.current?.focus();
+            input_ref.current?.focus();
           });
         }}
         style={{
@@ -231,7 +231,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       </button>
 
       {/* Search Panel */}
-      {isOpen && (
+      {is_open && (
         <div
           style={{
             position: 'absolute',
@@ -252,11 +252,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           {/* Search Input */}
           <div style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
             <input
-              ref={inputRef}
+              ref={input_ref}
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={(e) => set_query(e.target.value)}
+              onKeyDown={handle_key_down}
               placeholder="Search functions, modules..."
               style={{
                 width: '100%',
@@ -282,7 +282,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               maxHeight: '400px',
             }}
           >
-            {query && searchResults.length === 0 && (
+            {query && search_results.length === 0 && (
               <div style={{
                 padding: '20px',
                 textAlign: 'center',
@@ -302,17 +302,17 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 padding: 0,
               }}
             >
-              {searchResults.map((result, index) => (
+              {search_results.map((result, index) => (
                 <li
-                  key={result.nodeId}
+                  key={result.node_id}
                   role="option"
-                  aria-selected={index === selectedIndex}
-                  onClick={() => selectNode(result.nodeId)}
-                  onMouseEnter={() => setSelectedIndex(index)}
+                  aria-selected={index === selected_index}
+                  onClick={() => select_node(result.node_id)}
+                  onMouseEnter={() => set_selected_index(index)}
                   style={{
                     padding: '12px 16px',
                     cursor: 'pointer',
-                    backgroundColor: index === selectedIndex ? '#f5f5f5' : 'white',
+                    backgroundColor: index === selected_index ? '#f5f5f5' : 'white',
                     borderBottom: '1px solid #eee',
                     transition: 'background-color 0.1s',
                   }}
@@ -328,7 +328,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                         fontSize: '14px',
                         marginBottom: '4px',
                       }}>
-                        {highlightMatch(result.nodeName, query)}
+                        {highlight_match(result.node_name, query)}
                       </div>
                       {result.description && (
                         <div style={{
@@ -377,7 +377,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             justifyContent: 'space-between',
           }}>
             <span>↑↓ Navigate • Enter Select • Esc Close</span>
-            <span>{searchResults.length} results</span>
+            <span>{search_results.length} results</span>
           </div>
         </div>
       )}
@@ -390,7 +390,7 @@ function escape_regex(str: string): string {
 }
 
 // Helper function to highlight matching text
-function highlightMatch(text: string, query: string): React.ReactNode {
+function highlight_match(text: string, query: string): React.ReactNode {
   if (!query) return text;
 
   const regex = new RegExp(`(${escape_regex(query)})`, 'gi');
