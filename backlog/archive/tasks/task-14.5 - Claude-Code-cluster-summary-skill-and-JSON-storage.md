@@ -3,7 +3,7 @@ id: task-14.5
 title: Claude Code cluster summary skill and JSON storage
 status: To Do
 assignee: []
-created_date: '2026-03-19'
+created_date: "2026-03-19"
 labels: []
 dependencies:
   - task-14.3

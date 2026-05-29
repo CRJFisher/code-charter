@@ -5,7 +5,7 @@ title: >-
   skills
 status: To Do
 assignee: []
-created_date: '2026-03-19'
+created_date: "2026-03-19"
 labels: []
 dependencies: []
 ---
@@ -33,6 +33,7 @@ This supersedes tasks 7, 7.1, 7.2, 7.3, 7.4, 8, 9, 9.2, 9.3, 10, 11, 12, and 13.
 Five Opus reviewers examined this plan from different perspectives. Key changes made:
 
 **Architecture (Systems Architect)**:
+
 - Hook Phase 2 reduced to fingerprint-only check; heavy computation deferred to skill/CLI
 - Removed `member_docstrings` from committed `cluster-summaries.json` (git churn)
 - Single `schema_version` in manifest only, not repeated in every file
@@ -40,6 +41,7 @@ Five Opus reviewers examined this plan from different perspectives. Key changes 
 - Undocumented functions use name+signature as fallback embedding text, not excluded
 
 **Pragmatic Engineering**:
+
 - Dropped premature package extraction (`packages/clustering/`). Instead, decouple `clustering_service.ts` from VS Code with dependency injection (~30-line refactor)
 - Dropped 4-hash fingerprinting system for v1. Simple single content hash; recompute when asked
 - Simplified storage to 2 files: `cluster-summaries.json` (committed) + `cache.json` (gitignored)
@@ -47,6 +49,7 @@ Five Opus reviewers examined this plan from different perspectives. Key changes 
 - Deferred incremental embedding, sha256 migration, L1 normalization as separate future work
 
 **Developer Experience**:
+
 - Docstring check scoped to modified/added functions only (not all functions in changed files)
 - Tiered enforcement: exported/public functions required, trivials/one-liners exempt
 - Phase 2 of hook is non-blocking (advisory), not blocking
@@ -54,6 +57,7 @@ Five Opus reviewers examined this plan from different perspectives. Key changes 
 - Added `code-charter init` bootstrap command
 
 **Ariadne Dependency Risk**:
+
 - Created `DocstringProvider` interface to decouple from ariadne
 - `RegexDocstringProvider` as immediate fallback (ships without ariadne prerequisite work)
 - `AriadneDocstringProvider` as upgrade path when ariadne ships JSDoc extraction
@@ -61,6 +65,7 @@ Five Opus reviewers examined this plan from different perspectives. Key changes 
 - Pinned ariadne to exact version (no caret range)
 
 **Testing**:
+
 - Fix existing broken tests BEFORE starting migration (prerequisite)
 - Type migration (Phase 5 equivalent) must be atomic single commit
 - Create clustering quality benchmark before removing LLM summaries
@@ -104,15 +109,16 @@ If stop_hook_active=true -> Always allow stop (prevent infinite loop)
 Two files only:
 
 **`cluster-summaries.json`** (committed to git) -- the primary artifact:
+
 ```typescript
 interface ClusterSummariesFile {
-  content_hash: string;          // hash of docstrings+edges that produced these clusters
+  content_hash: string; // hash of docstrings+edges that produced these clusters
   generated_at: string;
   clusters: Array<{
     cluster_id: number;
-    label: string;               // short label (<60 chars)
-    description: string;         // 1-3 sentences
-    members: string[];           // symbol IDs
+    label: string; // short label (<60 chars)
+    description: string; // 1-3 sentences
+    members: string[]; // symbol IDs
     depends_on: number[];
     depended_on_by: number[];
   }>;
@@ -120,19 +126,21 @@ interface ClusterSummariesFile {
 ```
 
 **`.code-charter/cache.json`** (gitignored) -- embeddings + cluster assignments + metadata:
+
 ```typescript
 interface CacheFile {
   content_hash: string;
   embedding_provider: string;
   embeddings: Record<string, number[]>;
-  cluster_assignments: number[];  // parallel to symbol list
-  symbols: string[];              // ordered symbol list
+  cluster_assignments: number[]; // parallel to symbol list
+  symbols: string[]; // ordered symbol list
 }
 ```
 
 ### Stop Hook Implementation
 
 **Phase 1 -- Docstring Check (blocking)**:
+
 1. Read stdin JSON, check `stop_hook_active` (exit 0 if true)
 2. Run `git diff --name-only HEAD` to find changed files
 3. Parse diff hunks to identify modified/added function ranges
@@ -141,6 +149,7 @@ interface CacheFile {
 6. If all present: proceed to Phase 2
 
 **Phase 2 -- Cluster Staleness (non-blocking advisory)**:
+
 1. Compute content hash of all docstrings + call graph edges
 2. Compare to `content_hash` in `cluster-summaries.json`
 3. If stale: output `{"systemMessage": "Clusters may be stale. Consider running /update-cluster-summaries"}` (non-blocking)
@@ -150,24 +159,29 @@ interface CacheFile {
 
 ```typescript
 interface DocstringProvider {
-  get_docstrings(file_path: string, content: string): Map<string, DocstringInfo>;
+  get_docstrings(
+    file_path: string,
+    content: string,
+  ): Map<string, DocstringInfo>;
 }
 
 interface DocstringInfo {
   symbol_name: string;
   raw: string;
-  body: string;  // after stripping @param/@returns
+  body: string; // after stripping @param/@returns
   line: number;
 }
 ```
 
 **RegexDocstringProvider** (ships immediately):
+
 - Matches `/** ... */` preceding function/class/method declarations via regex
 - Strips JSDoc tags to extract body
 - Handles ~80% of real-world JSDoc patterns
 - No tree-sitter dependency
 
 **AriadneDocstringProvider** (upgrade path):
+
 - Uses ariadne's `SemanticIndex` with `definition.docstring`
 - Higher accuracy, handles edge cases (decorators, complex expressions)
 - Depends on ariadne shipping JSDoc `.scm` patterns
@@ -184,6 +198,7 @@ allowed-tools: Read, Write, Bash(cat:*, ls:*, jq:*, node:*)
 ```
 
 The skill:
+
 1. Runs the clustering pipeline (via a Node.js script): parse call graph, extract docstrings, embed, cluster
 2. Reads existing `cluster-summaries.json`
 3. For changed clusters: generates action-focused summaries (<120 chars, telegraph-style, domain language)
@@ -192,6 +207,7 @@ The skill:
 ### Clustering Decoupling (not a new package)
 
 Instead of extracting to `packages/clustering/`, refactor `clustering_service.ts` in-place:
+
 - Replace `vscode.Uri`/`vscode.workspace.fs` with injected `CacheStorage` interface
 - Replace OpenAI/local embedding provider initialization with injected `EmbeddingProvider` interface
 - Remove `vscode.ExtensionContext` dependency
@@ -209,10 +225,11 @@ The same class can then be imported by hook scripts via relative path to compile
 ### Type Changes
 
 Replace `TreeAndContextSummaries` with:
+
 ```typescript
 interface DocstringSummaries {
-  docstrings: Record<string, string>;        // symbol -> docstring body
-  call_tree: Record<string, CallGraphNode>;  // all nodes (undocumented use name+sig as fallback)
+  docstrings: Record<string, string>; // symbol -> docstring body
+  call_tree: Record<string, CallGraphNode>; // all nodes (undocumented use name+sig as fallback)
 }
 ```
 
@@ -221,6 +238,7 @@ Rename `summariseCodeTree` -> `get_code_tree_descriptions` to match new semantic
 ### Bootstrap / First-Run
 
 Add `code-charter init` CLI command (or VS Code command) that:
+
 1. Scans the codebase with ariadne/regex
 2. Reports documentation coverage
 3. Runs the clustering pipeline

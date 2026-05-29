@@ -3,9 +3,9 @@ id: task-11
 title: Codebase simplification and dead code cleanup
 status: In Progress
 assignee:
-  - '@claude'
-created_date: '2026-03-19'
-updated_date: '2026-03-20'
+  - "@claude"
+created_date: "2026-03-19"
+updated_date: "2026-03-20"
 labels: []
 dependencies: []
 ---
@@ -19,6 +19,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 ## Acceptance Criteria
 
 ### Dead File Deletion
+
 - [x] Delete `packages/vscode/src/clustering/clustering_service_old.ts` (dead, superseded by clustering_service.ts)
 - [x] Delete `packages/ui/src/components/color_theme.ts` (78 lines, zero imports, reads CSS vars at module-load time incorrectly)
 - [x] Delete `packages/vscode/src/run.ts` (exports runCommand/execAsync, never imported)
@@ -31,6 +32,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Delete `packages/ui/src/components/code_chart_area/flow_theme.css` (references CSS vars only set by deleted FlowThemeProvider)
 
 ### Dead Export Removal
+
 - [x] Remove `readCallGraphJsonFile` from `packages/vscode/src/summarise/summarise.ts` (exported but never imported)
 - [x] Remove `getBottomLevelFolder` from `packages/vscode/src/files.ts` (exported, never imported, has `// TODO: broken` comment)
 - [x] Remove `countNodes` from `packages/vscode/shared/codeGraph.ts` (exported, never imported)
@@ -47,6 +49,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Remove unused `Def` import from codeGraph.ts
 
 ### Bug Fixes (Critical)
+
 - [x] Fix `for...in` on `Object.keys()` at `summariseClusters.ts:68` - change to `for...of` (currently works by coincidence with numeric IDs)
 - [x] Fix `getModelDetails()` in extension.ts - add else branch that throws for unrecognized providers (currently returns undefined)
 - [x] Fix layout cache key in `elk_layout.ts:52` - uses `layout-${nodes.length}-${edges.length}` instead of content-based hash (serves wrong cached layouts for structurally different graphs with same counts)
@@ -62,6 +65,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Fix stale closure in perfMonitor (code_chart_area_react_flow.tsx:192) capturing previous render's node/edge counts
 
 ### Dependency Cleanup
+
 - [x] Remove `@tensorflow/tfjs-node` from vscode/package.json (~200MB native module, never imported)
 - [x] Remove `@xenova/transformers` from vscode/package.json (superseded by `@huggingface/transformers`)
 - [x] Remove `@langchain/anthropic` from vscode/package.json (never imported)
@@ -72,6 +76,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Remove redundant babel dependencies (babel/core, babel/preset-env, babel/preset-typescript, babel-jest) - conflicting with ts-jest
 
 ### Test Infrastructure
+
 - [x] Fix Jest config to exclude `out/` directory (tests run twice: .ts source and compiled .js)
 - [x] Fix or rewrite theme_provider.test.tsx (imports nonexistent `../theme_provider`, tests methods that don't exist)
 - [x] Fix mock_backend.test.ts (8 failures - tests old `Backend` interface, not current `CodeCharterBackend`)
@@ -83,6 +88,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Remove vestigial test in domainContext.test.ts ("given a name produces the expected greeting" tests nothing)
 
 ### Code Simplification
+
 - [x] Remove `console.log(modelDetails)` debug statement from summarise.ts:27
 - [x] Remove `console.log('Node selected:', nodeId)` from code_chart_area_react_flow.tsx:384
 - [x] Replace `alert()` calls with proper UI notifications (code_chart_area_react_flow.tsx:465,503 and keyboard_navigation.tsx:110-124)
@@ -100,6 +106,7 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Fix hardcoded colors in error_boundary.tsx:154,163,176 (should use theme styles)
 
 ### Architecture Simplification (Larger Items)
+
 - [ ] Simplify triple virtualization: useZoomCulling + useVirtualNodes + React Flow's onlyRenderVisibleElements conflict - pick one approach
 - [ ] Unify `getFunctionProcessingSteps` and `getFunctionBusinessLogic` in summarise.ts (near-identical ~60 lines of structural duplication)
 - [ ] Simplify caching.ts - replace RunnableBranch/RunnableLambda machinery with plain async function
@@ -117,15 +124,17 @@ The reviewers covered: UI components, theme system, backend/provider pattern, VS
 - [x] Simplify config.ts - remove 13 individual config exports and 13 type aliases, keep only combined CONFIG
 - [x] Remove build:lib and build:standalone contradictory scripts from ui/package.json
 - [x] Remove experimentalDecorators/emitDecoratorMetadata from vscode/tsconfig.json (no decorators used)
-- [x] Remove .next/** from turbo.json build outputs (no Next.js in monorepo)
+- [x] Remove .next/\*\* from turbo.json build outputs (no Next.js in monorepo)
 - [x] Evaluate if @changesets/cli infrastructure is needed for this private monorepo
 
 ## Implementation Notes
 
 ### Approach
+
 Used 10 parallel opus planner agents to analyze the entire codebase, then synthesized findings into 7 implementation phases executed sequentially.
 
 ### Completed (64 of 88 AC items)
+
 - **Phase 1-2**: Deleted 10 dead files, removed 14 dead exports, cleaned 10 npm dependencies, fixed build configs
 - **Phase 3**: Fixed 11 of 13 bugs (for...in, getModelDetails, layout cache, symbol separators, duplicate notifications, stale cache key, validate_provider_config, viewport selector, sort mutation, stale closure, search_panel formatting)
 - **Phase 4**: Deleted 3 broken files, fixed 2 tests with ThemeProvider wrapper, rewrote 3 test files for current API
@@ -133,6 +142,7 @@ Used 10 parallel opus planner agents to analyze the entire codebase, then synthe
 - **Phase 6**: Removed CodeCharterUI, connection lifecycle, BackendProvider singleton; simplified config.ts exports; fixed fire-and-forget progress notification
 
 ### Deferred (24 AC items - complex refactors)
+
 - Layout pipeline restructuring (wasted positions + module group bounding boxes)
 - Triple virtualization simplification
 - Summarise/caching deduplication
@@ -141,9 +151,9 @@ Used 10 parallel opus planner agents to analyze the entire codebase, then synthe
 - Theme-aware code_function_node.tsx and search_panel.tsx
 
 ### Statistics
+
 - 8 commits, 70 files changed
 - Net reduction: ~2,340 lines (-2,789 / +449)
-
 
 ## Implementation Plan
 
@@ -156,9 +166,11 @@ Phase 6: Backend simplification (remove connection lifecycle, replace BackendPro
 Phase 7: Verification and task completion
 
 Some complex refactors deferred: virtualization simplification, summarise dedup, caching simplification, showWebviewDiagram extraction, handler consolidation, layout pipeline restructuring, theme-aware components
+
 ## Review Details
 
 ### Reviewer Coverage Areas
+
 1. **UI Components** - React component complexity, duplication, dead code
 2. **Theme System** - 3 independent color systems, 5 theme hooks (only 2 used), dead FlowThemeProvider
 3. **Backend/Provider Pattern** - phantom `Backend` type, broken test mock, static singleton anti-pattern
@@ -171,6 +183,7 @@ Some complex refactors deferred: virtualization simplification, summarise dedup,
 10. **Build Config & Monorepo** - ~200MB unused @tensorflow/tfjs-node, tests running twice, stale babel deps, contradictory build scripts
 
 ### Summary Statistics
+
 - **Dead files identified**: 10 files to delete
 - **Dead exports identified**: 14+ exported symbols never imported
 - **Unused dependencies**: 8 packages to remove (including ~200MB @tensorflow/tfjs-node)
@@ -187,6 +200,7 @@ Some complex refactors deferred: virtualization simplification, summarise dedup,
 **God Component**: `CodeChartAreaReactFlowInner` (code_chart_area_react_flow.tsx) is 514 lines handling data fetching, layout, virtualization, persistence, search, error display, theme styling, and toolbar rendering. Should be broken into `GraphToolbar`, `PersistenceControls`, `ZoomModeIndicator`, and a `use_graph_data` hook.
 
 **Performance Issues**:
+
 - `useStore` selector at line 98-102 creates `{ x, y, zoom }` on every render, defeating reference equality and causing all downstream computations to recalculate during pan/zoom
 - `side_bar.tsx:103-105` calls `Array.sort()` during render without memoization, mutating the original array
 - Each `ZoomAwareNode` subscribes independently to the zoom store (200+ subscriptions firing on every zoom change)
@@ -199,11 +213,13 @@ Some complex refactors deferred: virtualization simplification, summarise dedup,
 ### 2. Theme System Review
 
 **Three independent color systems** coexist:
+
 1. `color_theme.ts` - dead, reads CSS vars at module-load time (never updates)
 2. `COLOR_CONFIG` in `config.ts` - static light-theme palette, bypasses theming
 3. `Theme`/`ThemeColorConfig` pipeline - the actual theme system
 
 **Five theme hooks**, only two used in production:
+
 - `useTheme` (used) - returns raw ThemeContextValue
 - `useFlowThemeStyles` (used) - returns mapped colors + style factories
 - `useFlowTheme` (dead) - would throw since FlowThemeProvider never mounted
@@ -221,6 +237,7 @@ Some complex refactors deferred: virtualization simplification, summarise dedup,
 **Phantom type**: `test_mock_backend.ts` imports `Backend` from `@code-charter/types` which doesn't exist. The file implements method signatures incompatible with `CodeCharterBackend`.
 
 **Phantom module**: Three files import from `contexts/backend_context` which doesn't exist:
+
 - `__tests__/integration.test.tsx:5`
 - `components/__tests__/code_charter_ui.test.tsx:5`
 - `debug-entry.tsx:9`
@@ -278,10 +295,11 @@ Some complex refactors deferred: virtualization simplification, summarise dedup,
 ### 7. Shared Types & Code Graph Review
 
 **Critical: Symbol separator inconsistency**:
+
 - `vscode/shared/symbols.ts` splits on `#`
 - `ui/symbol_utils.ts` splits on `::`
 - `side_bar.tsx` splits on `:`
-Same symbol string produces different results depending on which package processes it.
+  Same symbol string produces different results depending on which package processes it.
 
 **Re-export indirection**: `codeGraph.ts` re-exports `CallGraph` and `TreeAndContextSummaries` from `@code-charter/types`/`@ariadnejs/core`. Consumers should import directly.
 
@@ -294,6 +312,7 @@ Same symbol string produces different results depending on which package process
 ### 8. Code Chart Area Review
 
 **Triple virtualization conflict**: Three independent visibility-filtering systems operate in sequence:
+
 1. `useZoomCulling` (line 131) - hash-based sampling by zoom level
 2. `useVirtualNodes` (lines 134-139) - viewport visibility
 3. `onlyRenderVisibleElements={true}` (line 338) - React Flow built-in
@@ -313,6 +332,7 @@ These conflict: `useZoomCulling` may remove nodes directly in viewport. Combined
 ### 9. Error Handling & Utils Review
 
 **Triple-fire error pattern**: When a data-fetch error occurs (code_chart_area_react_flow.tsx:193-208):
+
 1. `setError(error.message)` - sets component state
 2. `errorLogger.log(error, 'error', ...)` - logs + stores in array nobody reads
 3. `handleReactFlowError(error)` - creates notification via errorNotificationManager
@@ -321,6 +341,7 @@ These conflict: `useZoomCulling` may remove nodes directly in viewport. Combined
 Every error = 2 user-visible notifications + 2 console entries.
 
 **Over-engineered utilities**:
+
 - `ErrorLogger` with `getErrorSummary()`, `getErrors()`, `clear()` all unused in production (in-memory buffer duplicates console)
 - `PerformanceMonitor` with `getAverageMetrics()`, `clear()` never called (stores metrics nobody reads)
 - `ErrorRecovery.gracefulDegrade` dead code; `tryWithFallback` used once in elk_layout.ts in a bizarre pattern (throws same error to trigger fallback)
@@ -333,6 +354,7 @@ Every error = 2 user-visible notifications + 2 console entries.
 ### 10. Build Config & Monorepo Review
 
 **Heavyweight unused dependencies**:
+
 - `@tensorflow/tfjs-node` (~200MB native module, never imported)
 - `@xenova/transformers` (superseded by @huggingface/transformers)
 - `@langchain/anthropic`, `@langchain/google-vertexai` (never imported)
