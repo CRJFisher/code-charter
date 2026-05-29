@@ -11,7 +11,7 @@ export async function navigate_to_doc(
     const document = await vscode.workspace.openTextDocument(file_uri);
     const editor = await vscode.window.showTextDocument(document, other_column);
 
-    const range = editor.document.lineAt(line_number).range;
+    const range = editor.document.lineAt(line_number - 1).range;
     editor.selection = new vscode.Selection(range.start, range.end);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 }
