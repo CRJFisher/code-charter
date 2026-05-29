@@ -7,61 +7,49 @@ created_date: "2026-05-28 00:00"
 
 # Diagram-Driven Development — Functionality
 
-A code-charter diagram is a **first-class statement of intent that lives above the code**. Your hand-authored content is never lost, the diagram and code stay consistent in both directions, and authority over each part follows where you keep editing.
+_Target functionality. For the implementation strategy, see **task-27**._
 
-This is _what_ the system does. For _how_, see **task-27**.
+A code-charter diagram is a **peer artifact that sits above the code**: it has its own authored content and its own authority, and it survives on its own rather than being regenerated from the code on demand. Code captures _how_; the diagram captures _what_ and _why_; you shape it by describing the change you want, or by editing it directly. The diagram and the code stay consistent in both directions, and authority over each element follows where you keep editing it.
 
-## Why this matters now
+One invariant governs everything below: **nothing you author is ever lost.** Hand-authored content is never silently overwritten or deleted, deletions are reversible, your work survives crashes, and your source is never edited without your acceptance. A single lost customization would end trust in the tool, so every capability honors this.
 
-Software is moving up a level: the developer increasingly manages teams of AI coding agents rather than writing every line. At that level the human is the bottleneck — agents produce change faster than anyone can keep up by reading all the code, and manual review doesn't scale to the pace. Operating as a manager needs tools that make the high level rapid and automatic: a faithful map to comprehend a moving codebase at a glance, and a surface to direct and review change as intent rather than diffs. That is what this system is for.
+## Purpose
 
-## The diagram as a peer artifact
+The developer manages teams of AI coding agents rather than writing every line, and is the bottleneck: agents change code faster than anyone keeps up by reading every diff. The diagram is the surface for working at that level — a faithful map to comprehend a moving codebase at a glance, and a place to direct and review change as intent rather than as diffs.
 
-The diagram is a peer to the code, not a rendering of it: code captures _how_, the diagram captures _what_ and _why_, and you edit it directly. The five capabilities below follow from that. The first — a legible map of the whole repo — is the foundation; authoring, driving code, and staying consistent all build on it.
+## The foundation: the whole repo as one living map
 
-## 1. The whole repo as one living map
-
-The first thing the system does with any repo — on first analysis, and again whenever code changes — is read it whole and render it as one connected, navigable map whose job is to make the codebase's functionality legible. Comprehension is the point: you should be able to see _what the code does_ before you touch it.
-
-The map is hierarchical and zoomable:
+The system reads the whole repo — on first analysis, and again whenever code changes — and renders it as one connected, navigable map whose job is to make the codebase's functionality legible. Comprehension is the point: you see _what the code does_ before you touch it. The map re-renders when code changes; it is not guaranteed instant.
 
 - **Architecture down to functions.** The top level is the system's shape; you drill through functional groups to individual functions and the docs that explain them.
-- **Every level stays digestible.** Each zoom level is held under a bounded complexity budget, and the number of levels is derived from that budget — a small repo resolves in a couple of levels, a large one in more. You never face a hairball.
-- **Grouped by what code does, not just where it lives.** Nodes carry human-readable descriptions and cluster by function, so a level reads as a story about behaviour rather than a file tree.
-- **Connected end to end.** Entrypoints link to their docs, and calls that static analysis can't resolve are inferred so the graph has no dangling holes. Inferred links stay visually distinct from extracted ones and trace back to their source, so you always know what's certain and what's a guess.
+- **Every level stays digestible.** Each level is held under a complexity budget — a cap on the nodes and edges shown at once — and the number of levels is derived from that budget, so a small repo resolves in a couple of levels and a large one in more. No level is a hairball.
+- **Grouped by what code does, not where it lives.** Nodes carry human-readable descriptions and cluster by function, so a level reads as a story about behaviour rather than a file tree.
+- **Connected end to end.** Entrypoints link to their docs, and calls that static analysis can't resolve are inferred so the graph has no gaps. Inferred links stay visually distinct from extracted ones and trace back to their source; you can accept or reject an inference, and a rejected one does not return.
 
-When code changes the map re-renders to match, carrying your authored content along (capability 2). The same map is where you author and from which you drive code (capabilities 2–3).
+## Consistency in both directions
 
-## 2. Author on the diagram, and it sticks
+You drive code from the diagram, and when code changes the diagram stays honest about it. Authority (below) arbitrates when the two disagree.
 
-The diagram is an authoring surface — relabel, describe, group, pin, hide, draw edges — and everything you author is immortal, re-attaching to a renamed function without re-typing. Nothing is silently overwritten or deleted; a customization that can't re-attach waits, recoverable, in a re-anchoring bin until you delete its element yourself.
+### From the diagram to the code
 
-## 3. Drive code from the diagram
+You shape the diagram mainly by describing the improvement you want — "split this module", "group these into a service", "rename this" — and an agent restructures the diagram to match. Direct manipulation is also there when you want it: relabel, group, pin, hide, draw edges. Everything you author is durable and re-attaches itself to its target even after a rename — anchored to the code element rather than to a line or a name — so a description follows a renamed function without re-typing. A customization that can't re-attach waits, recoverable, in a re-anchoring bin where you reattach it by hand; it is removed only when you delete its element yourself.
 
-Editing the diagram's structure proposes the matching code change — rename, delete (blast radius shown first), or move — which you review as a side-by-side diff and accept or revert; nothing touches your source until you sign off. On accept the edits land in your working tree (never auto-committed), the code is re-read, and the diagram re-renders with your customizations carried along. Adding a node opens a prompt and becomes an ordinary coding task.
+Each change to the diagram's structure becomes a proposed edit, and a second agent interprets how actionable it is — whether it maps to a concrete code change (rename, move a function between groups, delete) and how large its blast radius is, or whether it is diagram-only. Actionable proposals show the matching code change — for a delete, the call sites that break shown first — which you review as a side-by-side before/after diff and accept or revert. Nothing touches your source until you sign off; on accept the edits land in your working tree, never committed for you, the code is re-read, and the diagram re-renders with your authored content carried along. If the code moved since you reviewed, the proposal is flagged stale rather than applied blindly. Adding a node is the same conversation: you describe what it should do and it becomes an ordinary coding task.
 
-## 4. The diagram stays honest about the code
+### From the code to the diagram
 
-When code changes and diverges from the diagram, the gap is collected as a reviewable observation — silent by default, scoped to what you're working on, surfaced at sensible moments rather than inline. The one deliberate interruption is a pre-commit gate when a consequential divergence would otherwise ship unnoticed.
+When code changes and drifts from the diagram — a renamed or split function, a deleted caller, a new edge — the gap is collected as a reviewable observation, silent by default and scoped to what you're working on. The one deliberate interruption is a pre-commit gate when a consequential drift — one that changes the system's structure, not a reflowed comment — would otherwise ship unnoticed. The unresolved design question is _when_ to surface drift: get it wrong and the experience feels like paperwork rather than a live, two-way conversation.
 
-## 5. You set intent; the agent does the legwork
+## Authority: who owns each element
 
-Authority over each element is inferred from where your edits keep landing — the diagram if you keep shaping it there, the code if you keep changing it there — and you can pin an element to claim it ahead of time. The agent resolves trivial and cosmetic divergences automatically and escalates only the genuinely architectural to you.
+When the diagram and the code disagree about an element, authority decides which wins. Authority follows where your edits keep landing — the diagram if you keep shaping it there, the code if you keep changing it there — and you can pin an element to claim it ahead of time and override the inference. You can see and change which side currently owns an element. When you and an agent touch the same element at once, the pin and the most recent intentful edit arbitrate. The agent resolves trivial and cosmetic drift on its own — a reflowed description, a moved line — and escalates only the genuinely architectural — a changed call structure, a removed entrypoint — to you.
 
-## The promise underneath: trust
+## First milestone
 
-One lost customization would end trust in the tool. So nothing you author is ever silently overwritten or deleted, deletions are reversible, your work is durable across crashes, and your source is never edited without your acceptance.
+Rename a script in a Claude Code skill, open your session, and a banner reports one drifted node. Click **Accept** on the diagram and your hand-written description snaps onto the renamed node, untouched — a human sentence surviving a refactor without anyone re-typing it.
 
-## First beachhead
+## Scope
 
-Rename a script in a skill, open your session, and a banner reports one drifted node. Click **Accept** on the diagram and your hand-written description snaps onto the renamed node, untouched — a human sentence surviving a refactor without anyone re-typing it.
-
-## The central open question
-
-The ideal is a live two-way surface where editing the diagram and resolving in code is one continuous conversation. Until then, **when to surface a divergence** is the open question that decides whether the experience feels live or like paperwork.
-
-## Across hosts
-
-The same experience is reachable across agentic coding hosts — Claude Code first, Cursor next.
+The same experience is reachable across agentic coding hosts — Claude Code first, then Cursor — though the most live surfaces, such as the in-session drift banner, depend on host capabilities and degrade gracefully where a host lacks them.
 
 See also: `vision.md`, `doc-4 — Useful Diagrams For Software Development`, and **task-27** for the implementation strategy.
