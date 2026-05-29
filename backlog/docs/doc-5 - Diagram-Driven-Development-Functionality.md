@@ -11,13 +11,26 @@ A code-charter diagram is a **first-class statement of intent that lives above t
 
 This is _what_ the system does. For _how_, see **task-27**.
 
+## Why this matters now
+
+Software is moving up a level: the developer increasingly manages teams of AI coding agents rather than writing every line. At that level the human is the bottleneck — agents produce change faster than anyone can keep up by reading all the code, and manual review doesn't scale to the pace. Operating as a manager needs tools that make the high level rapid and automatic: a faithful map to comprehend a moving codebase at a glance, and a surface to direct and review change as intent rather than diffs. That is what this system is for.
+
 ## The diagram as a peer artifact
 
-The diagram is a peer to the code, not a rendering of it: code captures _how_, the diagram captures _what_ and _why_, and you edit it directly. The five capabilities below follow from that.
+The diagram is a peer to the code, not a rendering of it: code captures _how_, the diagram captures _what_ and _why_, and you edit it directly. The five capabilities below follow from that. The first — a legible map of the whole repo — is the foundation; authoring, driving code, and staying consistent all build on it.
 
 ## 1. The whole repo as one living map
 
-Open the codebase as one connected diagram that drills from architecture down to individual functions and their docs, each zoom level kept digestible and the depth scaling to repo size. Entrypoints link to their docs and calls that static analysis misses are inferred so the graph connects end to end — with inferred links always visually distinct from extracted ones and traceable to their source.
+The first thing the system does with any repo — on first analysis, and again whenever code changes — is read it whole and render it as one connected, navigable map whose job is to make the codebase's functionality legible. Comprehension is the point: you should be able to see _what the code does_ before you touch it.
+
+The map is hierarchical and zoomable:
+
+- **Architecture down to functions.** The top level is the system's shape; you drill through functional groups to individual functions and the docs that explain them.
+- **Every level stays digestible.** Each zoom level is held under a bounded complexity budget, and the number of levels is derived from that budget — a small repo resolves in a couple of levels, a large one in more. You never face a hairball.
+- **Grouped by what code does, not just where it lives.** Nodes carry human-readable descriptions and cluster by function, so a level reads as a story about behaviour rather than a file tree.
+- **Connected end to end.** Entrypoints link to their docs, and calls that static analysis can't resolve are inferred so the graph has no dangling holes. Inferred links stay visually distinct from extracted ones and trace back to their source, so you always know what's certain and what's a guess.
+
+When code changes the map re-renders to match, carrying your authored content along (capability 2). The same map is where you author and from which you drive code (capabilities 2–3).
 
 ## 2. Author on the diagram, and it sticks
 
