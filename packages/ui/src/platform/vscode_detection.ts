@@ -1,6 +1,6 @@
 // Mirrors the VS Code webview API exactly; method names are dictated by the
 // platform and cannot be renamed.
-/* eslint-disable @typescript-eslint/naming-convention, no-var */
+/* eslint-disable @typescript-eslint/naming-convention */
 export interface VsCodeApi {
   postMessage(message: unknown): void;
   getState(): unknown;
@@ -13,7 +13,7 @@ declare global {
   }
   var acquireVsCodeApi: (() => VsCodeApi) | undefined;
 }
-/* eslint-enable @typescript-eslint/naming-convention, no-var */
+/* eslint-enable @typescript-eslint/naming-convention */
 
 // Helper to check if we're in a VS Code context
 export function is_vscode_context(): boolean {
