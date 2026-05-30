@@ -105,7 +105,10 @@ export interface Anchor {
   content_hash: string;
 }
 
-/** The current code state an anchor resolves to. The resolver always returns the full tuple. */
+/**
+ * The current code state an anchor resolves to. Carried by the 'hit' and 'downgrade'
+ * arms of {@link ResolveResult}; the 'miss' arm carries no state.
+ */
 export interface CodeState {
   symbol_path: string;
   content_hash: string;
@@ -116,12 +119,15 @@ export interface CodeState {
  * Output of the single reusable anchor resolver (impl in vscode). Both directions call it:
  * 27.1 to detect/repair drift, 27.2 to snapshot and re-validate proposals.
  *   - 'hit'       symbol_path AND content_hash match — content is correctly attached.
- *   - 'downgrade' moved/renamed/body-changed but still resolvable — re-anchor to `state`.
+ *   - 'downgrade' relocated/body-changed but still resolvable — re-anchor to `state`.
+ *                 'relocated' = content_hash matches at a different symbol_path (renamed
+ *                 in place or moved across files); 'body-changed' = symbol_path matches,
+ *                 content_hash differs.
  *   - 'miss'      not resolvable — content is preserved for re-attachment (repair is 27.1).
  */
 export type ResolveResult =
   | { status: "hit"; state: CodeState }
-  | { status: "downgrade"; state: CodeState; reason: "moved" | "renamed" | "body-changed" }
+  | { status: "downgrade"; state: CodeState; reason: "relocated" | "body-changed" }
   | { status: "miss" };
 
 /**
@@ -133,8 +139,7 @@ export type LayerSpec =
   | { kind: "raw" }
   | { kind: "agentic" }
   | { kind: "user" }
-  | { kind: "overlay"; rows: { nodes: NodeRow[]; edges: EdgeRow[] } }
-  | { kind: "filter"; predicate: (n: NodeRow) => boolean };
+  | { kind: "overlay"; rows: { nodes: NodeRow[]; edges: EdgeRow[] } };
 
 /** A node or edge addressed by its stable id/key. */
 export type GraphTarget = { kind: "node" | "edge"; id: string };
