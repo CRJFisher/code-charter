@@ -29,7 +29,11 @@ A short list of decisions this task must lock in early, because every later sub-
 - **Every edge carries `source_file`, `source_range`, `extractor_id`, `extractor_version`, `confidence`**. Provenance is what makes any future invalidation precise.
 - **Cache keys (when caching is wired in later) are `(content_hash, extractor_id, extractor_version)`** — never scoped by skill or other domain concept.
 
-SQLite (via `better-sqlite3`) is the chosen engine: matches the v2/v3 endpoint from the parent task, avoids migration debt, and is already a likely dep in this extension host. The schema is the deliverable; the engine is swappable behind a `GraphStore` interface so nothing downstream binds directly to SQLite.
+SQLite (via Node's built-in **`node:sqlite`**) is the chosen engine: it ships inside the Node runtime the VSCode extension host already embeds, so there are zero native binaries to build or bundle — no `node-gyp`, no per-platform/per-Electron-ABI prebuilds. The schema is the deliverable; the engine is swappable behind a `GraphStore` interface so nothing downstream binds directly to SQLite — `better-sqlite3` remains a drop-in alternative behind the same interface.
+
+`node:sqlite` is experimental (release-candidate) and present only on Node ≥ 22.13, so only the SQLite store file imports it, and it is gated at runtime on `process.versions.node >= 22.13`: where the host runs older Node (some remote/SSH/dev-container/WSL hosts) or has no Node (the web host), persistence degrades gracefully rather than throwing.
+
+The schema in AC#2 is the v1 minimum; the tiering columns a later consumer needs (`layer`, `field_ownership`, `origin`, `intent_source`, `deleted_at`) are additive and require no migration.
 
 <!-- SECTION:DESCRIPTION:END -->
 

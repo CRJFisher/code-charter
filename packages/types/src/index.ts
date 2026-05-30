@@ -4,6 +4,9 @@ export * from './backend';
 // Export storage types
 export * from './storage';
 
+// Export the task-27.0 custom-graph store contract
+export * from './graph_store';
+
 // Export theme types
 export * from './theme';
 
