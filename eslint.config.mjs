@@ -98,9 +98,16 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.config.{js,cjs,mjs}", "**/*.config.ts"],
+    files: ["**/*.config.{js,cjs}"],
     languageOptions: {
       sourceType: "commonjs",
+      globals: { ...globals.node },
+    },
+  },
+  {
+    files: ["**/*.config.{mjs,ts}"],
+    languageOptions: {
+      sourceType: "module",
       globals: { ...globals.node },
     },
   },
