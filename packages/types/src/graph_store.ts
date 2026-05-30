@@ -165,9 +165,23 @@ export interface GraphStore {
   node(id: string): NodeRow | undefined;
   neighborhood(id: string, depth: number): { nodes: NodeRow[]; edges: EdgeRow[] };
 
+  /**
+   * All edges whose provenance points into any of `paths`. The scoped read behind
+   * task-27.1's diff signal: it diffs `edges_for_files(changed)` against a fresh
+   * extraction of those files. (The diff itself is derived and never persisted.)
+   */
+  edges_for_files(paths: string[]): EdgeRow[];
+
   record_file_hash(path: string): void;
   file_changed_since_recorded(path: string): boolean;
   invalidate_edges_for_files(paths: string[]): void;
+  /**
+   * Mark-stale/remove the raw NODES sourced from `paths` — the node-lifecycle
+   * counterpart to `invalidate_edges_for_files` (a removed/renamed symbol's raw
+   * node). Only raw-tier nodes are touched; agentic/user nodes are preserved and
+   * follow the change through the resolver instead.
+   */
+  invalidate_nodes_for_files(paths: string[]): void;
 
   /** Soft-delete only — there is no hard delete on agentic/user content (AC5). */
   soft_delete(target: GraphTarget): void;
