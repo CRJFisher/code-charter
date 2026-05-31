@@ -16,9 +16,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@ariadnejs/types": "^0.8.0",
     "@code-charter/types": "^0.0.1"
   },
   "devDependencies": {
+    "@ariadnejs/core": "^0.8.0",
     "@jest/globals": "^29.7.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.0",

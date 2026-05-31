@@ -26,3 +26,19 @@ export { NullGraphStore } from "./storage/null_graph_store";
 export { current_node_version, is_node_sqlite_supported, MIN_NODE_SQLITE_VERSION } from "./storage/node_sqlite_support";
 export { CURRENT_SCHEMA_VERSION } from "./storage/schema";
 export type { GraphStore } from "@code-charter/types";
+
+// task-27.0.3 — the reusable anchor resolver
+export {
+  build_resolver_index,
+  build_symbol_path,
+  compute_content_hash,
+  compute_span_hash,
+  derive_code_state,
+  format_anchor,
+  parse_anchor,
+  parse_scope_range,
+  resolve_anchor,
+  resolver_symbols_from_ariadne,
+  slice_source,
+} from "./resolver";
+export type { AriadneFileInput, ResolverIndex, ResolverSymbol } from "./resolver";
