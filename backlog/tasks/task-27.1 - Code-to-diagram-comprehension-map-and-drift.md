@@ -144,4 +144,30 @@ A five-agent architecture review confirmed that building this task read-only is 
 
 ## Implementation Notes
 
+### Inherited decision: keep a user-promoted field alive across an agentic rebuild (from task-27.0.2 review)
+
+Section B.5 promises that once a user edit claims a `description` as user-owned, "re-extraction never
+overwrites it." A 10-agent review of task-27.0.2 confirmed this guarantee is **not yet enforced by the
+store** and this task must close it.
+
+The store keeps two independent axes: a row's structural `layer` and its per-field `field_ownership`.
+`write_fields` promotes a field's *ownership* but deliberately never moves the row's `layer`. So a
+user-promoted `description` can sit on a `layer='agentic'` row while owned by `user`. `rebuild_layer`
+deletes by **layer** (`WHERE layer=? AND deleted_at IS NULL`) with no ownership re-check — so the
+agentic post-processing pipeline (section B), invoked as `rebuild_layer('agentic')`, **hard-deletes
+that whole row, user-owned field and all**, whenever the rebuild writer does not re-emit the same id.
+The `write_fields` ladder cannot protect a row that no longer exists. The same hazard applies to a
+user-owned field that ends up on a `layer='raw'` row across `rebuild_layer('raw')`.
+
+Decide the mechanism here (and/or in task-27.2 / task-27.0, which carries the "agentic/user content is
+never hard-deleted" guarantee). Candidate fixes the review surfaced:
+
+- **Promote the row's `layer` on user edit** so a user-owned field forces `layer='user'` (authority
+  follows edits) and rebuild never deletes it — robust, but changes the task-27.0.1 `write_fields`
+  contract and migrates a described node's render layer (task-27.0.4 concern).
+- **Guarantee the agentic rebuild writer always re-emits** every row it intends to keep, so the ladder
+  protects the user field on rewrite — keeps the store unchanged but makes the agentic pass responsible.
+- **Ownership-aware delete / guard in `rebuild_layer`** — closes it in the store but adds the
+  re-check task-27.0.2 AC#3 explicitly excludes, so AC#3 would need rewording.
+
 <!-- Added when work begins. -->

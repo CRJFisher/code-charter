@@ -26,11 +26,11 @@ The single shared foundation under both directions of Diagram-Driven Development
 
 The model is a **custom graph layered over the Ariadne-derived graph** in three tiers, split by **cost of regeneration**: it draws individual code symbols (functions, files, docs) into a bigger, more connected, higher-level picture of the repo, and it survives code change. "Survives code change" is the hard part and the reason this is a deliberate, persistent model rather than a view regenerated from code on demand.
 
-| Tier | Contents | Rebuild cost | On re-parse |
-|---|---|---|---|
-| **L0 raw** | parse, symbols, call/import edges, literal doc edges | free, deterministic | **nuke & rebuild** |
-| **L1 agentic** | behaviour descriptions, groups, inferred edges | expensive, non-deterministic (LLM) | **preserve** |
-| **L2 user** | labels, pins, positions, manual descriptions, adjudications | irreplaceable | **preserve** |
+| Tier           | Contents                                                    | Rebuild cost                       | On re-parse        |
+| -------------- | ----------------------------------------------------------- | ---------------------------------- | ------------------ |
+| **L0 raw**     | parse, symbols, call/import edges, literal doc edges        | free, deterministic                | **nuke & rebuild** |
+| **L1 agentic** | behaviour descriptions, groups, inferred edges              | expensive, non-deterministic (LLM) | **preserve**       |
+| **L2 user**    | labels, pins, positions, manual descriptions, adjudications | irreplaceable                      | **preserve**       |
 
 Only the **raw** tier is disposable. The **agentic** tier is preserved across a re-parse not because a human authored it, but because regenerating it costs LLM time and is non-deterministic — re-running it would burn tokens and produce a different map; it is rebuilt only on an explicit, run-when-asked agentic pass, never silently on code change. The **user** tier is irreplaceable. Both preserved tiers attach to code via anchors so they follow renames and moves.
 
@@ -58,6 +58,7 @@ Realized on `task-21.1`'s persistent store. This task owns the data model and th
 ### A. Three tiers over one store
 
 - Realized on `task-21.1` (`GraphStore` interface, node id = `(file_path, anchor?)`, non-optional edge provenance, content-hash invalidation primitives). Nothing here binds to SQLite directly.
+- **Packages:** the engine-agnostic contract is `packages/types/src/graph_store.ts`; the Node-side implementations (SQLite store, watermark ladder, resolver, in-memory model + render) live in `@code-charter/core` (`packages/core`), with `node:sqlite` isolated to one file behind `open_graph_store()`. On an older or non-Node host the store degrades to a no-op rather than throwing.
 - **Raw tier (L0, disposable):** Ariadne code edges + literal doc/frontmatter edges, each with provenance (`source_file`, `source_range`, `extractor_id`, `confidence`). Free and deterministic to recompute, so it is nuked and rebuilt from scratch when code changes — it holds no irreplaceable state.
 - **Agentic tier (L1, preserved):** the higher-level and aggregating nodes that group the raw graph into a connected picture, plus agent-authored behaviour descriptions, groupings, and inferred edges. This is what turns a raw call graph into something comprehensible. It is preserved across a re-parse because regenerating it costs LLM time and is non-deterministic; it is rebuilt only on an explicit, run-when-asked agentic pass (task-27.1), never silently on code change.
 - **User tier (L2, preserved):** labels, pins, positions, manual descriptions, and inferred-edge accept/reject adjudications — irreplaceable, and the thing that must never be lost.
@@ -74,6 +75,7 @@ Realized on `task-21.1`'s persistent store. This task owns the data model and th
 - Agentic and user content references code elements by **anchor** = symbol path + content hash, never a line number or a bare name — so a description follows a renamed function without re-typing.
 - A single reusable **resolver** maps an anchor to its current code state, returning the `{symbol_path, content_hash, span_hash}` tuple. This resolver is the one place both directions genuinely share: task-27.1 calls it to detect drift and re-attach preserved content; task-27.2 calls it to snapshot a proposal's base state at propose time and to re-validate at apply time.
 - The resolver reports a clean hit, a downgrade (the element moved/renamed but is still resolvable), or a miss. What to _do_ with a downgrade or miss — surface it for review, hold it in a re-attachment bin — is task-27.1's repair policy; the model only guarantees the content is preserved until then.
+- **File→content incidence (so drift can be scoped to changed files):** `symbol_path` is file-qualified and `edge_provenance.source_file` is indexed, so "which anchored content and which edges point into file X?" is a cheap query — the access pattern task-27.1 scopes its diff signal by. The store exposes file-scoped reads/invalidations for both edges and raw nodes (`edges_for_files`, `invalidate_edges_for_files`, `invalidate_nodes_for_files`); a code change invalidates only raw-tier rows — agentic/user content follows the change through the resolver, never deleted by it.
 
 ### D. Open shapes reserved for both directions
 
@@ -82,6 +84,7 @@ The store's no-migration policy (nuke-and-rebuild only, never `ALTER`) means the
 - Preserved-tier (agentic and user) rows carry an open-valued `origin` (which producer wrote the row) and `intent_source` (whose intent it reflects — `code-edit | diagram-edit | explicit-pin`). task-27.1 only ever writes `code-edit`/`code-change`; task-27.2 fills the rest. Unused values are reserved, not added by a later constraint change.
 - The render layer list is open and ordered (see A).
 - The resolver returns the full state tuple (see C) even when a given caller uses only part of it.
+- **The diff/drift signal is derived, not stored.** task-27.1's drift is `re-extract(changed_files) ⊖ stored_graph`, a pure function of the persisted graph plus current code — so 27.0 holds no `diff` or `drift` table, and `anchor_resolution` is explicitly a disposable cache of that computation. What task-27.1 *does* persist is the irreplaceable **adjudication** layered on top — a dismissed/resolved decision that must not re-surface — which it keeps in its own preserved table, declared via the per-table disposable/preserved property and keyed by anchor (the same anchor+`origin` chain reserved above). It needs no migration of these tables and no new column here.
 
 <!-- SECTION:PLAN:END -->
 

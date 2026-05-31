@@ -5,12 +5,15 @@
     "paths": {
       "@code-charter/types": ["packages/types/src"],
       "@code-charter/types/*": ["packages/types/src/*"],
+      "@code-charter/core": ["packages/core/src"],
+      "@code-charter/core/*": ["packages/core/src/*"],
       "@code-charter/ui": ["packages/ui/src"],
       "@code-charter/ui/*": ["packages/ui/src/*"]
     }
   },
   "references": [
     { "path": "./packages/types" },
+    { "path": "./packages/core" },
     { "path": "./packages/ui" },
     { "path": "./packages/vscode" }
   ]

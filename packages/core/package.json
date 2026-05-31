@@ -1,0 +1,35 @@
+{
+  "name": "@code-charter/core",
+  "version": "0.0.1",
+  "description": "Core Node-side engine for Code Charter: the persistent graph store and graph model",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -watch -p tsconfig.build.json",
+    "lint": "eslint src",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ariadnejs/types": "^0.8.0",
+    "@code-charter/types": "^0.0.1",
+    "graphology": "^0.26.0"
+  },
+  "devDependencies": {
+    "@ariadnejs/core": "^0.8.0",
+    "@jest/globals": "^29.7.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

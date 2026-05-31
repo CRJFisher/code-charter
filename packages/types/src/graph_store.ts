@@ -18,7 +18,7 @@
  * This module is the contract only — pure TypeScript with ZERO imports (no
  * `@ariadnejs/types`, no `node:sqlite`) so the webview can import the row shapes.
  * The SQLite store, graphology model, resolver, and render() impls live in
- * `@code-charter/vscode` and depend on this file, never the reverse.
+ * `@code-charter/core` and depend on this file, never the reverse.
  */
 
 /** The three tiers, low-to-high cost of regeneration. */
@@ -105,7 +105,10 @@ export interface Anchor {
   content_hash: string;
 }
 
-/** The current code state an anchor resolves to. The resolver always returns the full tuple. */
+/**
+ * The current code state an anchor resolves to. Carried by the 'hit' and 'downgrade'
+ * arms of {@link ResolveResult}; the 'miss' arm carries no state.
+ */
 export interface CodeState {
   symbol_path: string;
   content_hash: string;
@@ -113,28 +116,30 @@ export interface CodeState {
 }
 
 /**
- * Output of the single reusable anchor resolver (impl in vscode). Both directions call it:
+ * Output of the single reusable anchor resolver (impl in @code-charter/core). Both directions call it:
  * 27.1 to detect/repair drift, 27.2 to snapshot and re-validate proposals.
  *   - 'hit'       symbol_path AND content_hash match — content is correctly attached.
- *   - 'downgrade' moved/renamed/body-changed but still resolvable — re-anchor to `state`.
+ *   - 'downgrade' relocated/body-changed but still resolvable — re-anchor to `state`.
+ *                 'relocated' = content_hash matches at a different symbol_path (renamed
+ *                 in place or moved across files); 'body-changed' = symbol_path matches,
+ *                 content_hash differs.
  *   - 'miss'      not resolvable — content is preserved for re-attachment (repair is 27.1).
  */
 export type ResolveResult =
   | { status: "hit"; state: CodeState }
-  | { status: "downgrade"; state: CodeState; reason: "moved" | "renamed" | "body-changed" }
+  | { status: "downgrade"; state: CodeState; reason: "relocated" | "body-changed" }
   | { status: "miss" };
 
 /**
  * One entry in the open, ordered list that render() composes (AC1/AC6). A later 'proposed'
  * overlay (27.2) is one more entry, not a signature change. render()'s return type is a
- * graphology graph, so its signature lives in vscode — only this pure-data input lives here.
+ * graphology graph, so its signature lives in @code-charter/core — only this pure-data input lives here.
  */
 export type LayerSpec =
   | { kind: "raw" }
   | { kind: "agentic" }
   | { kind: "user" }
-  | { kind: "overlay"; rows: { nodes: NodeRow[]; edges: EdgeRow[] } }
-  | { kind: "filter"; predicate: (n: NodeRow) => boolean };
+  | { kind: "overlay"; rows: { nodes: NodeRow[]; edges: EdgeRow[] } };
 
 /** A node or edge addressed by its stable id/key. */
 export type GraphTarget = { kind: "node" | "edge"; id: string };
@@ -165,9 +170,23 @@ export interface GraphStore {
   node(id: string): NodeRow | undefined;
   neighborhood(id: string, depth: number): { nodes: NodeRow[]; edges: EdgeRow[] };
 
+  /**
+   * All edges whose provenance points into any of `paths`. The scoped read behind
+   * task-27.1's diff signal: it diffs `edges_for_files(changed)` against a fresh
+   * extraction of those files. (The diff itself is derived and never persisted.)
+   */
+  edges_for_files(paths: string[]): EdgeRow[];
+
   record_file_hash(path: string): void;
   file_changed_since_recorded(path: string): boolean;
   invalidate_edges_for_files(paths: string[]): void;
+  /**
+   * Mark-stale/remove the raw NODES sourced from `paths` — the node-lifecycle
+   * counterpart to `invalidate_edges_for_files` (a removed/renamed symbol's raw
+   * node). Only raw-tier nodes are touched; agentic/user nodes are preserved and
+   * follow the change through the resolver instead.
+   */
+  invalidate_nodes_for_files(paths: string[]): void;
 
   /** Soft-delete only — there is no hard delete on agentic/user content (AC5). */
   soft_delete(target: GraphTarget): void;
@@ -177,8 +196,9 @@ export interface GraphStore {
   table_disposition(): Array<{ table: string; disposable: boolean }>;
 
   /**
-   * Nuke the rows of `layer` (plus its disposable caches) and run `write` in a transaction;
-   * the ladder protects higher tiers. Re-parse => rebuild_layer('raw'); an explicit agentic
+   * Nuke the LIVE rows of `layer` plus every cache `table_disposition()` marks disposable, then
+   * run `write` in a transaction; the ladder protects higher tiers. A soft-deleted agentic/user
+   * row is left untouched (restorable). Re-parse => rebuild_layer('raw'); an explicit agentic
    * pass => rebuild_layer('agentic'). The user layer is never rebuilt.
    */
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void;
