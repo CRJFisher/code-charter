@@ -55,4 +55,54 @@ Builds on `@code-charter/core` (task-27.0.1): the resolver and its `anchor_resol
 
 ## Implementation Notes
 
-<!-- Added when work begins. -->
+<!-- SECTION:NOTES:BEGIN -->
+
+### Summary
+
+The resolver is the single place a stored anchor — `(symbol_path, content_hash)`, captured when
+content was attached to a code element — is matched against the current code. It is the one mechanism
+both diagram↔code directions share: 27.1 calls it to detect drift and re-attach agentic/user content
+after an edit; 27.2 calls it to snapshot a proposal's base state and re-validate at apply time. It
+only *reports* — never mutates, never decides policy; the `anchor_resolution` table is a disposable
+cache of its output (recomputed, never authoritative), and writing it is left to its first reader.
+
+**The verdict cascade.** Given an `Anchor` and an index of the current code, `resolve_anchor` returns
+`hit` (symbol_path and content_hash both match), `downgrade/body-changed` (symbol_path matches, body
+differs), `downgrade/relocated` (the same body at a different symbol_path — rename-in-place or
+cross-file move), or `miss` (neither — a simultaneous rename + body-change). The `hit`/`downgrade`
+arms carry the whole current `CodeState` `{symbol_path, content_hash, span_hash}`; `miss` carries
+nothing.
+
+**Three derived identifiers.** `symbol_path` = `file#enclosing.name:kind` — file-qualified and
+location-free, so two same-named methods on different classes in one file stay distinct and a same-file
+rename downgrades rather than misses. `content_hash` = sha256 of the body with line endings normalized,
+whitespace trimmed, and every occurrence of the symbol's own identifier stripped — so a pure rename
+(even with recursive self-calls) leaves it stable, which is exactly what lets a rename resolve as
+`relocated`. `span_hash` = sha256 of the exact body span (reserved by the 27.0 plan; no consumer yet).
+
+**Where it lives.** A new pure `resolver/` module in `@code-charter/core`, depending only on the data
+*shapes* of `@ariadnejs/types` and the `Anchor`/`CodeState`/`ResolveResult` contract of
+`@code-charter/types`; zero `node:sqlite`, zero Ariadne-runtime coupling. The front door is
+`resolve_anchor` (the cascade) over a `ResolverIndex` from `build_resolver_index`; `code_state.ts` owns
+the three identifiers, `anchor_string.ts` the `symbol_path:content_hash` round-trip (split on the last
+colon, safe because `content_hash` is fixed-length hex). `from_ariadne.ts` is the seam from Ariadne: a
+caller gathers each file's definitions (`Project.get_index_single_file`) and source
+(`Project.get_file_contents`), and the adapter walks them **structurally** — a class lists its own
+methods, so the enclosing chain needs no scope-tree traversal — slicing each body from its
+`body_scope_id` (a definition's `location` points at the name, not the body). The literal Ariadne
+`CodeGraph` type (`{ call_graph }`) is too thin to drive this — it carries neither source nor scope —
+which is why the index is built from this narrow normalized input rather than a bare `CodeGraph`.
+
+**What to know.** The adapter anchors top-level functions and the methods/constructors of top-level
+classes/interfaces/enums; namespace nesting, classes declared inside functions, and arrow callables are
+deliberately not descended yet. The identifier strip is lexical (it also clears the name from string
+literals and comments) — an accepted trade-off for rename-stability, and the exact-match arm resolves
+the common cases first. The `anchor_resolution` cache (created and tagged disposable by 27.0.1) stays
+unwritten: populating it waits for its first reader (27.1/27.2), keeping the resolver pure (AC#4).
+
+**Tested** on fixtures for every verdict — hit, body-changed, relocated (same-file rename and cross-file
+move), miss — plus two same-named methods resolving distinctly, a real `@ariadnejs/core` parse, cascade
+ordering, the deterministic relocated tie-break, CRLF-agnostic hashing, and a content_hash collision
+falling back to the symbol_path arm.
+
+<!-- SECTION:NOTES:END -->

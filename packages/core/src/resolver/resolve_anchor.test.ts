@@ -3,6 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import { derive_code_state } from "./code_state";
 import { resolve_anchor } from "./resolve_anchor";
 import { build_resolver_index } from "./resolver_index";
+import type { ResolverSymbol } from "./resolver_symbol";
 import {
   anchor_of,
   cls_x_run,
@@ -114,6 +115,18 @@ describe("resolve_anchor — cascade ordering and determinism", () => {
 
   it("an empty index resolves to miss", () => {
     expect(resolve_anchor(anchor_of(fn_a), build_resolver_index([]))).toEqual({ status: "miss" });
+  });
+
+  it("symbol_path wins when two bodies collide on content_hash via the lexical name strip", () => {
+    // Bodies differ only by each symbol's own name, so both normalize to the same content_hash.
+    const sym_x: ResolverSymbol = { file_path: "src/c.ts", name: "x", kind: "function", enclosing: [], body_source: "{ return x; }" };
+    const sym_y: ResolverSymbol = { file_path: "src/c.ts", name: "y", kind: "function", enclosing: [], body_source: "{ return y; }" };
+    expect(derive_code_state(sym_x).content_hash).toBe(derive_code_state(sym_y).content_hash);
+
+    const index = build_resolver_index([sym_x, sym_y]);
+    // Each still resolves to ITSELF — the exact symbol_path arm precedes the content_hash arm.
+    expect(resolve_anchor(anchor_of(sym_x), index)).toEqual({ status: "hit", state: derive_code_state(sym_x) });
+    expect(resolve_anchor(anchor_of(sym_y), index)).toEqual({ status: "hit", state: derive_code_state(sym_y) });
   });
 });
 

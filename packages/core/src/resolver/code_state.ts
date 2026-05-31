@@ -33,20 +33,26 @@ function escape_regex(literal: string): string {
 }
 
 /**
- * `content_hash` = sha256 of the body, leading/trailing whitespace trimmed and every occurrence of
- * the symbol's own identifier removed. Stripping all occurrences (not just the declaration) keeps
- * recursive self-calls from changing the hash, so a pure rename leaves `content_hash` stable — the
- * basis for resolving a rename as `relocated`. Internal whitespace is left untouched (collapsing
- * would be lossy and language-sensitive).
+ * `content_hash` = sha256 of the body, line endings normalized to `\n`, leading/trailing whitespace
+ * trimmed, and every occurrence of the symbol's own identifier removed. Stripping all occurrences
+ * (not just the declaration) keeps recursive self-calls from changing the hash, so a pure rename
+ * leaves `content_hash` stable — the basis for resolving a rename as `relocated`. EOL normalization
+ * keeps a CRLF↔LF flip from reading as a body change. Internal whitespace is otherwise left untouched
+ * (collapsing would be lossy and language-sensitive).
  *
  * Identifier-aware boundaries `(?<![$\w])name(?![$\w])` are used rather than `\b`: they treat `$`
  * (a JS/TS identifier char that `\b`/`\w` excludes) as part of the identifier, so `$fn` strips
  * cleanly while `foo` is never stripped out of `foobar`. Non-ASCII identifiers are not covered (YAGNI).
+ *
+ * The strip is lexical — it also removes the name from string literals and comments, and two bodies
+ * that differ only by an occurrence of their own name normalize equal. That is an accepted trade-off:
+ * it is what makes a rename hash-stable, and the exact-match arm of the cascade resolves the common
+ * cases before content_hash is ever consulted. `span_hash` is the byte-faithful counterpart.
  */
 export function compute_content_hash(body_source: string, name: string): string {
-  let normalized = body_source.trim();
+  let normalized = body_source.replace(/\r\n?/g, "\n").trim();
   if (name.length > 0) {
-    normalized = normalized.replace(new RegExp(`(?<![$\\w])${escape_regex(name)}(?![$\\w])`, "g"), "");
+    normalized = normalized.replace(new RegExp(`(?<![$\\w])${escape_regex(name)}(?![$\\w])`, "g"), "").trim();
   }
   return createHash("sha256").update(normalized, "utf8").digest("hex");
 }

@@ -42,6 +42,12 @@ describe("compute_content_hash", () => {
   it("is a full 64-char lowercase hex digest", () => {
     expect(compute_content_hash("{ return 1; }", "fn")).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it("is line-ending agnostic (a CRLF<->LF flip is not a body change)", () => {
+    const crlf = "{\r\n  return 1;\r\n}";
+    const lf = "{\n  return 1;\n}";
+    expect(compute_content_hash(crlf, "fn")).toBe(compute_content_hash(lf, "fn"));
+  });
 });
 
 describe("compute_span_hash", () => {

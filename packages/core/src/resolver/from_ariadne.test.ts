@@ -24,8 +24,10 @@ describe("parse_scope_range", () => {
     });
   });
 
-  it("throws when the trailing four fields are not numeric", () => {
+  it("throws when the trailing four fields are not plain decimals", () => {
     expect(() => parse_scope_range("function:/p/s.ts:6:20" as ScopeId)).toThrow(/malformed scope id/);
+    expect(() => parse_scope_range("function:/p/s.ts:6::8:1" as ScopeId)).toThrow(/malformed scope id/);
+    expect(() => parse_scope_range("function:/p/s.ts:6:20:8:1e3" as ScopeId)).toThrow(/malformed scope id/);
   });
 });
 

@@ -29,7 +29,10 @@ export function resolve_anchor(anchor: Anchor, index: ResolverIndex): ResolveRes
   }
 
   // (3) relocated — the symbol_path is gone, but the body lives elsewhere now. The bucket is sorted
-  // by symbol_path, so the first candidate is the deterministic pick when several bodies match.
+  // by symbol_path, so the first candidate is the deterministic pick when several bodies match; the
+  // pick is genuinely ambiguous among identical bodies, so reproducibility is the only goal (the
+  // caller re-adjudicates). The `!==` is defensive: arm 3 is only reached when anchor.symbol_path is
+  // absent from the index, so no bucket entry can carry it.
   const bucket = index.by_content_hash.get(anchor.content_hash);
   if (bucket) {
     const candidate = bucket.find((state) => state.symbol_path !== anchor.symbol_path);
