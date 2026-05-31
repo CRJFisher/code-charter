@@ -16,7 +16,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@code-charter/types": "^0.0.1"
+    "@code-charter/types": "^0.0.1",
+    "graphology": "^0.26.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

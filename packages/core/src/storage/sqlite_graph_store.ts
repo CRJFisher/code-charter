@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync, type SQLOutputValue, type StatementSync } from "node:sqlite";
 
 import {
-  TIER_RANK,
   type EdgeRow,
   type GraphStore,
   type GraphTarget,
@@ -13,6 +12,7 @@ import {
   type Tier,
 } from "@code-charter/types";
 
+import { apply_field_ladder } from "./field_ladder";
 import {
   CREATE_META_TABLES_SQL,
   CREATE_SCHEMA_SQL,
@@ -273,16 +273,7 @@ export class SqliteGraphStore implements GraphStore {
       if (!row) return { skipped: [] };
       const attributes = parse_json_object(as_text(row.attributes));
       const ownership = parse_ownership(as_text(row.field_ownership));
-      const skipped: string[] = [];
-      for (const [k, v] of Object.entries(fields)) {
-        const owner: Tier = ownership[k] ?? "raw";
-        if (TIER_RANK[owner] <= TIER_RANK[as_tier]) {
-          attributes[k] = v;
-          ownership[k] = as_tier;
-        } else {
-          skipped.push(k);
-        }
-      }
+      const { skipped } = apply_field_ladder(attributes, ownership, fields, as_tier);
       this.sql(`UPDATE ${table} SET attributes = ?, field_ownership = ? WHERE ${id_col} = ?`).run(
         JSON.stringify(attributes),
         JSON.stringify(ownership),

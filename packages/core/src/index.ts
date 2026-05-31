@@ -22,6 +22,8 @@ export function open_graph_store(db_path: string): GraphStore {
   return new module.SqliteGraphStore(db_path);
 }
 
+export { CustomGraphModel } from "./model/custom_graph_model";
+export type { CustomGraph } from "./model/custom_graph_model";
 export { NullGraphStore } from "./storage/null_graph_store";
 export { current_node_version, is_node_sqlite_supported, MIN_NODE_SQLITE_VERSION } from "./storage/node_sqlite_support";
 export { CURRENT_SCHEMA_VERSION } from "./storage/schema";
