@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "@ariadnejs/types": "^0.8.0",
-    "@code-charter/types": "^0.0.1"
+    "@code-charter/types": "^0.0.1",
+    "graphology": "^0.26.0"
   },
   "devDependencies": {
     "@ariadnejs/core": "^0.8.0",
