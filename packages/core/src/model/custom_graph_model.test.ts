@@ -280,6 +280,99 @@ describe("CustomGraphModel", () => {
       expect(recording.writes).toHaveLength(1);
       expect(recording.writes[0].method).toBe("write_fields");
     });
+
+    it("routes a field-level edit on an EDGE through write_fields, ladder-respecting", () => {
+      store.upsert_node(make_node({ id: "a" }));
+      store.upsert_node(make_node({ id: "b" }));
+      store.upsert_edge(make_edge({ key: "e1", src_id: "a", dst_id: "b", layer: "agentic" }), []);
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      expect(model.write_fields({ kind: "edge", id: "e1" }, { note: "why" }, "user").skipped).toEqual([]);
+      expect(model.edge_row("e1")?.attributes.note).toBe("why");
+      model.flush();
+
+      expect(recording.writes).toEqual([
+        { method: "write_fields", target: { kind: "edge", id: "e1" }, fields: { note: "why" }, as_tier: "user" },
+      ]);
+      expect(store.all_edges()[0].attributes.note).toBe("why");
+    });
+
+    it("groups multi-tier field edits on one target into one write_fields call per tier", () => {
+      store.upsert_node(make_node({ id: "n1" }));
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      model.write_fields({ kind: "node", id: "n1" }, { auto: "a" }, "agentic");
+      model.write_fields({ kind: "node", id: "n1" }, { label: "u" }, "user");
+      model.flush();
+
+      const field_writes = recording.writes.filter(
+        (w): w is Extract<WriteCall, { method: "write_fields" }> => w.method === "write_fields",
+      );
+      expect(field_writes).toHaveLength(2);
+      const by_tier = new Map(field_writes.map((w) => [w.as_tier, w.fields]));
+      expect(by_tier.get("agentic")).toEqual({ auto: "a" });
+      expect(by_tier.get("user")).toEqual({ label: "u" });
+    });
+
+    it("a full-row upsert supersedes a pending field edit on the same target (store matches memory)", () => {
+      store.upsert_node(make_node({ id: "n1", attributes: { x: "old" } }));
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      model.write_fields({ kind: "node", id: "n1" }, { x: "edited" }, "user");
+      model.upsert_node(make_node({ id: "n1", attributes: {}, field_ownership: {} }));
+      model.flush();
+
+      // The wholesale upsert wins in memory; the stale field edit must NOT be replayed to the store.
+      expect(model.node_row("n1")?.attributes).toEqual({});
+      expect(store.node("n1")?.attributes).toEqual({});
+      expect(recording.writes).toEqual([{ method: "upsert_node", id: "n1" }]);
+    });
+
+    it("a full-row upsert supersedes a pending soft-delete on the same target", () => {
+      store.upsert_node(make_node({ id: "n1", layer: "agentic" }));
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      model.soft_delete({ kind: "node", id: "n1" });
+      model.upsert_node(make_node({ id: "n1", layer: "agentic", deleted_at: null }));
+      model.flush();
+
+      expect(model.node_row("n1")?.deleted_at).toBeNull();
+      expect(store.node("n1")).toBeDefined(); // live, not tombstoned
+      expect(recording.writes).toEqual([{ method: "upsert_node", id: "n1" }]);
+    });
+
+    it("re-upserts an existing edge through upsert_edge, replacing the row and its provenance", () => {
+      store.upsert_node(make_node({ id: "a" }));
+      store.upsert_node(make_node({ id: "b" }));
+      store.upsert_edge(make_edge({ key: "e1", src_id: "a", dst_id: "b", confidence: 1 }), [
+        make_prov({ edge_key: "e1", source_file: "old.ts" }),
+      ]);
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      const new_prov = [make_prov({ edge_key: "e1", source_file: "new.ts" })];
+      model.upsert_edge({ ...model.edge_row("e1")!, confidence: 0.5 }, new_prov);
+      model.flush();
+
+      expect(model.edge_row("e1")?.confidence).toBe(0.5);
+      expect(store.all_edges()[0].confidence).toBe(0.5);
+      expect(store.provenance_for_edge("e1")).toEqual(new_prov);
+    });
+
+    it("write_fields and soft_delete on an unknown target are no-ops", () => {
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      expect(model.write_fields({ kind: "node", id: "ghost" }, { x: 1 }, "user")).toEqual({ skipped: [] });
+      model.soft_delete({ kind: "edge", id: "ghost" });
+      model.flush();
+
+      expect(recording.writes).toEqual([]);
+    });
   });
 
   describe("soft-delete by convention (AC#2)", () => {
@@ -313,6 +406,37 @@ describe("CustomGraphModel", () => {
       expect(recording.writes).toEqual([]);
       expect(model.node_row("a")?.deleted_at).toBeNull();
       expect(model.render([{ kind: "raw" }]).hasNode("a")).toBe(true);
+    });
+
+    it("soft-deletes an EDGE by convention: held in memory, filtered at render unless show_tombstones", () => {
+      store.upsert_node(make_node({ id: "a", layer: "raw" }));
+      store.upsert_node(make_node({ id: "b", layer: "raw" }));
+      store.upsert_edge(make_edge({ key: "e", src_id: "a", dst_id: "b", layer: "agentic" }), []);
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      model.soft_delete({ kind: "edge", id: "e" });
+      expect(model.edge_row("e")?.deleted_at).not.toBeNull();
+      model.flush();
+
+      expect(recording.writes).toEqual([{ method: "soft_delete", target: { kind: "edge", id: "e" } }]);
+      // Endpoints stay live, so the tombstoned edge is hidden by default and surfaced with the flag.
+      expect(model.render([{ kind: "raw" }, { kind: "agentic" }]).hasEdge("e")).toBe(false);
+      expect(model.render([{ kind: "raw" }, { kind: "agentic" }], { show_tombstones: true }).hasEdge("e")).toBe(true);
+    });
+
+    it("is a no-op on raw EDGES, mirroring the store", () => {
+      store.upsert_node(make_node({ id: "a", layer: "raw" }));
+      store.upsert_node(make_node({ id: "b", layer: "raw" }));
+      store.upsert_edge(make_edge({ key: "e", src_id: "a", dst_id: "b", layer: "raw" }), []);
+      const recording = new RecordingStore(store);
+      const model = CustomGraphModel.hydrate(recording);
+
+      model.soft_delete({ kind: "edge", id: "e" });
+      model.flush();
+
+      expect(recording.writes).toEqual([]);
+      expect(model.edge_row("e")?.deleted_at).toBeNull();
     });
   });
 
@@ -388,6 +512,36 @@ describe("CustomGraphModel", () => {
 
       expect(view.order).toBe(0);
       expect(view.size).toBe(0);
+    });
+
+    it("a later layer revives a tombstoned row by overriding deleted_at", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic", attributes: { label: "kept" } }));
+      const model = CustomGraphModel.hydrate(store);
+      model.soft_delete({ kind: "node", id: "n" });
+
+      const reviver = make_node({ id: "n", layer: "user", deleted_at: null, attributes: { label: "revived" } });
+      const view = model.render([{ kind: "agentic" }, { kind: "overlay", rows: { nodes: [reviver], edges: [] } }]);
+
+      expect(view.hasNode("n")).toBe(true); // revived without show_tombstones
+      expect(view.getNodeAttributes("n").row.attributes.label).toBe("revived");
+    });
+
+    it("precedence is list order: swapping layer order swaps the winning field value", () => {
+      const model = CustomGraphModel.hydrate(store);
+      const n_a = make_node({ id: "n", attributes: { label: "a" } });
+      const n_b = make_node({ id: "n", attributes: { label: "b" } });
+
+      const ab = model.render([
+        { kind: "overlay", rows: { nodes: [n_a], edges: [] } },
+        { kind: "overlay", rows: { nodes: [n_b], edges: [] } },
+      ]);
+      const ba = model.render([
+        { kind: "overlay", rows: { nodes: [n_b], edges: [] } },
+        { kind: "overlay", rows: { nodes: [n_a], edges: [] } },
+      ]);
+
+      expect(ab.getNodeAttributes("n").row.attributes.label).toBe("b");
+      expect(ba.getNodeAttributes("n").row.attributes.label).toBe("a");
     });
   });
 

@@ -76,7 +76,9 @@ Two distinct precedence mechanisms meet here and must not be conflated:
   through `upsert_node`/`upsert_edge` (the latter carrying its `ProvenanceRow[]`), removals through
   `soft_delete`. The whole graph is never re-serialized. The field-ladder rule is extracted to one pure
   helper shared by the store and the model, so the in-memory mirror computes the exact same `skipped`
-  set the store would.
+  set the store would. `flush()` makes the store match memory: a full-row `upsert_*` supersedes any
+  earlier pending field edit or soft-delete on the same target, and each store write is idempotent, so a
+  retry after a mid-flush failure is safe.
 - **The render fold (read-side).** `render(layers)` folds an open, ordered `LayerSpec[]`
   (raw → agentic → user → overlay) into a **fresh, non-persisted** `MultiDirectedGraph`. Precedence is
   **list order**: later layers win field-by-field. It does **not** consult or stamp `field_ownership` —
@@ -87,7 +89,8 @@ Two distinct precedence mechanisms meet here and must not be conflated:
 **Soft-delete is by convention, not by destruction:** the model never calls `dropNode`/`dropEdge`.
 Soft-deleted rows (`deleted_at` set) stay in memory and are filtered out at render time unless
 `show_tombstones` is passed — a render-call parameter owned by this task, separate from the `LayerSpec[]`
-input. Mirroring the store, soft-delete is a no-op on raw-tier rows.
+input. Mirroring the store, soft-delete is a no-op on raw-tier rows. There is no `restore`: because the
+fold composes `deleted_at` by list order, a later layer revives a tombstoned row simply by overriding it.
 
 ### Approach
 
@@ -98,8 +101,19 @@ input. Mirroring the store, soft-delete is a no-op on raw-tier rows.
 - `render()` accumulates merged rows per layer in list order (field-wise last-wins on the attribute bag,
   whole-value last-wins on structural columns), then drops tombstoned rows and any edge whose endpoint
   was dropped, before materializing the fresh render graph.
-- Unit tests on a `:memory:` store cover hydrate/dirty-flush routing, the ladder-respecting field flush,
-  soft-delete-by-convention + `show_tombstones`, the list-order render fold, and the `proposed` overlay
-  composing with no signature change.
+- Unit tests on a `:memory:` store cover hydrate/dirty-flush routing (nodes and edges), the
+  ladder-respecting field flush, multi-tier flush grouping, upsert-supersedes-pending-edit,
+  soft-delete-by-convention + `show_tombstones`, the list-order render fold, tombstone revival, and the
+  `proposed` overlay composing with no signature change.
+
+### Where it lives
+
+- `CustomGraphModel` + `render()` + the fold helpers: `packages/core/src/model/custom_graph_model.ts`,
+  exported (with the `CustomGraph` render-graph type) from `packages/core/src/index.ts`.
+- The shared precedence ladder: `packages/core/src/storage/field_ladder.ts` (internal; consumed by both
+  the store and the model).
+- The input contracts a caller constructs (`LayerSpec`, `GraphTarget`, `Tier`, `NodeRow`, `EdgeRow`,
+  `ProvenanceRow`) are defined in `packages/types/src/graph_store.ts` and re-exported from
+  `@code-charter/core` so they are reachable from one entry point.
 
 <!-- SECTION:NOTES:END -->

@@ -36,6 +36,11 @@ type DirtyUpsert =
  * field edits through `write_fields` (ladder-respecting), full raw rows through `upsert_node`/
  * `upsert_edge`, removals through `soft_delete`. The whole graph is never re-serialized.
  *
+ * Lifecycle: {@link hydrate} to build → mutate via `upsert_node`/`upsert_edge`/`write_fields`/
+ * `soft_delete` → {@link flush} to persist. {@link render} builds a separate read-only view at any
+ * time. There is no `restore`: a soft-deleted row is revived not by un-flagging it but by a later
+ * render layer overriding its `deleted_at` (see {@link render}).
+ *
  * Two precedence mechanisms meet here and must not be conflated. The **write-side ladder**
  * (`user > agentic > raw`, via the shared {@link apply_field_ladder}) governs what {@link write_fields}
  * persists and who owns each field. The **read-side fold** in {@link render} composes the tiers into a
@@ -94,36 +99,40 @@ export class CustomGraphModel {
 
   /** Replace a full raw node row (structural columns and all). Flushes via `upsert_node`. */
   upsert_node(row: NodeRow): void {
-    const stored = clone_row(row);
+    const stored = deep_clone(row);
     if (this.graph.hasNode(row.id)) {
       this.graph.replaceNodeAttributes(row.id, { row: stored });
     } else {
       this.graph.addNode(row.id, { row: stored });
     }
-    this.dirty_upserts.set(target_key({ kind: "node", id: row.id }), { kind: "node", id: row.id, row: stored });
+    this.supersede_dirty({ kind: "node", id: row.id }, { kind: "node", id: row.id, row: stored });
   }
 
-  /** Replace a full raw edge row plus its provenance. Flushes via `upsert_edge`. */
+  /**
+   * Replace a full raw edge row plus its provenance. Flushes via `upsert_edge`. Endpoints must already
+   * exist in the model — a new edge whose `src_id`/`dst_id` is absent makes `addEdgeWithKey` throw, so
+   * upsert the endpoint nodes first. Provenance is replaced wholesale, mirroring the store's
+   * `upsert_edge`: the passed array becomes the edge's complete provenance, so `[]` clears it.
+   */
   upsert_edge(row: EdgeRow, provenance: ProvenanceRow[]): void {
-    const stored = clone_row(row);
-    const stored_provenance = provenance.map(clone_row);
+    const stored = deep_clone(row);
+    const stored_provenance = provenance.map(deep_clone);
     if (this.graph.hasEdge(row.key)) {
       this.graph.replaceEdgeAttributes(row.key, { row: stored });
     } else {
       this.graph.addEdgeWithKey(row.key, row.src_id, row.dst_id, { row: stored });
     }
-    this.dirty_upserts.set(target_key({ kind: "edge", id: row.key }), {
-      kind: "edge",
-      key: row.key,
-      row: stored,
-      provenance: stored_provenance,
-    });
+    this.supersede_dirty(
+      { kind: "edge", id: row.key },
+      { kind: "edge", key: row.key, row: stored, provenance: stored_provenance },
+    );
   }
 
   /**
    * Ladder-aware field edit into the overflow attribute bag. Applies the shared ladder in memory so the
    * returned `skipped` set matches what the store would compute, marks the written fields dirty, and
-   * defers the persistent write to {@link flush}.
+   * defers the persistent write to {@link flush}. An unknown target is a no-op returning
+   * `{ skipped: [] }`, mirroring the store.
    */
   write_fields(target: GraphTarget, fields: Record<string, unknown>, as_tier: Tier): { skipped: string[] } {
     if (target.kind === "node") {
@@ -131,7 +140,7 @@ export class CustomGraphModel {
       const row = this.graph.getNodeAttributes(target.id).row;
       const attributes = { ...row.attributes };
       const ownership = { ...row.field_ownership };
-      const { skipped, written } = apply_field_ladder(attributes, ownership, clone_row(fields), as_tier);
+      const { skipped, written } = apply_field_ladder(attributes, ownership, deep_clone(fields), as_tier);
       if (written.length > 0) {
         this.graph.replaceNodeAttributes(target.id, { row: { ...row, attributes, field_ownership: ownership } });
         this.record_field_dirty(target, written, attributes, as_tier);
@@ -142,7 +151,7 @@ export class CustomGraphModel {
     const row = this.graph.getEdgeAttributes(target.id).row;
     const attributes = { ...row.attributes };
     const ownership = { ...row.field_ownership };
-    const { skipped, written } = apply_field_ladder(attributes, ownership, clone_row(fields), as_tier);
+    const { skipped, written } = apply_field_ladder(attributes, ownership, deep_clone(fields), as_tier);
     if (written.length > 0) {
       this.graph.replaceEdgeAttributes(target.id, { row: { ...row, attributes, field_ownership: ownership } });
       this.record_field_dirty(target, written, attributes, as_tier);
@@ -173,7 +182,14 @@ export class CustomGraphModel {
   /**
    * Write every dirty row back through the store, then clear the dirty set. Routes by kind: full-row
    * upserts first (establish/replace the row), then ladder-respecting field edits (grouped into one
-   * `write_fields` call per tier), then soft-deletes last. Untouched rows are never written.
+   * `write_fields` call per tier, since fields edited at different tiers in one cycle must each replay
+   * at their own tier so the store stamps ownership identically to memory), then soft-deletes last.
+   * Untouched rows are never written.
+   *
+   * Not atomic across rows — each store call is its own transaction — but safe to retry: every store
+   * write is idempotent (upserts are INSERT-OR-REPLACE; a replayed field edit re-lands at the same
+   * tier; a re-applied soft-delete re-sets the same flag), so a re-flush after a mid-flush throw
+   * re-applies all still-dirty rows without corruption.
    */
   flush(): void {
     for (const upsert of this.dirty_upserts.values()) {
@@ -237,13 +253,13 @@ export class CustomGraphModel {
     const live_node_ids = new Set<string>();
     for (const [id, row] of node_acc) {
       if (!show_tombstones && row.deleted_at !== null) continue;
-      out.addNode(id, { row: clone_row(row) });
+      out.addNode(id, { row: deep_clone(row) });
       live_node_ids.add(id);
     }
     for (const [key, row] of edge_acc) {
       if (!show_tombstones && row.deleted_at !== null) continue;
       if (!live_node_ids.has(row.src_id) || !live_node_ids.has(row.dst_id)) continue;
-      out.addEdgeWithKey(key, row.src_id, row.dst_id, { row: clone_row(row) });
+      out.addEdgeWithKey(key, row.src_id, row.dst_id, { row: deep_clone(row) });
     }
     return out;
   }
@@ -265,6 +281,18 @@ export class CustomGraphModel {
       if (attributes.row.layer === layer) edges.push(attributes.row);
     });
     return { nodes, edges };
+  }
+
+  /**
+   * Record a full-row upsert, dropping any earlier partial dirt for the same target. A wholesale
+   * upsert replaces the row in memory, so a pending field edit or soft-delete for that target is stale
+   * and must not be replayed after the upsert at flush — that would diverge the store from memory.
+   */
+  private supersede_dirty(target: GraphTarget, upsert: DirtyUpsert): void {
+    const key = target_key(target);
+    this.dirty_fields.delete(key);
+    this.dirty_deletes.delete(key);
+    this.dirty_upserts.set(key, upsert);
   }
 
   private record_field_dirty(
@@ -295,12 +323,16 @@ function now_iso(): string {
   return new Date().toISOString();
 }
 
-/** Deep copy a row/value via the same JSON shape the store persists, so nothing aliases the model. */
-function clone_row<T>(value: T): T {
+/** Deep copy a JSON-shaped value (row, field bag, or provenance) so nothing aliases the model. */
+function deep_clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-/** List-order field-granularity merge for a node: attribute bag per-key, structural columns whole-value. */
+/**
+ * List-order field-granularity merge for a node: the attribute bag merges per key (later wins), while
+ * structural columns take `next` whole. So an id appearing in multiple layers accumulates attributes
+ * but adopts the *last* contributing layer's entire structural identity (kind/path/anchor/layer/...).
+ */
 function merge_node_rows(prev: NodeRow | undefined, next: NodeRow): NodeRow {
   return {
     id: next.id,

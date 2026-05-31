@@ -27,4 +27,14 @@ export type { CustomGraph } from "./model/custom_graph_model";
 export { NullGraphStore } from "./storage/null_graph_store";
 export { current_node_version, is_node_sqlite_supported, MIN_NODE_SQLITE_VERSION } from "./storage/node_sqlite_support";
 export { CURRENT_SCHEMA_VERSION } from "./storage/schema";
-export type { GraphStore } from "@code-charter/types";
+// The contract types a consumer needs to drive the model's public API (render/write_fields/upsert/...),
+// re-exported so they are reachable from one entry point alongside CustomGraphModel.
+export type {
+  EdgeRow,
+  GraphStore,
+  GraphTarget,
+  LayerSpec,
+  NodeRow,
+  ProvenanceRow,
+  Tier,
+} from "@code-charter/types";
