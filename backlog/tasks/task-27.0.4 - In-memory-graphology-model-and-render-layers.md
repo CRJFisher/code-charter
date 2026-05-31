@@ -32,11 +32,11 @@ Scope boundary: this delivers the **minimal** `render(layers)` fold and the shar
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 `CustomGraphModel` hydrates one `MultiDirectedGraph` from `all_nodes`/`all_edges` (`include_deleted: true`), keyed by stable node ids and deterministic edge keys (`addEdgeWithKey`), and flushes only the changed rows back per edit (never re-serializing the whole graph): field-level edits route through `write_fields` (ladder-respecting), full raw rows through `upsert_node`/`upsert_edge` (the latter takes its `ProvenanceRow[]`), soft-deletes through `soft_delete`
-- [ ] #2 Soft-delete is honored by convention: no `dropNode`/`dropEdge`; soft-deleted rows (`deleted_at` set) are held in memory and filtered at render unless `show_tombstones` is set
-- [ ] #3 `render(layers)` folds an open, ordered `LayerSpec[]` (raw → agentic → user → overlay) into a fresh, non-persisted render graph; later layers win at field granularity **by list order** — a read-only last-wins fold that does **not** consult `field_ownership` or stamp ownership, distinct from the persistence ladder (`write_fields`); overlays are never written back, so the ladder never runs on them. Rows with `deleted_at` set are dropped unless `show_tombstones` (a render-call parameter owned by this task, distinct from the `LayerSpec[]` input) is set
-- [ ] #4 A `proposed` overlay (task-27.2) composes as one additional list entry with no `render()` signature change
-- [ ] #5 End-to-end on a `:memory:` store: load → user edit → raw re-parse → agentic pass round-trips with the correct tiers preserved and preserved agentic/user rows re-anchored through the resolver (task-27.0.3) so they follow a moved symbol; the raw re-parse is driven by a deterministic fixture raw writer (a stub emitting a few code + literal-doc edges), not the production Ariadne extractor — that wiring is task-27.1's
+- [x] #1 `CustomGraphModel` hydrates one `MultiDirectedGraph` from `all_nodes`/`all_edges` (`include_deleted: true`), keyed by stable node ids and deterministic edge keys (`addEdgeWithKey`), and flushes only the changed rows back per edit (never re-serializing the whole graph): field-level edits route through `write_fields` (ladder-respecting), full raw rows through `upsert_node`/`upsert_edge` (the latter takes its `ProvenanceRow[]`), soft-deletes through `soft_delete`
+- [x] #2 Soft-delete is honored by convention: no `dropNode`/`dropEdge`; soft-deleted rows (`deleted_at` set) are held in memory and filtered at render unless `show_tombstones` is set
+- [x] #3 `render(layers)` folds an open, ordered `LayerSpec[]` (raw → agentic → user → overlay) into a fresh, non-persisted render graph; later layers win at field granularity **by list order** — a read-only last-wins fold that does **not** consult `field_ownership` or stamp ownership, distinct from the persistence ladder (`write_fields`); overlays are never written back, so the ladder never runs on them. Rows with `deleted_at` set are dropped unless `show_tombstones` (a render-call parameter owned by this task, distinct from the `LayerSpec[]` input) is set
+- [x] #4 A `proposed` overlay (task-27.2) composes as one additional list entry with no `render()` signature change
+- [x] #5 End-to-end on a `:memory:` store: load → user edit → raw re-parse → agentic pass round-trips with the correct tiers preserved and preserved agentic/user rows re-anchored through the resolver (task-27.0.3) so they follow a moved symbol; the raw re-parse is driven by a deterministic fixture raw writer (a stub emitting a few code + literal-doc edges), not the production Ariadne extractor — that wiring is task-27.1's
 
 <!-- AC:END -->
 
@@ -63,8 +63,8 @@ Builds on `@code-charter/core` (task-27.0.1): hydrates from `SqliteGraphStore.al
 The persisted store (27.0.1/27.0.2) is the durable truth; the UI and both authoring directions need a
 single **live, in-memory surface** to read and edit, plus a way to **compose the tiers into one view**.
 This task delivers that surface — `CustomGraphModel` — and the minimal `render(layers)` fold, both in
-`@code-charter/core`. (Scope: AC#1–#4. AC#5's resolver round-trip lands with task-27.0.3 on its own
-branch and is out of scope here.)
+`@code-charter/core`, and closes the loop with an end-to-end round-trip that integrates the persistent
+store (27.0.1/27.0.2), the anchor resolver (27.0.3), and this model.
 
 Two distinct precedence mechanisms meet here and must not be conflated:
 
@@ -92,6 +92,15 @@ Soft-deleted rows (`deleted_at` set) stay in memory and are filtered out at rend
 input. Mirroring the store, soft-delete is a no-op on raw-tier rows. There is no `restore`: because the
 fold composes `deleted_at` by list order, a later layer revives a tombstoned row simply by overriding it.
 
+**The round-trip (AC#5)** proves the three pieces compose on a `:memory:` store: load a raw graph plus
+agentic/user content anchored to a code symbol → a user edit through the model → a raw re-parse that
+renames the symbol (a deterministic fixture raw writer stands in for the Ariadne extractor, emitting
+code + literal-doc edges) → re-anchor the preserved rows through the resolver so they follow the move →
+an agentic pass. The user edit survives both passes via the watermark ladder, the agentic default is
+regenerated, and the preserved anchors track the renamed symbol. The repair *policy* for a resolver
+`miss` (the re-attachment bin) is task-27.1's; the round-trip only exercises the `relocated` path and
+leaves a true miss untouched.
+
 ### Approach
 
 - Add `graphology` (`MultiDirectedGraph`) as a `@code-charter/core` dependency; nodes/edges carry their
@@ -115,5 +124,7 @@ fold composes `deleted_at` by list order, a later layer revives a tombstoned row
 - The input contracts a caller constructs (`LayerSpec`, `GraphTarget`, `Tier`, `NodeRow`, `EdgeRow`,
   `ProvenanceRow`) are defined in `packages/types/src/graph_store.ts` and re-exported from
   `@code-charter/core` so they are reachable from one entry point.
+- The AC#5 round-trip: `packages/core/src/model/round_trip.test.ts`, with the deterministic fixture
+  raw/agentic writers in `packages/core/src/model/__fixtures__/round_trip_codebase.ts`.
 
 <!-- SECTION:NOTES:END -->
