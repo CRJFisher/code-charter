@@ -64,6 +64,35 @@ This is the foundation sub-task: 27.0.2 (watermark/rebuild), 27.0.3 (resolver), 
 
 <!-- SECTION:NOTES:BEGIN -->
 
+### Summary
+
+A Code Charter diagram is a peer artifact above the code: it carries the *what* and *why*, holds
+human- and agent-authored meaning, and must **survive code edits** instead of being regenerated on
+demand. Surviving edits is the whole challenge — a cheap re-parse must never wipe out an expensive
+LLM description or an irreplaceable hand edit. The model answers this with a **three-tier graph**
+split by cost of regeneration: `raw` (free, deterministic parse output — the only disposable tier),
+`agentic` (expensive LLM output — preserved), and `user` (irreplaceable — preserved).
+
+Task-27.0 defined that graph as an engine-agnostic contract. **This task is the first concrete engine
+behind it** — the persistence layer every other piece stands on. It implements `SqliteGraphStore` on
+Node's built-in `node:sqlite` in a new `@code-charter/core` package, with three design commitments:
+
+- **The engine hides behind one door.** `node:sqlite` is imported in a single file; everything else
+  depends on the `GraphStore` interface, so the database is a one-file swap. `open_graph_store()`
+  returns the real store on Node ≥ 22.13 and a no-op `NullGraphStore` otherwise, so callers never
+  branch on availability.
+- **A self-describing, nuke-and-rebuild schema.** Seven tables, never migrated. A `table_registry`
+  records which tables are disposable (derived caches) versus preserved (irreplaceable rows), so a
+  schema-version bump drops only throwaway tables and the agentic/user tiers survive — and a future
+  table opts in with one registry row and no rebuild-code change.
+- **The file→change seam.** Code edits invalidate only cheap raw rows; agentic/user content
+  re-attaches through the resolver rather than being deleted. `edges_for_files` (read the prior
+  state) plus raw-only `invalidate_*` (mutate after) give task-27.1 the read-then-invalidate ordering
+  its drift signal needs.
+
+This foundation is what 27.0.2 (watermark/rebuild), 27.0.3 (resolver), 27.0.4 (in-memory model +
+render), and 27.1 (drift) build on.
+
 ### Approach
 
 Realized the `GraphStore` contract (`packages/types/src/graph_store.ts`) on `node:sqlite` in a **new
