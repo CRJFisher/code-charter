@@ -18,7 +18,7 @@
  * This module is the contract only — pure TypeScript with ZERO imports (no
  * `@ariadnejs/types`, no `node:sqlite`) so the webview can import the row shapes.
  * The SQLite store, graphology model, resolver, and render() impls live in
- * `@code-charter/vscode` and depend on this file, never the reverse.
+ * `@code-charter/core` and depend on this file, never the reverse.
  */
 
 /** The three tiers, low-to-high cost of regeneration. */
@@ -116,7 +116,7 @@ export interface CodeState {
 }
 
 /**
- * Output of the single reusable anchor resolver (impl in vscode). Both directions call it:
+ * Output of the single reusable anchor resolver (impl in @code-charter/core). Both directions call it:
  * 27.1 to detect/repair drift, 27.2 to snapshot and re-validate proposals.
  *   - 'hit'       symbol_path AND content_hash match — content is correctly attached.
  *   - 'downgrade' relocated/body-changed but still resolvable — re-anchor to `state`.
@@ -133,7 +133,7 @@ export type ResolveResult =
 /**
  * One entry in the open, ordered list that render() composes (AC1/AC6). A later 'proposed'
  * overlay (27.2) is one more entry, not a signature change. render()'s return type is a
- * graphology graph, so its signature lives in vscode — only this pure-data input lives here.
+ * graphology graph, so its signature lives in @code-charter/core — only this pure-data input lives here.
  */
 export type LayerSpec =
   | { kind: "raw" }

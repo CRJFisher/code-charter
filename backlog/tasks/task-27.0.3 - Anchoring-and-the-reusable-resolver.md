@@ -43,6 +43,8 @@ task-27.1 calls it to detect drift and re-attach content; task-27.2 calls it to 
 
 <!-- SECTION:PLAN:BEGIN -->
 
+Builds on `@code-charter/core` (task-27.0.1): the resolver and its `anchor_resolution` cache table (already created and tagged disposable) live in `@code-charter/core`; the resolver itself imports no `node:sqlite`.
+
 1. Build `symbol_path` = `file_path` + qualified-name chain, where the chain (enclosing class/namespace) is reconstructed by walking Ariadne's enclosing-scope tree and the symbol kind is retained to separate overloads. Ariadne's `SymbolId` string itself encodes no qualified-name chain — two same-named methods on different classes in one file would otherwise collapse to one `symbol_path` — so it cannot be obtained by merely dropping line/column coordinates.
 2. Compute a per-symbol `content_hash` = sha256 of the normalized body (leading/trailing whitespace trimmed and the symbol's own identifier excluded, so a pure rename keeps `content_hash` stable — the basis for the renamed-as-downgrade verdict) and `span_hash` = sha256 of the exact source bytes. `packages/vscode/src/storage/content_hash.ts` hashes at file granularity only; add per-symbol hashing following the same sha256 pattern. `span_hash` is reserved per task-27.0 plan D with no current consumer; it is **not** task-27.2's `referenced_span_hash`, which hashes a referenced prose span.
 3. Build a `ResolverIndex` keyed by both `symbol_path` and `content_hash`. The stored anchor string is `symbol_path:content_hash`; since `content_hash` is a fixed-length hex sha256, the last colon-segment splits back unambiguously even though `symbol_path` itself contains colons, so task-27.0.1's stored anchor round-trips losslessly into an `Anchor`.

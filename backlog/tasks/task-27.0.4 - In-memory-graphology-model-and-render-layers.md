@@ -44,6 +44,8 @@ Scope boundary: this delivers the **minimal** `render(layers)` fold and the shar
 
 <!-- SECTION:PLAN:BEGIN -->
 
+Builds on `@code-charter/core` (task-27.0.1): hydrates from `SqliteGraphStore.all_nodes` / `all_edges` and composes the runtime `LayerSpec[]` in `render()`; both the model and `render()` live in `@code-charter/core`.
+
 1. `CustomGraphModel`: hydrate from the store (deterministic edge keys; `include_deleted`), maintain a dirty set, flush only changed rows via `write_fields` (field-level, ladder-respecting) / `upsert_*` (full raw rows) / `soft_delete`.
 2. Field-level watermark merge helper for the persisted flush, because graphology's built-in `merge`/`update` replace attributes at the top level and cannot honor the per-field precedence ladder.
 3. `render(layers)`: left-to-right read-only fold, later-wins by list order at field granularity (no `field_ownership` consulted), with `show_tombstones` filtering; overlays compose non-destructively and are never written back.

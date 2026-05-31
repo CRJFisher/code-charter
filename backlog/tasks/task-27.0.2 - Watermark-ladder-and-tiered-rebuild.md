@@ -43,6 +43,8 @@ The ladder is what lets the disposable raw tier be nuked and rebuilt at will whi
 
 <!-- SECTION:PLAN:BEGIN -->
 
+Builds on `@code-charter/core` (task-27.0.1): `SqliteGraphStore` already provides `write_fields` (the field-ownership ladder) and a minimal `rebuild_layer` that nukes a layer's rows and runs the writer in one transaction. This task adds the watermark-driven invocation and the per-layer disposable-cache clearing (a `TODO(task-27.0.2)` in `sqlite_graph_store.ts` marks the spot).
+
 1. Implement `write_fields` as the single ladder-respecting write: per field, compare `TIER_RANK[current_owner]` against `TIER_RANK[as_tier]` (`json_extract`/`json_set` on `field_ownership` is the SQLite encoding of that engine-agnostic comparison); write the fields that pass, collect the rest into `skipped`.
 2. Route every producer through it — raw re-parse writes `as_tier='raw'`, the agentic pass `'agentic'`, user edits `'user'`. The agentic pass stamps a generated `description` agentic-owned so a later user edit can promote it.
 3. Implement `rebuild_layer(layer, write)`: in a transaction, delete the layer's rows plus any cache `table_disposition()` marks disposable (e.g. `anchor_resolution`), run `write`; higher tiers and their watermarked fields survive because the writer goes through `write_fields`.
