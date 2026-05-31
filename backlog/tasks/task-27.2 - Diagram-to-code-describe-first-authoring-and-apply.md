@@ -105,4 +105,20 @@ Serves `doc-5`'s "authority follows where you keep editing it." Authority lives 
 
 ## Implementation Notes
 
+### Inherited decision: a user-owned field must survive an agentic rebuild (from task-27.0.2 review)
+
+Section F owns "authority follows edits" — `user_layer.update` is the surface that claims a field as
+user-owned (e.g. promoting a dual-sourced `description`). A 10-agent review of task-27.0.2 surfaced a
+data-loss boundary this surface interacts with directly: the store tracks a row's structural `layer`
+separately from its per-field `field_ownership`, and `write_fields` promotes ownership without moving
+`layer`. `rebuild_layer` (the agentic pass / re-extraction) deletes by **layer**, so a user-owned
+field stranded on a `layer='agentic'` (or `'raw'`) row is **hard-deleted** when the rebuild writer
+does not re-emit that id — contradicting task-27.0's "agentic/user content is never hard-deleted."
+
+When this task writes a user-authored field, it must keep that field on a row whose `layer` survives
+the relevant rebuild (e.g. promote the row to `layer='user'` as authority moves), or the chosen fix
+must live in task-27.1 / task-27.0. See task-27.1's matching note and task-27.0.2's
+"Preservation boundary" note for the candidate mechanisms.
+
+
 <!-- Added when work begins. -->

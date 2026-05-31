@@ -363,11 +363,23 @@ export class SqliteGraphStore implements GraphStore {
 
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void {
     this.with_transaction(() => {
-      this.sql("DELETE FROM nodes WHERE layer = ?").run(layer);
-      this.sql("DELETE FROM edges WHERE layer = ?").run(layer);
+      // Nuke only this tier's LIVE rows. A soft-deleted (deleted_at set) agentic/user row is
+      // left untouched — neither hard-deleted nor un-flagged — so it stays restorable (AC#5).
+      // Higher-tier rows survive because they carry a different `layer`; and any higher-tier-owned
+      // field on a surviving row is protected by the write_fields ladder the writer goes through,
+      // not by an ownership re-check here.
+      this.sql("DELETE FROM nodes WHERE layer = ? AND deleted_at IS NULL").run(layer);
+      this.sql("DELETE FROM edges WHERE layer = ? AND deleted_at IS NULL").run(layer);
+      // Clear (DELETE the rows of) every cache the registry marks disposable (e.g. anchor_resolution)
+      // — DELETE, not DROP: the cache table survives, only its stale derived rows go. Read as DATA,
+      // never a hard-coded name list, so a newly-registered disposable cache is cleared with no code
+      // change here. Preserved tables (nodes/edges/...) are tagged non-disposable and skipped. The
+      // loop assumes every disposable-registered table exists (CREATE_SCHEMA_SQL creates them).
+      for (const { table } of this.table_disposition().filter((t) => t.disposable)) {
+        this.db.exec(`DELETE FROM "${table}"`);
+      }
       write(this);
     });
-    // TODO(task-27.0.2): nuke disposable caches per layer; watermark-driven incremental invocation.
   }
 
   schema_version(): number {

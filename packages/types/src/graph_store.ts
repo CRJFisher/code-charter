@@ -196,8 +196,9 @@ export interface GraphStore {
   table_disposition(): Array<{ table: string; disposable: boolean }>;
 
   /**
-   * Nuke the rows of `layer` (plus its disposable caches) and run `write` in a transaction;
-   * the ladder protects higher tiers. Re-parse => rebuild_layer('raw'); an explicit agentic
+   * Nuke the LIVE rows of `layer` plus every cache `table_disposition()` marks disposable, then
+   * run `write` in a transaction; the ladder protects higher tiers. A soft-deleted agentic/user
+   * row is left untouched (restorable). Re-parse => rebuild_layer('raw'); an explicit agentic
    * pass => rebuild_layer('agentic'). The user layer is never rebuilt.
    */
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void;

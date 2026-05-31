@@ -312,6 +312,206 @@ describe("SqliteGraphStore (:memory:)", () => {
   });
 });
 
+describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
+  let store: SqliteGraphStore;
+
+  beforeEach(() => {
+    store = new SqliteGraphStore(":memory:");
+  });
+
+  afterEach(() => {
+    store.close();
+  });
+
+  describe("ladder matrix: owner tier × writing pass (AC#1, AC#2, AC#6)", () => {
+    // Establish a field owned by `owner`, then attempt to rewrite it from a pass at `as_tier`.
+    // The write lands iff TIER_RANK[owner] <= TIER_RANK[as_tier]; otherwise it is skipped and
+    // the field is left unchanged. An "absent" owner is the raw-owned (rank 0) default.
+    const TIERS = ["raw", "agentic", "user"] as const;
+    const RANK: Record<(typeof TIERS)[number], number> = { raw: 0, agentic: 1, user: 2 };
+
+    function establish_owner(id: string, owner: "raw" | "agentic" | "user" | "absent"): void {
+      store.upsert_node(make_node({ id, anchor: null }));
+      if (owner === "absent") return; // a field absent from field_ownership is raw-owned (AC#1)
+      store.write_fields({ kind: "node", id }, { f: `${owner}-value` }, owner);
+    }
+
+    for (const owner of ["absent", ...TIERS] as const) {
+      for (const as_tier of TIERS) {
+        const owner_rank = owner === "absent" ? 0 : RANK[owner];
+        const should_write = owner_rank <= RANK[as_tier];
+        it(`${owner}-owned field, ${as_tier}-pass → ${should_write ? "overwrites + restamps" : "skips"}`, () => {
+          const id = `n.${owner}.${as_tier}`;
+          establish_owner(id, owner);
+          const result = store.write_fields({ kind: "node", id }, { f: `${as_tier}-value` }, as_tier);
+          const node = store.node(id);
+          if (should_write) {
+            expect(result.skipped).toEqual([]);
+            expect(node?.attributes.f).toBe(`${as_tier}-value`);
+            expect(node?.field_ownership.f).toBe(as_tier); // restamped to the writing tier
+          } else {
+            expect(result.skipped).toEqual(["f"]);
+            expect(node?.attributes.f).toBe(owner === "absent" ? undefined : `${owner}-value`);
+            expect(node?.field_ownership.f).toBe(owner); // ownership untouched
+          }
+        });
+      }
+    }
+  });
+
+  describe("dual-sourced description: raw-absent → agentic → user (AC#2)", () => {
+    it("stamps an agentic-generated description agentic-owned, lets a user edit promote it, then preserves it against both a raw re-parse and an agentic pass", () => {
+      store.upsert_node(make_node({ id: "fn", anchor: null }));
+      // description starts absent (raw-owned by default), not pre-stamped
+      expect(store.node("fn")?.field_ownership.description).toBeUndefined();
+
+      // agentic pass generates the default — stamped agentic-owned, NOT left raw-owned
+      store.write_fields({ kind: "node", id: "fn" }, { description: "agentic default" }, "agentic");
+      expect(store.node("fn")?.field_ownership.description).toBe("agentic");
+
+      // user edit promotes it to user-owned
+      store.write_fields({ kind: "node", id: "fn" }, { description: "hand-written" }, "user");
+      expect(store.node("fn")?.field_ownership.description).toBe("user");
+
+      // a raw re-parse cannot touch it
+      expect(store.write_fields({ kind: "node", id: "fn" }, { description: "raw" }, "raw").skipped).toEqual([
+        "description",
+      ]);
+      // and neither can a later agentic pass
+      expect(
+        store.write_fields({ kind: "node", id: "fn" }, { description: "agentic again" }, "agentic").skipped,
+      ).toEqual(["description"]);
+
+      expect(store.node("fn")?.attributes.description).toBe("hand-written");
+      expect(store.node("fn")?.field_ownership.description).toBe("user");
+    });
+  });
+
+  describe("rebuild_layer preserves higher tiers (AC#3)", () => {
+    it("rebuild('raw') nukes raw rows, recreates them, and leaves agentic + user rows untouched", () => {
+      store.upsert_node(make_node({ id: "raw_old", layer: "raw", anchor: null }));
+      store.upsert_node(make_node({ id: "agentic_n", layer: "agentic", anchor: null }));
+      store.upsert_node(make_node({ id: "user_n", layer: "user", anchor: null }));
+      store.upsert_edge(make_edge({ key: "raw_e", layer: "raw" }), [make_prov({ edge_key: "raw_e" })]);
+      store.upsert_edge(make_edge({ key: "agentic_e", layer: "agentic" }), []);
+
+      store.rebuild_layer("raw", (s) => {
+        s.upsert_node(make_node({ id: "raw_new", layer: "raw", anchor: null }));
+      });
+
+      expect(new Set(store.all_nodes().map((n) => n.id))).toEqual(new Set(["raw_new", "agentic_n", "user_n"]));
+      expect(store.all_edges().map((e) => e.key)).toEqual(["agentic_e"]); // only the raw edge was nuked
+      expect(store.provenance_for_edge("raw_e")).toEqual([]); // FK ON DELETE CASCADE fires inside the rebuild txn
+    });
+
+    it("rebuild('agentic') nukes agentic rows but leaves user rows untouched", () => {
+      store.upsert_node(make_node({ id: "raw_n", layer: "raw", anchor: null }));
+      store.upsert_node(make_node({ id: "agentic_old", layer: "agentic", anchor: null }));
+      store.upsert_node(make_node({ id: "user_n", layer: "user", anchor: null }));
+
+      store.rebuild_layer("agentic", (s) => {
+        s.upsert_node(make_node({ id: "agentic_new", layer: "agentic", anchor: null }));
+      });
+
+      expect(new Set(store.all_nodes().map((n) => n.id))).toEqual(new Set(["raw_n", "agentic_new", "user_n"]));
+    });
+
+    it("preserves a higher-tier-owned field on a surviving row the writer rewrites — via the write_fields ladder, no re-check in rebuild_layer", () => {
+      // An agentic-layer node survives rebuild('raw'); it carries a user-owned label and an
+      // agentic-owned description. The raw re-parse writer rewrites both through write_fields.
+      store.upsert_node(make_node({ id: "carrier", layer: "agentic", anchor: null }));
+      store.write_fields({ kind: "node", id: "carrier" }, { label: "user-label" }, "user");
+      store.write_fields({ kind: "node", id: "carrier" }, { description: "agentic-desc" }, "agentic");
+
+      store.rebuild_layer("raw", (s) => {
+        const { skipped } = s.write_fields(
+          { kind: "node", id: "carrier" },
+          { label: "raw-label", description: "raw-desc" },
+          "raw",
+        );
+        expect(new Set(skipped)).toEqual(new Set(["label", "description"]));
+      });
+
+      const carrier = store.node("carrier");
+      expect(carrier?.attributes.label).toBe("user-label");
+      expect(carrier?.attributes.description).toBe("agentic-desc");
+    });
+
+    it("an agentic-owned field is overwritten by an agentic pass while a user-owned field on the same row survives", () => {
+      // A user-layer node survives rebuild('agentic'); the agentic pass rewrites both fields.
+      store.upsert_node(make_node({ id: "row", layer: "user", anchor: null }));
+      store.write_fields({ kind: "node", id: "row" }, { description: "agentic-desc" }, "agentic");
+      store.write_fields({ kind: "node", id: "row" }, { label: "user-label" }, "user");
+
+      store.rebuild_layer("agentic", (s) => {
+        const { skipped } = s.write_fields(
+          { kind: "node", id: "row" },
+          { description: "fresh-agentic", label: "agentic-label" },
+          "agentic",
+        );
+        expect(skipped).toEqual(["label"]); // user-owned label is protected; description is not
+      });
+
+      const row = store.node("row");
+      expect(row?.attributes.description).toBe("fresh-agentic");
+      expect(row?.attributes.label).toBe("user-label");
+    });
+
+    it("protects a higher-tier-owned field on a surviving EDGE the writer rewrites (the {kind:'edge'} ladder branch)", () => {
+      store.upsert_edge(make_edge({ key: "carrier_e", layer: "user" }), []);
+      store.write_fields({ kind: "edge", id: "carrier_e" }, { note: "user-note" }, "user");
+
+      store.rebuild_layer("agentic", (s) => {
+        const { skipped } = s.write_fields({ kind: "edge", id: "carrier_e" }, { note: "agentic-note" }, "agentic");
+        expect(skipped).toEqual(["note"]);
+      });
+
+      expect(store.all_edges().find((e) => e.key === "carrier_e")?.attributes.note).toBe("user-note");
+    });
+  });
+
+  describe("rebuild_layer consults table_disposition() as data (AC#4)", () => {
+    it("calls table_disposition() rather than a hard-coded name list on every rebuild", () => {
+      const spy = jest.spyOn(store, "table_disposition");
+      store.rebuild_layer("raw", () => {});
+      store.rebuild_layer("agentic", () => {});
+      expect(spy).toHaveBeenCalledTimes(2);
+      spy.mockRestore();
+    });
+
+    it("clears exactly the tables the returned data marks disposable — the data drives the DELETE", () => {
+      // A user-layer node survives the layer-scoped delete of an agentic rebuild. But if the
+      // disposition data marks `nodes` disposable, the registry-driven clear loop deletes it —
+      // proving the loop honors the returned flag rather than a hard-coded name. This would fail
+      // if rebuild ignored the data (the user node would survive).
+      store.upsert_node(make_node({ id: "survivor", layer: "user", anchor: null }));
+      const spy = jest.spyOn(store, "table_disposition").mockReturnValue([{ table: "nodes", disposable: true }]);
+      store.rebuild_layer("agentic", () => {});
+      expect(store.all_nodes()).toEqual([]); // cleared only because the data said nodes is disposable
+      spy.mockRestore();
+    });
+  });
+
+  describe("rebuild_layer leaves soft-deleted higher-tier rows restorable (AC#5)", () => {
+    it("does not hard-delete or un-flag a soft-deleted agentic row, and it restores after the rebuild", () => {
+      store.upsert_node(make_node({ id: "gone", layer: "agentic", anchor: null }));
+      store.soft_delete({ kind: "node", id: "gone" });
+      const deleted_at = store.all_nodes({ include_deleted: true }).find((n) => n.id === "gone")?.deleted_at;
+      expect(deleted_at).not.toBeNull();
+
+      store.rebuild_layer("agentic", () => {});
+
+      // still present, still soft-deleted (flag untouched), and still hidden from the live read
+      expect(store.node("gone")).toBeUndefined();
+      const after = store.all_nodes({ include_deleted: true }).find((n) => n.id === "gone");
+      expect(after?.deleted_at).toBe(deleted_at);
+
+      store.restore({ kind: "node", id: "gone" });
+      expect(store.node("gone")?.id).toBe("gone");
+    });
+  });
+});
+
 describe("open_graph_store factory", () => {
   it("returns a working SQLite-backed store on a supported host", () => {
     const store = open_graph_store(":memory:");
@@ -430,6 +630,64 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     expect(reopened.all_edges().map((e) => e.key)).toEqual(["keep_e"]);
     expect(reopened.provenance_for_edge("keep_e")).toHaveLength(1);
     reopened.close();
+  });
+
+  it("rebuild_layer clears every disposable cache (incl. one registered after seeding) as data, preserving the tables themselves and registered-preserved caches (AC#3, AC#4)", () => {
+    const path = temp_db_path();
+    const store = new SqliteGraphStore(path);
+    store.upsert_node(make_node({ id: "raw_n", layer: "raw", anchor: null }));
+    store.upsert_node(make_node({ id: "agentic_n", layer: "agentic", anchor: null }));
+    store.close();
+
+    // seed three caches out-of-band: the built-in disposable one, a SECOND disposable table
+    // registered after seeding, and a preserved (disposable=0) table — proving rebuild clears
+    // exactly the tables the registry data marks disposable, not a hard-coded name.
+    const seed = new DatabaseSync(path);
+    seed.prepare("INSERT INTO anchor_resolution (anchor, status, resolved_at) VALUES (?, ?, ?)").run("a:h", "hit", "t");
+    seed.exec("CREATE TABLE scratch_cache (id TEXT PRIMARY KEY)");
+    seed.prepare("INSERT INTO table_registry (table_name, disposable) VALUES (?, ?)").run("scratch_cache", 1);
+    seed.prepare("INSERT INTO scratch_cache (id) VALUES (?)").run("clear-me");
+    seed.exec("CREATE TABLE kept_cache (id TEXT PRIMARY KEY)");
+    seed.prepare("INSERT INTO table_registry (table_name, disposable) VALUES (?, ?)").run("kept_cache", 0);
+    seed.prepare("INSERT INTO kept_cache (id) VALUES (?)").run("keep-me");
+    seed.close();
+
+    const reopened = new SqliteGraphStore(path);
+    reopened.rebuild_layer("raw", () => {});
+    expect(reopened.all_nodes().map((n) => n.id)).toEqual(["agentic_n"]); // raw nuked, agentic preserved
+    reopened.close();
+
+    const check = new DatabaseSync(path);
+    // both disposable caches emptied but their tables still exist (DELETE, not DROP)
+    expect((check.prepare("SELECT COUNT(*) AS n FROM anchor_resolution").get() as { n: number }).n).toBe(0);
+    expect((check.prepare("SELECT COUNT(*) AS n FROM scratch_cache").get() as { n: number }).n).toBe(0);
+    // the registered-preserved cache survives untouched
+    expect(check.prepare("SELECT id FROM kept_cache").all()).toEqual([{ id: "keep-me" }]);
+    check.close();
+  });
+
+  it("rolls back the disposable-cache clear when the rebuild writer throws (AC#3 atomicity)", () => {
+    const path = temp_db_path();
+    new SqliteGraphStore(path).close();
+
+    const seed = new DatabaseSync(path);
+    seed.prepare("INSERT INTO anchor_resolution (anchor, status, resolved_at) VALUES (?, ?, ?)").run("a:h", "hit", "t");
+    seed.close();
+
+    const store = new SqliteGraphStore(path);
+    store.upsert_node(make_node({ id: "raw_n", layer: "raw", anchor: null }));
+    expect(() =>
+      store.rebuild_layer("raw", () => {
+        throw new Error("boom");
+      }),
+    ).toThrow("boom");
+    // both the row delete and the cache clear are rolled back together
+    expect(store.all_nodes().map((n) => n.id)).toEqual(["raw_n"]);
+    store.close();
+
+    const check = new DatabaseSync(path);
+    expect((check.prepare("SELECT COUNT(*) AS n FROM anchor_resolution").get() as { n: number }).n).toBe(1);
+    check.close();
   });
 
   it("drops a disposable table registered after seeding on a version mismatch", () => {
