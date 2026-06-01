@@ -26,10 +26,10 @@ priority: low
 
 Two real jobs, neither on the v1 critical path:
 
-1. **Flow-chunking input:** when a single detected flow (task-27.1.5) is too large to read legibly, semantic clustering of the flow's members gives the key-control-flow agent (task-27.1.7) extra signal for how to "chunk up" the flow into sub-groups — behind two cheaper deterministic inputs already available: the file/dir scaffold and call-graph topology.
+1. **Flow-chunking input:** when a single detected flow (task-27.1.6) is too large to read legibly, semantic clustering of the flow's members gives the key-control-flow agent (task-27.1.7) extra signal for how to "chunk up" the flow into sub-groups — behind two cheaper deterministic inputs already available: the file/dir scaffold and call-graph topology.
 2. **Refactoring signal (task-27.2):** clusters that cut across the given directory structure reveal where the code's organization has drifted from its behaviour — a diagram→code "this should be reorganized" candidate.
 
-If non-deterministic flow re-detection (task-27.1.5) needs the stable anchor-set-hash + ≥50% overlap remap identity scheme, that scheme is built where it is needed (task-27.1.3/27.1.5), not here — this task owns only the clustering algorithm.
+If non-deterministic flow re-detection (task-27.1.6) needs the stable anchor-set-hash + ≥50% overlap remap identity scheme, that scheme is built where it is needed (task-27.1.3/27.1.6), not here — this task owns only the clustering algorithm.
 
 <!-- SECTION:DESCRIPTION:END -->
 

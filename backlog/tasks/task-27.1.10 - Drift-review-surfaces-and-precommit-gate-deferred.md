@@ -33,8 +33,8 @@ It is deferred because the leaner v1 deliberately omits the review apparatus (th
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 Hook→surface map (`SessionStart` banner, `UserPromptSubmit` nudge, `/drift` walkthrough); graceful degradation where a host lacks a primitive (MCP-pull read fallback)
-- [ ] #2 A single **PreCommit git-hook gate** firing only for structural/intent drift (per task-27.1.9's classifier) touching staged files; never cosmetic; `--no-verify` bypass; fire/no-fire matrix test — the one deliberate interruption (added only if/when review is wanted; v1 has none)
+- [ ] #1 Hook→surface map (`SessionStart` read-only outstanding-drift banner, `/drift` walkthrough); graceful degradation where a host lacks a primitive (MCP-pull read fallback). The v1 auto-sync trigger is the **Stop hook only** (task-27.1.6); these review surfaces are additive read/walkthrough surfaces, not new auto-sync triggers
+- [ ] #2 A single **PreCommit git-hook gate** — a hook **distinct from v1's Stop-hook auto-sync trigger** — firing only for structural/intent drift (per task-27.1.9's classifier) touching staged files; never cosmetic; `--no-verify` bypass; fire/no-fire matrix test — the one deliberate interruption (added only if/when review is wanted; v1 has none)
 - [ ] #3 If a lifecycle/observation store is needed for the inbox, it is declared additively (CREATE TABLE … IF NOT EXISTS in `CREATE_SCHEMA_SQL` + a `TABLE_REGISTRY_SEED` entry, `disposable:false`) — no `ALTER`
 - [ ] #4 A change-scoped comprehension summary groups a change-set's drift into one behaviour-level narrative
 
