@@ -5,16 +5,15 @@ status: To Do
 assignee: []
 created_date: "2026-05-24 12:09"
 labels: []
-dependencies:
-  - TASK-22
-  - TASK-23
-  - TASK-24
+dependencies: []
 priority: high
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+
+> **Archived (superseded by task-27.1).** The core idea — the developer's existing file as the first parent layer above function/method leaves, with directory rollups above — was folded directly into the task-27.1 comprehension map: the file-module tier in **task-27.1.2** and directory rollups + a one-function `ModuleResolver` seam in **task-27.1.3**, both as a deterministic GROUP-BY over the file already encoded in each leaf anchor (`<file_path>#<name>:<kind>`). The rest of this task — the Files/Clusters segmented-control toggle, the per-user/per-workspace `defaultModuleView` setting, last-selection memory, mode-namespaced positions, and the deferred Compare view — was tied to the per-entrypoint call-tree experience and is not part of the whole-repo map, so it is not carried forward.
 
 Today the chart shows a single 'module' grouping derived from semantic clustering (clustering-tfjs on docstring embeddings + call-graph adjacency). This conflates two distinct things: the modules the developer already wrote (files) and the modules an analysis tool would suggest. Showing only the suggested grouping hides the comparison that makes the tool actually useful — when the two diverge, that gap is a refactoring signal.
 

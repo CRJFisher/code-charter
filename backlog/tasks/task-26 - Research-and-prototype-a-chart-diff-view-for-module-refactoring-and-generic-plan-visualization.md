@@ -7,8 +7,7 @@ status: To Do
 assignee: []
 created_date: "2026-05-24 12:10"
 labels: []
-dependencies:
-  - TASK-25
+dependencies: []
 priority: medium
 ---
 

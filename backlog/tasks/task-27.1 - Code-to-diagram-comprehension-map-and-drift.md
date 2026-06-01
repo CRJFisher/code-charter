@@ -1,6 +1,6 @@
 ---
 id: TASK-27.1
-title: "Code to diagram: comprehension map and drift"
+title: "Code to diagram: flow comprehension and drift"
 status: To Do
 assignee: []
 created_date: "2026-05-29"
@@ -13,10 +13,11 @@ labels:
   - sub-agents
   - ui
   - consistency
+  - flows
 dependencies:
   - task-27
   - task-27.0
-  - task-21.1
+  - task-27.0.1
   - task-21.2
 parent_task_id: TASK-27
 references:
@@ -28,31 +29,58 @@ priority: high
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 
-The code→diagram half of the Diagram-Driven Development capstone. Everything that flows **from the code to the diagram**: building the whole-repo comprehension map on first analysis, and keeping it honest as code changes afterwards.
+The code→diagram half of the Diagram-Driven Development capstone: building the comprehension diagram from the code, and keeping it honest as code changes.
 
-Serves `doc-5`'s "The whole repo is one zoomable map, built for comprehension" and "From the code to the diagram: drift surfaces for review", and delivers the capstone's first milestone (a renamed script re-syncs with its hand-written description carried along).
+**The v1 unit is a _flow_.** A flow is an agent-detected **functionality umbrella** that links one or more Ariadne call-graphs together with documentation. v1 surfaces flows as a **left-panel selector** (replacing the current entrypoint list); selecting a flow renders it as its own connected diagram. The dominant use-case v1 serves is **quickly understanding the essence of a code-tree**. This is a deliberate v1 scoping of doc-5's "the whole repo is one zoomable map": a flow is the **tiling block** of that map, surfaced one-at-a-time first; the global zoomable map is the post-v1 composition of flows (task-27.1.12), not abandoned.
 
-Builds on the shared custom graph model (task-27.0): the derived/custom layering, the preservation guarantees, and the anchor resolver. This task adds the code→diagram direction — building the comprehension map from that model, and keeping it in sync as code changes. The keeping-in-sync job is a **diff signal**: when code changes, detect which higher-level (custom-layer) nodes the edit affects, flag it, and reconcile without blocking the developer's flow. The diagram→code direction is task-27.2.
+The organizing axis is the **seam** task-27.0 already drew by cost-of-regeneration: **deterministic** substrate (Ariadne call/import edges, the function→file→directory scaffold, literal doc/frontmatter edges, entrypoint roots — free, objective) vs **agent-detected** structure (the flow boundary, its label, bridge edges across call-graphs, doc attachment, and later the salience of key control flow — expensive, subjective, goal-dependent). The agent-detected layer is the L1 agentic tier; v1 fixes one detection goal ("essence of a code-tree") so the work is specifiable.
 
-The diagram here is **read-only for authoring**: it presents the comprehension map and surfaces drift for review (accept / dismiss / reattach), but the user does not restructure it. The one layout mutation is node positioning, delegated to task-22. All authoring edits — relabel, group, move, describe-to-restructure, pin/unpin — are the diagram→code direction and live in task-27.2. The architecture built here must leave a clean seam for that later work without baking in read-only assumptions; the seam invariants that keep task-27.2 purely additive are in section G, established by a forward-compatibility review.
+Builds on the shared custom graph model (task-27.0): the layering, the preservation guarantees, and the anchor resolver. The keeping-in-sync job is a **diff signal scoped to a flow's membership**: when a flow's code/docs change, detect it and reconcile **out-of-band** via a background sub-agent so the developer's session is never interrupted. The diagram→code direction is task-27.2.
+
+The diagram here is **read-only for authoring**: it presents flows and surfaces drift for review (accept / dismiss / reattach); the user does not restructure it. The one layout mutation is node positioning (task-22). All authoring edits live in task-27.2; the seam invariants that keep task-27.2 purely additive are in section G.
 
 <!-- SECTION:DESCRIPTION:END -->
+
+## Decomposition into sub-tasks
+
+<!-- SECTION:DECOMPOSITION:BEGIN -->
+
+Thirteen sub-tasks, numbered in **completion order** (every dependency points to a lower number). The **v1 critical path** is `27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 27.1.5 → 27.1.6`; v1 ships there. 27.1.9 (key-control-flow) is the first add-on; 27.1.10–27.1.13 are follow-ups / deferred.
+
+| Sub-task | Pri | Scope | Depends on |
+| -------- | --- | ----- | ---------- |
+| **27.1.1** | high | **Infra substrate** — `drift` MCP server (`drift.resolve`/`drift.list`, audited); single named agent-invocation entry point supporting **fire-and-forget background sub-agents** (write via tools, return nothing — no context rot); `.claude` hook installer (host-keyed install target) + degradation matrix. | task-27.0 |
+| **27.1.2** | high | **Preservation fix + adapter + rename milestone** — `write_fields` promotes row `layer` to `user`; single `re_extract(file_set, origin)`; `CustomGraph`→React Flow adapter rendering **one bounded subgraph**; position-preserving `apply_hierarchical_layout`; file/dir GROUP-BY scaffold; the doc-5 rename milestone (leaf-only). | 27.1.1 |
+| **27.1.3** | high | **Flow entity + stub flows + selector UI + per-flow render** — `agentic.flow` group node (subgraph-induced membership) with stable identity; deterministic stub flow set; left-panel flow selector **replacing entrypoints**; auto-select & render the top-ranked flow. | 27.1.2 |
+| **27.1.4** | high | **Agentic substrate** — gap-detection (seeds flow boundaries), registry-shaped + entrypoint→doc inference on the `agent.inferred` lane, deterministic-first descriptions; emits the candidate-seed/bridge material skill A consumes. | 27.1.1, 27.1.3 |
+| **27.1.5** | high | **Flow-detection skill A** (critical path) — a SKILL that links call-graphs + docs under a functionality umbrella, upgrading the stub flows in place; **first target = visualise a skill's flow** (task-21.2 corpus); runs as a **background sub-agent** (hook-triggered, updates via tools, returns nothing). | 27.1.3, 27.1.4, task-21.2 |
+| **27.1.6** | high | **Per-flow drift engine** — two-phase verify-then-update diff scoped to flow membership; `drift_observations`/`drift_adjudications` tables; leaf→flow up-propagation; re-attachment bin (extended to flow split/merge). **[v1 SHIPS HERE]** | 27.1.1, 27.1.3 |
+| **27.1.7** | medium | **Drift triage sub-agent** (per-flow) + cosmetic/intent classifier decision table + the typed generic `TriageSubject`/`TriageVerdict` contract (task-27.2 reuses unchanged). | 27.1.1, 27.1.6 |
+| **27.1.8** | medium | **Delivery surfaces + PreCommit git gate** (fires only for still-open structural/intent drift touching staged files) + change-scoped comprehension summary. | 27.1.6, 27.1.7 |
+| **27.1.9** | high | **Key-control-flow skill B** (the first add-on) — over ONE flow, select & rank the **key** decisions (golden paths), suppress incidental control flow; shaped nodes + semantic edge labels; agent-inferred, not ariadne-gated. | 27.1.4, 27.1.5 |
+| **27.1.10** | medium | _(folded from task-21)_ **Portable skill-bundle distribution** — second-host (Cursor) parity for the skill bundles without translation code. | 27.1.1, 27.1.5, 27.1.6 |
+| **27.1.11** | low | _(deferred)_ **Clustering as a flow-chunking input + task-27.2 refactoring signal** — the former clustering core, demoted to an optional input behind the file/dir scaffold + call-graph topology. | 27.1.9 |
+| **27.1.12** | low | _(deferred)_ **Whole-repo zoomable map** — the post-v1 composition of flows over the file/dir scaffold with N-tier budget zoom; realizes doc-5's "one zoomable map". | 27.1.3, 27.1.11 |
+| **27.1.13** | low | _(deferred, ariadne repo)_ **Ariadne precision add-on** — `block_kind`/`condition_text`/`argument_texts`; sharpens skill B at higher confidence; gates nothing. | — (upstream) |
+
+<!-- SECTION:DECOMPOSITION:END -->
 
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 The whole repo renders as one connected diagram with a dynamic number of zoom levels, each level within the max-complexity budget, reusing the existing cluster/zoom machinery
-- [ ] #2 Each level is grouped by what code does (behaviour), not where it lives, and every node carries a human-readable description — a default behaviour summary is generated for every node on first analysis and is overridable by the user (watermark wins)
-- [ ] #3 Agent-inferred edges (gap-filled calls, inferred entrypoint→doc links) render visually distinct from literal-extracted edges and are click-through-explained; accept/reject is persisted and never re-proposed
-- [ ] #4 The diagram re-renders when code or docs change (not necessarily instantly)
-- [ ] #5 Code→diagram drift is detected on code/doc change and surfaced **without blocking the editing session** — inserted as an observation row, not fired as a blocking event
-- [ ] #6 Drift items move through `open → triaged → resolved | dismissed | auto-archived` and are scoped by graph-proximity so the inbox stays tolerable; a dismissed item is not re-surfaced
-- [ ] #7 The single intentional blocking interruption is a PreCommit gate that fires only for still-open structural/intent drift (changed call structure, removed entrypoint, rename) touching files in the commit — never for cosmetic drift, and never for already-resolved/dismissed drift
-- [ ] #8 Code→diagram resolution is exposed as a named, auditable MCP write (`drift.resolve`); resolution is agent-callable and inspectable
-- [ ] #9 A customization that fails the resolver chain (task-27.0) is surfaced in a recoverable re-attachment bin where the user reattaches or deletes it — never silently auto-pruned (the preservation guarantee itself is task-27.0)
-- [ ] #10 First milestone: a script renamed in the code is reported as one drifted node on session open; accepting it re-renders the diagram onto the renamed script with the hand-written description carried along, untouched
-- [ ] #11 The architecture honors task-27.0's model reservations and the local seams in section G, so task-27.2 (diagram→code) can be added without a schema migration, a `render()` signature change, a sub-agent redesign, or a layout-entry-point refactor
+- [ ] #1 The webview presents a **left-panel flow selector** that replaces the entrypoint list; each flow is an agent-detected functionality umbrella (subgraph-induced: seed entrypoints + bridge edges + linked docs) rendered as its own connected diagram; on open, the top-ranked flow is auto-selected and rendered
+- [ ] #2 Every node carries a human-readable description — a deterministic docstring where present, an agentic default otherwise, overridable by the user (watermark wins)
+- [ ] #3 Agent-inferred links (cross-call-graph bridges, inferred entrypoint→doc) render visually distinct from literal-extracted edges and are click-through-explained; accept/reject is persisted and never re-proposed
+- [ ] #4 A flow's diagram re-renders when its code/docs change (out-of-band, not necessarily instantly)
+- [ ] #5 Per-flow code→diagram drift is detected on code/doc change and surfaced **without blocking the editing session** — inserted as an observation row, scoped by flow membership
+- [ ] #6 Drift items move through `open → triaged → resolved | dismissed | auto-archived`; a dismissed item is not re-surfaced
+- [ ] #7 The single intentional blocking interruption is a PreCommit gate that fires only for still-open structural/intent drift touching files in the commit — never for cosmetic, never for already-resolved/dismissed drift
+- [ ] #8 Code→diagram resolution is exposed as a named, auditable MCP write (`drift.resolve`); agent-callable and inspectable
+- [ ] #9 A customization that fails the resolver, or a flow split/merge that strands a user-given name/pin, is surfaced in a recoverable re-attachment bin — never silently auto-pruned (the preservation guarantee itself is task-27.0)
+- [ ] #10 First milestone: a renamed script is reported as one drifted node on session open; accepting carries the hand-written description across, untouched — validated first on a skill's flow (code + docs colocated)
+- [ ] #11 Diagram maintenance (flow detection, drift reconciliation) runs as a **background sub-agent**: hook-triggered, updates the diagram via MCP tool calls, returns nothing to the main session (no context rot); the user continues uninterrupted
+- [ ] #12 The architecture honors task-27.0's reservations and the section-G seams, so task-27.2 (diagram→code) **and** the deferred whole-repo map (task-27.1.12) are additive — no schema migration, no `render()` signature change, no sub-agent redesign, no layout-entry-point refactor
 
 <!-- AC:END -->
 
@@ -60,85 +88,42 @@ The diagram here is **read-only for authoring**: it presents the comprehension m
 
 <!-- SECTION:PLAN:BEGIN -->
 
-### A. Whole-repo zoom from a max-complexity budget
+Detail lives in the sub-tasks; this fixes the cross-cutting shape.
 
-Serves `doc-5`'s "one zoomable map" capability and task-21.2 AC#10.
+### A. The flow as the v1 unit (task-27.1.3, task-27.1.5)
 
-- **Zoom levels computed from a budget**, not hand-authored: bottom-up hierarchical clustering cut into tiers, reusing the existing cluster machinery (not new layout).
-  1. Start from the post-processed graph (leaves = functions/docs/scripts); connectivity end-to-end is delivered by section B's gap-filling.
-  2. Run existing clustering (graph-proximity / community detection over Ariadne + doc edges — the same proximity used for drift scoping in section C) to produce a containment dendrogram.
-  3. Single tunable knob: `MAX_COMPLEXITY_PER_LEVEL` (node+edge count or an ELK density score).
-  4. Cut the dendrogram top-down: a cluster becomes its own zoom level when expanding it in place would exceed the budget; otherwise its children render inline. The _number of levels_ is emergent from repo size/density; each rendered view stays within budget. The top tier reads as the system's architecture, intermediate tiers as functional groups, and the leaf tier as individual functions and their docs — the architecture-to-function spectrum doc-5 calls for.
-  5. Persist tier assignment (keyed on graph content hash) so placement is stable across drill-in/out — don't re-cluster per interaction.
-- **Grouped by behaviour:** clusters and node descriptions present _what the code does_, so a level reads as a story about behaviour, not a directory listing.
+The left-panel **flow selector replaces entrypoints**. A flow = the subgraph **induced** by `{seed entrypoint roots} + {agent-inferred bridge edges across those trees} + {linked docs}` (decided: subgraph-induced, so the agent judges only the seam — cross-tree linkage and doc attachment — while the deterministic call-graph fills each tree's interior). It persists as an `agentic.flow` group node + `agentic.contains`/`agentic.inferred` edges, riding task-27.0's open `kind`/attributes with no schema change. A **deterministic stub flow set** (one flow per entrypoint's reachable call-graph) ships the selector + render *before* the agent lands; **flow-detection skill A** upgrades the stubs in place. On open, the **top-ranked flow auto-renders** (the decided landing view). The **first end-to-end target is a Claude Code skill's flow** — a deterministically-bounded flow (task-21.2's extractors) where the agent's judgement is near-zero — proving the entity + UX + render before arbitrary-repo detection.
 
-### B. Agentic post-processing pipeline (batch, run-when-asked)
+### B. The deterministic/agentic seam + background-sub-agent execution (task-27.1.4, task-27.1.5)
 
-Closes the gaps static analysis can't, so the map is connected end to end.
+Flow detection and key-control-flow are agentic-tier work on the `extractor='agent.inferred'` lane (lower confidence, `inference_rationale`, click-through). **Execution model (decided):** a host hook detects a stale flow and emits a "spawn sub-agent X as a background task" instruction; the sub-agent does the work, **updates the diagram via MCP tool calls, and returns nothing to the main session** — the diagram self-heals out-of-band, the session's context stays clean, the user is uninterrupted. This is doc-5 section-E's "spawned, not inline" pattern as the canonical diagram-maintenance model.
 
-1. Raw extraction (existing): Ariadne code edges + literal doc/frontmatter edges with provenance.
-2. **Gap detection** (cheap, deterministic, pre-agent): query for entrypoints with no incident doc edge, unresolved call-sites / low out-degree at dynamic-dispatch shapes, and disconnected components. This _scopes_ the agent so cost is bounded.
-3. **Entrypoint→doc inference:** hand the agent the entrypoint + candidate docs ranked by the existing relevance scoring; it proposes a link with rationale.
-4. **Call-edge gap-filling (v1 = registry-shaped only):** the agent reads explicit string→symbol maps (route tables, `meta.json sub_agents[]`, listener registries) and emits resolved edges. No arbitrary reflection in v1.
-5. **Default node descriptions:** the post-processing agent emits a one-line behaviour summary per function/cluster node as an extractor-owned `description`, so every node reads as behaviour on first analysis without anyone hand-authoring it. These are lower-confidence and watermark-overridable: a user edit claims the field as user-owned (per task-27.0's dual-sourced `description`), after which re-extraction never overwrites it.
-6. **Write-back:** inferred edges land with a distinct `extractor` value (`agent.inferred`), lower `confidence`, and an `inference_rationale`, so render styles them dashed and offers click-through to the originating source span/registry entry (via `edge_provenance.source_range`). Edges go in the extractor/agent layer; accept/reject adjudications persist in the user layer keyed by anchor (reusing the watermark + anchor chain) so they survive re-runs and are never re-proposed.
+### C. Per-flow drift (the diff signal) (task-27.1.6)
 
-- **Inferred-vs-literal render:** same schema, distinct `extractor`/`confidence`. Render maps `confidence`/`extractor` to edge style (solid vs dashed/tinted). Zoom boxes aggregate a "gaps inside" count from the inferred-edge and orphan-entrypoint queries.
-- **v1 vs ideal:** v1 reuses clustering wholesale and only adds the budget-driven cut + tier persistence; restricts the agent to registry-shaped gaps + entrypoint→doc (highest payoff-to-cost), leaving harder dynamic dispatch as visible dead-ends; batch / run-when-asked. Ideal = arbitrary dynamic resolution, incremental re-inference, tuned per-tier layout — deferred.
+When a flow's code/docs change, re-resolve affected anchors through task-27.0's resolver and diff against the stored graph; a flow's **membership is the proximity boundary** (replacing repo-wide hop-distance). Two-phase verify-then-update; leaf→flow up-propagation over `agentic.contains`; preserved `drift_observations`/`drift_adjudications` tables; adjudications as user-layer rows so a dismissed item never re-surfaces; re-attachment bin extended to flow split/merge.
 
-### C. Drift inbox + code→diagram sync (the diff signal)
+### D. Surfacing + triage (task-27.1.7, task-27.1.8)
 
-Serves `doc-5`'s "drift surfaces for review".
+Hook→surface map (`SessionStart` banner, `UserPromptSubmit` nudge, `/drift` walkthrough, `PostToolUse`/`Stop` fire the engine); graceful degradation where a host lacks a primitive (MCP pull is the universal read fallback). The single deliberate block is the **PreCommit git gate** for still-open structural/intent drift. Triage is the out-of-band sub-agent with the cosmetic/intent classifier and the **typed generic `TriageSubject`/`TriageVerdict`** contract task-27.2 reuses.
 
-The core of this task: when code changes, a **diff signal** identifies which higher-level (custom-layer) nodes the edit affected — computed by re-resolving the affected anchors through task-27.0's resolver and diffing against the stored graph. The signal flags the change without blocking the developer; reconciliation happens out-of-band (section E) so the main agent keeps working.
+### E. Key-control-flow (task-27.1.9 — first add-on)
 
-- **Drift as inserted rows, not events:** the consistency-engine hooks `INSERT` observation rows; nothing blocks mid-edit. Items run `open → triaged → resolved | dismissed | auto-archived(180d)`. The drift row carries an open-valued `origin` (per task-27.0); this task only ever writes `code-change`.
-- **Two-phase consistency loop (verify then update):** on edit, compute edge incidence on the changed files, re-run extractors _only_ on those files, diff new-vs-stored edge sets keyed by `(source_file, source_range, extractor)`, surface obligations against the _old_ graph, then write the update in a second phase. Invalidation triggers: file edits, symbol renames, doc deletions, heading-anchor changes.
-- **Separate literal vs LLM caches:** literal edges (identifier mentions, path literals, frontmatter, hyperlinks, `@see`) recompute eagerly keyed by file content hash; LLM-inferred edges cache aggressively and invalidate only when the specific prose span (`referenced_span_hash`) or target symbol changes — same schema, distinct `extractor_id` / `confidence`.
-- **Relevance scoring (inbox stays tolerable, scoped to your current work):** drift items are scored by **Ariadne graph-proximity** — structural distance over the existing edge graph. Proximity is measured from the files in the current session's working set (recently edited / open / referenced in the active prompt), not from every changed file globally, so the inbox reflects _your current work_ rather than repo-wide churn. Items below a proximity threshold are not surfaced. This reuses the same proximity notion the clustering uses (section A), keeping one definition of "near."
-- **MCP write:** `drift.resolve(id, ...)` writes the chosen resolution back (re-anchor an orphaned description, rewrite stale prose, prune an orphan, adjudicate a fuzzy conflict).
-- **Re-attachment bin (the repair UX for a broken anchor):** when task-27.0's resolver reports a miss for a customization, this task surfaces it in a re-attachment bin — it waits there, recoverable, until the user reattaches it (via `drift.resolve` re-anchor) or deletes the element. The preservation guarantee itself (never auto-pruned; soft-deleted and restorable; never purged by re-extraction) is task-27.0's; this task owns only the surfacing and the reattach/delete actions.
-- **v1 vs ideal:** v1 invalidation deletes/marks-stale every edge whose `source_file` is in the changed set (`invalidate_edges_for_files`). Reverse-incidence invalidation (a renamed symbol invalidating docs that mention it) is deferred — full re-extraction covers it at v1 scale.
+Over one flow, the agent selects and ranks the **key** decisions (golden paths) and suppresses incidental control flow — *selection, not exhaustion*. This converts v1 from "renders the flow" to "renders the essence of the flow." Agent-inferred over the existing call graph + source; **not** gated on the ariadne add-on (task-27.1.13).
 
-### D. Drift surfacing (when to show it)
+### F. Forward-compatibility seams (keeping task-27.2 and the deferred map additive)
 
-Serves `doc-5`'s hardest open question — "when to surface drift without it feeling like paperwork." The candidate answers:
+The model-level reservations live in task-27.0 (open `origin`/`intent_source`, per-table preserved/disposable tag, the resolver's full state tuple, the open ordered render-layer list, the named-write/audit path). Local seams:
 
-- **Hook → surface mapping:**
-  - `SessionStart` → punch-list banner (outstanding drift count + top items).
-  - `UserPromptSubmit` → one-line scoped nudge when the prompt mentions a file with relevant drift.
-  - `/drift` slash command → user-invoked side-by-side walkthrough.
-  - `PreCommit` → blocking ack gate, only for drift the triage classifier (section E) marks as **structural/intent** — a changed call structure, a removed entrypoint, an identifier-shaped rename — never for cosmetic drift (a reflowed description, a moved line). It fires only when such drift is still in state `open | triaged` (not yet resolved/dismissed) and touches files in the commit, so an already-acknowledged drift never re-blocks. ("Consequential" in doc-5 == structural per section E; this is the only deliberate interruption.)
-  - `PostToolUse` / `Stop` / `FileChanged` → fire the consistency engine (the producers of drift rows).
-- **Graceful degradation across hosts:** the live surfaces above assume host hook primitives. Where a host lacks one (e.g. no `SessionStart` on Cursor), the live banner degrades to a user-invoked surface — the `/drift` slash command, or an MCP pull of outstanding drift — so the experience persists without the live push. The MCP server is the universal fallback for the write tools; this is the fallback for the read surfaces.
-- **Realtime approximations (deferred ideal):** a true two-way push isn't supported by current Claude Code primitives. Two approximations: (1) **MCP-tool-as-long-poll** — the agent parks in `await_user_edit`, the MCP server blocks on SSE/long-poll until the UI pushes, then returns; requires the agent voluntarily parked. (2) **`FileChanged` / `Stop` hook + headless re-invoke** — when the agent isn't parked, a hook shells out (`claude -p "<event>"`) to start a fresh turn carrying the event. v1 uses the batched surfaces above; the realtime channel is the ideal.
+- **Re-extraction is a single named in-process entry point taking `(file_set, origin)`** — host hooks call it `origin=code-change`; task-27.2's apply calls it `origin=apply`; no refactor.
+- **`apply_hierarchical_layout` honors caller-supplied fixed positions** (landed in task-27.1.2) so task-27.2 supplies before-positions for stable diffs.
+- **Provenance click-through is driven off React Flow selection state**, leaving selection a fan-out signal a later review mode subscribes to.
+- **`kind` stays open everywhere** — flow / CFG / data-flow content lands as new namespaced kinds (`agentic.flow`, `cfg.block`, `flow.decision`, `data.flow`) + attributes-bag fields, never a schema column or `ALTER`; the open render-layer list reserves a data-flow layer slot.
+- **The render/level-projection seam is generic** — the per-flow render is one containment-source view, so the deferred whole-repo map (task-27.1.12) and key-control-flow (task-27.1.9) plug into the same `render()` without a signature change or a parallel render stack.
+- **The hook installer abstracts its install target** behind a host-keyed layout so cross-tool portability (task-27.1.10) adds a layout entry, not a refactor.
 
-### E. Drift triage — out-of-band, so the main agent keeps working
+### G. Deferred (post-v1)
 
-Serves `doc-5`'s "the agent resolves trivial drift itself and escalates only the architectural."
-
-- **Spawned, not inline:** when the diff signal (section C) fires, the main agent is flagged and can hand reconciliation to a **triage sub-agent** (a Sonnet sub-agent is the right tier — cheap, capable, parallelizable) so the main agent continues its regular work uninterrupted. The sub-agent reconciles drift and reports back; it does not block the session.
-- **Cosmetic-vs-intent classifier:** the sub-agent decides blast radius and reports staleness without auto-editing the source. Easy cases it resolves unilaterally (a reflowed description = cosmetic; an identifier-shaped rename = intent); it prompts the user on the fuzzy middle (a cluster rename mapping to a directory).
-- **Generic triage subject:** the sub-agent's input is a generic `{before-state, proposed-after-state, anchor, rationale?}` triage request, and its verdict is independent of whether the subject came from a code edit or (later) a proposed diagram op — so task-27.2 reuses the identical agent for actionability without redesigning its interface.
-- **Topology (composition is open):** per-cluster workers + an orchestrator that merges, keeping each agent's context small and the run parallelizable. A verifier/calibrator sub-agent can confirm staleness claims.
-
-### F. UI rendering + provenance click-through
-
-Serves `doc-5`'s "distinguishes code vs doc structure" and "inspect why an element exists."
-
-- Extend the existing **React Flow + ELK** UI with doc-node types and cross-modal edge styling; reuse zoom/cluster machinery for drill-down and the ecosystem view.
-- Provenance click-through: selecting a node reveals frontmatter and the source prose spans (from `edge_provenance.source_range`) that drove its outgoing edges.
-- **Read-only for authoring:** the only diagram mutation in this task is node positioning (task-22). Authority/pin and all structural editing belong to task-27.2; this task neither writes nor displays authority. The UI must be built so the later editing/diff/review surfaces in task-27.2 are an additive layer, not a rewrite — see the forward-compatibility seam below.
-- **Skill ingestion shape** (task-21.2): ingest a skill dir (SKILL.md + scripts/references/agents/assets + root helpers); edges for markdown links, backticked path mentions, `meta.json sub_agents[]`; tolerant frontmatter parsing; false-positive suppression for fenced/mermaid/prose mentions. In-script code structure via Ariadne (TS/JS/Python/Rust); unsupported languages (Bash) become opaque file nodes with a literal-reference body scan. Markdown via remark + mdast keyed on `(path, heading-anchor)` so section moves are detectable.
-- **Latency frame:** treat task-21.2's sub-2s warm / sub-5s cold per-skill targets as the budget; cache tier assignments and extraction keyed on content hash so re-render is not re-cluster/re-parse.
-
-### G. Forward-compatibility seam (keeping task-27.2 additive)
-
-A five-agent architecture review confirmed that building this task read-only is compatible with a later task-27.2 (diagram→code) — purely additive, no rework — provided the seams below hold. The **model-level** reservations that serve both directions live in task-27.0: open-valued `origin`/`intent_source` fields, the per-table preserved/disposable tag, the anchor resolver returning the full `{symbol_path, content_hash, span_hash}` tuple, the open ordered render-layer list, and a generic named-write/audit path for MCP writes. What remains here are the seams local to this task's sync engine and UI:
-
-- **Re-extraction is a single named in-process entry point taking `(file_set, origin)`.** The host file-change hooks (section D) are merely one caller (`origin=code-change`). So task-27.2's apply becomes another caller (`origin=apply`) rather than forcing a refactor, and the single attributed funnel resolves the double-fire hazard (an apply edits the working tree, which itself fires `FileChanged`). What an `apply`-origin re-extraction resets is an authority question, and authority is task-27.2's concern — this task only tags the origin.
-- **`apply_hierarchical_layout` honors a caller-supplied set of fixed node positions** (passed to ELK as fixed-position `layoutOptions`, with the overwrite skipped for those ids), even though this task's only caller pins nothing — so task-27.2 supplies before-positions for stable diffs without refactoring the layout entry point. Today the function overwrites every position from ELK; keeping it position-preserving is the one concrete code change to make now.
-- **Provenance click-through is driven off React Flow's selection state** (`onSelectionChange` / the `selected` prop), not by overloading the per-node `navigate_to_file` `onClick` — leaving selection as a fan-out signal a later review / accept-reject mode also subscribes to.
+The **whole-repo zoomable map** (task-27.1.12, composing flows over the file/dir scaffold with N-tier budget zoom), **semantic clustering** (task-27.1.11, demoted to a flow-chunking input + a task-27.2 refactoring signal), and the **ariadne precision add-on** (task-27.1.13) are out of v1 scope. v1 renders one bounded flow at a time, folded only by the deterministic file/dir scaffold within a per-view legibility budget.
 
 <!-- SECTION:PLAN:END -->
 
@@ -146,28 +131,20 @@ A five-agent architecture review confirmed that building this task read-only is 
 
 ### Inherited decision: keep a user-promoted field alive across an agentic rebuild (from task-27.0.2 review)
 
-Section B.5 promises that once a user edit claims a `description` as user-owned, "re-extraction never
-overwrites it." A 10-agent review of task-27.0.2 confirmed this guarantee is **not yet enforced by the
-store** and this task must close it.
+The store keeps a row's structural `layer` and its per-field `field_ownership` on independent axes; `write_fields` promotes ownership but not `layer`, so a user-owned field can sit on a `layer='agentic'` row, and `rebuild_layer('agentic')` (the agentic pass) would **hard-delete** it whenever the rebuild writer does not re-emit that id — contradicting task-27.0's "agentic/user content is never hard-deleted."
 
-The store keeps two independent axes: a row's structural `layer` and its per-field `field_ownership`.
-`write_fields` promotes a field's *ownership* but deliberately never moves the row's `layer`. So a
-user-promoted `description` can sit on a `layer='agentic'` row while owned by `user`. `rebuild_layer`
-deletes by **layer** (`WHERE layer=? AND deleted_at IS NULL`) with no ownership re-check — so the
-agentic post-processing pipeline (section B), invoked as `rebuild_layer('agentic')`, **hard-deletes
-that whole row, user-owned field and all**, whenever the rebuild writer does not re-emit the same id.
-The `write_fields` ladder cannot protect a row that no longer exists. The same hazard applies to a
-user-owned field that ends up on a `layer='raw'` row across `rebuild_layer('raw')`.
+**Decision (resolved):** **`write_fields` promotes the row's structural `layer` to `user` whenever it stamps a field user-owned**, so the row vacates the rebuild-eligible layer. Rejected: "re-emit kept rows" (fragile for non-deterministic agentic ids) and "ownership-aware guard in `rebuild_layer`" (contradicts task-27.0.2 AC#3). Impact: changes the task-27.0.1 `write_fields` contract docstring and touches task-27.0.4 `render()` layer semantics (cosmetic). It **lands as a prerequisite in task-27.1.2**, before any agentic pass can trigger the data-loss path.
 
-Decide the mechanism here (and/or in task-27.2 / task-27.0, which carries the "agentic/user content is
-never hard-deleted" guarantee). Candidate fixes the review surfaced:
+### Decision: the deterministic/agentic seam and the flow as the v1 unit
 
-- **Promote the row's `layer` on user edit** so a user-owned field forces `layer='user'` (authority
-  follows edits) and rebuild never deletes it — robust, but changes the task-27.0.1 `write_fields`
-  contract and migrates a described node's render layer (task-27.0.4 concern).
-- **Guarantee the agentic rebuild writer always re-emits** every row it intends to keep, so the ladder
-  protects the user field on rewrite — keeps the store unchanged but makes the agentic pass responsible.
-- **Ownership-aware delete / guard in `rebuild_layer`** — closes it in the store but adds the
-  re-check task-27.0.2 AC#3 explicitly excludes, so AC#3 would need rewording.
+v1's comprehension unit is a **flow** (agent-detected functionality umbrella), not a whole-repo map. The deterministic substrate (call-graphs, file/dir scaffold, literal doc edges) is L0 raw; the flow boundary/label/bridges and key-control-flow salience are L1 agentic. The whole-repo "one zoomable map" is deferred (task-27.1.12) and built by composing flows — a flow is the same containment primitive the map needs, surfaced one-at-a-time first, so this is a stepping-stone, not a divergence. Semantic clustering, once proposed as the map's organizer, is demoted to an optional **input** to chunking a complex flow (task-27.1.11) behind the deterministic file/dir scaffold + call-graph topology, plus a refactoring signal for task-27.2.
+
+### doc-5 alignment
+
+doc-5's "The whole repo is one zoomable map" remains the north-star vision. v1 surfaces flows one-at-a-time via the selector as the path toward it; doc-5 should carry a v1-scope annotation framing flows as the map's tiling blocks (form of the annotation is **D-DOC5-FORM**, open). The whole-repo map returns in task-27.1.12.
+
+### Provenance of the plan revisions
+
+The decomposition and the decisions above were produced by successive multi-agent investigations: a 30-agent gap review (the spine, the preservation fix, the typed triage contract, the PreCommit-as-git-hook correction); a fold of task-20 (business-logic flowcharts) and task-21 (portable doc-code linkage); a re-prioritization that moved semantic clustering off the critical path in favour of the deterministic scaffold + key-control-flow; and a **flow-centric v1 reframe** (this structure) — validated by a 5-agent critique that confirmed flows are the map's tiling blocks (stepping-stone, not divergence), mapped the deterministic/agentic seam onto task-27.0's raw/agentic split, and surfaced the stub-flows-first sequencing that de-risks the agentic bet. Resolved by the maintainer: flow membership is **subgraph-induced**; the landing view **auto-selects the top-ranked flow**; the **skill diagram is the first e2e target**; diagram maintenance runs as a **background sub-agent that returns nothing** (no context rot). Open decisions are recorded in the relevant sub-tasks (flow-list legibility, large-flow render, flow identity, A↔B contract, key-control-flow salience, clustering trigger, doc-5 form, sub-agent trigger, ariadne ownership/split).
 
 <!-- Added when work begins. -->

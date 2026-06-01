@@ -1,7 +1,7 @@
 ---
 id: TASK-27.0.4
 title: "In-memory graphology model and render(layers)"
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-05-30"
 labels:
