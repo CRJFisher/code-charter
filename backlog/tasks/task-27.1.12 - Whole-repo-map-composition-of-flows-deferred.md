@@ -25,7 +25,7 @@ priority: low
 
 > **Deferred — the post-v1 realization of doc-5's "one zoomable map".** v1 surfaces flows one-at-a-time via the selector (task-27.1.3); this task composes those flows into a single whole-repo zoomable map, closing the gap to the doc-5 vision.
 
-The whole repo as one connected, budget-capped, N-tier zoomable map — built by **tiling the v1 flows over the deterministic file/directory scaffold** and folding with the budget-driven level-projection transform. This is the former 27.1.4 N-tier-zoom work, deferred: a flow is the tiling block, so the map is their composition, not a from-scratch clustering of the repo.
+The whole repo as one connected, budget-capped, N-tier zoomable map — built by **tiling the v1 flows over the deterministic file/directory scaffold** and folding with the budget-driven level-projection transform. This is the former 27.1.4 N-tier-zoom work, deferred: a flow is the tiling block, so the map is their composition, not a from-scratch clustering of the repo. Because flows' agentic diagrams are **hydrated lazily and piecemeal** (only worked-on flows are hydrated by the Stop hook; the rest stay deterministic stubs until first touched — task-27.1.6), the whole-repo map composes a **partially-hydrated** flow set: hydrated flows render at full agentic fidelity, un-hydrated flows fall back to their deterministic stub. This makes the complete map inherently post-v1.
 
 The **level-projection seam is preserved** in the v1 render (task-27.1.3 renders one flow as a single containment-source view), so this task returns through the same `render()`/transform without a signature change — it adds the multi-flow composition + N-tier zoom on top.
 

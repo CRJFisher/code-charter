@@ -12,11 +12,11 @@ _How doc-5's target functionality is manifested in v1 (task-27.1, the code-to-di
 
 ## v1 in one sentence
 
-v1 helps you get oriented in a code-tree fast: it surfaces agent-detected **flows** one at a time via a left-panel selector and renders each as its own diagram (the flow boundary already excludes unrelated code — the deterministic-essence baseline; decision-salience, the qualitative "essence", follows as the first add-on, task-27.1.7), and **auto-syncs** each flow as the code changes — always updating, never interrupting your session.
+v1 helps you get oriented in a code-tree fast: it surfaces agent-detected **flows** one at a time via a left-panel selector and renders each as its own diagram (the flow boundary already excludes unrelated code — the deterministic-essence baseline; decision-salience, the qualitative "essence", follows as the first add-on, task-27.1.7), and keeps each flow in step as you work. Diagrams are built **lazily and piecemeal** — a flow's diagram is created the first time you work on its code, and only flows you touch are hydrated or re-synced, to minimise token cost. Both first-build and re-sync are driven by the Claude Code `Stop` hook, which launches a custom sub-agent that keeps the work on your radar without derailing your session.
 
 ## The v1 unit: the flow
 
-The comprehension unit is a **flow**: the subgraph induced by seed entrypoint roots + agent-inferred bridge edges across those trees + linked docs. The deterministic call-graph fills each tree's interior; the agent judges only the seam. A flow is the **tiling block** of doc-5's whole-repo map, surfaced one-at-a-time first. A left-panel flow selector replaces the entrypoint list; on open the top-ranked flow auto-renders. A deterministic stub-flow set ships the selector and render before the detection agent lands; a **flow-detection custom sub-agent** upgrades the stubs in place. The first end-to-end target is a Claude Code skill's flow.
+The comprehension unit is a **flow**: the subgraph induced by seed entrypoint roots + agent-inferred bridge edges across those trees + linked docs. The deterministic call-graph fills each tree's interior; the agent judges only the seam. A flow is the **tiling block** of doc-5's whole-repo map, surfaced one-at-a-time first. A left-panel flow selector replaces the entrypoint list. Agentic diagrams are **hydrated lazily** — built on demand the first time a flow's code is worked on — so the selector orders flows by (1) those that already have a diagram, then (2) recency of update; the top-ranked flow with a diagram auto-renders on open, while not-yet-hydrated flows stay browsable via the deterministic skeleton. A **flow hydration / auto-sync custom sub-agent** (task-27.1.6), launched by the main agent from the `Stop` hook, builds and later re-syncs each flow's diagram. The first end-to-end target is a Claude Code skill's flow.
 
 ## The organizing seam
 
@@ -30,11 +30,11 @@ Included, fully and first: write_fields promotes a row's layer to user so a user
 
 ### The whole repo is one zoomable map, built for comprehension — showing the essence, not everything
 
-Included: one flow at a time, grouped by behaviour, folded by the file-module scaffold within a legibility budget; inferred edges distinct + click-through-explained (AC#3); the deterministic-essence baseline (the flow boundary already excludes unrelated code; one bounded flow ships at 27.1.6). Deferred: the single whole-repo map with N-tier zoom (27.1.12); clustering as organizer (27.1.11, demoted to chunking input + refactoring signal); the qualitative **salience layer** — first add-on 27.1.7, where the agent selects/ranks the key decisions, suppresses incidental control flow, with shaped nodes + semantic edge labels (not ariadne-gated, 27.1.13). Why: a flow is the same containment primitive, so the map is an additive composition over the generic render seam; salience is the highest-judgement work, cleanly additive over the same render(), so the essence baseline ships in v1 and the qualitative selection layer follows as the first add-on (doc-4's selection-not-exhaustion).
+Included: one flow at a time, **hydrated lazily and piecemeal** (a flow's diagram is built the first time its code is worked on, never the whole repo upfront), grouped by behaviour, folded by the file-module scaffold within a legibility budget; inferred edges distinct + click-through-explained (AC#3); the deterministic-essence baseline (the flow boundary already excludes unrelated code; one bounded flow ships at 27.1.6). Deferred: the single whole-repo map with N-tier zoom (27.1.12); clustering as organizer (27.1.11, demoted to chunking input + refactoring signal); the qualitative **salience layer** — first add-on 27.1.7, where the agent selects/ranks the key decisions, suppresses incidental control flow, with shaped nodes + semantic edge labels (not ariadne-gated, 27.1.13). Why: a flow is the same containment primitive, so the map is an additive composition over the generic render seam; salience is the highest-judgement work, cleanly additive over the same render(), so the essence baseline ships in v1 and the qualitative selection layer follows as the first add-on (doc-4's selection-not-exhaustion).
 
 ### The diagram and the code stay consistent in both directions
 
-Included (code→diagram only): **per-flow auto-sync** — on a flow's code/doc change the diagram always re-syncs (27.1.6), recalling and re-applying user edits via the resolver + watermark ladder; a genuine miss goes to the re-attachment bin (AC#5/#6); all maintenance runs as a detached background sub-agent that returns nothing (AC#8), off your attention and context. Deferred: the whole **review apparatus** — triage classifier + typed TriageSubject/TriageVerdict contract (27.1.9), drift surfaces + the single PreCommit gate (27.1.10) — and the diagram→code describe-first direction (27.2). Why: v1 keeps the diagram honest by silent auto-sync; review/escalation and authoring come later; the section-F seams keep them additive.
+Included (code→diagram only): **per-flow auto-sync** — when a flow you are working on changes, the Claude Code `Stop` hook drives a custom sub-agent to **hydrate** the flow (first time) or **re-sync** it (task-27.1.6), always updating with no review queue, recalling and re-applying user edits via the resolver + watermark ladder; a genuine miss goes to the re-attachment bin (AC#5/#6). The sub-agent writes the store through the **`drift-sync` skill** (never directly, never via MCP — MCP stays user-facing) and returns only a couple of lines to your session; the work deliberately spends your tokens to stay on your radar, and only flows you touch are processed (AC#8). `SessionStart` adds a read-only outstanding-drift banner only. Deferred: the whole **review apparatus** — triage classifier + typed TriageSubject/TriageVerdict contract (27.1.9), drift surfaces + the single PreCommit gate (27.1.10) — and the diagram→code describe-first direction (27.2). Why: v1 keeps the diagram honest by silent auto-sync; review/escalation and authoring come later; the section-F seams keep them additive.
 
 ### Authority over each element follows where you keep editing it
 
@@ -42,7 +42,7 @@ Included: per-field watermark-wins on descriptions (AC#2); a user pin is preserv
 
 ### First milestone
 
-Included exactly: the rename milestone, validated first on a skill's flow (27.1.2, AC#10). Deferred: nothing. Why: smallest end-to-end proof of preservation+drift; a distinct first from the skill-flow comprehension-build first — the skill flow is merely its corpus.
+Included exactly: the rename milestone — drift detected and reconciled by the `Stop`-hook-launched sub-agent, with the already-detected drift surfaced as a read-only `SessionStart` banner — validated first on a skill's flow (27.1.2, AC#9). Deferred: nothing. Why: smallest end-to-end proof of preservation+drift; a distinct first from the skill-flow comprehension-build first — the skill flow is merely its corpus.
 
 ### Scope
 
@@ -50,7 +50,7 @@ Included: Claude Code first; degrade gracefully via host-keyed installer + degra
 
 ## v1 scope summary and critical path
 
-Critical path (v1 ships at 27.1.6): 27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 27.1.5 → 27.1.6 [v1 SHIPS HERE]. First add-on: 27.1.7 key-control-flow.
+Critical path (v1 ships at 27.1.6): 27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 27.1.6 [v1 SHIPS HERE]. First add-on: 27.1.7 key-control-flow.
 
 ## Deferred, with rationale
 
@@ -64,6 +64,6 @@ Critical path (v1 ships at 27.1.6): 27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 
 
 ## Open decisions
 
-Per-flow open decisions (flow-list legibility, large-flow render, flow identity, A-to-B contract, salience, clustering trigger, sub-agent trigger, ariadne ownership/split) are in the sub-tasks of task-27.1.
+Per-flow open decisions (flow-list legibility, large-flow render, flow identity, A-to-B contract, salience, clustering trigger, ariadne ownership/split) are in the sub-tasks of task-27.1. The sub-agent trigger is resolved: the `Stop` hook (with `SessionStart` as a read-only banner).
 
 See also: doc-5 (the timeless vision), doc-4, and task-27.1.

@@ -13,7 +13,7 @@ parent_task_id: TASK-27.1
 dependencies:
   - task-27.1
   - task-27.1.4
-  - task-27.1.5
+  - task-27.1.6
 references:
   - backlog/docs/doc-5 - Diagram-Driven-Development-Functionality.md
   - backlog/docs/vision.md
@@ -26,9 +26,9 @@ priority: high
 
 > **The first add-on after v1 ships.** It converts a flow view from "renders the flow" to "renders the **essence** of the flow" — the qualitative half of doc-5's "shows the essence, not everything." High priority: essence _is_ a salience claim, so this is what makes the headline comprehension use-case land.
 
-A **custom background sub-agent** (not a SKILL.md skill) that takes one flow (the flow-detection agent's output, task-27.1.5) and selects its **key control flow** — the decisions that fork business behaviour and define the golden paths — surfacing _those_ and suppressing incidental control flow (guard clauses, trivial null-checks, logging branches). **Selection, not exhaustion.** Scoping it to one flow is a precision gain: the flow's umbrella rationale is the "key _relative to what_" context.
+A **registered Claude Code custom sub-agent** (`.claude/agents/*.md`, not a SKILL.md skill) that takes one flow (the flow-detection agent's output, task-27.1.6) and selects its **key control flow** — the decisions that fork business behaviour and define the golden paths — surfacing _those_ and suppressing incidental control flow (guard clauses, trivial null-checks, logging branches). **Selection, not exhaustion.** Scoping it to one flow is a precision gain: the flow's umbrella rationale is the "key _relative to what_" context.
 
-The structure is **agent-inferred** over the existing call graph + source (no ariadne change required; the ariadne add-on, task-27.1.13, only sharpens it). It runs through the same background-sub-agent + agentic lane (`layer='agentic'`, shaped kinds (`flow.decision`/`cfg.*`), lower `confidence`, `inference_rationale` in the attributes bag — there is no `extractor` field) as the flow-detection agent, and renders through the same adapter (shaped nodes: decision/IO/loop; semantic edge labels) — a rendering of the flow, not a separate surface.
+The structure is **agent-inferred** over the existing call graph + source (no ariadne change required; the ariadne add-on, task-27.1.13, only sharpens it). It runs through the same custom-sub-agent execution path (the Stop hook blocks and instructs the main agent, which launches the registered sub-agent; the sub-agent persists via the `drift-sync` skill and returns ~nothing) + agentic lane (`layer='agentic'`, shaped kinds (`flow.decision`/`cfg.*`), lower `confidence`, `inference_rationale` in the attributes bag — there is no `extractor` field) as the flow hydration / auto-sync sub-agent (task-27.1.6), and renders through the same adapter (shaped nodes: decision/IO/loop; semantic edge labels) — a rendering of the flow, not a separate surface.
 
 <!-- SECTION:DESCRIPTION:END -->
 

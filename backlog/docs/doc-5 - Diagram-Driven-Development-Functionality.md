@@ -13,13 +13,17 @@ A code-charter diagram is a peer artifact above the code: code captures _how_, t
 
 ## Anything you author is always considered
 
-What you author — a description, a name, a pin — is recalled and put in front of the agent during drift triage, so your intentions are carried across every code→diagram update rather than silently overwritten, even when the element it attaches to is rebuilt or re-identified.
+What you author — a description, a name, a pin — is recalled and surfaced to the agent during every drift-initiated update, so your intentions are always considered, never silently overwritten, even when the element it attaches to is rebuilt or re-identified. Where an intention still fits the changed code it carries across; where it no longer can — the element it attached to is gone, or re-identified beyond recognition — it is held for you to reattach, not dropped.
 
 ## The whole repo is one zoomable map, built for comprehension
 
 One connected map, architecture down to functions, grouped by behaviour and built to show what matters — the decisions that fork behaviour and the golden paths, with incidental control flow quieted, because comprehension needs the essence, not a faithful redrawing of every edge; a complexity budget caps each level and sets the level count; inferred gap-edges stay distinct, traceable, and gone once rejected.
 
 > **v1 scope (task-27.1):** v1 surfaces the map's **tiling blocks one at a time** — a left-panel selector of agent-detected **flows** (functionality umbrellas linking call-graphs + docs), each rendered as its own diagram — as the path toward this whole-repo map. A flow is the same containment primitive the map composes, so the single zoomable map is the post-v1 composition of flows over the file/directory scaffold (task-27.1.12), not a separate build.
+
+## The map fills in where you work
+
+The diagram is built piecemeal, following your attention: a flow's diagram is created the first time you work on its code, and kept in step only while you keep working there. The repo is never diagrammed wholesale up front. The agent's effort — and your token cost — is spent only on the code you actually touch, so comprehension accrues exactly where you need it and nowhere you don't. The whole-repo map is the limit this approaches as your work spreads, not a batch job run ahead of you.
 
 ## The diagram and the code stay consistent in both directions
 
@@ -39,7 +43,7 @@ Authority follows edits; pin to override; ownership stays visible and flippable;
 
 ## First milestone
 
-Rename a script; session open flags one drifted node; accept, and the hand-written description carries across to the new symbol intact.
+Rename a script; session open flags one drifted node; the diagram re-syncs out-of-band and your hand-written description is surfaced and carries across to the renamed symbol intact.
 
 ## Scope
 
