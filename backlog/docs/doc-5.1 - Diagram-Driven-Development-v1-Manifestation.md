@@ -12,33 +12,33 @@ _How doc-5's target functionality is manifested in v1 (task-27.1, the code-to-di
 
 ## v1 in one sentence
 
-v1 lets you quickly understand the **essence of a code-tree**: it surfaces agent-detected **flows** one at a time via a left-panel selector, renders each as its own diagram, and keeps each flow honest as the code changes, without ever interrupting your session.
+v1 helps you get oriented in a code-tree fast: it surfaces agent-detected **flows** one at a time via a left-panel selector and renders each as its own diagram (the flow boundary already excludes unrelated code — the deterministic-essence baseline; decision-salience, the qualitative "essence", follows as the first add-on, task-27.1.7), and **auto-syncs** each flow as the code changes — always updating, never interrupting your session.
 
 ## The v1 unit: the flow
 
-The comprehension unit is a **flow**: the subgraph induced by seed entrypoint roots + agent-inferred bridge edges across those trees + linked docs. The deterministic call-graph fills each tree's interior; the agent judges only the seam. A flow is the **tiling block** of doc-5's whole-repo map, surfaced one-at-a-time first. A left-panel flow selector replaces the entrypoint list; on open the top-ranked flow auto-renders. A deterministic stub-flow set ships the selector and render before the detection agent lands; flow-detection skill A upgrades the stubs in place. The first end-to-end target is a Claude Code skill's flow.
+The comprehension unit is a **flow**: the subgraph induced by seed entrypoint roots + agent-inferred bridge edges across those trees + linked docs. The deterministic call-graph fills each tree's interior; the agent judges only the seam. A flow is the **tiling block** of doc-5's whole-repo map, surfaced one-at-a-time first. A left-panel flow selector replaces the entrypoint list; on open the top-ranked flow auto-renders. A deterministic stub-flow set ships the selector and render before the detection agent lands; a **flow-detection custom sub-agent** upgrades the stubs in place. The first end-to-end target is a Claude Code skill's flow.
 
 ## The organizing seam
 
-Deterministic substrate (objective, free, L0): Ariadne call/import edges, the function-to-file-to-directory scaffold, literal doc/frontmatter edges, entrypoint roots. Agent-detected structure (subjective, goal-dependent, L1 on the agent.inferred lane): flow boundary, label, bridge edges, doc attachment, and as the first add-on the salience of key control flow. The agentic lane carries lower confidence, an inference_rationale, renders distinct, is click-through-explained, accept/reject persisted and never re-proposed. v1 fixes one detection goal (essence of a code-tree), keeping task-27.2 and the deferred map additive.
+Deterministic substrate (objective, free, L0): Ariadne call/import edges, the function-to-file-to-directory scaffold, literal doc/frontmatter edges, entrypoint roots. Agent-detected structure (subjective, goal-dependent, L1 agentic): flow boundary, label, bridge edges, doc attachment, and as the first add-on the salience of key control flow. The **agentic lane** is `layer='agentic'` + a namespaced `kind` (e.g. `agentic.bridge`) + lower `confidence` + `inference_rationale` in the attributes bag — there is no `extractor` field; it renders distinct and is click-through-explained. v1 fixes one detection goal (orienting in a code-tree), keeping task-27.2 and the deferred map additive.
 
 ## Per-principle manifestation
 
 ### Anything you author is always considered
 
-Included, fully and first: write_fields promotes a row's layer to user so a user-owned field survives rebuild_layer('agentic') (27.1.2, a prerequisite); authored content (a description, a name, a pin) is recalled and presented to the triage sub-agent during drift triage so your intent is carried across each code→diagram update (27.1.7); recoverable re-attachment bin for resolver failure or flow split/merge stranding a name/pin (AC#9). Deferred: nothing. Why: trust floor; machinery is kind-agnostic so pins (arriving with 27.1.9) are covered.
+Included, fully and first: write_fields promotes a row's layer to user so a user-owned field survives rebuild_layer('agentic') (27.1.2, a prerequisite); authored content (a description, a name, a pin) is **recalled and re-applied during every auto-sync** so your intent carries across each code→diagram update (27.1.6, via the resolver + watermark ladder); recoverable re-attachment bin for a resolver miss or a flow split/merge stranding a name/pin (AC#6). Deferred: nothing. Why: trust floor; the machinery is kind-agnostic, so a pin (the pinnable key decision arrives with 27.1.7) is covered.
 
 ### The whole repo is one zoomable map, built for comprehension — showing the essence, not everything
 
-Included: one flow at a time, grouped by behaviour, folded by the file/dir scaffold within a legibility budget; inferred edges distinct, gone once rejected (AC#3); the deterministic-essence baseline (the flow boundary already excludes unrelated code; one bounded flow ships at 27.1.6). Deferred: the single whole-repo map with N-tier zoom (27.1.12); clustering as organizer (27.1.11, demoted to chunking input + refactoring signal); the qualitative **salience layer** — first add-on 27.1.9, where the agent selects/ranks the key decisions, suppresses incidental control flow, with shaped nodes + semantic edge labels (not ariadne-gated, 27.1.13). Why: a flow is the same containment primitive, so the map is an additive composition over the generic render seam; salience is the highest-judgement work, cleanly additive over the same render(), so the essence baseline ships in v1 and the qualitative selection layer follows as the first add-on (doc-4's selection-not-exhaustion).
+Included: one flow at a time, grouped by behaviour, folded by the file-module scaffold within a legibility budget; inferred edges distinct + click-through-explained (AC#3); the deterministic-essence baseline (the flow boundary already excludes unrelated code; one bounded flow ships at 27.1.6). Deferred: the single whole-repo map with N-tier zoom (27.1.12); clustering as organizer (27.1.11, demoted to chunking input + refactoring signal); the qualitative **salience layer** — first add-on 27.1.7, where the agent selects/ranks the key decisions, suppresses incidental control flow, with shaped nodes + semantic edge labels (not ariadne-gated, 27.1.13). Why: a flow is the same containment primitive, so the map is an additive composition over the generic render seam; salience is the highest-judgement work, cleanly additive over the same render(), so the essence baseline ships in v1 and the qualitative selection layer follows as the first add-on (doc-4's selection-not-exhaustion).
 
 ### The diagram and the code stay consistent in both directions
 
-Included (code-to-diagram only): per-flow drift engine (membership is the proximity boundary; verify-then-update; drift_observations/drift_adjudications; AC#5/#6); typed TriageSubject/TriageVerdict (27.1.7); single PreCommit gate (AC#7); all maintenance via a background sub-agent that returns nothing (AC#11), off your attention and context. Deferred: the diagram-to-code describe-first direction (27.2). Why: build/keep-honest precedes authoring; section-G seams keep 27.2 additive.
+Included (code→diagram only): **per-flow auto-sync** — on a flow's code/doc change the diagram always re-syncs (27.1.6), recalling and re-applying user edits via the resolver + watermark ladder; a genuine miss goes to the re-attachment bin (AC#5/#6); all maintenance runs as a detached background sub-agent that returns nothing (AC#8), off your attention and context. Deferred: the whole **review apparatus** — triage classifier + typed TriageSubject/TriageVerdict contract (27.1.9), drift surfaces + the single PreCommit gate (27.1.10) — and the diagram→code describe-first direction (27.2). Why: v1 keeps the diagram honest by silent auto-sync; review/escalation and authoring come later; the section-F seams keep them additive.
 
 ### Authority over each element follows where you keep editing it
 
-Included: per-field watermark-wins on descriptions (AC#2); pins/adjudications never re-surfaced (AC#6); absorb-trivial/escalate-structural classifier. Deferred: edit-driven authority via diagram-to-code (27.2). Why: v1's only authored surface is descriptions/pins/adjudications.
+Included: per-field watermark-wins on descriptions (AC#2); a user pin is preserved across every auto-sync and never silently overwritten (AC#6). Deferred: the absorb-trivial/escalate-structural classifier (27.1.9) and edit-driven authority via diagram→code (27.2). Why: v1's only authored surface is descriptions / names / pins, all preserved by the watermark ladder.
 
 ### First milestone
 
@@ -46,19 +46,21 @@ Included exactly: the rename milestone, validated first on a skill's flow (27.1.
 
 ### Scope
 
-Included: Claude Code first; degrade gracefully via host-keyed installer + degradation matrix (27.1.1), MCP-pull read fallback. Deferred: Cursor parity (27.1.10). Why: prove one host first; a second host is a layout entry.
+Included: Claude Code first; degrade gracefully via host-keyed installer + degradation matrix (27.1.1), MCP-pull read fallback. Deferred: Cursor parity (27.1.8). Why: prove one host first; a second host is a layout entry.
 
 ## v1 scope summary and critical path
 
-Critical path (v1 ships at 27.1.6): 27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 27.1.5 → 27.1.6 [v1 SHIPS HERE]. First add-on: 27.1.9 key-control-flow.
+Critical path (v1 ships at 27.1.6): 27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 27.1.5 → 27.1.6 [v1 SHIPS HERE]. First add-on: 27.1.7 key-control-flow.
 
 ## Deferred, with rationale
 
-- 27.1.9 key-control-flow (first add-on): golden-path selection over one flow; the qualitative delivery of "essence, not everything"; sequenced after v1 as the highest-judgement, cleanly-additive work.
-- 27.1.10 Cursor parity: portable skill-bundle distribution; prove one host first.
+- 27.1.7 key-control-flow (first add-on): golden-path selection over one flow; the qualitative delivery of "essence, not everything"; the highest-judgement, cleanly-additive work.
+- 27.1.8 Cursor parity: portable skill-bundle distribution; prove one host first.
+- 27.1.9 drift triage classifier + typed TriageSubject/TriageVerdict contract: the review/escalation layer v1's auto-sync omits; also the task-27.2 reuse seam.
+- 27.1.10 drift review surfaces + PreCommit gate: the "surface drift for review" apparatus; v1 has none (pure auto-sync).
 - 27.1.11 clustering: demoted to chunking input + refactoring signal (flowcharts beat clustering's ontologies).
 - 27.1.12 whole-repo map: post-v1 composition of flows; realizes doc-5's one zoomable map.
-- 27.1.13 ariadne precision add-on (upstream): sharpens 27.1.9 at higher confidence; gates nothing.
+- 27.1.13 ariadne precision add-on (upstream): sharpens 27.1.7 at higher confidence; gates nothing.
 
 ## Open decisions
 
