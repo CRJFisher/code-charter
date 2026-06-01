@@ -12,7 +12,7 @@ labels:
 parent_task_id: TASK-27.1
 dependencies:
   - task-27.1
-  - task-27.1.9
+  - task-27.1.7
 references:
   - backlog/docs/doc-5 - Diagram-Driven-Development-Functionality.md
 priority: low
@@ -26,10 +26,10 @@ priority: low
 
 Two real jobs, neither on the v1 critical path:
 
-1. **Flow-chunking input (skill C):** when a single detected flow (task-27.1.5) is too large to read legibly, semantic clustering of the flow's members gives the key-control-flow agent (task-27.1.9) extra signal for how to "chunk up" the flow into sub-groups — behind two cheaper deterministic inputs already available: the file/dir scaffold and call-graph topology.
+1. **Flow-chunking input:** when a single detected flow (task-27.1.5) is too large to read legibly, semantic clustering of the flow's members gives the key-control-flow agent (task-27.1.7) extra signal for how to "chunk up" the flow into sub-groups — behind two cheaper deterministic inputs already available: the file/dir scaffold and call-graph topology.
 2. **Refactoring signal (task-27.2):** clusters that cut across the given directory structure reveal where the code's organization has drifted from its behaviour — a diagram→code "this should be reorganized" candidate.
 
-The deterministic cluster-node-identity slice (anchor-set hash + ≥50% overlap remap) has already been **extracted** and re-homed as flow identity in task-27.1.3; only the non-deterministic clustering algorithm remains here.
+If non-deterministic flow re-detection (task-27.1.5) needs the stable anchor-set-hash + ≥50% overlap remap identity scheme, that scheme is built where it is needed (task-27.1.3/27.1.5), not here — this task owns only the clustering algorithm.
 
 <!-- SECTION:DESCRIPTION:END -->
 
@@ -40,7 +40,7 @@ The deterministic cluster-node-identity slice (anchor-set hash + ≥50% overlap 
 > High-level; build only if real flows prove the deterministic chunking inputs insufficient (YAGNI — see D-CLUSTERING-TRIGGER).
 
 - [ ] #1 Host-neutral clustering logic (the `findOptimalClusters` flat-cluster primitive) is lifted into `packages/core` and runs over a single flow's member set
-- [ ] #2 Clustering output is consumed as an **input** to task-27.1.9's chunking — never as the primary organizer; the deterministic file/dir scaffold + call-graph topology are tried first
+- [ ] #2 Clustering output is consumed as an **input** to task-27.1.7's chunking — never as the primary organizer; the deterministic file/dir scaffold + call-graph topology are tried first
 - [ ] #3 Cross-directory clusters are exposed as a **refactoring-signal** hook for task-27.2 (diagram→code)
 - [ ] #4 No schema migration; clusters ride task-27.0's open `kind`/attributes
 

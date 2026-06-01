@@ -18,6 +18,8 @@ parent_task_id: TASK-21
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 
+> **Superseded by task-27.0.** This persistent graph store shipped as the task-27.0 line (`SqliteGraphStore` in `packages/core`): the three-tier store, provenance, content-hash invalidation, and the identity/edge-type decisions below are all realized there. There must be **no second store** (NO-BACKWARDS-COMPATIBILITY). task-21.2's extractors are re-pointed onto the task-27.0 store by task-27.1.4. This task is retained only as the record of the load-bearing identity/provenance decisions it locked in; build nothing new against it.
+
 The foundation that every later piece of task-21 sits on: a small persistent graph store that holds typed nodes, typed edges, edge-level provenance, and per-file content hashes — with the primitives needed to invalidate edges precisely when a source file changes.
 
 The emphasis is on **minimal**. This is not a fully-incremental caching layer; it is the schema and the primitives a future caching layer can be built on. The actual hash-and-skip loop can wait until v1 extraction is slow enough to need it. What cannot wait is getting the provenance and identity model right — those decisions are load-bearing and expensive to change later.
