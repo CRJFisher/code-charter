@@ -1,7 +1,7 @@
 ---
 id: TASK-27.0.3
 title: "Anchoring and the reusable resolver"
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-05-30"
 labels:
