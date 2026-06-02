@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.2
 title: "First-milestone vertical slice: leaf rename drift and the preservation fix"
-status: In Progress
+status: Done
 assignee: []
 created_date: "2026-05-31"
 labels:
