@@ -13,11 +13,22 @@ import { build_session_start_output } from "../hooks/session_start_banner";
 import { resolve_db_path } from "../mcp/resolve_db_path";
 import { read_stdin } from "./read_stdin";
 
-/** Read outstanding drift from the store for `cwd`, degrading to an empty list on any failure. */
+/**
+ * Read outstanding drift from the store for `cwd`, degrading to an empty list on any failure —
+ * including a fresh repo whose `.code-charter` store does not exist yet (opening it throws). The
+ * banner is best-effort context, never a reason to disturb the session.
+ */
 function read_outstanding_drift(cwd: string): DriftObservation[] {
-  const store = open_graph_store(resolve_db_path(process.env, cwd));
+  let store;
+  try {
+    store = open_graph_store(resolve_db_path(process.env, cwd));
+  } catch {
+    return [];
+  }
   try {
     return outstanding_drift(store);
+  } catch {
+    return [];
   } finally {
     store.close();
   }

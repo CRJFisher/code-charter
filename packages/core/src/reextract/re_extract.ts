@@ -9,9 +9,16 @@
  * It re-extracts only the raw tier for the file set (never the whole store), rebuilds the file-module
  * scaffold for those files, then resolves every preserved (non-raw, anchored) node in the set against
  * the fresh code. A `relocated` verdict is staged as outstanding drift on the node — surfaced at the
- * next session open and committed by `drift.resolve` — rather than re-anchored inline: the resolve is
- * deterministic and runs out-of-band here, but the commit is the user-facing accept. A `miss` (the
- * symbol is both renamed and re-bodied) soft-deletes the node into the re-attachment bin.
+ * next session open and committed by `drift.resolve` — rather than re-anchored inline. The re-sync is
+ * automatic and out-of-band (the resolver determines the target with no human authoring), but moving
+ * authored content (a user-owned `description`) onto a different symbol is surfaced for an explicit
+ * accept rather than applied silently: the determinism makes that accept a one-click commit, not a
+ * re-resolve. A `miss` (the symbol is both renamed and re-bodied) soft-deletes the node into the
+ * re-attachment bin.
+ *
+ * `re_extract` is not a single transaction. Each store call is atomic and idempotent, so a re-run after
+ * a mid-way failure re-applies cleanly: raw invalidation/extraction is repeatable and staging a
+ * relocation twice is a no-op.
  *
  * Core stays extractor-agnostic: the host supplies `extract_raw` (Ariadne in production, a fixture in
  * tests) and `build_index`, so `re_extract` itself imports no parser.
@@ -127,9 +134,11 @@ function reconcile_node(store: GraphStore, node: NodeRow, index: ResolverIndex):
 
 /**
  * Emit one `agentic.group` per defining file for the current raw leaves of `file_set`, with
- * `agentic.contains` edges (leaf → module). Idempotent: deterministic path-derived ids make a re-run a
- * no-op REPLACE. Done with scoped upserts rather than `rebuild_layer('agentic')`, which is store-global
- * and would destroy other files' agentic content.
+ * `agentic.contains` edges (leaf → module). Path-derived ids make the current rows a deterministic
+ * no-op REPLACE on re-run. A leaf that was renamed away leaves a `contains` edge keyed by its old id;
+ * those stale edges (into a current group but absent from the fresh scaffold) are retired so the
+ * scaffold does not accumulate orphaned edges across renames. Done with scoped upserts rather than
+ * `rebuild_layer('agentic')`, which is store-global and would destroy other files' agentic content.
  */
 function rebuild_file_module_scaffold(store: GraphStore, file_set: readonly string[], analyzed_root: string): void {
   const files = new Set(file_set);
@@ -137,6 +146,19 @@ function rebuild_file_module_scaffold(store: GraphStore, file_set: readonly stri
     .all_nodes()
     .filter((node) => node.layer === "raw" && node.kind === "code.function" && files.has(node.path));
   const scaffold = build_module_scaffold(leaves, file_module_resolver(analyzed_root));
+
+  // Retire stale containment: a contains edge into one of this run's groups whose key the fresh
+  // scaffold no longer emits points at a renamed-away leaf. Soft-delete it so render/the adapter never
+  // see a dangling edge and it does not pile up. (Scaffold rows are excluded from the re-attachment bin.)
+  const live_group_ids = new Set(scaffold.module_nodes.map((node) => node.id));
+  const fresh_edge_keys = new Set(scaffold.contains_edges.map((edge) => edge.key));
+  for (const edge of store.all_edges()) {
+    if (edge.kind !== "agentic.contains" || !live_group_ids.has(edge.dst_id) || fresh_edge_keys.has(edge.key)) {
+      continue;
+    }
+    store.soft_delete({ kind: "edge", id: edge.key });
+  }
+
   for (const module_node of scaffold.module_nodes) {
     store.upsert_node(module_node);
   }

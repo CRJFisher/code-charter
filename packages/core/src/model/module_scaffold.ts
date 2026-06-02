@@ -18,6 +18,8 @@ import { parse_anchor } from "../resolver";
 
 /** The path-derived id of a file-module group is this prefix followed by the file path (or sentinel). */
 export const MODULE_GROUP_PREFIX = "agentic.group:file:";
+/** The `origin` stamped on scaffold rows — they are derived structure, never re-attachable content. */
+export const MODULE_SCAFFOLD_ORIGIN = "module-scaffold";
 /** The single group label/id for leaves whose defining file resolves outside the analyzed root. */
 export const EXTERNAL_GROUP_LABEL = "<external>";
 export const EXTERNAL_GROUP_ID = `${MODULE_GROUP_PREFIX}${EXTERNAL_GROUP_LABEL}`;
@@ -113,7 +115,7 @@ function module_node(group_id: string, label: string): NodeRow {
     layer: "agentic",
     attributes: { label, group_kind: "file-module" },
     field_ownership: {},
-    origin: "module-scaffold",
+    origin: MODULE_SCAFFOLD_ORIGIN,
     intent_source: "code-edit",
     deleted_at: null,
   };
@@ -129,7 +131,7 @@ function contains_edge(group_id: string, leaf_id: string): EdgeRow {
     layer: "agentic",
     attributes: {},
     field_ownership: {},
-    origin: "module-scaffold",
+    origin: MODULE_SCAFFOLD_ORIGIN,
     intent_source: "code-edit",
     adjudication: null,
     deleted_at: null,

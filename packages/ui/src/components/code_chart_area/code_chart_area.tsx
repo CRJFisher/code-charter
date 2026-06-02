@@ -190,7 +190,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         if (cancelled) return;
         node_groups_ref.current = node_groups;
 
-        // Generate all nodes and edges from the call tree
+        // Generate all nodes and edges from the call tree. Leaf rendering migrates to
+        // `custom_graph_to_react_flow` (which reads `render(layers)` rows and carries `data.row` for
+        // the provenance panel) once the backend feeds this component those rows — task-27.1.3.
         const { nodes: flow_nodes, edges: flow_edges } = generate_react_flow_elements(
           selected_entry_point,
           docstring_summaries,

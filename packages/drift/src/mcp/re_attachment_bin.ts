@@ -4,8 +4,15 @@
  * purely from the store — soft-deleted non-raw rows — so no new table is introduced. The full
  * bin semantics (resolver-miss + flow-split/merge stranding) land in task-27.1.6; this is the
  * substrate query the `drift.*` surface reads and writes.
+ *
+ * Derived structural rows (the file-module scaffold, `origin: 'module-scaffold'`) are excluded:
+ * they are recomputed from the code, not authored, so a retired scaffold edge is never a
+ * re-attachment candidate. A clean relocation is NOT in the bin either — it stays live with staged
+ * `drift_*` attributes (see `@code-charter/core`'s `outstanding_drift`) and is committed via
+ * `drift.resolve {reanchor}`; the bin holds only unrecoverable misses.
  */
 
+import { MODULE_SCAFFOLD_ORIGIN } from "@code-charter/core";
 import type { GraphStore, Layer } from "@code-charter/types";
 
 /** One entry in the re-attachment bin — a soft-deleted node or edge awaiting resolution. */
@@ -27,7 +34,7 @@ export interface DriftBinEntry {
  */
 export function re_attachment_bin(store: GraphStore, scope?: string): DriftBinEntry[] {
   const nodes = store.all_nodes({ include_deleted: true }).flatMap((node): DriftBinEntry[] => {
-    if (node.deleted_at === null || node.layer === "raw") {
+    if (node.deleted_at === null || node.layer === "raw" || node.origin === MODULE_SCAFFOLD_ORIGIN) {
       return [];
     }
     if (scope !== undefined && !node.path.startsWith(scope)) {
@@ -37,7 +44,7 @@ export function re_attachment_bin(store: GraphStore, scope?: string): DriftBinEn
   });
 
   const edges = store.all_edges({ include_deleted: true }).flatMap((edge): DriftBinEntry[] => {
-    if (edge.deleted_at === null || edge.layer === "raw") {
+    if (edge.deleted_at === null || edge.layer === "raw" || edge.origin === MODULE_SCAFFOLD_ORIGIN) {
       return [];
     }
     if (scope !== undefined && !edge.src_id.startsWith(scope) && !edge.dst_id.startsWith(scope)) {

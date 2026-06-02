@@ -108,6 +108,32 @@ describe("re_extract (AC#2/#3/#9)", () => {
     expect(contains.map((e) => e.src_id)).toContain(symbol_path_of(CALCULATE_V2));
   });
 
+  it("retires a renamed-away leaf's contains edge instead of orphaning it", () => {
+    const compute = symbol_path_of(COMPUTE_V1);
+    const calculate = symbol_path_of(CALCULATE_V2);
+
+    // First reconcile builds the v1 scaffold (compute leaf -> module).
+    re_extract([FILE], "code-change", {
+      store,
+      extract_raw: (s) => apply_raw_v1(s),
+      build_index: () => build_resolver_index(CODE_V2),
+      analyzed_root: "src",
+    });
+    expect(store.all_edges().some((e) => e.kind === "agentic.contains" && e.src_id === compute)).toBe(true);
+
+    // Second reconcile renames compute -> calculate.
+    re_extract([FILE], "code-change", deps(store));
+
+    const live_contains = store.all_edges().filter((e) => e.kind === "agentic.contains");
+    expect(live_contains.map((e) => e.src_id)).toContain(calculate);
+    expect(live_contains.map((e) => e.src_id)).not.toContain(compute); // not left dangling live
+    // the stale edge is soft-deleted (retired), not hard-removed
+    const retired = store
+      .all_edges({ include_deleted: true })
+      .find((e) => e.kind === "agentic.contains" && e.src_id === compute);
+    expect(retired?.deleted_at).not.toBeNull();
+  });
+
   it("accepting the re-anchor moves the description onto the renamed symbol, untouched", () => {
     re_extract([FILE], "code-change", deps(store));
     const drift = outstanding_drift(store)[0];

@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.2
 title: "First-milestone vertical slice: leaf rename drift and the preservation fix"
-status: To Do
+status: In Progress
 assignee: []
 created_date: "2026-05-31"
 labels:
@@ -68,4 +68,32 @@ It also lands the **preservation-boundary fix** — the one hard data-loss bug i
 
 ## Implementation Notes
 
-<!-- Added when work begins. -->
+## High-level summary
+
+**Why this exists.** This is the first vertical slice of task-27.1 — doc-5's first milestone: rename a leaf code symbol, and on the next session open exactly one drifted node is flagged while the hand-written description carries onto the renamed symbol intact. Its value is **seam validation** — exercising the persisted store, the anchor resolver, a single named re-extraction funnel, the `drift.resolve` write, the SessionStart banner, the `CustomGraph`→React Flow adapter, position-preserving layout, and selection-driven provenance — so the rest of task-27.1 and all of task-27.2 build on contracts that are proven, not assumed. It is **leaf-only**: one code symbol, never a flow or the deferred clustering/zoom hierarchy.
+
+**The re-sync model (how the description follows a rename).** A code rename re-syncs **out-of-band and automatically**: the Stop-hook reconcile path runs `re_extract`, which re-extracts the file's raw tier and asks the resolver where each preserved (non-raw, anchored) node's symbol now lives. A `relocated` verdict (the body is unchanged, so its `content_hash` matches at a new `symbol_path`) is **staged** on the node — recorded under reserved `drift_*` attributes, leaving the node live with its now-stale anchor. The SessionStart banner surfaces it as one punch-list item, and `drift.resolve {reanchor}` commits the staged re-anchor: the new `symbol_path` is written and the `user`-owned `description` rides across byte-for-byte untouched. The resolution is deterministic and authoring-free (the "auto-sync — no manual *authoring* step" the milestone promises), but moving hand-written content onto a different symbol is surfaced for an explicit one-click accept rather than applied silently. A `miss` (renamed **and** re-bodied) instead soft-deletes the node into the re-attachment bin for manual re-attachment.
+
+**What it ships.**
+
+- **Preservation fix (`packages/core`/`packages/types`, AC#1).** Stamping a field `user`-owned in **either `write_fields` wrapper** (`SqliteGraphStore.write_fields` and `CustomGraphModel.write_fields`) also promotes the row's structural `layer` to `'user'`, so a later `rebuild_layer('agentic'|'raw')` — which deletes by `layer` — can never destroy user-owned content. Promotion is one-directional and lives in the wrappers; the shared `apply_field_ladder` stays field-bag-only, preserving store/model parity. The model's deferred `flush` persists the promotion automatically because it replays the user-tier write through the store's promoting `write_fields`. The `GraphStore.write_fields` contract docstring records this.
+
+- **`re_extract(file_set, origin)` funnel (`packages/core`, AC#2/#3).** The single named in-process re-extraction entry point: invalidate the file set's raw rows, re-extract (the host injects `extract_raw`/`build_index` via `ReExtractDeps`, keeping core parser-agnostic), rebuild the file-module scaffold, then resolve each preserved anchor — `relocated` → stage drift, `miss` → bin, `hit` → no-op (so unrelated symbols never false-positive). The `origin` union is open (`'code-change'` now, task-27.2's `'apply'` adds no signature change). `re_extract` is re-runnable after a partial failure (each store call is atomic and idempotent).
+
+- **Re-anchor write (`packages/core`, AC#4).** `reanchor_node` rewrites only the `anchor` column and strips the `drift_*` staging, leaving the id, layer, and every authored field intact. `outstanding_drift` is the read-only, extractor-free query over staged relocations; both the banner and the resolve handler read from it, so neither re-runs the extractor.
+
+- **File-module tier (`packages/core`, AC#9).** `module_scaffold.ts` emits one `agentic.group` per defining file with `agentic.contains` (leaf → module) edges, a path-derived deterministic group id (no hash, no clustering), and a single `<external>` bucket for files outside the analyzed root. It is rebuilt per worked-on file set via idempotent scoped upserts (not `rebuild_layer`, which is store-global); a renamed-away leaf's stale `contains` edge is retired so the scaffold does not accumulate orphans. The `ModuleResolver` seam lets task-27.1.3 swap in directory rollups / clustering without touching the writer.
+
+- **Drift surface (`packages/drift`, AC#4/#5).** `drift.resolve` gains a `reanchor` resolution (committing a staged relocation via `reanchor_node`) alongside the existing bin `reattach`/`delete`. The SessionStart banner reports the outstanding drift **count** and each drifted node as a punch-list item, read from the store (the prior git-working-tree banner is removed). Derived scaffold rows (`origin: 'module-scaffold'`) are excluded from the re-attachment bin.
+
+- **UI adapter, registry, edge styling, layout, provenance (`packages/ui`, AC#6/#7/#8).** `custom_graph_to_react_flow` renders leaf nodes from `render(layers)` rows (projected by core's `graph_to_rows`), mapping `attributes.description` to the label and the `agentic.contains` tier to React Flow `parentId`; the closed 2-key `zoom_aware_node_types` becomes an **open kind→component registry** (`register_node_kind`/`build_node_types`); edge styling reads an **open attribute set** (`confidence` + `extractor` + `kind` + `label`/`role`) through one `edge_style_for` path. `apply_hierarchical_layout` accepts an optional fixed-id set — pinned nodes hold their position in both the ELK and fallback paths — with this slice's caller passing an empty set (behaviour unchanged; the seam exists for task-27.2). A selection-driven `ProvenancePanel` reads the selected node's/edge's row off `onSelectionChange`; `navigate_to_file` stays a secondary action.
+
+**What is live vs. seam-complete.** The data-flow milestone — preservation fix → `re_extract` → staged relocation → `drift.resolve {reanchor}` → re-render — is wired and verified end to end at the store/handler level (the `packages/drift` `drift_tool` test drives the full chain on an in-memory store; the `packages/core` `re_extract` test covers staging, no-false-positives, scaffold, orphan retirement, and the accepted re-anchor). Three seams are **built and unit-tested but not yet wired into the running application**, because their live wiring belongs to tasks this slice depends on or feeds:
+
+- **AC#2 production caller.** `re_extract` is the single funnel; the Stop-hook → drift-sync path that calls it headlessly needs the Ariadne extractor injection, which task-27.1.1 already scoped to **task-27.1.6** (drift-sync ships as a documented stub). The SKILL names `re_extract` as the funnel.
+- **AC#6 live render path.** The adapter is the leaf-rendering path forward; `code_chart_area` switches onto it once the backend feeds the webview `render(layers)` rows, which is **task-27.1.3**'s "render a flow" work. Until then the live UI runs the existing `CallableNode` pipeline (left in place — no shim).
+- **AC#8 live provenance.** The panel and selection wiring are in `code_chart_area`; they populate once the adapter (AC#6) feeds nodes carrying `data.row`.
+
+The open registry, open edge-styling path, and the layout fixed-id seam are wired live now.
+
+**How to navigate.** `packages/core/src/reextract/` is the re-extraction funnel: `re_extract.ts` (entry point + staging), `reanchor.ts` (the commit write), `drift_observation.ts` (the `drift_*` staging keys + the read-only `outstanding_drift` query). `packages/core/src/model/module_scaffold.ts` is the file-module tier. `packages/drift/src/mcp/drift_tool.ts` adds the `reanchor` resolution; the banner is in `packages/drift/src/hooks/session_start_banner.ts`. The UI adapter, registry, edge styling, layout seam, and provenance panel are under `packages/ui/src/components/code_chart_area/`.

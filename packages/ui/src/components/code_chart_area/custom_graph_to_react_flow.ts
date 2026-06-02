@@ -2,7 +2,10 @@
  * task-27.1.2 AC#6 — adapt a rendered `CustomGraph` (projected to its plain `NodeRow`/`EdgeRow` rows
  * by core's `graph_to_rows`) into React Flow nodes and edges.
  *
- * This supersedes the `CallableNode`-based pipeline (`generate_react_flow_elements`) for leaf rendering.
+ * This is the leaf-rendering path that replaces the `CallableNode`-based pipeline
+ * (`generate_react_flow_elements`). It is built and unit-tested here; `code_chart_area` is switched onto
+ * it once the backend feeds the webview `render(layers)` rows (task-27.1.3), so until then the live
+ * render still runs the old pipeline.
  * The React Flow node `type` is resolved from `NodeRow.kind` through the open registry
  * (`resolve_node_type`), never a hardcoded `code_function`/`module_group` branch — so a shaped flowchart
  * node (task-27.1.11) or a doc node (task-21.2) becomes a `register_node_kind` entry, not an adapter
@@ -41,7 +44,9 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
     member_count.set(edge.dst_id, (member_count.get(edge.dst_id) ?? 0) + 1);
   }
 
-  const emitted = new Set<string>();
+  // A node is emitted only if its kind has a registered component; a parentId is set only if the
+  // parent module was also emitted, so a leaf never references a React Flow parent that doesn't exist.
+  const emitted = new Set(rows.nodes.filter((row) => resolve_node_type(row.kind) !== undefined).map((row) => row.id));
   const nodes: CodeChartNode[] = [];
   for (const row of rows.nodes) {
     const type = resolve_node_type(row.kind);
@@ -51,8 +56,8 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
       });
       continue;
     }
-    nodes.push(build_node(row, type, parent_of.get(row.id), member_count.get(row.id) ?? 0));
-    emitted.add(row.id);
+    const parent_id = parent_of.get(row.id);
+    nodes.push(build_node(row, type, parent_id !== undefined && emitted.has(parent_id) ? parent_id : undefined, member_count.get(row.id) ?? 0));
   }
 
   const edges: CodeChartEdge[] = [];

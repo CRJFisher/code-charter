@@ -59,6 +59,7 @@ export {
   file_of_symbol_path,
   module_group_id,
   MODULE_GROUP_PREFIX,
+  MODULE_SCAFFOLD_ORIGIN,
 } from "./model/module_scaffold";
 export type { ModuleResolver, ModuleScaffold } from "./model/module_scaffold";
 
