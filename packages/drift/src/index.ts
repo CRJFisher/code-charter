@@ -30,6 +30,8 @@ export {
   merge_hook_entry,
   merge_mcp_server,
   hook_group_is_ours,
+  read_hook_groups,
+  read_mcp_server,
 } from "./installer/merge_settings";
 export {
   CLAUDE_CODE_LAYOUT,

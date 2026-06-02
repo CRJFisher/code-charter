@@ -12,16 +12,22 @@
 const USAGE =
   "usage: drift_sync.js --files <a,b,...> --store <db_path> --repo-root <abs> [--json] [--dry-run]";
 
+const VALUE_FLAGS = { "--files": "files", "--store": "store", "--repo-root": "repo_root" };
+
 function parse_args(argv) {
   const args = { files: null, store: null, repo_root: null, json: false, dry_run: false };
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
-    if (token === "--files") {
-      args.files = argv[++i];
-    } else if (token === "--store") {
-      args.store = argv[++i];
-    } else if (token === "--repo-root") {
-      args.repo_root = argv[++i];
+    const field = VALUE_FLAGS[token];
+    if (field !== undefined) {
+      const value = argv[i + 1];
+      // A value-flag at the end of argv, or immediately followed by another flag, has no value:
+      // reject it as a usage error (exit 2) rather than letting `undefined` slip past validation.
+      if (value === undefined || value.startsWith("--")) {
+        return { error: `missing value for ${token}` };
+      }
+      args[field] = value;
+      i++;
     } else if (token === "--json") {
       args.json = true;
     } else if (token === "--dry-run") {

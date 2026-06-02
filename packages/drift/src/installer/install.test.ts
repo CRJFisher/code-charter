@@ -31,6 +31,8 @@ describe("install_drift (idempotency + asset install)", () => {
       const drift_server = read_mcp_server(mcp, "drift");
       expect(drift_server?.command).toBe("node");
       expect(drift_server?.args[0]).toContain("drift_mcp.js");
+      // The MCP server is pinned to the target repo's store so it + the skill open the same db.
+      expect(drift_server?.env?.CODE_CHARTER_DB).toContain(path.join(".code-charter", "graph.db"));
 
       // The .claude asset bundle is present, exactly once each.
       expect(fs.existsSync(path.join(target, ".claude", "agents", "drift-reconciler.md"))).toBe(true);
@@ -62,6 +64,22 @@ describe("install_drift (idempotency + asset install)", () => {
       expect(read_hook_groups(settings, CLAUDE_CODE_LAYOUT, "Stop")).toHaveLength(1);
       const permissions = JSON.stringify(settings).includes("Bash(ls:*)");
       expect(permissions).toBe(true);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to overwrite a present-but-malformed settings.json (no silent data loss)", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-install-"));
+    try {
+      const settings_path = path.join(target, ".claude", "settings.json");
+      fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+      const malformed = '{ "permissions": { "allow": ["Bash(ls:*)"] }, }'; // trailing comma
+      fs.writeFileSync(settings_path, malformed);
+
+      expect(() => install_drift(target, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT)).toThrow(/not valid JSON/);
+      // The user's file is left exactly as it was — not overwritten.
+      expect(fs.readFileSync(settings_path, "utf8")).toBe(malformed);
     } finally {
       fs.rmSync(target, { recursive: true, force: true });
     }

@@ -106,6 +106,19 @@ export function read_hook_groups(
   return as_array(hooks[event]).filter(is_hook_group);
 }
 
+function as_string_record(value: unknown): Record<string, string> | undefined {
+  if (!is_plain_record(value)) {
+    return undefined;
+  }
+  const result: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string") {
+      result[key] = entry;
+    }
+  }
+  return result;
+}
+
 /** The registered MCP server `name`, or null when absent/malformed. */
 export function read_mcp_server(config: unknown, name: string): McpServerEntry | null {
   const record = as_record(as_record(config).mcpServers)[name];
@@ -113,5 +126,13 @@ export function read_mcp_server(config: unknown, name: string): McpServerEntry |
   if (typeof entry.command !== "string" || !Array.isArray(entry.args)) {
     return null;
   }
-  return { command: entry.command, args: entry.args.filter((arg): arg is string => typeof arg === "string") };
+  const server: McpServerEntry = {
+    command: entry.command,
+    args: entry.args.filter((arg): arg is string => typeof arg === "string"),
+  };
+  const env = as_string_record(entry.env);
+  if (env !== undefined) {
+    server.env = env;
+  }
+  return server;
 }

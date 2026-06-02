@@ -65,6 +65,7 @@ export function build_drift_server(store: GraphStore, log: LogCall): Server {
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: [...TOOL_DEFINITIONS] }));
 
   server.setRequestHandler(CallToolRequestSchema, (request, extra): CallToolResult => {
+    // `sessionId` is the MCP SDK's RequestHandlerExtra wire field, not an internal identifier.
     const caller = extra.sessionId ?? "unknown";
     const { name, arguments: raw_args } = request.params;
 

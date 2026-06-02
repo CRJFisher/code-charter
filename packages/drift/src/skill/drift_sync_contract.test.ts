@@ -59,6 +59,18 @@ describe("drift-sync stub contract", () => {
     expect(result.stderr).toContain("missing required --files");
   });
 
+  it("exits 2 (never crashes) when a value-flag has no value", () => {
+    const result = run(["--store", "/tmp/none.db", "--repo-root", "/repo", "--files"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("missing value for --files");
+  });
+
+  it("exits 2 when a value-flag is immediately followed by another flag", () => {
+    const result = run(["--files", "a.ts", "--repo-root", "--store", "/x"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("missing value for --repo-root");
+  });
+
   it("exits 2 on an unknown argument", () => {
     const result = run(["--files", "a.ts", "--store", "/x", "--repo-root", "/r", "--bogus"]);
     expect(result.status).toBe(2);

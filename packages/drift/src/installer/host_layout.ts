@@ -52,6 +52,8 @@ export interface HostLayout {
   commands: AssetDirSpec;
 }
 
+// Claude Code reads project hooks from `.claude/settings.json` but project MCP servers from a
+// separate `.mcp.json` at the repo root — the two-file split is the host's contract, not arbitrary.
 export const CLAUDE_CODE_LAYOUT: HostLayout = {
   host_key: "claude_code",
   settings_file: ".claude/settings.json",

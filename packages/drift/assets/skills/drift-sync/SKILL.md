@@ -18,13 +18,15 @@ the store through any other tool, and never through the MCP `drift.*` surface.
 
 ## Run the reconciler
 
-Run the bundled script over the changed files. Pass the comma-separated file set, the store path
-(`$DRIFT_STORE_PATH`, the same path the MCP server opens), and the repo root:
+Run the bundled script over the changed files. Pass the comma-separated file set, the store path,
+and the repo root. The store path resolves from `CODE_CHARTER_DB` (the same env var the MCP server
+uses), falling back to `.code-charter/graph.db` under the repo root — so the skill and the MCP
+server always open the same store:
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/drift_sync.js" \
   --files "<comma-separated repo-relative paths>" \
-  --store "$DRIFT_STORE_PATH" \
+  --store "${CODE_CHARTER_DB:-$PWD/.code-charter/graph.db}" \
   --repo-root "$PWD" \
   --json
 ```

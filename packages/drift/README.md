@@ -5,7 +5,36 @@ MCP surface, the `Stop`-hook → custom sub-agent reconciliation path, the `drif
 sub-agent invokes, and the installer that wires all of it into a host's `.claude` directory.
 
 This package ships the substrate and its contracts. The reconciliation body (re-extract →
-re-induce → preserve → write) is a stub here; it lands in task-27.1.6.
+re-induce → preserve → write) is a stub here; it lands in task-27.1.6. The `drift.list` /
+`drift.resolve` MCP surface is thin-but-real: it reads/writes the re-attachment bin over existing
+store methods today; the full bin semantics (resolver-miss + flow-split/merge stranding) also land
+in task-27.1.6.
+
+## Layout
+
+- `src/mcp/` — the user-facing MCP surface: the `drift.*` pure handlers, the re-attachment bin,
+  call logging, the server builder, and the store-path resolver.
+- `src/hooks/` — the `Stop` and `SessionStart` logic: transcript parsing, the block-or-no-op
+  decision, the read-only banner, and git-based out-of-session drift detection.
+- `src/installer/` — the idempotent installer and the host-keyed layout (where each artifact lands
+  per host, and the non-destructive settings/MCP merges).
+- `src/bin/` — the thin executable entries the installer wires into a host (`drift-mcp`,
+  `drift-stop-hook`, `drift-session-start`, `drift-install`).
+- `assets/` — the `.claude` templates the installer copies verbatim: the `drift-reconciler`
+  sub-agent (`agents/`), the `drift-sync` skill (`skills/`), and the `/drift` command (`commands/`).
+
+## Install
+
+Build the package, then run the installer from the target repository root (it installs into the
+repo's `.claude/` directory and `.mcp.json`):
+
+```bash
+npm run build --workspace=@code-charter/drift
+node <path-to>/packages/drift/dist/bin/drift_install.js   # the `drift-install` bin
+```
+
+The installer writes runtime artifacts under `.code-charter/` (the graph store and the MCP call
+log); add that directory to the repo's `.gitignore` if it is not already ignored.
 
 ## What it provides
 

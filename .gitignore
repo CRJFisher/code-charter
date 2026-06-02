@@ -176,6 +176,9 @@ cython_debug/
 # TypeScript build info
 *.tsbuildinfo
 
+# Code Charter runtime working directory (graph store, MCP call log, reconcile watermark)
+.code-charter/
+
 # Turbo
 .turbo/
 CLAUDE.local.md
