@@ -1,0 +1,55 @@
+---
+name: drift-sync
+description: >-
+  Reconcile code-to-diagram drift for a changed-file set: hydrate a flow's diagram the first time
+  its code is worked on, or re-sync an existing flow, preserving user edits. Invoked by the
+  drift-reconciler sub-agent with the files worked on this turn. STUB in task-27.1.1 (logs the
+  hydrate-vs-resync decision and no-ops the store); the body lands in task-27.1.6.
+allowed-tools: Bash
+---
+
+# drift-sync
+
+Reconcile the diagram store for the changed-file set you were given.
+
+This skill is the single store-mutation path for drift reconciliation. The deterministic work is
+performed by the bundled script `scripts/drift_sync.js`, which you run directly. You do not write
+the store through any other tool, and never through the MCP `drift.*` surface.
+
+## Run the reconciler
+
+Run the bundled script over the changed files. Pass the comma-separated file set, the store path
+(`$DRIFT_STORE_PATH`, the same path the MCP server opens), and the repo root:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/scripts/drift_sync.js" \
+  --files "<comma-separated repo-relative paths>" \
+  --store "$DRIFT_STORE_PATH" \
+  --repo-root "$PWD" \
+  --json
+```
+
+For each affected flow the script reports whether it would HYDRATE (no `agentic.flow` node exists
+yet for that flow) or RE-SYNC (one already exists). In task-27.1.1 this is a stub: it logs the
+decision and performs no store mutation, exiting 0.
+
+## What the full skill does (task-27.1.6)
+
+For each affected flow derived from the changed files:
+
+- when no diagram exists yet, apply the HYDRATE judgement — group seeds into umbrellas, infer
+  bridges, attach docs, draft descriptions — then write the new flow; or
+- when a diagram already exists, re-extract and re-induce the flow and carry user-authored fields
+  (description, name, pin) across via the resolver + watermark ladder,
+
+then write the store under the agentic rebuild layer. User edits always win.
+
+## Contract (stable now)
+
+- Inputs: `--files` (comma-separated repo-relative paths), `--store` (db path), `--repo-root`
+  (absolute repo root). Optional `--json` emits machine-readable dispatch records; `--dry-run`
+  forces the no-mutation path (the stub is always dry-run).
+- Dispatch: hydrate when `EXISTS(agentic.flow node)` is false for the flow, else re-sync.
+- Exit 0 = success or no-op (an empty file set or an absent/Null store both no-op). Exit 2 =
+  usage/contract error. Diagnostics go to stderr; `--json` records go to stdout.
+- Hosts without the Skill tool run `scripts/drift_sync.js` directly with the same arguments.

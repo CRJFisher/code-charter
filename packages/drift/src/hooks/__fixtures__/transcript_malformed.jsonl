@@ -1,0 +1,6 @@
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","id":"ok","input":{"file_path":"src/keep.ts","old_string":"a","new_string":"b"}}]}}
+{ this is not valid json
+{"type":"assistant"}
+{"type":"assistant","message":{"role":"assistant","content":"not-an-array"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","id":"nofile","input":{"old_string":"a"}}]}}
+{"type":"summary","summary":"a prior session"}
