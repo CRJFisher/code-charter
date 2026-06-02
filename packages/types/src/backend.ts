@@ -1,52 +1,24 @@
-import type { CallGraph, CallableNode } from "@ariadnejs/types";
-import type { ClusteringAlgorithm } from "./clustering";
+import type { CallGraph } from "@ariadnejs/types";
+
+import type { FlowSummary, RenderedRows } from "./flows";
 
 /**
- * Docstring-driven descriptions for a code tree.
- * Uses docstrings extracted from source code as the primary description source,
- * falling back to name + signature for undocumented symbols.
- */
-export interface DocstringSummaries {
-  /** symbol -> docstring body (or name+signature fallback for undocumented symbols) */
-  docstrings: Record<string, string>;
-  /** All nodes in the call tree */
-  call_tree: Record<string, CallableNode>;
-}
-
-/**
- * Represents a group of related nodes/symbols
- */
-export interface NodeGroup {
-  description: string;
-  member_symbols: string[];
-  metadata?: {
-    algorithm_used: ClusteringAlgorithm;
-    quality_score?: number;
-    cluster_index: number;
-  };
-}
-
-/**
- * Main interface for Code Charter backend implementations
+ * Main interface for Code Charter backend implementations.
+ *
+ * The surface is flow-keyed (task-27.1.3): the left panel lists flows and renders the selected one as
+ * its own bounded subgraph. Entrypoint *detection* (`get_call_graph`) is retained as the substrate the
+ * deterministic flow skeleton is generated from.
  */
 export interface CodeCharterBackend {
-  /**
-   * Get the call graph for the current project
-   */
+  /** The call graph for the current project — the substrate flows are derived from. */
   get_call_graph(): Promise<CallGraph | undefined>;
 
-  /**
-   * Cluster code tree nodes into logical groups
-   */
-  cluster_code_tree(top_level_function_symbol: string): Promise<NodeGroup[]>;
+  /** The ordered flow list for the left-panel selector: hydrated-first, then by recency (AC#7). */
+  list_flows(): Promise<FlowSummary[]>;
 
-  /**
-   * Get descriptions for a code tree starting from a given function (docstring extraction, no LLM)
-   */
-  get_code_tree_descriptions(top_level_function_symbol: string): Promise<DocstringSummaries | undefined>;
+  /** The bounded, scaffold-folded subgraph rows for a selected flow (AC#6). */
+  render_flow(flow_id: string): Promise<RenderedRows>;
 
-  /**
-   * Navigate to a specific document location
-   */
+  /** Navigate to a specific document location. */
   navigate_to_doc(file_path: string, line_number: number): Promise<void>;
 }

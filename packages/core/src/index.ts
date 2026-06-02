@@ -60,8 +60,34 @@ export {
   module_group_id,
   MODULE_GROUP_PREFIX,
   MODULE_SCAFFOLD_ORIGIN,
+  path_module_resolver,
 } from "./model/module_scaffold";
 export type { ModuleResolver, ModuleScaffold } from "./model/module_scaffold";
+
+// task-27.1.3 — the flow entity, deterministic skeleton, membership, and persistence-row builders
+export {
+  BRIDGE_EDGE_KIND,
+  build_bridge_edges,
+  build_flow_member_edges,
+  build_flow_node,
+  build_skeleton_flows,
+  FLOW_MEMBER_EDGE_KIND,
+  FLOW_NODE_KIND,
+  flow_id_of,
+  flow_of_leaf,
+  induce_members,
+  order_flows,
+  reachable_from,
+  read_hydrated_flows,
+  skeleton_to_summary,
+  UNATTRIBUTED_FLOW_ID,
+  UNATTRIBUTED_FLOW_LABEL,
+} from "./model/flow";
+export type { BridgeEdge, FlowMembership, SkeletonFlow } from "./model/flow";
+
+// task-27.1.3 AC#3/#6 — per-flow render projection + per-view budget
+export { DEFAULT_FLOW_BUDGET, project_flow } from "./model/flow_projection";
+export type { FlowBudget, ProjectFlowOptions } from "./model/flow_projection";
 
 // task-27.1.2 AC#2/#3/#4 — the single re-extraction funnel, outstanding-drift surface, and re-anchor write
 export { re_extract } from "./reextract/re_extract";

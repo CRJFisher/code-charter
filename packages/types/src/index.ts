@@ -1,17 +1,14 @@
 // Export all backend types
 export * from './backend';
 
-// Export storage types
-export * from './storage';
+// Export the flow-keyed backend surface (task-27.1.3)
+export * from './flows';
 
 // Export the task-27.0 custom-graph store contract
 export * from './graph_store';
 
 // Export theme types
 export * from './theme';
-
-// Export clustering types
-export * from './clustering';
 
 // Export docstring helper
 export { get_docstring } from './docstring';

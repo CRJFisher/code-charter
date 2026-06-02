@@ -1,18 +1,26 @@
+import * as path from "node:path";
+import * as fs from "node:fs";
+
 import * as vscode from "vscode";
 import { add_to_gitignore } from "./files";
 import { navigate_to_doc } from "./navigate";
-import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
-import { serialize_call_graph, get_docstring, type DocstringSummaries } from "@code-charter/types";
+import type { CallGraph } from "@ariadnejs/types";
+import { serialize_call_graph } from "@code-charter/types";
+import {
+  build_skeleton_flows,
+  open_graph_store,
+  order_flows,
+  project_flow,
+  read_hydrated_flows,
+  skeleton_to_summary,
+} from "@code-charter/core";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
-import { ClusteringService } from "./clustering/clustering_service";
-import { VscodeCacheStorage } from "./clustering/vscode_cache_storage";
-import { LocalEmbeddingsProvider } from "./clustering/local_embeddings_provider";
 import { AriadneProjectManager } from "./ariadne/project_manager";
-import { ClusterSummariesStore } from "./storage/json_store";
-import { symbol_repo_local_name } from "../shared/symbols";
 
 const extension_folder = ".code-charter";
+/** The on-disk graph store the hydrated-flow read opens — same convention as the drift MCP server. */
+const graph_db_file = "graph.db";
 
 let webview_column: vscode.ViewColumn | undefined;
 
@@ -78,26 +86,50 @@ async function show_webview_diagram(
     color_customizations,
   );
 
+  const workspace_path = workspace_folders[0].uri.fsPath;
   let call_graph: CallGraph | undefined;
-  const top_level_function_to_descriptions: { [key: string]: DocstringSummaries } = {};
   let project_manager: AriadneProjectManager | undefined;
-  const embedding_provider = new LocalEmbeddingsProvider(
-    (message: string, progress?: number) => {
-      vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: "Code Charter: Embeddings",
-        cancellable: false
-      }, async (progress_reporter) => {
-        progress_reporter.report({ message, increment: progress });
-        await new Promise(resolve => setTimeout(resolve, progress === 100 ? 1000 : 100));
+
+  // Lazily build the Ariadne call graph once, then serve it from the cached project manager. Both the
+  // raw call-graph request and the flow handlers (which derive the skeleton from it) funnel through
+  // here, so a re-extraction after a code change is picked up on the next request — the flow surface is
+  // a per-request snapshot (live re-sync is task-27.1.6's Stop-hook hydration, not a webview push).
+  const ensure_call_graph = async (): Promise<CallGraph> => {
+    if (!project_manager) {
+      project_manager = new AriadneProjectManager(workspace_path, (file_path) => {
+        return (
+          !file_path.includes("test") &&
+          !file_path.includes("node_modules") &&
+          !file_path.includes("__pycache__") &&
+          !file_path.includes(".git")
+        );
       });
+      call_graph = await project_manager.initialize();
+    } else {
+      call_graph = project_manager.get_call_graph();
     }
-  );
-  const clustering_service = new ClusteringService({
-    embedding_provider,
-    cache_storage: new VscodeCacheStorage(work_folder),
-    progress_reporter: (msg) => console.log(msg)
-  });
+
+    if (!call_graph) {
+      throw new Error("Call graph not found");
+    }
+    return call_graph;
+  };
+
+  // Read persisted hydrated flows (`agentic.flow` nodes) so they sort ahead of the deterministic
+  // skeleton (AC#7). The store may not exist on a cold repo that has never been hydrated (task-27.1.6
+  // writes these); in that case there are simply no hydrated flows and the list is pure skeleton.
+  const read_hydrated = () => {
+    const db_path = path.join(work_folder.fsPath, graph_db_file);
+    if (!fs.existsSync(db_path)) {
+      return [];
+    }
+    const store = open_graph_store(db_path);
+    try {
+      return read_hydrated_flows(store.all_nodes());
+    } finally {
+      store.close();
+    }
+  };
 
   panel.webview.onDidReceiveMessage(
     async (message) => {
@@ -105,75 +137,24 @@ async function show_webview_diagram(
 
       const command_handlers: { [key: string]: () => Promise<void> } = {
         get_call_graph: async () => {
-          const workspace_path = workspace_folders[0].uri.fsPath;
-
-          if (!project_manager) {
-            project_manager = new AriadneProjectManager(workspace_path, (path) => {
-              return (
-                !path.includes("test") &&
-                !path.includes("node_modules") &&
-                !path.includes("__pycache__") &&
-                !path.includes(".git")
-              );
-            });
-
-            project_manager.on_call_graph_changed((new_call_graph) => {
-              call_graph = new_call_graph;
-              panel.webview.postMessage({
-                command: "call_graph_updated",
-                data: serialize_call_graph(new_call_graph)
-              });
-            });
-
-            call_graph = await project_manager.initialize();
-          } else {
-            call_graph = project_manager.get_call_graph();
-          }
-
-          if (!call_graph) {
-            throw new Error("Call graph not found");
-          }
-          panel.webview.postMessage({ id, command: "get_call_graph_response", data: serialize_call_graph(call_graph) });
+          const graph = await ensure_call_graph();
+          panel.webview.postMessage({ id, command: "get_call_graph_response", data: serialize_call_graph(graph) });
         },
-        get_code_tree_descriptions: async () => {
-          const { top_level_function_symbol } = other_fields;
-          if (!call_graph) {
-            throw new Error("Call graph not found");
-          }
-
-          const descriptions = extract_descriptions(call_graph, top_level_function_symbol);
-          top_level_function_to_descriptions[top_level_function_symbol] = descriptions;
-          panel.webview.postMessage({ id, command: "get_code_tree_descriptions_response", data: descriptions });
+        list_flows: async () => {
+          const graph = await ensure_call_graph();
+          const skeleton = build_skeleton_flows(graph).map(skeleton_to_summary);
+          const flows = order_flows(read_hydrated(), skeleton);
+          panel.webview.postMessage({ id, command: "list_flows_response", data: flows });
         },
-        cluster_code_tree: async () => {
-          const { top_level_function_symbol } = other_fields;
-          const descriptions = top_level_function_to_descriptions[top_level_function_symbol];
-          if (!descriptions) {
-            throw new Error("Descriptions not available. Call get_code_tree_descriptions first.");
+        render_flow: async () => {
+          const { flow_id } = other_fields;
+          const graph = await ensure_call_graph();
+          const flow = build_skeleton_flows(graph).find((candidate) => candidate.id === flow_id);
+          if (!flow) {
+            throw new Error(`Unknown flow: ${flow_id}`);
           }
-
-          const clusters = await clustering_service.cluster(
-            descriptions.docstrings,
-            descriptions.call_tree
-          );
-
-          // Read pre-computed cluster descriptions from JSON if available
-          const workspace_path = workspace_folders[0].uri.fsPath;
-          const stored_summaries = ClusterSummariesStore.read(workspace_path);
-
-          const node_groups = clusters.map((cluster, i) => {
-            const stored_cluster = stored_summaries?.clusters?.find(c => {
-              const stored_members = new Set(c.members);
-              return cluster.every(m => stored_members.has(m)) && cluster.length === c.members.length;
-            });
-
-            return {
-              description: stored_cluster?.description || `Module ${i + 1}`,
-              member_symbols: cluster,
-            };
-          });
-
-          panel.webview.postMessage({ id, command: "cluster_code_tree_response", data: node_groups });
+          const rows = project_flow(flow, graph);
+          panel.webview.postMessage({ id, command: "render_flow_response", data: rows });
         },
         navigate_to_doc: async () => {
           const { file_path, line_number } = other_fields;
@@ -221,43 +202,6 @@ async function show_webview_diagram(
     });
     dev_watcher.start();
   }
-}
-
-/**
- * Extracts docstring descriptions from the call graph for a given entry point.
- * Uses ariadne's definition.docstring field directly -- ariadne already extracts
- * docstrings via tree-sitter during call graph construction.
- */
-function extract_descriptions(
-  call_graph: CallGraph,
-  top_level_symbol: string
-): DocstringSummaries {
-  const docstrings: Record<string, string> = {};
-  const call_tree: Record<string, CallableNode> = {};
-  const visited = new Set<string>();
-
-  function walk(symbol: string) {
-    if (visited.has(symbol)) return;
-    visited.add(symbol);
-
-    const node = call_graph.nodes.get(symbol as SymbolId);
-    if (!node) return;
-
-    call_tree[symbol] = node;
-
-    const docstring = get_docstring(node.definition);
-    docstrings[symbol] = docstring || symbol_repo_local_name(symbol);
-
-    for (const call_ref of node.enclosed_calls) {
-      for (const resolution of call_ref.resolutions) {
-        walk(resolution.symbol_id);
-      }
-    }
-  }
-
-  walk(top_level_symbol);
-
-  return { docstrings, call_tree };
 }
 
 export function deactivate(): void {

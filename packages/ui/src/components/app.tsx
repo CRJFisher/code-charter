@@ -3,51 +3,27 @@ import React, { useEffect, useState } from "react";
 import Sidebar from "./side_bar";
 import { CodeChartAreaReactFlowWrapper as CodeChartArea } from "./code_chart_area/code_chart_area";
 import { use_backend } from "../hooks/use_backend";
-import { DocstringSummaries, NodeGroup, CallGraph, CallableNode, CodeCharterBackend } from "@code-charter/types";
+import { FlowSummary, CodeCharterBackend } from "@code-charter/types";
 import { CodeIndexStatus } from "./loading_status";
 import { ThemeSwitcher } from "../theme";
 
-async function detect_entry_points(
+async function load_flows(
   backend: CodeCharterBackend,
-  set_call_graph: React.Dispatch<React.SetStateAction<CallGraph | null>>,
+  set_flows: React.Dispatch<React.SetStateAction<FlowSummary[]>>,
   set_status_message: React.Dispatch<React.SetStateAction<CodeIndexStatus>>
 ) {
   set_status_message(CodeIndexStatus.Indexing);
 
+  // Entrypoint detection (the call graph) is retained as the substrate the flow skeleton is built from.
   const call_graph = await backend.get_call_graph();
-
   if (!call_graph) {
     set_status_message(CodeIndexStatus.Error);
     return;
   }
-  set_call_graph(call_graph);
 
+  const flows = await backend.list_flows();
+  set_flows(flows);
   set_status_message(CodeIndexStatus.Ready);
-}
-
-type DescriptionsPromise = Promise<DocstringSummaries | undefined>;
-
-async function fetch_descriptions(
-  backend: CodeCharterBackend,
-  node_symbol: string,
-  ongoing_tasks: Map<string, DescriptionsPromise>,
-  set_ongoing_descriptions: React.Dispatch<React.SetStateAction<Map<string, DescriptionsPromise>>>
-): DescriptionsPromise {
-  const in_flight = ongoing_tasks.get(node_symbol);
-  if (in_flight) {
-    return in_flight;
-  }
-
-  const promise = backend.get_code_tree_descriptions(node_symbol)
-    .finally(() =>
-      set_ongoing_descriptions((ongoing_descriptions) => {
-        ongoing_descriptions.delete(node_symbol);
-        return new Map(ongoing_descriptions);
-      })
-    );
-
-  set_ongoing_descriptions(new Map(ongoing_tasks.set(node_symbol, promise)));
-  return promise;
 }
 
 export interface AppProps {
@@ -56,30 +32,23 @@ export interface AppProps {
 
 export const App: React.FC<AppProps> = ({ class_name = "" }) => {
   const { backend } = use_backend();
-  const [call_graph, set_call_graph] = useState<CallGraph | null>(null);
-  const [selected_entry_point, set_selected_entry_point] = useState<CallableNode | null>(null);
+  const [flows, set_flows] = useState<FlowSummary[]>([]);
+  const [selected_flow_id, set_selected_flow_id] = useState<string | null>(null);
   const [status_message, set_status_message] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
-  const [ongoing_descriptions, set_ongoing_descriptions] = useState<Map<string, DescriptionsPromise>>(new Map());
 
   useEffect(() => {
-    detect_entry_points(backend, set_call_graph, set_status_message);
+    load_flows(backend, set_flows, set_status_message);
   }, [backend]);
 
-  const are_nodes_descriptions_loading = (node_symbol: string) => {
-    return ongoing_descriptions.has(node_symbol);
-  };
-
-  const get_descriptions = async (node_symbol: string): Promise<DocstringSummaries | undefined> => {
-    return fetch_descriptions(backend, node_symbol, ongoing_descriptions, set_ongoing_descriptions);
-  };
-
-  async function detect_modules(top_level_node_symbol: string | undefined): Promise<NodeGroup[] | undefined> {
-    if (!top_level_node_symbol) {
-      return;
+  // Auto-select the top flow on open so a cold repo shows structure without a click (AC#7). Also
+  // reconcile a selection that the latest flow list no longer contains (e.g. its seed was renamed),
+  // falling back to the top flow rather than stranding a now-unrenderable id.
+  useEffect(() => {
+    if (flows.length === 0) return;
+    if (selected_flow_id === null || !flows.some((flow) => flow.id === selected_flow_id)) {
+      set_selected_flow_id(flows[0].id);
     }
-    const new_node_groups = await backend.cluster_code_tree(top_level_node_symbol);
-    return new_node_groups;
-  }
+  }, [flows, selected_flow_id]);
 
   return (
     <div className={`flex flex-col h-screen bg-vscodeBg text-vscodeFg ${class_name}`}>
@@ -89,17 +58,15 @@ export const App: React.FC<AppProps> = ({ class_name = "" }) => {
       </div>
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
-          call_graph={call_graph || { nodes: new Map(), entry_points: [] }}
-          on_select={set_selected_entry_point}
-          selected_node={selected_entry_point}
-          are_node_descriptions_loading={are_nodes_descriptions_loading}
+          flows={flows}
+          on_select={set_selected_flow_id}
+          selected_flow_id={selected_flow_id}
         />
         <div className="flex flex-1 bg-vscodeBg">
           <CodeChartArea
-            selected_entry_point={selected_entry_point}
+            selected_flow_id={selected_flow_id}
             screen_width_fraction={0.8}
-            get_descriptions={get_descriptions}
-            detect_modules={() => detect_modules(selected_entry_point?.symbol_id)}
+            render_flow={backend.render_flow.bind(backend)}
             indexing_status={status_message}
           />
         </div>

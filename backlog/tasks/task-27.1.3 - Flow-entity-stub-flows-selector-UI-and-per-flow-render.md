@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.3
 title: "Flow entity, deterministic stub flows, flow selector UI, and per-flow render"
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-06-01"
 labels:
@@ -60,4 +60,28 @@ A flow is the first inhabitant of the agentic tier and the **tiling block** of t
 
 ## Implementation Notes
 
-<!-- Added when work begins. -->
+## High-level summary
+
+**Why this exists.** Task-27.1's comprehension unit is the **flow** — a functionality umbrella over one or more call-graph trees plus linked docs. v1 needs the flow to be a first-class entity and the left panel to select flows, not entrypoints, *before* the agentic flow-detector (task-27.1.6) exists. This task ships the flow **container**, a **deterministic stub population** so the UI is useful on a cold repo, and rewires the webview's render path onto the store-based adapter that task-27.1.2 built but left dormant.
+
+**The approach and the load-bearing decision.** A flow's interior comes from Ariadne's call graph "for free"; only the cross-tree seam and doc attachment are agentic (task-27.1.6). So v1 **does not persist or enrich** skeleton flows: `render_flow(flow_id)` projects the selected entrypoint's reachable subgraph straight from the in-memory `CallGraph` (already served by the extension) into `NodeRow`/`EdgeRow` rows, folds in the file-module scaffold, and hands them to `custom_graph_to_react_flow`. Persisted `agentic.flow` nodes are reserved for *hydrated* flows that task-27.1.6 will write; `list_flows` reads them from the store and merges them ahead of the deterministic skeleton. This deliberately avoids building an Ariadne→SQLite raw-extraction pipeline now (it belongs with hydration, not the deterministic substrate) — the constitution's YAGNI line.
+
+A second decision shapes flow identity (AC#4): the id is the dominant seed entrypoint's **`symbol_path`** — the location-free, body-independent half of its anchor — **not** the full `symbol_path:content_hash`. A content hash changes on every body edit, which would re-key the flow (and its persisted selection/layout) on every save; the `symbol_path` is the stable half a rename relocates and the resolver re-anchors. Skeleton flows are recomputed each session, so they re-derive their id deterministically and need no stored anchor; the full sorted-anchor-set hash + ≥50% overlap remap stays deferred to task-27.1.6 (D-FLOW-IDENTITY).
+
+**What changed, at altitude.**
+
+- **core** gains the flow model in two files. `model/flow.ts` is the single source of flow truth: `build_skeleton_flows` (one deterministic flow per `call_graph.entry_points` root, size-ranked, plus a single `unattributed` bucket for code reachable from no entrypoint), `flow_id_of` (identity), `reachable_from` (cycle-guarded forward traversal), `induce_members`/`flow_of_leaf` (subgraph-induced, set-valued membership — never a stored leaf set), `order_flows`/`read_hydrated_flows`/`skeleton_to_summary` (the AC#7 hydrated-first-then-recency merge), and the `agentic.flow`/`agentic.flow_member`/`agentic.bridge` row builders task-27.1.6 will persist. `model/flow_projection.ts` is the render path: `project_flow` re-induces the subgraph, synthesizes `code.function`/`code.calls` rows, folds them with `build_module_scaffold` via the new path-keyed `path_module_resolver`, and bounds the view to a pinned `DEFAULT_FLOW_BUDGET`, collapsing to module granularity when over budget.
+- **types** swaps the backend contract: `cluster_code_tree` / `get_code_tree_descriptions` → `list_flows()` / `render_flow(flow_id)`, with the new `FlowSummary` and `RenderedRows` shapes in `flows.ts`. `NodeGroup`, `DocstringSummaries`, and the `clustering`/`storage` type modules are deleted.
+- **ui** replaces the sidebar's entrypoint list with a flow selector (`side_bar.tsx`: renders the pre-ordered `FlowSummary[]`, caps to a top-N with a "more" reveal, navigates to the seed on click); `app.tsx` loads flows once and auto-selects the top, reconciling a selection the list no longer contains; `code_chart_area.tsx` switches its render effect from the `CallableNode` pipeline onto `render_flow` → `custom_graph_to_react_flow` → position-preserving layout, keyed by `flow_id`, with a single `FlowRenderStatus` lifecycle (the two-stage `DescriptionStatus` is removed) and a terminal empty state for a flow-less project.
+- **vscode** replaces the two old handlers (and the clustering/embeddings machinery) with `list_flows` / `render_flow` computed from the in-memory call graph via `ensure_call_graph`, merging any hydrated `agentic.flow` nodes read from `.code-charter/graph.db` when it exists; `get_call_graph` and `navigate_to_doc` stay. The flow surface is a per-request snapshot — live re-sync is task-27.1.6's Stop-hook hydration, not a webview push.
+- **deletions (no shim)**: `call_tree_to_graph.ts` (the `CallableNode` pipeline), the entire `packages/vscode/src/clustering` subsystem, `json_store.ts`, the orphaned `shared/codeGraph.ts`, and the clustering deps + config keys in `packages/vscode/package.json`.
+
+**How to navigate the result.** Start at `packages/core/src/model/flow.ts` (the entity, identity, membership, ordering) and its sibling `flow_projection.ts` (subgraph → rows → scaffold fold → budget) — host-agnostic and unit-tested in `flow.test.ts` / `flow_projection.test.ts`. The backend contract (`packages/types/src/backend.ts` + `flows.ts`) is the seam; the UI flow selector (`side_bar.tsx`) and `code_chart_area.tsx`'s render effect are the front door on screen; the extension's `render_flow`/`list_flows` handlers are where the call graph becomes rows.
+
+**What to know / watch.**
+
+- The view is a **per-request snapshot**: a code change is picked up on the next selection, not pushed live. Saved layouts use a single persisted slot matched by `flow_id` (opening another flow overwrites it; per-flow persistence is not a v1 goal).
+- **Deferred to task-27.1.6**: persisting/enriching `agentic.flow` nodes; `render_flow` dispatching on a hydrated-flow id (today it only resolves skeleton ids); carrying a hydrated summary's `seed_location`/live `member_count`; and live re-sync via the Stop hook.
+- **Open decisions**, marked in code where it stops short: large-flow rendering beyond the single-level module collapse is **D-LARGE-FLOW-RENDER**; flow-list secondary navigability (grouping/naming/ranking) is **D-FLOW-LIST-LEGIBILITY**; rename/move-stable identity remap is **D-FLOW-IDENTITY**. Two same-named method entrypoints collapse to one id under the v1 enclosing-free `symbol_path` and are de-duplicated in the selector.
+- Clustering returns later, from scratch, for a different purpose (chunking input + refactoring signal) in task-27.1.11.
+- The removed clustering deps (`@tensorflow/tfjs-node`, `@huggingface/transformers`, `clustering-tfjs`) are dropped from `packages/vscode/package.json`; the root lockfile must be regenerated on the next install to prune their subtrees.

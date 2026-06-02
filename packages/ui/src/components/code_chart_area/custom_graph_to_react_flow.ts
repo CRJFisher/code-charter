@@ -1,11 +1,8 @@
 /**
- * task-27.1.2 AC#6 — adapt a rendered `CustomGraph` (projected to its plain `NodeRow`/`EdgeRow` rows
- * by core's `graph_to_rows`) into React Flow nodes and edges.
+ * Adapt a flow's rendered rows (plain `NodeRow`/`EdgeRow`, the `render_flow` backend result) into React
+ * Flow nodes and edges. This is the webview's leaf-rendering path: `code_chart_area` calls it with the
+ * rows `render_flow(flow_id)` returns, then runs `apply_hierarchical_layout` over the result.
  *
- * This is the leaf-rendering path that replaces the `CallableNode`-based pipeline
- * (`generate_react_flow_elements`). It is built and unit-tested here; `code_chart_area` is switched onto
- * it once the backend feeds the webview `render(layers)` rows (task-27.1.3), so until then the live
- * render still runs the old pipeline.
  * The React Flow node `type` is resolved from `NodeRow.kind` through the open registry
  * (`resolve_node_type`), never a hardcoded `code_function`/`module_group` branch — so a shaped flowchart
  * node (task-27.1.11) or a doc node (task-21.2) becomes a `register_node_kind` entry, not an adapter
@@ -16,7 +13,7 @@
  * is carried on `data.row` so selection-driven provenance (AC#8) can read it without a second lookup.
  */
 
-import type { EdgeRow, NodeRow } from "@code-charter/types";
+import type { NodeRow, RenderedRows } from "@code-charter/types";
 
 import type { CodeNodeData } from "./code_function_node";
 import { resolve_node_type, type ModuleNodeData } from "./chart_node_types";
@@ -24,11 +21,6 @@ import type { CodeChartEdge, CodeChartNode } from "./chart_types";
 import { error_logger } from "./error_handling";
 
 const CONTAINS_EDGE_KIND = "agentic.contains";
-
-export interface RenderedRows {
-  nodes: NodeRow[];
-  edges: EdgeRow[];
-}
 
 export interface ReactFlowElements {
   nodes: CodeChartNode[];

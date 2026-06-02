@@ -91,7 +91,8 @@ const config = {
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
     "^vscode$": "<rootDir>/src/__tests__/setup/vscode-mock.ts",
-    "^clustering-tfjs$": "<rootDir>/src/__tests__/setup/clustering-tfjs-mock.ts",
+    "^@code-charter/types$": "<rootDir>/../types/src/index.ts",
+    "^@code-charter/core$": "<rootDir>/../core/src/index.ts",
     "^@shared/(.*)$": "<rootDir>/shared/$1",
     "^src/(.*)$": "<rootDir>/src/$1",
   },

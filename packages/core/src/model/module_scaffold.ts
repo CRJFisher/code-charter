@@ -66,6 +66,26 @@ export function file_module_resolver(analyzed_root: string): ModuleResolver {
   };
 }
 
+/**
+ * A resolver that buckets a leaf by its `path` column directly, rather than by parsing its `anchor`.
+ * This is the task-27.1.3 seam for flow-render projection: call-graph-projected `code.function` rows
+ * carry their file in `path` and no anchor (they are render-only, never persisted/hashed), so the
+ * anchor-parsing {@link file_module_resolver} would skip them. Group ids are byte-identical to that
+ * resolver's (same {@link module_group_id}), so a projected fold and a persisted fold agree.
+ */
+export function path_module_resolver(analyzed_root: string): ModuleResolver {
+  return {
+    group_for(leaf) {
+      const file = leaf.path;
+      if (file === "") return null;
+      if (!is_within_root(file, analyzed_root)) {
+        return { group_id: EXTERNAL_GROUP_ID, label: EXTERNAL_GROUP_LABEL };
+      }
+      return { group_id: module_group_id(file), label: file };
+    },
+  };
+}
+
 /** True when `file` is the analyzed root or sits beneath it. An empty root contains everything. */
 function is_within_root(file: string, analyzed_root: string): boolean {
   if (analyzed_root === "") return true;

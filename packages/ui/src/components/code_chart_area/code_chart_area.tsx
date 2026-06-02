@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import type { CallableNode } from "@code-charter/types";
-import { NodeGroup, DocstringSummaries } from "@code-charter/types";
+import type { RenderedRows } from "@code-charter/types";
 import {
   ReactFlow,
   useNodesState,
@@ -19,11 +18,11 @@ import type { EdgeRow, NodeRow } from "@code-charter/types";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import "@xyflow/react/dist/style.css";
 
-import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
+import { CodeIndexStatus, FlowRenderStatus } from "../loading_status";
 import { apply_hierarchical_layout } from "./graph_layout";
 import { build_node_types } from "./chart_node_types";
 import { ProvenancePanel } from "./provenance_panel";
-import { generate_react_flow_elements } from "./call_tree_to_graph";
+import { custom_graph_to_react_flow } from "./custom_graph_to_react_flow";
 import { compute_parent_resize, apply_parent_resize } from "./parent_resize";
 import { LoadingIndicator } from "./loading_indicator";
 import { save_graph_state, load_graph_state, export_graph_state, clear_graph_state } from "./state_persistence";
@@ -42,10 +41,9 @@ import { use_flow_theme_styles } from "./use_chart_theme_styles";
 type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
-  selected_entry_point: CallableNode | null;
+  selected_flow_id: string | null;
   screen_width_fraction: number;
-  get_descriptions: (node_symbol: string) => Promise<DocstringSummaries | undefined>;
-  detect_modules: () => Promise<NodeGroup[] | undefined>;
+  render_flow: (flow_id: string) => Promise<RenderedRows>;
   indexing_status: CodeIndexStatus;
 }
 
@@ -57,21 +55,18 @@ const aria_label_config = {
 };
 
 const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
-  selected_entry_point,
+  selected_flow_id,
   screen_width_fraction,
-  get_descriptions,
-  detect_modules,
+  render_flow,
   indexing_status,
 }) => {
   const [nodes, set_nodes, on_nodes_change] = useNodesState<CodeChartNode>([]);
   const [edges, set_edges, on_edges_change] = useEdgesState<CodeChartEdge>([]);
   const [zoom_mode, set_zoom_mode] = useState<ZoomMode>("zoomedOut");
-  const [, set_call_chart] = useState<Record<string, CallableNode> | null>(null);
-  const [description_status, set_description_status] = useState<DescriptionStatus>(DescriptionStatus.LoadingDescriptions);
+  const [render_status, set_render_status] = useState<FlowRenderStatus>(FlowRenderStatus.Rendering);
   const [error, set_error] = useState<string | null>(null);
   const [show_mini_map, set_show_mini_map] = useState(true);
   const container_ref = useRef<HTMLDivElement>(null);
-  const node_groups_ref = useRef<NodeGroup[] | undefined>(undefined);
   const react_flow_instance = useRef<ReactFlowInstance<CodeChartNode, CodeChartEdge> | null>(null);
   const { notify } = use_error_notification();
   const theme_styles = use_flow_theme_styles();
@@ -141,102 +136,81 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     render_buffer: CONFIG.performance.virtualRender.render_buffer,
   });
 
-  // Clear caches when entry point changes
+  // Clear caches when the selected flow changes
   useEffect(() => {
-    if (selected_entry_point) {
+    if (selected_flow_id) {
       clear_layout_caches();
     }
-  }, [selected_entry_point?.symbol_id]);
+  }, [selected_flow_id]);
 
   useEffect(() => {
-    if (!selected_entry_point) {
+    if (!selected_flow_id) {
       return;
     }
 
     let cancelled = false;
 
-    const fetch_data = async () => {
+    const render = async () => {
       try {
         set_error(null);
-        set_description_status(DescriptionStatus.LoadingDescriptions);
+        set_render_status(FlowRenderStatus.Rendering);
 
-        // Clear any graph data from the previous entrypoint before loading
-        // the new one. Without this, stale nodes/edges remain in ReactFlow's
-        // internal store during the async window, and module IDs (now
-        // namespaced per-entrypoint) from the previous render can leak
+        // Clear the previous flow's nodes/edges before the async window so stale nodes can't leak
         // through the virtual-renderer's empty-viewport fallback.
         set_nodes([]);
         set_edges([]);
 
-        // Check for saved state first
-        const saved_state = load_graph_state(selected_entry_point.symbol_id);
+        // Restore a saved layout if the single persisted slot holds this flow's state (it is matched
+        // by flow id; opening a different flow overwrites it — per-flow persistence is not a v1 goal).
+        const saved_state = load_graph_state(selected_flow_id);
         if (saved_state) {
           if (cancelled) return;
           set_nodes(saved_state.nodes);
           set_edges(saved_state.edges);
-          set_description_status(DescriptionStatus.Ready);
+          set_render_status(FlowRenderStatus.Ready);
           return;
         }
 
-        const docstring_summaries = await get_descriptions(selected_entry_point.symbol_id);
+        // Project the flow's bounded subgraph to render rows and adapt them to React Flow (AC#6). The
+        // adapter folds the file-module scaffold's `agentic.contains` edges into `parentId` and carries
+        // each source row on `data.row` for the selection-driven provenance panel.
+        const rows = await render_flow(selected_flow_id);
         if (cancelled) return;
-        if (!docstring_summaries) {
-          throw new Error("Failed to load code tree descriptions");
-        }
-        set_call_chart(docstring_summaries.call_tree);
 
-        set_description_status(DescriptionStatus.DetectingModules);
-        const node_groups = await detect_modules();
-        if (cancelled) return;
-        node_groups_ref.current = node_groups;
+        const { nodes: flow_nodes, edges: flow_edges } = custom_graph_to_react_flow(rows);
 
-        // Generate all nodes and edges from the call tree. Leaf rendering migrates to
-        // `custom_graph_to_react_flow` (which reads `render(layers)` rows and carries `data.row` for
-        // the provenance panel) once the backend feeds this component those rows — task-27.1.3.
-        const { nodes: flow_nodes, edges: flow_edges } = generate_react_flow_elements(
-          selected_entry_point,
-          docstring_summaries,
-          node_groups,
-          theme_styles.colors.cluster?.palette
-        );
-
-        // Apply hierarchical layout
         const layouted_nodes = await apply_hierarchical_layout(flow_nodes, flow_edges);
         if (cancelled) return;
 
         set_nodes(layouted_nodes);
         set_edges(flow_edges);
-        set_description_status(DescriptionStatus.Ready);
+        set_render_status(FlowRenderStatus.Ready);
       } catch (err) {
         if (cancelled) return;
         const error = err instanceof Error ? err : new Error("An error occurred");
         set_error(error.message);
-        set_description_status(DescriptionStatus.Error);
-        error_logger.log(error, 'error', { entry_point: selected_entry_point.symbol_id });
+        set_render_status(FlowRenderStatus.Error);
+        error_logger.log(error, 'error', { flow_id: selected_flow_id });
         handle_react_flow_error(error);
 
-        // Show notification with retry option
         notify(
-          'Failed to load visualization data',
+          'Failed to render flow',
           'error',
           [
-            { label: 'Retry', action: () => fetch_data() },
+            { label: 'Retry', action: () => render() },
             { label: 'Dismiss', action: () => undefined },
           ]
         );
       }
     };
 
-    fetch_data();
+    render();
 
     return () => {
       cancelled = true;
     };
-    // Depend only on the entry point id. Including the function props would
-    // cancel-and-restart on every App render (their closures are recreated
-    // each render), creating an infinite loop with the .finally state updates
-    // in App.fetch_descriptions.
-  }, [selected_entry_point?.symbol_id]);
+    // Depend only on the flow id; `render_flow` is recreated each App render and would cancel-restart.
+  }, [selected_flow_id]);
 
   const get_visibility_class_names = (show: boolean): string => {
     return show ? "visible" : "invisible";
@@ -244,11 +218,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
 
   // Throttle save operations for performance (manual Save button)
   const handle_save_state = use_throttle(useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selected_entry_point || !instance) return;
+    if (!selected_flow_id || !instance) return;
 
     const viewport = instance.getViewport();
-    save_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_entry_point.symbol_id);
-  }, [selected_entry_point]), CONFIG.animation.debounce.save);
+    save_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_flow_id);
+  }, [selected_flow_id]), CONFIG.animation.debounce.save);
 
   // Debounced autosave driven by local state. Reading `nodes`/`edges` directly
   // (rather than `instance.getNodes()`) avoids a race with React Flow's
@@ -257,32 +231,32 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const debounced_nodes = use_debounce(nodes, CONFIG.animation.debounce.save);
   const debounced_edges = use_debounce(edges, CONFIG.animation.debounce.save);
   useEffect(() => {
-    if (description_status !== DescriptionStatus.Ready) return;
-    if (!selected_entry_point || !react_flow_instance.current) return;
+    if (render_status !== FlowRenderStatus.Ready) return;
+    if (!selected_flow_id || !react_flow_instance.current) return;
     const viewport = react_flow_instance.current.getViewport();
-    save_graph_state(debounced_nodes, debounced_edges, viewport, selected_entry_point.symbol_id);
-  }, [debounced_nodes, debounced_edges, description_status, selected_entry_point?.symbol_id]);
+    save_graph_state(debounced_nodes, debounced_edges, viewport, selected_flow_id);
+  }, [debounced_nodes, debounced_edges, render_status, selected_flow_id]);
 
   // Export state to file
   const handle_export_state = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selected_entry_point || !instance) return;
+    if (!selected_flow_id || !instance) return;
 
     const viewport = instance.getViewport();
-    export_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_entry_point.symbol_id);
-  }, [selected_entry_point]);
+    export_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_flow_id);
+  }, [selected_flow_id]);
 
   // Handle React Flow initialization
   const on_init = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selected_entry_point) return;
+    if (!selected_flow_id) return;
 
     react_flow_instance.current = instance;
 
     // Check for saved viewport
-    const saved_state = load_graph_state(selected_entry_point.symbol_id);
+    const saved_state = load_graph_state(selected_flow_id);
     if (saved_state?.viewport) {
       instance.setViewport(saved_state.viewport);
     }
-  }, [selected_entry_point]);
+  }, [selected_flow_id]);
 
   if (indexing_status !== CodeIndexStatus.Ready) {
     return (
@@ -304,7 +278,28 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     );
   }
 
-  const show_elements = selected_entry_point !== null && description_status === DescriptionStatus.Ready;
+  // No flow selected once indexing is done means the project yielded no flows (no entrypoints and no
+  // unattributed code). Show a terminal empty state rather than the never-resolving render spinner.
+  if (selected_flow_id === null) {
+    return (
+      <div
+        className="chart-container"
+        style={{
+          width: `${screen_width_fraction * 100}%`,
+          height: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ textAlign: "center", color: theme_styles.colors.node.text.secondary }}>
+          No flows detected in this project.
+        </div>
+      </div>
+    );
+  }
+
+  const show_elements = selected_flow_id !== null && render_status === FlowRenderStatus.Ready;
 
   return (
     <>
@@ -320,7 +315,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         id="code-flow-graph"
       >
       <div
-        className={`loading-container ${get_visibility_class_names(description_status !== DescriptionStatus.Ready)}`}
+        className={`loading-container ${get_visibility_class_names(render_status !== FlowRenderStatus.Ready)}`}
         style={{
           position: "absolute",
           top: "50%",
@@ -330,19 +325,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           zIndex: CONFIG.zIndex.overlay,
         }}
       >
-        {description_status === DescriptionStatus.LoadingDescriptions && (
+        {render_status === FlowRenderStatus.Rendering && (
           <LoadingIndicator
-            status="Loading Descriptions"
-            message="Extracting docstrings from source code..."
+            status="Rendering Flow"
+            message="Building the flow diagram from the call graph..."
           />
         )}
-        {description_status === DescriptionStatus.DetectingModules && (
-          <LoadingIndicator
-            status="Detecting Modules"
-            message="Analyzing code structure to identify logical modules..."
-          />
-        )}
-        {description_status === DescriptionStatus.Error && error && (
+        {render_status === FlowRenderStatus.Error && error && (
           <div style={{
             padding: "20px",
             ...theme_styles.get_error_style(),

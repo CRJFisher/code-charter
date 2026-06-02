@@ -28,23 +28,31 @@ describe('MockBackend', () => {
     });
   });
 
-  describe('cluster_code_tree', () => {
-    it('returns node groups', async () => {
-      const result = await backend.cluster_code_tree('main.ts:main');
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(3);
-      expect(result[0].description).toBeDefined();
-      expect(Array.isArray(result[0].member_symbols)).toBe(true);
+  describe('list_flows', () => {
+    it('returns a deterministic skeleton flow for the entrypoint', async () => {
+      const result = await backend.list_flows();
+      expect(result.length).toBe(1);
+      expect(result[0].label).toBe('main');
+      expect(result[0].is_hydrated).toBe(false);
+      expect(result[0].member_count).toBe(3);
+      expect(result[0].seed_location).toEqual({ file_path: 'main.ts', line_number: 0 });
     });
   });
 
-  describe('get_code_tree_descriptions', () => {
-    it('returns docstring descriptions for a function', async () => {
-      const result = await backend.get_code_tree_descriptions('main.ts:main');
-      if (!result) throw new Error('expected descriptions');
-      expect(result.docstrings).toBeDefined();
-      expect(result.call_tree).toBeDefined();
-      expect(result.docstrings['main.ts:main']).toBeDefined();
+  describe('render_flow', () => {
+    it('returns adapter-ready rows: code.function leaves, module groups, and call edges', async () => {
+      const result = await backend.render_flow('main.ts#main:function');
+      const functions = result.nodes.filter((n) => n.kind === 'code.function');
+      const groups = result.nodes.filter((n) => n.kind === 'agentic.group');
+      expect(functions.map((n) => n.attributes.label).sort()).toEqual(['fetch_data', 'main', 'processData']);
+      expect(groups.length).toBe(3);
+      // every contains edge folds a real leaf into a real emitted module
+      const ids = new Set(result.nodes.map((n) => n.id));
+      for (const edge of result.edges.filter((e) => e.kind === 'agentic.contains')) {
+        expect(ids.has(edge.src_id)).toBe(true);
+        expect(ids.has(edge.dst_id)).toBe(true);
+      }
+      expect(result.edges.some((e) => e.kind === 'code.calls')).toBe(true);
     });
   });
 

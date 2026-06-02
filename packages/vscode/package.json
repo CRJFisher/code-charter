@@ -24,38 +24,14 @@
     "configuration": {
       "title": "Code Charter",
       "properties": {
-        "code-charter-vscode.clusteringAlgorithm": {
-          "order": 1,
-          "type": "string",
-          "default": "spectral",
-          "enum": [
-            "spectral",
-            "kmeans",
-            "agglomerative"
-          ],
-          "enumDescriptions": [
-            "Spectral clustering: uses graph Laplacian eigenvalues. Best for code dependency graphs with non-convex cluster shapes.",
-            "K-means: fast partitioning by minimizing within-cluster variance. Good for roughly spherical clusters.",
-            "Agglomerative: bottom-up hierarchical merging. Good for discovering nested code module hierarchies."
-          ],
-          "description": "Clustering algorithm used to group related code symbols."
-        },
-        "code-charter-vscode.clusteringMaxClusters": {
-          "order": 2,
-          "type": "number",
-          "default": 12,
-          "minimum": 2,
-          "maximum": 30,
-          "description": "Maximum number of clusters. The algorithm searches for the optimal count up to this limit."
-        },
         "code-charter-vscode.devMode": {
-          "order": 3,
+          "order": 1,
           "type": "boolean",
           "default": false,
           "description": "Enable development mode to load UI from dev server"
         },
         "code-charter-vscode.devServerUrl": {
-          "order": 4,
+          "order": 2,
           "type": "string",
           "default": "http://localhost:3000",
           "description": "URL of the UI development server"
@@ -88,11 +64,9 @@
   "dependencies": {
     "@ariadnejs/core": "^0.8.0",
     "@ariadnejs/types": "^0.8.0",
+    "@code-charter/core": "^0.0.1",
     "@code-charter/types": "^0.0.1",
     "@code-charter/ui": "^0.0.1",
-    "@huggingface/transformers": "^3.7.1",
-    "@tensorflow/tfjs-node": "^4.10.0",
-    "@vscode/python-extension": "^1.0.5",
-    "clustering-tfjs": "^0.5.0"
+    "@vscode/python-extension": "^1.0.5"
   }
 }
