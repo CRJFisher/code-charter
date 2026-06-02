@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import { use_backend } from "../hooks/use_backend";
 import type { FlowSummary } from "@code-charter/types";
 
-/** How many flows the selector shows before the "more" affordance reveals the rest (AC#7). */
+/**
+ * How many flows the selector shows before the "more" affordance reveals the rest (AC#7). The list is
+ * a flat capped list; richer secondary navigability (grouping, naming, ranking) is D-FLOW-LIST-LEGIBILITY
+ * (open).
+ */
 const FLOW_LIST_CAP = 12;
 
 interface SidebarProps {
@@ -62,7 +66,8 @@ const FlowList: React.FC<FlowListProps> = ({ flows, selected_flow_id, on_select 
   const { backend } = use_backend();
   const [show_all, set_show_all] = useState(false);
 
-  // The list arrives already ordered (hydrated-first, then recency / size — AC#7); render in order.
+  // The list arrives already ordered (hydrated flows first by recency, then the size-ranked skeleton —
+  // AC#7); render in that order without re-sorting.
   const visible = show_all ? flows : flows.slice(0, FLOW_LIST_CAP);
   const hidden_count = flows.length - visible.length;
 

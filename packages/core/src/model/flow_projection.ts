@@ -77,7 +77,10 @@ export function project_flow(flow: SkeletonFlow, graph: CallGraph, options: Proj
   }
 
   // Over budget: collapse to module granularity. Keep the file-module group nodes, drop the leaves, and
-  // lift each in-flow call to a module-to-module edge (dropping intra-module and duplicate edges).
+  // lift each in-flow call to a module-to-module edge (dropping intra-module and duplicate edges). This
+  // bounds a large flow to one node per defining file; a flow spanning more distinct files than the
+  // budget (e.g. a whole-library unattributed bucket) still exceeds it — multi-level directory rollup
+  // for that case is D-LARGE-FLOW-RENDER (open), deferred to task-27.1.12.
   const module_of = new Map<string, string>(); // leaf id -> module id
   for (const edge of scaffold.contains_edges) module_of.set(edge.src_id, edge.dst_id);
   const lifted = lift_edges_to_modules(call_edges, module_of);

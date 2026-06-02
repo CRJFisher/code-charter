@@ -72,4 +72,12 @@ This is the whole of doc-5's "anything you author is always considered" and "the
 
 ## Implementation Notes
 
-<!-- Added when work begins. -->
+### Inbound seams from task-27.1.3
+
+Task-27.1.3 ships the flow container + deterministic skeleton and leaves these hydration-side seams for this task to close:
+
+- **Persist hydrated flows.** The `agentic.flow` / `agentic.flow_member` / `agentic.bridge` row builders exist in `packages/core/src/model/flow.ts` (`build_flow_node`, `build_flow_member_edges`, `build_bridge_edges`) and are unit-tested but never written in v1. Hydration writes them to the store; `list_flows` already reads them via `read_hydrated_flows` and orders them ahead of the skeleton (`order_flows`).
+- **`render_flow` must dispatch on a hydrated id.** The extension handler currently resolves only deterministic skeleton ids (`build_skeleton_flows(...).find(...)`); a persisted `agentic.flow` id (which need not equal any single-seed skeleton id) throws "Unknown flow". Add a branch that renders a hydrated flow from its stored seeds/bridges/docs (`induce_members`) when the id is not in the skeleton.
+- **Carry `seed_location` + live `member_count` onto hydrated summaries.** `read_hydrated_flows` returns `seed_location: null` and a stored `member_count`, so a hydrated entry that supersedes its skeleton twin loses jump-to-source and the live count. Inherit them from the matching skeleton flow during the merge, or stamp them when persisting.
+- **Live re-sync.** The v1 flow surface is a per-request snapshot — there is no webview push (the dead `call_graph_updated` push was removed). The Stop-hook hydration sub-agent is the live-update path; when it writes a flow, the next `list_flows`/`render_flow` reflects it.
+- **D-FLOW-IDENTITY.** v1 ids are the dominant seed's `symbol_path` (content-hash excluded). The sorted-anchor-set hash + ≥50% overlap remap that survives non-deterministic re-detection is resolved here.

@@ -84,13 +84,10 @@ export class VSCodeBackend implements CodeCharterBackend {
   }
 
   async render_flow(flow_id: string): Promise<RenderedRows> {
-    try {
-      const response = await this.send_message_with_response<RenderedRows>("render_flow", { flow_id });
-      return response.data ?? { nodes: [], edges: [] };
-    } catch (error) {
-      console.error("Error rendering flow:", error);
-      return { nodes: [], edges: [] };
-    }
+    // Propagate failures (a missing flow, an extension error) so the chart area surfaces the error
+    // state + Retry rather than silently painting a blank canvas.
+    const response = await this.send_message_with_response<RenderedRows>("render_flow", { flow_id });
+    return response.data ?? { nodes: [], edges: [] };
   }
 
   async navigate_to_doc(file_path: string, line_number: number): Promise<void> {

@@ -129,6 +129,53 @@ describe("flow_of_leaf (AC#2)", () => {
   });
 });
 
+describe("induce_members bridges + linked docs (AC#2)", () => {
+  const graph = make_graph(
+    [
+      { id: "a", name: "a", file: "a.ts", calls: ["a_helper"] },
+      { id: "a_helper", name: "a_helper", file: "a.ts" },
+      { id: "b", name: "b", file: "b.ts", calls: ["b_helper"] },
+      { id: "b_helper", name: "b_helper", file: "b.ts" },
+    ],
+    ["a"],
+  );
+
+  it("pulls a bridged tree's reachable interior into the member set", () => {
+    const seeds_only = induce_members({ id: "f", seeds: ["a" as SymbolId] }, graph);
+    expect(seeds_only.has("b" as SymbolId)).toBe(false);
+
+    const with_bridge = induce_members(
+      { id: "f", seeds: ["a" as SymbolId], bridges: [{ src_id: "a", dst_id: "b" }] },
+      graph,
+    );
+    expect([...with_bridge].sort()).toEqual(["a", "a_helper", "b", "b_helper"]);
+  });
+
+  it("adds linked docs as members", () => {
+    const members = induce_members(
+      { id: "f", seeds: ["a" as SymbolId], linked_docs: ["docs/readme.md"] },
+      graph,
+    );
+    expect(members.has("docs/readme.md" as SymbolId)).toBe(true);
+  });
+});
+
+describe("build_skeleton_flows id de-duplication (D-FLOW-IDENTITY edge)", () => {
+  it("collapses two entrypoints that derive the same id into one selector entry", () => {
+    // Two methods named `run` in different classes both flatten to `svc.ts#run:function` under the
+    // v1 enclosing-free symbol_path, so they share an id; only one flow should be emitted.
+    const graph = make_graph(
+      [
+        { id: "run#1", name: "run", file: "svc.ts" },
+        { id: "run#2", name: "run", file: "svc.ts" },
+      ],
+      ["run#1", "run#2"],
+    );
+    const ids = build_skeleton_flows(graph).map((f) => f.id);
+    expect(ids).toEqual(["svc.ts#run:function"]);
+  });
+});
+
 describe("order_flows (AC#7)", () => {
   const skeleton: FlowSummary[] = [
     summary({ id: "m.ts#main:function", member_count: 5 }),
@@ -159,6 +206,15 @@ describe("order_flows (AC#7)", () => {
 
   it("with no hydrated flows, returns the skeleton order unchanged", () => {
     expect(order_flows([], skeleton)).toEqual(skeleton);
+  });
+
+  it("breaks an equal-recency tie by id and sorts a null last_synced_at last", () => {
+    const hydrated: FlowSummary[] = [
+      summary({ id: "z", is_hydrated: true, last_synced_at: null }),
+      summary({ id: "b", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
+      summary({ id: "a", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
+    ];
+    expect(order_flows(hydrated, []).map((f) => f.id)).toEqual(["a", "b", "z"]);
   });
 });
 

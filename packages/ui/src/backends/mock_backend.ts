@@ -183,6 +183,9 @@ export class MockBackend implements CodeCharterBackend {
     ];
   }
 
+  // The single-flow demo double returns one fixed graph regardless of flow_id; the real extension keys
+  // the projection on flow_id. The over-budget collapse and unattributed-bucket paths are covered by
+  // core's flow_projection unit tests, not exercised here.
   async render_flow(_flow_id: string): Promise<RenderedRows> {
     return {
       nodes: [

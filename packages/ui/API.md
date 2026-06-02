@@ -155,19 +155,21 @@ Implement the `Backend` interface to create custom backends:
 import { CodeCharterBackend } from '@code-charter/types';
 
 class CustomBackend implements CodeCharterBackend {
-  async getCallGraph(): Promise<CallGraph> {
+  async get_call_graph(): Promise<CallGraph | undefined> {
     // Your implementation
   }
 
-  async get_code_tree_descriptions(symbol: string): Promise<DocstringSummaries> {
+  async list_flows(): Promise<FlowSummary[]> {
     // Your implementation
   }
 
-  async navigateToDoc(relativeDocPath: string, lineNumber: number): Promise<void> {
+  async render_flow(flow_id: string): Promise<RenderedRows> {
     // Your implementation
   }
 
-  // ... other required methods
+  async navigate_to_doc(file_path: string, line_number: number): Promise<void> {
+    // Your implementation
+  }
 }
 ```
 

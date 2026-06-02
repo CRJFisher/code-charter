@@ -91,7 +91,9 @@ async function show_webview_diagram(
   let project_manager: AriadneProjectManager | undefined;
 
   // Lazily build the Ariadne call graph once, then serve it from the cached project manager. Both the
-  // raw call-graph request and the flow handlers (which derive the skeleton from it) funnel through here.
+  // raw call-graph request and the flow handlers (which derive the skeleton from it) funnel through
+  // here, so a re-extraction after a code change is picked up on the next request — the flow surface is
+  // a per-request snapshot (live re-sync is task-27.1.6's Stop-hook hydration, not a webview push).
   const ensure_call_graph = async (): Promise<CallGraph> => {
     if (!project_manager) {
       project_manager = new AriadneProjectManager(workspace_path, (file_path) => {
@@ -102,15 +104,6 @@ async function show_webview_diagram(
           !file_path.includes(".git")
         );
       });
-
-      project_manager.on_call_graph_changed((new_call_graph) => {
-        call_graph = new_call_graph;
-        panel.webview.postMessage({
-          command: "call_graph_updated",
-          data: serialize_call_graph(new_call_graph)
-        });
-      });
-
       call_graph = await project_manager.initialize();
     } else {
       call_graph = project_manager.get_call_graph();

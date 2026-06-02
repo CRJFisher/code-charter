@@ -160,7 +160,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         set_nodes([]);
         set_edges([]);
 
-        // Restore a saved layout for this flow first (keyed by flow id, not entrypoint symbol).
+        // Restore a saved layout if the single persisted slot holds this flow's state (it is matched
+        // by flow id; opening a different flow overwrites it — per-flow persistence is not a v1 goal).
         const saved_state = load_graph_state(selected_flow_id);
         if (saved_state) {
           if (cancelled) return;
@@ -273,6 +274,27 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           status="Indexing Code"
           message="Parsing your codebase to build the call graph..."
         />
+      </div>
+    );
+  }
+
+  // No flow selected once indexing is done means the project yielded no flows (no entrypoints and no
+  // unattributed code). Show a terminal empty state rather than the never-resolving render spinner.
+  if (selected_flow_id === null) {
+    return (
+      <div
+        className="chart-container"
+        style={{
+          width: `${screen_width_fraction * 100}%`,
+          height: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ textAlign: "center", color: theme_styles.colors.node.text.secondary }}>
+          No flows detected in this project.
+        </div>
       </div>
     );
   }

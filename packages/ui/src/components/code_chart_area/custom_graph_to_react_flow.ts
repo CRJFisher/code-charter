@@ -13,7 +13,7 @@
  * is carried on `data.row` so selection-driven provenance (AC#8) can read it without a second lookup.
  */
 
-import type { EdgeRow, NodeRow } from "@code-charter/types";
+import type { NodeRow, RenderedRows } from "@code-charter/types";
 
 import type { CodeNodeData } from "./code_function_node";
 import { resolve_node_type, type ModuleNodeData } from "./chart_node_types";
@@ -21,11 +21,6 @@ import type { CodeChartEdge, CodeChartNode } from "./chart_types";
 import { error_logger } from "./error_handling";
 
 const CONTAINS_EDGE_KIND = "agentic.contains";
-
-export interface RenderedRows {
-  nodes: NodeRow[];
-  edges: EdgeRow[];
-}
 
 export interface ReactFlowElements {
   nodes: CodeChartNode[];

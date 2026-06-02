@@ -19,6 +19,10 @@
  * a stored enumerated leaf set. "Which flow does leaf L belong to" is answered by re-inducing each
  * flow's subgraph and testing membership ({@link flow_of_leaf}) — a leaf shared by two entrypoint trees
  * legitimately belongs to both.
+ *
+ * Rendering a flow's subgraph (induce → project to rows → file-module scaffold fold → per-view budget)
+ * lives in `flow_projection.ts` ({@link project_flow}); the persisted store read for hydrated flows is
+ * {@link read_hydrated_flows}, fed `NodeRow`s by the host so core stays store-agnostic.
  */
 
 import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
@@ -131,9 +135,21 @@ export function build_skeleton_flows(graph: CallGraph): SkeletonFlow[] {
   // Ranked: larger reachable subgraphs first; id ascending breaks ties deterministically.
   flows.sort((a, b) => b.member_count - a.member_count || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
+  // De-duplicate by id, keeping the first (largest) occurrence. Distinct top-level functions in one
+  // file cannot share a name, but two same-named method entrypoints on different classes collapse to
+  // one id under the v1 enclosing-free `symbol_path` (D-FLOW-IDENTITY); dropping the duplicate keeps
+  // the selector free of duplicate keys and render_flow's lookup unambiguous.
+  const deduped: SkeletonFlow[] = [];
+  const seen = new Set<string>();
+  for (const flow of flows) {
+    if (seen.has(flow.id)) continue;
+    seen.add(flow.id);
+    deduped.push(flow);
+  }
+
   const unattributed = [...graph.nodes.keys()].filter((id) => !attributed.has(id)).sort();
   if (unattributed.length > 0) {
-    flows.push({
+    deduped.push({
       id: UNATTRIBUTED_FLOW_ID,
       label: UNATTRIBUTED_FLOW_LABEL,
       seeds: unattributed,
@@ -142,7 +158,7 @@ export function build_skeleton_flows(graph: CallGraph): SkeletonFlow[] {
       seed_location: null,
     });
   }
-  return flows;
+  return deduped;
 }
 
 /** Project a {@link SkeletonFlow} to the never-hydrated {@link FlowSummary} the selector renders. */
