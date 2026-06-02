@@ -60,4 +60,19 @@ A flow is the first inhabitant of the agentic tier and the **tiling block** of t
 
 ## Implementation Notes
 
-<!-- Added when work begins. -->
+## High-level summary
+
+**Why this exists.** Task-27.1's comprehension unit is the **flow** — a functionality umbrella over one or more call-graph trees plus linked docs. v1 needs the flow to be a first-class entity and the left panel to select flows, not entrypoints, *before* the agentic flow-detector (task-27.1.6) exists. This task ships the flow **container**, a **deterministic stub population** so the UI is useful on a cold repo, and rewires the webview's render path onto the store-based adapter that task-27.1.2 built but left dormant.
+
+**The approach and the load-bearing decision.** A flow's interior comes from Ariadne's call graph "for free"; only the cross-tree seam and doc attachment are agentic (task-27.1.6). So v1 **does not persist or enrich** skeleton flows: `render_flow(flow_id)` projects the selected entrypoint's reachable subgraph straight from the in-memory `CallGraph` (already served by the extension) into `NodeRow`/`EdgeRow` rows, folds in the file-module scaffold, and hands them to `custom_graph_to_react_flow`. Persisted `agentic.flow` nodes are reserved for *hydrated* flows that task-27.1.6 will write; `list_flows` reads them from the store and merges them ahead of the deterministic skeleton. This deliberately avoids building an Ariadne→SQLite raw-extraction pipeline now (it belongs with hydration, not the deterministic substrate) — the constitution's YAGNI line.
+
+**What changes, at altitude.**
+
+- **core** gains the flow model: deterministic skeleton generation from `call_graph.entry_points` (one flow per top-level root + a single `unattributed` bucket for unreachable code), subgraph-induced membership (re-induce from seeds + bridges + docs, never a stored leaf set), flow identity = the dominant seed entrypoint's anchor, and the `agentic.flow` / `agentic.flow_member` / `agentic.bridge` row builders that task-27.1.6 will persist.
+- **types** swaps the backend contract: `cluster_code_tree` / `get_code_tree_descriptions` → `list_flows()` / `render_flow(flow_id)`.
+- **ui** replaces the sidebar's entrypoint list with a flow selector (hydrated-first then recency, capped top-N + "more", top auto-selected), and switches `code_chart_area` from the `CallableNode` pipeline onto `render_flow` → adapter → position-preserving layout, folded by the scaffold within a per-view node+edge budget.
+- **vscode** replaces the two old handlers (and their description/clustering machinery) with `list_flows` / `render_flow` computed from the call graph; `get_call_graph` and `navigate_to_doc` stay.
+
+**How to navigate the result.** Start at the new `packages/core` flow module (entity + skeleton + projection) — it is the single source of flow truth, host-agnostic and unit-tested. The backend contract (`packages/types/src/backend.ts`) is the seam; the UI flow selector and `code_chart_area`'s render effect are the front door on screen; the extension's `render_flow` handler is where the call graph becomes rows.
+
+**What to know / watch.** Deleting the old contract strands `generate_react_flow_elements` (`call_tree_to_graph.ts`) and the vscode clustering subsystem as dead code; the constitution says remove it (task-27.1.11 reintroduces clustering for a different purpose — chunking / refactoring signal — later, from scratch). Large-flow rendering beyond the scaffold fold + budget is **D-LARGE-FLOW-RENDER** (open). Flow-list secondary navigability (grouping / naming) is **D-FLOW-LIST-LEGIBILITY** (open). No agentic enrichment, no store writes, no Stop-hook hydration here — all task-27.1.6.

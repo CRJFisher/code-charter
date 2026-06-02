@@ -1,38 +1,21 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { use_backend } from "../hooks/use_backend";
-import type { CallGraph, CallableNode, CallReference, SymbolId } from "@code-charter/types";
-import { symbol_display_name } from "./code_chart_area/symbol_display";
+import type { FlowSummary } from "@code-charter/types";
 
-function count_nodes(top_level_node: SymbolId, graph: CallGraph, visited_nodes: Set<SymbolId> = new Set<SymbolId>()): number {
-  const node = graph.nodes.get(top_level_node);
-  if (!node) return 0;
-
-  return node.enclosed_calls.reduce((acc: number, call: CallReference) => {
-    const resolved_id = call.resolutions[0]?.symbol_id;
-    if (!resolved_id || visited_nodes.has(resolved_id)) {
-      return acc;
-    }
-    visited_nodes.add(resolved_id);
-    return acc + count_nodes(resolved_id, graph, visited_nodes);
-  }, 1);
-}
+/** How many flows the selector shows before the "more" affordance reveals the rest (AC#7). */
+const FLOW_LIST_CAP = 12;
 
 interface SidebarProps {
-  call_graph: CallGraph;
-  selected_node: CallableNode | null;
-  on_select: (entry_point: CallableNode) => void;
-  are_node_descriptions_loading: (node_symbol: string) => boolean;
+  flows: FlowSummary[];
+  selected_flow_id: string | null;
+  on_select: (flow_id: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node, are_node_descriptions_loading }) => {
+const Sidebar: React.FC<SidebarProps> = ({ flows, selected_flow_id, on_select }) => {
   const [is_sidebar_open, set_is_sidebar_open] = useState(true);
 
   const toggle_sidebar = () => {
     set_is_sidebar_open(!is_sidebar_open);
-  };
-
-  const select_item_and_close_sidebar = (node: CallableNode) => {
-    on_select(node);
   };
 
   return (
@@ -62,76 +45,73 @@ const Sidebar: React.FC<SidebarProps> = ({ call_graph, on_select, selected_node,
             is_sidebar_open ? "opacity-100" : "opacity-0"
           } transition-opacity duration-300`}
         >
-          <FunctionsList
-            call_graph={call_graph}
-            selected_node={selected_node}
-            on_select={select_item_and_close_sidebar}
-            are_node_descriptions_loading={are_node_descriptions_loading}
-          />
+          <FlowList flows={flows} selected_flow_id={selected_flow_id} on_select={on_select} />
         </aside>
       </div>
     </div>
   );
 };
 
-interface FunctionsListProps {
-  call_graph: CallGraph;
-  selected_node: CallableNode | null;
-  on_select: (entry_point: CallableNode) => void;
-  are_node_descriptions_loading: (node_symbol: string) => boolean;
+interface FlowListProps {
+  flows: FlowSummary[];
+  selected_flow_id: string | null;
+  on_select: (flow_id: string) => void;
 }
 
-const FunctionsList: React.FC<FunctionsListProps> = ({
-  call_graph,
-  selected_node,
-  on_select,
-  are_node_descriptions_loading,
-}) => {
+const FlowList: React.FC<FlowListProps> = ({ flows, selected_flow_id, on_select }) => {
   const { backend } = use_backend();
+  const [show_all, set_show_all] = useState(false);
 
-  const on_click_item = async (node: CallableNode) => {
-    on_select(node);
-    await backend.navigate_to_doc(node.definition.location.file_path, node.definition.location.start_line);
+  // The list arrives already ordered (hydrated-first, then recency / size — AC#7); render in order.
+  const visible = show_all ? flows : flows.slice(0, FLOW_LIST_CAP);
+  const hidden_count = flows.length - visible.length;
+
+  const on_click_item = async (flow: FlowSummary) => {
+    on_select(flow.id);
+    if (flow.seed_location) {
+      await backend.navigate_to_doc(flow.seed_location.file_path, flow.seed_location.line_number);
+    }
   };
-
-  const tot_nodes_count_descending_symbols = useMemo(() => {
-    return [...call_graph.entry_points].sort(
-      (a, b) => count_nodes(b, call_graph) - count_nodes(a, call_graph)
-    );
-  }, [call_graph]);
 
   return (
     <ul className="w-full">
-      {tot_nodes_count_descending_symbols.map((node_symbol) => {
-        const node = call_graph.nodes.get(node_symbol);
-        if (!node) return null;
-        const display_name = symbol_display_name(node.symbol_id);
-        const is_selected = selected_node && selected_node.symbol_id === node_symbol;
-        const is_loading = are_node_descriptions_loading(node.symbol_id);
+      {visible.map((flow) => {
+        const is_selected = flow.id === selected_flow_id;
         return (
           <li
-            key={node.symbol_id}
+            key={flow.id}
             className={`p-4 cursor-pointer bg-vscodeBg shadow-sm hover:bg-vscodeSelection ${
               is_selected ? "bg-vscodeSelection text-vscodeFg border border-vscodeBorder" : ""
             }`}
-            onClick={() => on_click_item(node)}
+            onClick={() => on_click_item(flow)}
           >
-            <div className="flex flex-wrap">
-              <span className="truncate" title={display_name}>{display_name}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="truncate" title={flow.label}>{flow.label}</span>
+              {flow.is_hydrated && (
+                <span
+                  className="text-xs px-1 rounded bg-vscodeFg text-vscodeBg"
+                  title="This flow has an agentic diagram"
+                >
+                  ●
+                </span>
+              )}
             </div>
             <div className="flex items-center text-xs text-vscodeLineNumber h-5">
-              {is_loading ? (
-                <div className="flex items-center">
-                  <span className="mr-2">Loading</span>
-                  <div className="w-4 h-4 border-2 border-t-transparent border-vscodeFg rounded-full animate-spin" />
-                </div>
-              ) : (
-                <span className="ellipsis-end">{node.definition.location.file_path}</span>
-              )}
+              <span className="ellipsis-end">
+                {flow.is_unattributed ? "unattributed code" : `${flow.member_count} functions`}
+              </span>
             </div>
           </li>
         );
       })}
+      {hidden_count > 0 && (
+        <li
+          className="p-3 text-center text-xs text-vscodeLineNumber cursor-pointer hover:bg-vscodeSelection"
+          onClick={() => set_show_all(true)}
+        >
+          Show {hidden_count} more
+        </li>
+      )}
     </ul>
   );
 };

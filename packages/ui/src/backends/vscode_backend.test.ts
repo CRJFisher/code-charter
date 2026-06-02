@@ -46,28 +46,24 @@ describe('VSCodeBackend', () => {
     });
   });
 
-  describe('get_code_tree_descriptions', () => {
-    it('sends message with correct parameters', async () => {
-      const promise = backend.get_code_tree_descriptions('testSymbol');
+  describe('render_flow', () => {
+    it('sends the flow_id and resolves with the rendered rows', async () => {
+      const promise = backend.render_flow('main.ts#main:function');
 
       expect(mock_post_message).toHaveBeenCalledWith({
-        command: 'get_code_tree_descriptions',
+        command: 'render_flow',
         id: expect.any(String),
-        top_level_function_symbol: 'testSymbol',
+        flow_id: 'main.ts#main:function',
       });
 
-      const mock_descriptions = {
-        docstrings: { testSymbol: 'Test description' },
-        call_tree: {},
-      };
-
+      const mock_rows = { nodes: [], edges: [] };
       const posted = mock_post_message.mock.calls[0][0];
       message_handler(new MessageEvent('message', {
-        data: { id: posted.id, command: 'get_code_tree_descriptions', data: mock_descriptions }
+        data: { id: posted.id, command: 'render_flow', data: mock_rows }
       }));
 
       const result = await promise;
-      expect(result).toEqual(mock_descriptions);
+      expect(result).toEqual(mock_rows);
     });
   });
 
@@ -88,25 +84,27 @@ describe('VSCodeBackend', () => {
     });
   });
 
-  describe('cluster_code_tree', () => {
-    it('should return clusters from response', async () => {
-      const mock_clusters = [{ description: 'Test', member_symbols: ['a'] }];
-      const promise = backend.cluster_code_tree('main');
+  describe('list_flows', () => {
+    it('should return the flow summaries from the response', async () => {
+      const mock_flows = [
+        { id: 'main.ts#main:function', label: 'main', is_hydrated: false, last_synced_at: null, member_count: 3, is_unattributed: false, seed_location: { file_path: 'main.ts', line_number: 0 } },
+      ];
+      const promise = backend.list_flows();
 
       const posted = mock_post_message.mock.calls[0][0];
       message_handler(new MessageEvent('message', {
-        data: { id: posted.id, command: 'cluster_code_tree', data: mock_clusters }
+        data: { id: posted.id, command: 'list_flows', data: mock_flows }
       }));
 
       const result = await promise;
-      expect(result).toEqual(mock_clusters);
+      expect(result).toEqual(mock_flows);
     });
   });
 
   describe('concurrent requests', () => {
     it('handles multiple concurrent requests with different IDs', async () => {
       void backend.get_call_graph();
-      void backend.get_code_tree_descriptions('symbol');
+      void backend.render_flow('symbol');
 
       expect(mock_post_message).toHaveBeenCalledTimes(2);
 

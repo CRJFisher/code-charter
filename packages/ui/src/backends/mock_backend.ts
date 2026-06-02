@@ -1,12 +1,14 @@
 import {
   CodeCharterBackend,
-  NodeGroup,
-  DocstringSummaries,
+  FlowSummary,
+  RenderedRows,
   CallGraph,
   CallableNode,
   CallReference,
   SymbolId,
   SymbolName,
+  NodeRow,
+  EdgeRow,
 } from "@code-charter/types";
 import type { FilePath } from "@ariadnejs/types";
 import type { ScopeId } from "@ariadnejs/types/dist/scopes";
@@ -73,8 +75,77 @@ function make_call_reference(
   };
 }
 
+/** A render-only code.function row (no anchor; the adapter reads `attributes.label`). */
+function code_function_row(id: string, label: string, file_path: string, line_number: number): NodeRow {
+  return {
+    id,
+    kind: "code.function",
+    path: file_path,
+    anchor: null,
+    layer: "raw",
+    attributes: { label, line_number },
+    field_ownership: {},
+    origin: "mock",
+    intent_source: "code-edit",
+    deleted_at: null,
+  };
+}
+
+function module_group_row(file_path: string): NodeRow {
+  return {
+    id: `agentic.group:file:${file_path}`,
+    kind: "agentic.group",
+    path: file_path,
+    anchor: null,
+    layer: "agentic",
+    attributes: { label: file_path, group_kind: "file-module" },
+    field_ownership: {},
+    origin: "mock",
+    intent_source: "code-edit",
+    deleted_at: null,
+  };
+}
+
+function contains_edge(leaf_id: string, file_path: string): EdgeRow {
+  const group_id = `agentic.group:file:${file_path}`;
+  return {
+    key: `agentic.contains:${leaf_id}->${group_id}`,
+    src_id: leaf_id,
+    dst_id: group_id,
+    kind: "agentic.contains",
+    confidence: 1,
+    layer: "agentic",
+    attributes: {},
+    field_ownership: {},
+    origin: "mock",
+    intent_source: "code-edit",
+    adjudication: null,
+    deleted_at: null,
+  };
+}
+
+function calls_edge(src_id: string, dst_id: string): EdgeRow {
+  return {
+    key: `code.calls:${src_id}->${dst_id}`,
+    src_id,
+    dst_id,
+    kind: "code.calls",
+    confidence: 1,
+    layer: "raw",
+    attributes: {},
+    field_ownership: {},
+    origin: "mock",
+    intent_source: "code-edit",
+    adjudication: null,
+    deleted_at: null,
+  };
+}
+
 /**
- * Mock backend implementation for testing and demos
+ * Mock backend implementation for testing and demos. Returns a single deterministic skeleton flow
+ * (`main` reaching `processData` + `fetch_data`) whose `render_flow` rows exercise the full adapter
+ * path: `code.function` leaves, file-module `agentic.group` parents (via `agentic.contains`), and
+ * `code.calls` edges.
  */
 export class MockBackend implements CodeCharterBackend {
   async get_call_graph(): Promise<CallGraph | undefined> {
@@ -98,36 +169,38 @@ export class MockBackend implements CodeCharterBackend {
     };
   }
 
-  async cluster_code_tree(_top_level_function_symbol: string): Promise<NodeGroup[]> {
+  async list_flows(): Promise<FlowSummary[]> {
     return [
       {
-        description: "Data Processing Functions",
-        member_symbols: ["utils.ts:processData", "utils.ts:transformData", "utils.ts:validateData"]
+        id: "main.ts#main:function",
+        label: "main",
+        is_hydrated: false,
+        last_synced_at: null,
+        member_count: 3,
+        is_unattributed: false,
+        seed_location: { file_path: "main.ts", line_number: 0 },
       },
-      {
-        description: "API Integration Layer",
-        member_symbols: ["api.ts:fetch_data", "api.ts:postData", "api.ts:handleError"]
-      },
-      {
-        description: "Main Application Logic",
-        member_symbols: ["main.ts:main", "main.ts:initialize", "main.ts:cleanup"]
-      }
     ];
   }
 
-  async get_code_tree_descriptions(top_level_function_symbol: string): Promise<DocstringSummaries | undefined> {
-    const name = top_level_function_symbol.split(':').pop() || top_level_function_symbol;
-    const mock_node = make_mock_callable_node(top_level_function_symbol, name, "main.ts", 0, 10);
-
+  async render_flow(_flow_id: string): Promise<RenderedRows> {
     return {
-      docstrings: {
-        [top_level_function_symbol]: "Main entry point that orchestrates data processing and API calls",
-        "utils.ts:processData": "Processes raw data into structured format",
-        "api.ts:fetch_data": "Fetches data from external API endpoints"
-      },
-      call_tree: {
-        [top_level_function_symbol]: mock_node
-      }
+      nodes: [
+        code_function_row("main.ts:main", "main", "main.ts", 0),
+        code_function_row("utils.ts:processData", "processData", "utils.ts", 9),
+        code_function_row("api.ts:fetch_data", "fetch_data", "api.ts", 4),
+        module_group_row("main.ts"),
+        module_group_row("utils.ts"),
+        module_group_row("api.ts"),
+      ],
+      edges: [
+        contains_edge("main.ts:main", "main.ts"),
+        contains_edge("utils.ts:processData", "utils.ts"),
+        contains_edge("api.ts:fetch_data", "api.ts"),
+        calls_edge("main.ts:main", "utils.ts:processData"),
+        calls_edge("main.ts:main", "api.ts:fetch_data"),
+        calls_edge("utils.ts:processData", "api.ts:fetch_data"),
+      ],
     };
   }
 

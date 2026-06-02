@@ -1,7 +1,7 @@
 import {
   CodeCharterBackend,
-  NodeGroup,
-  DocstringSummaries,
+  FlowSummary,
+  RenderedRows,
   CallGraph,
   SerializedCallGraph,
   deserialize_call_graph,
@@ -73,25 +73,24 @@ export class VSCodeBackend implements CodeCharterBackend {
     }
   }
 
-  async cluster_code_tree(top_level_function_symbol: string): Promise<NodeGroup[]> {
+  async list_flows(): Promise<FlowSummary[]> {
     try {
-      const response = await this.send_message_with_response<NodeGroup[]>(
-        "cluster_code_tree",
-        { top_level_function_symbol }
-      );
-      return response.data || [];
+      const response = await this.send_message_with_response<FlowSummary[]>("list_flows");
+      return response.data ?? [];
     } catch (error) {
-      console.error("Error clustering:", error);
+      console.error("Error listing flows:", error);
       return [];
     }
   }
 
-  async get_code_tree_descriptions(top_level_function_symbol: string): Promise<DocstringSummaries | undefined> {
-    const response = await this.send_message_with_response<DocstringSummaries>(
-      "get_code_tree_descriptions",
-      { top_level_function_symbol }
-    );
-    return response.data;
+  async render_flow(flow_id: string): Promise<RenderedRows> {
+    try {
+      const response = await this.send_message_with_response<RenderedRows>("render_flow", { flow_id });
+      return response.data ?? { nodes: [], edges: [] };
+    } catch (error) {
+      console.error("Error rendering flow:", error);
+      return { nodes: [], edges: [] };
+    }
   }
 
   async navigate_to_doc(file_path: string, line_number: number): Promise<void> {
