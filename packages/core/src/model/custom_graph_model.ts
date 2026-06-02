@@ -4,6 +4,7 @@ import type {
   EdgeRow,
   GraphStore,
   GraphTarget,
+  Layer,
   LayerSpec,
   NodeRow,
   ProvenanceRow,
@@ -133,6 +134,13 @@ export class CustomGraphModel {
    * returned `skipped` set matches what the store would compute, marks the written fields dirty, and
    * defers the persistent write to {@link flush}. An unknown target is a no-op returning
    * `{ skipped: [] }`, mirroring the store.
+   *
+   * A user-tier write that lands also promotes the in-memory row's structural `layer` to `'user'`,
+   * mirroring {@link SqliteGraphStore.write_fields}: the promotion vacates the row from the
+   * rebuild-eligible layer so a later `rebuild_layer` cannot destroy user-owned content. The deferred
+   * {@link flush} replays the edit through the store's `write_fields`, which performs the same promotion
+   * persistently — so the in-memory and stored `layer` stay identical with no extra dirty channel.
+   * Promotion is one-directional (never demotes).
    */
   write_fields(target: GraphTarget, fields: Record<string, unknown>, as_tier: Tier): { skipped: string[] } {
     if (target.kind === "node") {
@@ -142,7 +150,8 @@ export class CustomGraphModel {
       const ownership = { ...row.field_ownership };
       const { skipped, written } = apply_field_ladder(attributes, ownership, deep_clone(fields), as_tier);
       if (written.length > 0) {
-        this.graph.replaceNodeAttributes(target.id, { row: { ...row, attributes, field_ownership: ownership } });
+        const layer = promoted_layer(row.layer, as_tier);
+        this.graph.replaceNodeAttributes(target.id, { row: { ...row, layer, attributes, field_ownership: ownership } });
         this.record_field_dirty(target, written, attributes, as_tier);
       }
       return { skipped };
@@ -153,7 +162,8 @@ export class CustomGraphModel {
     const ownership = { ...row.field_ownership };
     const { skipped, written } = apply_field_ladder(attributes, ownership, deep_clone(fields), as_tier);
     if (written.length > 0) {
-      this.graph.replaceEdgeAttributes(target.id, { row: { ...row, attributes, field_ownership: ownership } });
+      const layer = promoted_layer(row.layer, as_tier);
+      this.graph.replaceEdgeAttributes(target.id, { row: { ...row, layer, attributes, field_ownership: ownership } });
       this.record_field_dirty(target, written, attributes, as_tier);
     }
     return { skipped };
@@ -314,6 +324,27 @@ export class CustomGraphModel {
 }
 
 // --- module helpers ----------------------------------------------------------
+
+/**
+ * The row's structural layer after a write at `as_tier`: a landed user-tier write promotes the row to
+ * `'user'`; every other write leaves the layer unchanged. One-directional — never demotes.
+ */
+function promoted_layer(current: Layer, as_tier: Tier): Layer {
+  return as_tier === "user" ? "user" : current;
+}
+
+/**
+ * Flatten a rendered {@link CustomGraph} to its plain `NodeRow`/`EdgeRow` arrays — the cross-boundary
+ * projection a webview adapter consumes (the UI never imports graphology). The graph already excludes
+ * tombstones (unless `render` was called with `show_tombstones`), so this neither filters nor mutates.
+ */
+export function graph_to_rows(graph: CustomGraph): { nodes: NodeRow[]; edges: EdgeRow[] } {
+  const nodes: NodeRow[] = [];
+  const edges: EdgeRow[] = [];
+  graph.forEachNode((_id, attributes) => nodes.push(attributes.row));
+  graph.forEachEdge((_key, attributes) => edges.push(attributes.row));
+  return { nodes, edges };
+}
 
 function target_key(target: GraphTarget): string {
   return `${target.kind}:${target.id}`;

@@ -204,6 +204,56 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
+  describe("write_fields layer promotion (AC#1)", () => {
+    it("promotes an agentic-layer node to layer='user' when a field is stamped user-owned", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic" }));
+      store.write_fields({ kind: "node", id: "n" }, { description: "hand-written" }, "user");
+      expect(store.node("n")?.layer).toBe("user");
+      expect(store.node("n")?.field_ownership.description).toBe("user");
+    });
+
+    it("survives a rebuild_layer('agentic') whose writer does not re-emit the promoted node", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic" }));
+      store.write_fields({ kind: "node", id: "n" }, { description: "hand-written" }, "user");
+
+      store.rebuild_layer("agentic", () => {
+        // The agentic pass does NOT re-emit `n`; without the promotion it would be deleted.
+      });
+
+      expect(store.node("n")).toBeDefined();
+      expect(store.node("n")?.attributes.description).toBe("hand-written");
+      expect(store.node("n")?.layer).toBe("user");
+    });
+
+    it("promotes an agentic-layer edge to layer='user' and survives rebuild_layer('agentic')", () => {
+      store.upsert_node(make_node({ id: "f.ts#a", layer: "raw" }));
+      store.upsert_node(make_node({ id: "g.ts#b", layer: "raw" }));
+      store.upsert_edge(make_edge({ key: "e1", layer: "agentic" }), []);
+      store.write_fields({ kind: "edge", id: "e1" }, { note: "kept" }, "user");
+
+      const edge_layer = () => store.all_edges().find((e) => e.key === "e1")?.layer;
+      expect(edge_layer()).toBe("user");
+
+      store.rebuild_layer("agentic", () => {});
+      const survived = store.all_edges().find((e) => e.key === "e1");
+      expect(survived).toBeDefined();
+      expect(survived?.attributes.note).toBe("kept");
+    });
+
+    it("does not change layer on a non-user write or a fully-skipped user write", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic" }));
+      store.write_fields({ kind: "node", id: "n" }, { summary: "agentic-owned" }, "agentic");
+      expect(store.node("n")?.layer).toBe("agentic");
+
+      // A user write whose only field is already user-owned still promotes once, then stays put...
+      store.write_fields({ kind: "node", id: "n" }, { summary: "mine" }, "user");
+      expect(store.node("n")?.layer).toBe("user");
+      // ...and a subsequent lower-tier write is skipped and never demotes.
+      store.write_fields({ kind: "node", id: "n" }, { summary: "raw-attempt" }, "raw");
+      expect(store.node("n")?.layer).toBe("user");
+    });
+  });
+
   describe("schema (AC#2)", () => {
     it("reports the current schema version and seeds the table registry", () => {
       expect(store.schema_version()).toBe(CURRENT_SCHEMA_VERSION);

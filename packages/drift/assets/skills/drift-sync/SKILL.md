@@ -46,6 +46,15 @@ For each affected flow derived from the changed files:
 
 then write the store under the agentic rebuild layer. User edits always win.
 
+The re-sync path routes through exactly one in-process funnel, `@code-charter/core`'s
+`re_extract(file_set, origin='code-change')` (task-27.1.2): it invalidates the raw tier for the
+files, re-runs the extractor, rebuilds the file-module scaffold, and resolves every preserved node's
+anchor — staging a `relocated` verdict as outstanding drift the next session surfaces and
+`drift.resolve {reanchor}` commits. The Stop-hook reconciliation path and the consistency engine are
+its only callers, both passing `origin='code-change'`. What task-27.1.6 adds here is the headless
+extractor injection (running the parser over the changed files to feed `re_extract`) and the HYDRATE
+judgement — not a second re-extraction path.
+
 ## Contract (stable now)
 
 - Inputs: `--files` (comma-separated repo-relative paths), `--store` (db path), `--repo-root`

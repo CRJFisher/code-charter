@@ -20,8 +20,6 @@ export { decide_stop_action, build_reconcile_instruction, RECONCILER_AGENT_NAME 
 export type { StopDecision } from "./hooks/stop_decision";
 export { parse_worked_on_files, EDIT_TOOL_NAMES } from "./hooks/transcript_parser";
 export { build_session_start_output } from "./hooks/session_start_banner";
-export { list_outstanding_drift, parse_porcelain } from "./hooks/git_drift";
-export type { RunGit } from "./hooks/git_drift";
 
 // Installer
 export { install_drift, build_hook_specs, hook_command, DRIFT_MCP_SERVER_NAME } from "./installer/install";

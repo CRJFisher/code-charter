@@ -160,6 +160,13 @@ export interface GraphStore {
    * Ladder-aware write (AC2): writes each field only if its current owner ranks <= `as_tier`,
    * then stamps the written fields as owned by `as_tier`. Returns the fields it skipped because
    * a higher tier owns them.
+   *
+   * A user-tier write that lands also promotes the row's structural `layer` to `'user'`, so the row
+   * vacates the rebuild-eligible layer: a later `rebuild_layer('raw'|'agentic')` (which nukes by
+   * `layer`) can never destroy user-owned content. Promotion is one-directional (it never demotes) and
+   * is performed by each `write_fields` implementation, not by the shared field-bag ladder. Because
+   * promotion is one-directional, the agentic pass refreshes an agentic-owned field on a promoted row
+   * by re-targeting it through `write_fields`, not by re-emitting the row.
    */
   write_fields(
     target: GraphTarget,

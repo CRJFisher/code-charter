@@ -3,6 +3,7 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { navigate_to_file } from "./editor_navigation";
 import { use_flow_theme_styles } from "./use_chart_theme_styles";
 import { CONFIG } from "./chart_config";
+import type { NodeRow } from "@code-charter/types";
 import type { CodeFunctionNodeType } from "./chart_types";
 
 export interface CodeNodeData extends Record<string, unknown> {
@@ -12,6 +13,8 @@ export interface CodeNodeData extends Record<string, unknown> {
   line_number: number;
   is_entry_point?: boolean;
   symbol: string;
+  /** The source row, attached by `custom_graph_to_react_flow` for selection-driven provenance (AC#8). */
+  row?: NodeRow;
 }
 
 const CodeFunctionNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props) => {

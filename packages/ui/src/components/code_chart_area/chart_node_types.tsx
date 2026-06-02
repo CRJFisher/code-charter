@@ -1,6 +1,7 @@
 import React from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { useStore, ReactFlowState } from "@xyflow/react";
+import { useStore, ReactFlowState, type NodeTypes } from "@xyflow/react";
+import type { NodeRow } from "@code-charter/types";
 import { CodeFunctionNode } from "./code_function_node";
 import { navigate_to_file } from "./editor_navigation";
 import { CONFIG } from "./chart_config";
@@ -107,6 +108,8 @@ export interface ModuleNodeData extends Record<string, unknown> {
   is_expanded?: boolean;
   cluster_index: number;
   quality_score?: number;
+  /** The source row, attached by `custom_graph_to_react_flow` for selection-driven provenance (AC#8). */
+  row?: NodeRow;
 }
 
 function get_quality_color(score: number, colors: ThemeColorConfig): string {
@@ -248,8 +251,40 @@ export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prev_props,
   );
 });
 
-// Updated node types mapping
-export const zoom_aware_node_types = {
-  code_function: ZoomAwareNode,
-  module_group: ModuleGroupNode,
-};
+// --- open node-kind registry (AC#6) -----------------------------------------
+//
+// A `NodeRow.kind` (namespaced, e.g. 'code.function', 'agentic.group') maps to a React Flow node
+// `type` string and its component. The map is open: a new kind — a shaped flowchart node
+// (task-27.1.11), a doc node (task-21.2) — registers an entry rather than editing a closed branch
+// here or in the adapter. The React Flow `type` strings stay stable ('code_function'/'module_group')
+// so the type guards, drag handlers, and minimap color keep working unchanged.
+
+interface NodeKindEntry {
+  /** The React Flow node `type` string this kind renders as. */
+  type: string;
+  component: NodeTypes[string];
+}
+
+const node_kind_registry = new Map<string, NodeKindEntry>();
+
+/** Register (or replace) the renderer for a `NodeRow.kind`. */
+export function register_node_kind(kind: string, entry: NodeKindEntry): void {
+  node_kind_registry.set(kind, entry);
+}
+
+/** The React Flow node `type` for a `NodeRow.kind`, or undefined if no component is registered. */
+export function resolve_node_type(kind: string): string | undefined {
+  return node_kind_registry.get(kind)?.type;
+}
+
+/** The React Flow `nodeTypes` map, derived from the registry (keyed by the `type` string). */
+export function build_node_types(): NodeTypes {
+  const node_types: NodeTypes = {};
+  for (const { type, component } of node_kind_registry.values()) {
+    node_types[type] = component;
+  }
+  return node_types;
+}
+
+register_node_kind("code.function", { type: "code_function", component: ZoomAwareNode });
+register_node_kind("agentic.group", { type: "module_group", component: ModuleGroupNode });

@@ -22,7 +22,7 @@ import { drift_list, drift_resolve } from "./drift_tool";
 import { DRIFT_SERVER_NAME, DRIFT_SERVER_VERSION, TOOL_DRIFT_LIST, TOOL_DRIFT_RESOLVE } from "./tool_names";
 
 const LIST_INPUT = z.object({ scope: z.string().optional() });
-const RESOLVE_INPUT = z.object({ id: z.string(), resolution: z.enum(["reattach", "delete"]) });
+const RESOLVE_INPUT = z.object({ id: z.string(), resolution: z.enum(["reattach", "delete", "reanchor"]) });
 
 const TOOL_DEFINITIONS = [
   {
@@ -38,13 +38,14 @@ const TOOL_DEFINITIONS = [
   {
     name: TOOL_DRIFT_RESOLVE,
     description:
-      "Resolve one re-attachment bin entry: 'reattach' restores it, 'delete' keeps it removed. " +
-      "Operates only on entries currently in the bin.",
+      "Resolve one outstanding drift: 'reanchor' commits a staged relocation, moving preserved " +
+      "diagram content (its hand-written description intact) onto the renamed symbol; 'reattach' " +
+      "restores a re-attachment bin entry; 'delete' keeps a bin entry removed.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "The node id or edge key of the bin entry to resolve." },
-        resolution: { type: "string", enum: ["reattach", "delete"] },
+        id: { type: "string", description: "The node id (or edge key) of the drift to resolve." },
+        resolution: { type: "string", enum: ["reattach", "delete", "reanchor"] },
       },
       required: ["id", "resolution"],
     },

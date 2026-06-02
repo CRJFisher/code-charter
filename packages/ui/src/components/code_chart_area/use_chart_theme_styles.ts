@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { use_theme } from '../../theme/theme_context';
 import { get_theme_colors } from './theme_config';
 import { CONFIG } from './chart_config';
+import { edge_style_for } from './edge_styling';
 
 /**
  * Hook that provides theme-aware styles for React Flow components
@@ -26,10 +27,9 @@ export function use_flow_theme_styles() {
       transition: 'all 0.3s ease',
     }),
     
-    get_edge_style: (selected = false) => ({
-      stroke: selected ? colors.edge.strokeSelected : colors.edge.stroke,
-      strokeWidth: 2,
-    }),
+    // The no-attribute default for React Flow's defaultEdgeOptions; per-edge styling goes through the
+    // same `edge_style_for` path (AC#6), keeping one styling function across both.
+    get_edge_style: (selected = false) => edge_style_for({ selected }, colors),
     
     get_button_style: (variant: 'primary' | 'secondary' | 'danger' = 'primary') => ({
       backgroundColor: colors.ui.button[variant],
