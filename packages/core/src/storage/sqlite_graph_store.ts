@@ -260,25 +260,40 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   /**
-   * Ladder-aware write into the overflow attribute bag (`attributes` + `field_ownership`), not
-   * the structural typed columns (`kind`, `layer`, `confidence`, ...). Each field is written
-   * only if its current owner's tier ranks at or below `as_tier`; written fields are stamped as
-   * `as_tier`, and fields a higher tier owns are returned in `skipped`.
+   * Ladder-aware write into the overflow attribute bag (`attributes` + `field_ownership`). Each field
+   * is written only if its current owner's tier ranks at or below `as_tier`; written fields are stamped
+   * as `as_tier`, and fields a higher tier owns are returned in `skipped`.
+   *
+   * A user-tier write that lands also promotes the row's structural `layer` to `'user'`, so the row
+   * vacates the rebuild-eligible layer and a later `rebuild_layer('raw'|'agentic')` (which nukes by
+   * `layer`) can never destroy user-owned content. Promotion is one-directional (it never demotes) and
+   * lives in this wrapper, not in the shared `apply_field_ladder` (which stays field-bag-only so the
+   * store and model compute identical accept/skip decisions). The agentic pass refreshes an
+   * agentic-owned field on a promoted row by targeting it through `write_fields`, never by re-emit.
    */
   write_fields(target: GraphTarget, fields: Record<string, unknown>, as_tier: Tier): { skipped: string[] } {
     const table = target.kind === "node" ? "nodes" : "edges";
     const id_col = target.kind === "node" ? "id" : "key";
     return this.with_transaction(() => {
-      const row = this.sql(`SELECT attributes, field_ownership FROM ${table} WHERE ${id_col} = ?`).get(target.id);
+      const row = this.sql(`SELECT attributes, field_ownership, layer FROM ${table} WHERE ${id_col} = ?`).get(target.id);
       if (!row) return { skipped: [] };
       const attributes = parse_json_object(as_text(row.attributes));
       const ownership = parse_ownership(as_text(row.field_ownership));
-      const { skipped } = apply_field_ladder(attributes, ownership, fields, as_tier);
-      this.sql(`UPDATE ${table} SET attributes = ?, field_ownership = ? WHERE ${id_col} = ?`).run(
-        JSON.stringify(attributes),
-        JSON.stringify(ownership),
-        target.id,
-      );
+      const { skipped, written } = apply_field_ladder(attributes, ownership, fields, as_tier);
+      const promote = as_tier === "user" && written.length > 0 && as_text(row.layer) !== "user";
+      if (promote) {
+        this.sql(`UPDATE ${table} SET attributes = ?, field_ownership = ?, layer = 'user' WHERE ${id_col} = ?`).run(
+          JSON.stringify(attributes),
+          JSON.stringify(ownership),
+          target.id,
+        );
+      } else {
+        this.sql(`UPDATE ${table} SET attributes = ?, field_ownership = ? WHERE ${id_col} = ?`).run(
+          JSON.stringify(attributes),
+          JSON.stringify(ownership),
+          target.id,
+        );
+      }
       return { skipped };
     });
   }

@@ -12,14 +12,17 @@ import {
   useStore,
   ReactFlowState as XYFlowState,
   type ReactFlowInstance,
+  type OnSelectionChangeParams,
   MiniMap,
 } from "@xyflow/react";
+import type { EdgeRow, NodeRow } from "@code-charter/types";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
 import "@xyflow/react/dist/style.css";
 
 import { CodeIndexStatus, DescriptionStatus } from "../loading_status";
 import { apply_hierarchical_layout } from "./graph_layout";
-import { zoom_aware_node_types } from "./chart_node_types";
+import { build_node_types } from "./chart_node_types";
+import { ProvenancePanel } from "./provenance_panel";
 import { generate_react_flow_elements } from "./call_tree_to_graph";
 import { compute_parent_resize, apply_parent_resize } from "./parent_resize";
 import { LoadingIndicator } from "./loading_indicator";
@@ -73,6 +76,15 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const { notify } = use_error_notification();
   const theme_styles = use_flow_theme_styles();
   const mini_map_node_color = useMemo(() => create_mini_map_node_color(theme_styles.colors), [theme_styles.colors]);
+
+  // The React Flow node-type map, derived once from the open kind registry (AC#6).
+  const node_types = useMemo(() => build_node_types(), []);
+
+  // Selection-driven provenance (AC#8): the panel reads the selected node's/edge's source row.
+  const [selection, set_selection] = useState<{ node?: NodeRow; edge?: EdgeRow }>({});
+  const on_selection_change = useCallback((params: OnSelectionChangeParams<CodeChartNode, CodeChartEdge>) => {
+    set_selection({ node: params.nodes[0]?.data.row, edge: params.edges[0]?.data?.row });
+  }, []);
 
   // Use keyboard navigation hook
   const on_node_navigate = useCallback((node_id: string) => {
@@ -347,7 +359,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           edges={virtual_edges}
           onNodesChange={on_nodes_change}
           onEdgesChange={on_edges_change}
-          nodeTypes={zoom_aware_node_types}
+          onSelectionChange={on_selection_change}
+          nodeTypes={node_types}
           fitView
           fitViewOptions={{
             padding: CONFIG.viewport.fit_view.padding,
@@ -529,6 +542,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             </div>
           </div>
         </ReactFlow>
+        <ProvenancePanel node={selection.node} edge={selection.edge} />
       </div>
     </div>
     </>

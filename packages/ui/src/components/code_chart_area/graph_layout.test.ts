@@ -146,8 +146,34 @@ describe("graph_layout", () => {
       expect(layouted_nodes).toHaveLength(2);
       expect(layouted_nodes[0].id).toBe("node1");
       expect(layouted_nodes[1].id).toBe("node2");
-      
+
       consoleErrorSpy.mockRestore();
+    });
+
+    describe("fixed_ids (AC#7)", () => {
+      const fixed_nodes = (): CodeChartNode[] => [
+        { id: "pinned", type: "code_function", position: { x: 999, y: 888 }, data: { function_name: "p", description: "" } },
+        { id: "free", type: "code_function", position: { x: 0, y: 0 }, data: { function_name: "f", description: "" } },
+      ] as CodeChartNode[];
+
+      it("pins a fixed node to its incoming position while a free node is laid out", async () => {
+        const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+        const layouted = await apply_hierarchical_layout(fixed_nodes(), [], new Set(["pinned"]));
+        const pinned = layouted.find(n => n.id === "pinned")!;
+        const free = layouted.find(n => n.id === "free")!;
+        // the pin holds regardless of whether ELK or the grid fallback ran
+        expect(pinned.position).toEqual({ x: 999, y: 888 });
+        // the free node was repositioned by the layout, away from its incoming origin
+        expect(free.position).not.toEqual({ x: 0, y: 0 });
+        consoleErrorSpy.mockRestore();
+      });
+
+      it("an empty fixed set is identical to the no-argument layout", async () => {
+        const explicit = await apply_hierarchical_layout(fixed_nodes(), [], new Set());
+        clear_layout_caches();
+        const implicit = await apply_hierarchical_layout(fixed_nodes(), []);
+        expect(explicit.map(n => n.position)).toEqual(implicit.map(n => n.position));
+      });
     });
 
     it("should preserve node data and other properties", async () => {

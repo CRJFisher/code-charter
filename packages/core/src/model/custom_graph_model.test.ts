@@ -375,6 +375,43 @@ describe("CustomGraphModel", () => {
     });
   });
 
+  describe("layer promotion (AC#1)", () => {
+    it("promotes an agentic-layer node to layer='user' in memory and persists it through flush", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic" }));
+      const model = CustomGraphModel.hydrate(store);
+
+      model.write_fields({ kind: "node", id: "n" }, { description: "hand-written" }, "user");
+      expect(model.node_row("n")?.layer).toBe("user");
+
+      model.flush();
+      expect(store.node("n")?.layer).toBe("user");
+      expect(store.node("n")?.field_ownership.description).toBe("user");
+    });
+
+    it("renders the promoted node correctly and survives a later agentic rebuild", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic" }));
+      const model = CustomGraphModel.hydrate(store);
+      model.write_fields({ kind: "node", id: "n" }, { description: "hand-written" }, "user");
+      model.flush();
+
+      // The agentic pass re-runs without re-emitting `n`; the promotion vacated it from the agentic layer.
+      store.rebuild_layer("agentic", () => {});
+
+      const view = CustomGraphModel.hydrate(store).render([{ kind: "raw" }, { kind: "agentic" }, { kind: "user" }]);
+      expect(view.hasNode("n")).toBe(true);
+      expect(view.getNodeAttributes("n").row.attributes.description).toBe("hand-written");
+    });
+
+    it("does not promote on an agentic write", () => {
+      store.upsert_node(make_node({ id: "n", layer: "agentic" }));
+      const model = CustomGraphModel.hydrate(store);
+      model.write_fields({ kind: "node", id: "n" }, { summary: "auto" }, "agentic");
+      expect(model.node_row("n")?.layer).toBe("agentic");
+      model.flush();
+      expect(store.node("n")?.layer).toBe("agentic");
+    });
+  });
+
   describe("soft-delete by convention (AC#2)", () => {
     it("keeps a soft-deleted row in memory, reconstructable with deleted_at set", () => {
       store.upsert_node(make_node({ id: "a", layer: "agentic" }));

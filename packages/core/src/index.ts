@@ -22,7 +22,7 @@ export function open_graph_store(db_path: string): GraphStore {
   return new module.SqliteGraphStore(db_path);
 }
 
-export { CustomGraphModel } from "./model/custom_graph_model";
+export { CustomGraphModel, graph_to_rows } from "./model/custom_graph_model";
 export type { CustomGraph } from "./model/custom_graph_model";
 export { NullGraphStore } from "./storage/null_graph_store";
 export { current_node_version, is_node_sqlite_supported, MIN_NODE_SQLITE_VERSION } from "./storage/node_sqlite_support";
@@ -49,3 +49,30 @@ export {
   resolver_symbols_from_ariadne,
 } from "./resolver";
 export type { AriadneFileInput, ResolverIndex, ResolverSymbol } from "./resolver";
+
+// task-27.1.2 AC#9 — the deterministic file-module first-parent tier
+export {
+  build_module_scaffold,
+  EXTERNAL_GROUP_ID,
+  EXTERNAL_GROUP_LABEL,
+  file_module_resolver,
+  file_of_symbol_path,
+  module_group_id,
+  MODULE_GROUP_PREFIX,
+} from "./model/module_scaffold";
+export type { ModuleResolver, ModuleScaffold } from "./model/module_scaffold";
+
+// task-27.1.2 AC#2/#3/#4 — the single re-extraction funnel, outstanding-drift surface, and re-anchor write
+export { re_extract } from "./reextract/re_extract";
+export type { DriftFinding, ReExtractDeps, ReExtractOrigin, ReExtractResult } from "./reextract/re_extract";
+export { reanchor_node } from "./reextract/reanchor";
+export {
+  DRIFT_FROM_KEY,
+  DRIFT_STAGING_KEYS,
+  DRIFT_STATUS_KEY,
+  DRIFT_STATUS_RELOCATED,
+  DRIFT_TO_CONTENT_HASH_KEY,
+  DRIFT_TO_SYMBOL_PATH_KEY,
+  outstanding_drift,
+} from "./reextract/drift_observation";
+export type { DriftObservation } from "./reextract/drift_observation";

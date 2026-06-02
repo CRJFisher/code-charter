@@ -13,6 +13,10 @@ import { TIER_RANK, type Tier } from "@code-charter/types";
  * and the in-memory model (`CustomGraphModel.write_fields`), so the two compute identical accept/skip
  * decisions for the same starting state. The store surfaces only `skipped`; the model also uses
  * `written` to know which fields to flush.
+ *
+ * This helper is deliberately field-bag-only: it never reads or writes structural columns. The
+ * structural `layer` promotion that a landed user-tier write triggers lives in each `write_fields`
+ * wrapper (which holds the row), keeping store/model parity on the ladder decision itself.
  */
 export function apply_field_ladder(
   attributes: Record<string, unknown>,

@@ -30,9 +30,19 @@ const MODULE_HEADER_HEIGHT = CONFIG.layout.module.headerHeight;
  * Build a hierarchical ELK graph where module nodes contain their children.
  * Edges are assigned to the lowest common ancestor container.
  */
+/**
+ * The per-node ELK layoutOptions that pin a node to its incoming position (AC#7). Emitted only for
+ * fixed ids; the JS post-pass also skips overwriting their positions, so a fixed node holds its place
+ * regardless of whether the ELK backend honours the hint.
+ */
+function fixed_position_options(node: CodeChartNode): Record<string, string> {
+  return { 'elk.position': `(${node.position?.x ?? 0},${node.position?.y ?? 0})` };
+}
+
 function build_elk_graph(
   nodes: CodeChartNode[],
-  edges: CodeChartEdge[]
+  edges: CodeChartEdge[],
+  fixed_ids: Set<string>
 ): ElkNode {
   // Separate module groups from function nodes
   const module_nodes = nodes.filter(n => n.type === 'module_group');
@@ -105,6 +115,9 @@ function build_elk_graph(
         id: child.id,
         width: child.width || CONFIG.node.default.width,
         height: child.height || CONFIG.node.default.height,
+        ...(fixed_ids.has(child.id)
+          ? { x: child.position?.x ?? 0, y: child.position?.y ?? 0, layoutOptions: fixed_position_options(child) }
+          : {}),
       })),
       edges: internal_edges.map(e => ({
         id: e.id,
@@ -119,6 +132,9 @@ function build_elk_graph(
     id: fn.id,
     width: fn.width || CONFIG.node.default.width,
     height: fn.height || CONFIG.node.default.height,
+    ...(fixed_ids.has(fn.id)
+      ? { x: fn.position?.x ?? 0, y: fn.position?.y ?? 0, layoutOptions: fixed_position_options(fn) }
+      : {}),
   }));
 
   return {
@@ -146,16 +162,25 @@ function flatten_elk_nodes(elk_node: ElkNode, result: Map<string, ElkNode> = new
   return result;
 }
 
+/**
+ * Lay the nodes out hierarchically with ELK. `fixed_ids` pins the given nodes to their incoming
+ * positions: ELK receives a fixed-position hint for them (AC#7) and the post-pass skips overwriting
+ * their positions, so the surrounding graph flows around the pins. An empty set (the default, which
+ * this slice's caller passes) is byte-identical to an unpinned layout — same cache key, same output.
+ */
 export async function apply_hierarchical_layout(
   nodes: CodeChartNode[],
   edges: CodeChartEdge[],
+  fixed_ids: Set<string> = new Set(),
 ): Promise<CodeChartNode[]> {
   if (nodes.length === 0) {
     return [];
   }
 
-  // Check cache first
-  const cache_key = layout_cache.generate_key(nodes, edges);
+  // Check cache first. With no pins the key is unchanged; pins fold into the key so a pinned layout
+  // never returns an unpinned cached result.
+  const base_key = layout_cache.generate_key(nodes, edges);
+  const cache_key = fixed_ids.size === 0 ? base_key : `${base_key}__fixed:${[...fixed_ids].sort().join(',')}`;
   const cached = layout_cache.get(cache_key);
   if (cached) {
     console.log('[Layout] Using cached layout');
@@ -163,7 +188,7 @@ export async function apply_hierarchical_layout(
   }
 
   // Build hierarchical ELK graph
-  const elk_graph = build_elk_graph(nodes, edges);
+  const elk_graph = build_elk_graph(nodes, edges, fixed_ids);
 
   try {
     const layouted_nodes = await with_retry(
@@ -173,6 +198,11 @@ export async function apply_hierarchical_layout(
 
         // Apply positions back to React Flow nodes
         return nodes.map(node => {
+          // A pinned node keeps its incoming position and style verbatim (AC#7).
+          if (fixed_ids.has(node.id)) {
+            return node;
+          }
+
           const elk_node = elk_positions.get(node.id);
           if (!elk_node) {
             return node;
@@ -228,7 +258,7 @@ export async function apply_hierarchical_layout(
       async () => {
         throw error;
       },
-      async () => apply_fallback_layout(nodes, edges),
+      async () => apply_fallback_layout(nodes, edges, fixed_ids),
       (err) => {
         console.log('[Layout] Falling back to grid layout due to:', err.message);
       }
@@ -284,10 +314,11 @@ export function clear_layout_caches(): void {
   console.log('[Performance] Layout caches cleared');
 }
 
-// Fallback layout algorithm - simple grid layout
+// Fallback layout algorithm - simple grid layout. Pinned nodes (AC#7) keep their incoming position.
 export function apply_fallback_layout(
   nodes: CodeChartNode[],
-  edges: CodeChartEdge[]
+  edges: CodeChartEdge[],
+  fixed_ids: Set<string> = new Set()
 ): Promise<CodeChartNode[]> {
   console.log('[Layout] Using fallback grid layout');
   
@@ -344,14 +375,17 @@ export function apply_fallback_layout(
     
     // Layout nodes in this group
     group_nodes.forEach((node, index) => {
+      if (fixed_ids.has(node.id)) {
+        return; // pinned: keep the incoming position
+      }
       const col = index % NODES_PER_ROW;
       const row = Math.floor(index / NODES_PER_ROW);
-      
+
       node.position = {
         x: current_x + col * GRID_SPACING_X,
         y: current_y + row * GRID_SPACING_Y,
       };
-      
+
       row_height = Math.max(row_height, (row + 1) * GRID_SPACING_Y);
     });
     
