@@ -42,7 +42,12 @@ export const FLOW_MEMBER_EDGE_KIND = "agentic.flow_member";
 /** Cross-call-graph link edge (AC#1), inferred by the flow-detector (task-27.1.6). */
 export const BRIDGE_EDGE_KIND = "agentic.bridge";
 
-/** A cross-tree link the flow-detector (task-27.1.6) infers; v1 ships only the builder, never inference. */
+/**
+ * The endpoint-only shape of a bridge used to (re-)induce flow membership — `induce_members` traverses
+ * from `dst_id` (a call-graph `SymbolId`). The provenance-carrying persistence builder for
+ * `agentic.bridge` rows lives in `agentic/bridge.ts` ({@link BridgeCandidate} / `build_bridge_edges`,
+ * task-27.1.4); this interface is just the induction input, not the persisted row.
+ */
 export interface BridgeEdge {
   src_id: string;
   dst_id: string;

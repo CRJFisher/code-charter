@@ -76,6 +76,16 @@ describe("write_descriptions (AC#3)", () => {
     expect(node.layer).toBe("user"); // not demoted by the agentic write
   });
 
+  it("does not resurrect a soft-deleted (binned) description side-node", () => {
+    write_descriptions(store, [description_for(COMPUTE_V1, "first")]);
+    const id = description_node_id(symbol_path_of(COMPUTE_V1));
+    store.soft_delete({ kind: "node", id });
+
+    const result = write_descriptions(store, [description_for(COMPUTE_V1, "regenerated")]);
+    expect(result.skipped).toContain(symbol_path_of(COMPUTE_V1));
+    expect(store.node(id)).toBeUndefined(); // still binned, not re-created live
+  });
+
   it("survives re-extraction of its file and re-anchors when the symbol is renamed", () => {
     write_descriptions(store, [description_for(COMPUTE_V1, "adds two numbers")]);
     const id = description_node_id(symbol_path_of(COMPUTE_V1));

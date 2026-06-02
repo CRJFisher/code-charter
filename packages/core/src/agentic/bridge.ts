@@ -20,7 +20,15 @@ import { BRIDGE_EDGE_KIND } from "../model/flow";
 /** Lower than a raw edge's 1.0 — drives the dashed/distinct render of an inferred link. */
 export const BRIDGE_CONFIDENCE_INFERRED = 0.5;
 
-/** A justified cross-call-graph link, ready to persist as an `agentic.bridge` edge. */
+/**
+ * A justified cross-call-graph link, ready to persist as an `agentic.bridge` edge.
+ *
+ * `src_id`/`dst_id` are persisted NodeRow ids. When 27.1.6 intends a bridge to extend flow membership
+ * via `induce_members` (which traverses the Ariadne `CallGraph` keyed by `SymbolId`), the endpoints
+ * must be ids that exist in that graph — map a persisted bridge endpoint back to its `SymbolId` before
+ * feeding it to `induce_members`. (Skill doc-node endpoints are not in the call graph and are used for
+ * the linkage record, not for call-graph traversal.)
+ */
 export interface BridgeCandidate {
   /** The registry consumer / inference source symbol. */
   src_id: string;

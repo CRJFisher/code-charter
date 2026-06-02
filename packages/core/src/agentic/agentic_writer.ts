@@ -2,20 +2,27 @@
  * task-27.1.4 AC#5 — the agentic-substrate writer.
  *
  * Persists the substrate proposal task-27.1.6 assembles — inferred bridges and resolved descriptions —
- * on the agentic lane, honoring the preservation invariant and a hard cost ceiling.
+ * on the agentic lane, honoring the preservation invariant and a hard cost ceiling. The write is
+ * scoped (upsert + write_fields, no layer nuke): hydrating one worked-on flow must not disturb other
+ * flows or the file-module scaffold (AC#1's lazy, per-flow model). 27.1.6 runs it inside its own
+ * `rebuild_layer('agentic')` orchestration only when it owns the complete agentic state to re-emit
+ * (the file-module scaffold and flow nodes are written by other mechanisms, so this writer never
+ * issues the store-global nuke itself).
  *
- * Two forms, same write logic:
- *   - {@link write_agentic_substrate} writes scoped (upsert + write_fields, no nuke). This is the lazy,
- *     per-worked-on-flow path (AC#1): hydrating one flow must not disturb other flows or the
- *     file-module scaffold.
- *   - {@link rebuild_agentic_substrate} runs the same logic inside `rebuild_layer('agentic')` for a
- *     periodic full rebuild. `rebuild_layer` is store-global (it nukes every live agentic row,
- *     including the scaffold), so the caller must re-emit everything — use it only for a full pass.
+ * How 27.1.6 assembles a {@link SubstrateProposal} (the substrate↔agent seam, AC#4):
+ *   - bridges: `detect_meta_json_sub_agent_bridges` (and future registry detectors) →
+ *     `build_bridge_edges` → `proposal.bridges`.
+ *   - descriptions: `plan_descriptions` → run the injected `DescribeBatchExecutor` over `needs_llm` →
+ *     combine its results with `from_docstring`/`placeholder` into `ResolvedDescription[]` →
+ *     `proposal.descriptions`. (The combine step and the executor are 27.1.6's; this task ships the
+ *     deterministic policy and the writer.)
  *
  * Preservation: descriptions go through the ladder (a user-owned description is skipped); a bridge
- * whose edge was promoted to `layer='user'` or soft-deleted into the re-attachment bin is never
- * re-clobbered or resurrected. Cost ceiling: bridge and description counts are capped, and a deadline
- * gates the description phase; every truncation is logged and reported (no silent cap).
+ * whose edge is user-owned (`layer='user'` or a user `adjudication`) or soft-deleted into the
+ * re-attachment bin is never re-clobbered or resurrected. Cost ceiling: the bridge and description
+ * COUNTS are the hard cost bound; `deadline_ms` is a coarse wall-clock guard that gates whether the
+ * (already-resolved) description rows are written — the expensive model-time budget lives in 27.1.6's
+ * executor, not here. Every truncation is logged and reported (no silent cap).
  */
 
 import type { EdgeRow, GraphStore, ProvenanceRow } from "@code-charter/types";
@@ -96,8 +103,10 @@ export function write_agentic_substrate(
   const existing_by_key = new Map(store.all_edges({ include_deleted: true }).map((e) => [e.key, e]));
   for (const { edge, provenance } of bridges) {
     const existing = existing_by_key.get(edge.key);
-    if (existing && (existing.layer === "user" || existing.deleted_at !== null)) {
-      report.preserved.push(edge.key); // user-owned or binned — never clobber or resurrect
+    // Preserve a user-owned edge (promoted layer OR a user adjudication — a column, not a ladder
+    // field) and never resurrect a binned one.
+    if (existing && (existing.layer === "user" || existing.adjudication !== null || existing.deleted_at !== null)) {
+      report.preserved.push(edge.key);
       continue;
     }
     store.upsert_edge(edge, provenance);
@@ -124,19 +133,5 @@ export function write_agentic_substrate(
   report.descriptions_written = desc_result.written.length;
   report.preserved.push(...desc_result.skipped);
 
-  return report;
-}
-
-/** Run the same write inside `rebuild_layer('agentic')` — the full-rebuild form (AC#5). */
-export function rebuild_agentic_substrate(
-  store: GraphStore,
-  proposal: SubstrateProposal,
-  options?: AgenticWriteOptions,
-): AgenticWriteReport {
-  let report: AgenticWriteReport | undefined;
-  store.rebuild_layer("agentic", (s) => {
-    report = write_agentic_substrate(s, proposal, options);
-  });
-  if (report === undefined) throw new Error("rebuild_layer did not run its writer");
   return report;
 }

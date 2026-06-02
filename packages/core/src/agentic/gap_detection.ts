@@ -94,6 +94,11 @@ export interface CandidateSeed {
   seeds: SymbolId[];
   origin: "orphan_entrypoint" | "disconnected_component";
   label: string;
+  /**
+   * Size of the candidate. Its basis depends on `origin`: for `orphan_entrypoint` it is the
+   * directed forward-reachable subgraph size (`reachable_from`); for `disconnected_component` it is
+   * the undirected island size. Treat the two as different measures when ranking across origins.
+   */
   member_count: number;
 }
 
@@ -119,12 +124,17 @@ export function find_orphan_entrypoints(
 ): OrphanEntrypoint[] {
   const incident = doc_incident_paths(doc_edges);
   const orphans: OrphanEntrypoint[] = [];
+  const seen_flow_ids = new Set<string>();
   for (const entry_point of [...graph.entry_points].sort()) {
     const node = graph.nodes.get(entry_point);
     if (!node) continue;
     if (node.is_test && !options.include_tests) continue;
     const flow_id = flow_id_of(node);
     if (incident.has(flow_id)) continue;
+    // De-duplicate by flow_id, as build_skeleton_flows does: two same-named methods on different
+    // classes collapse to one v1 symbol_path (D-FLOW-IDENTITY), and a candidate seed id must be unique.
+    if (seen_flow_ids.has(flow_id)) continue;
+    seen_flow_ids.add(flow_id);
     orphans.push({
       symbol_id: entry_point,
       flow_id,
@@ -213,6 +223,9 @@ export function find_disconnected_components(
       members.push(id);
       if (entry_set.has(id)) touches_entry = true;
       for (const neighbor of [...adjacency.get(id)!].sort()) {
+        // Out-of-band-reachable nodes are excluded from islands as both root and member, so a
+        // component's makeup never depends on where the indirect node sorts.
+        if (indirect.has(neighbor)) continue;
         if (!visited.has(neighbor)) stack.push(neighbor);
       }
     }

@@ -100,3 +100,14 @@ The parent task identifies several decisions that must not bake in skill-specifi
 <!-- Added when work begins. Many architectural choices are still live, including the exact extractor implementations, the precise UI integration points, and whether to ship the ecosystem view in this PR or in a follow-up. -->
 
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+### Literal extraction realized by task-27.1.4 (AC#6)
+
+The literal skill-ingestion layer is built and tested in task-27.1.4 as the task-21.2 → task-27.0 extractor port, writing into the shared task-27.0 `GraphStore` (task-21.1's standalone store never shipped). `ingest_skill` (`@code-charter/core`, `packages/core/src/extractors/`) reads a skill directory and writes raw-tier rows:
+
+- `code.doc` nodes for SKILL.md, scripts, references, and agent files, with frontmatter surfaced as node attributes (tolerant parser: `tools`/`allowed-tools`, `user_invocable`/`user-invocable`, block scalars, inline vs YAML lists, quoted scalars).
+- `skill.to_script` / `skill.to_reference` edges from SKILL.md markdown links, `code.literal-doc` for reciprocal reference cross-refs, and `skill.to_subagent` from `meta.json sub_agents[]` — each with span provenance; repeated links dedupe to one edge with multiple provenance rows; bash/mermaid fenced blocks, inline-code spans, and external/out-of-bundle paths never produce edges (AC#2/#4/#5 satisfied at the extraction layer).
+
+**Remaining for this task:** the React Flow + ELK render surface with distinct node/edge treatments and provenance click-through (AC#6/#7), the ecosystem cross-skill view (AC#10), Ariadne code-structure extraction inside scripts (AC#3), backtick-path prose scanning, and the 2s/5s warm/cold perf targets (AC#9). The extraction primitives and the persistent store those build on are in place.

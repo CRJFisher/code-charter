@@ -4,8 +4,9 @@
  * Finds genuine inline markdown links `[text](target)` in a document and reports each occurrence with
  * its source span. Fenced code blocks (``` and ~~~, including mermaid fences) and inline code spans
  * (`` `...` ``) are excluded, so a link written inside a usage example or a diagram never becomes a
- * false-positive edge (task-21.2 AC#5). Reference-style links and autolinks are out of scope (the
- * skill corpus uses inline links); document that limitation rather than half-supporting them.
+ * false-positive edge (task-21.2 AC#5). Reference-style links, autolinks, and links whose
+ * `[text](target)` span wraps across a newline are out of scope (the skill corpus uses single-line
+ * inline links); these limitations are stated rather than half-supported.
  */
 
 import { offset_to_line_col } from "./text_span";

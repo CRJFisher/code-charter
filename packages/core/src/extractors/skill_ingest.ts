@@ -4,9 +4,12 @@
  * Re-points task-21.2's literal skill extraction onto the shared task-27.0 `GraphStore` as raw-tier
  * rows: a skill directory (SKILL.md + scripts/ + references + agents/ + meta.json) becomes doc nodes
  * plus `skill.to_script` / `skill.to_reference` / `code.literal-doc` / `skill.to_subagent` edges, each
- * with provenance pointing at the exact link/declaration span. This is what gives gap-detection real
- * doc edges to find (AC#1) and task-27.1.6 a skill corpus to render. task-21.1's standalone store was
- * superseded by task-27.0 and never shipped — there is no second store to close; this is the only one.
+ * with provenance pointing at the exact link/declaration span. This populates the doc corpus
+ * gap-detection reads (the reciprocal `code.literal-doc` edges between references) and gives
+ * task-27.1.6 a skill corpus to render. (Orphan-entrypoint detection over *code* entrypoints needs
+ * code→doc literal edges keyed on a code symbol_path; those come from a code-doc extractor, not this
+ * skill slice.) task-21.1's standalone store was superseded by task-27.0 and never shipped — there is
+ * no second store to close; this is the only one.
  *
  * Scope (focused slice): markdown links, reciprocal reference cross-refs, `meta.json sub_agents[]`, and
  * frontmatter-as-attributes. Deferred to task-21.2/27.1.6: Ariadne code structure inside scripts,

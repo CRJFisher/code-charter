@@ -3,10 +3,7 @@ import { build_bridge_edges } from "./bridge";
 import type { BridgeCandidate } from "./bridge";
 import { description_node_id } from "./write_descriptions";
 import type { ResolvedDescription } from "./write_descriptions";
-import {
-  rebuild_agentic_substrate,
-  write_agentic_substrate,
-} from "./agentic_writer";
+import { write_agentic_substrate } from "./agentic_writer";
 import type { SubstrateProposal } from "./agentic_writer";
 
 const HASH = "a".repeat(64);
@@ -48,15 +45,24 @@ describe("write_agentic_substrate (AC#5)", () => {
     expect(store.node(description_node_id("src/a.ts#a:function"))?.attributes.description).toBe("does a thing");
   });
 
-  it("is idempotent across a rebuild_layer('agentic') re-run", () => {
-    rebuild_agentic_substrate(store, proposal());
+  it("is idempotent across a re-run with the same proposal", () => {
+    write_agentic_substrate(store, proposal());
     const edges1 = store.all_edges().length;
     const nodes1 = store.all_nodes().length;
-    rebuild_agentic_substrate(store, proposal());
+    write_agentic_substrate(store, proposal());
     expect(store.all_edges()).toHaveLength(edges1);
     expect(store.all_nodes()).toHaveLength(nodes1);
     const bridge = store.all_edges().find((e) => e.kind === "agentic.bridge")!;
     expect(store.provenance_for_edge(bridge.key)).toHaveLength(1); // not duplicated
+  });
+
+  it("never clobbers a user-adjudicated bridge (adjudication is a column, not a ladder field)", () => {
+    const [{ edge, provenance }] = build_bridge_edges([candidate("s.ts#a:function", "t.ts#b:function")]);
+    store.upsert_edge({ ...edge, adjudication: "rejected" }, provenance);
+
+    const report = write_agentic_substrate(store, proposal());
+    expect(report.preserved).toContain(edge.key);
+    expect(store.all_edges().find((e) => e.key === edge.key)!.adjudication).toBe("rejected");
   });
 
   it("never clobbers a user-promoted bridge", () => {

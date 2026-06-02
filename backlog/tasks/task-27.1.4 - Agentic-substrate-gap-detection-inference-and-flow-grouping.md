@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.4
 title: "Agentic substrate: gap-detection, inference, descriptions, and flow grouping"
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-06-01"
 labels:
@@ -55,5 +55,25 @@ This is the re-scoped agentic post-processing pass: its gap-detection results be
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
+
+## High-level summary
+
+**Why this exists.** Static call-graph extraction leaves gaps a comprehension map must close: entrypoints with no documentation, call-sites that do not resolve to a single concrete target (dynamic dispatch, registry lookups), and code islands disconnected from any entrypoint. This task builds the deterministic *agentic substrate* that finds those gaps and produces the raw material from which task-27.1.6's flow-detection sub-agent assembles flows. It is not a parallel pipeline: the substrate proposes candidates deterministically, and the sub-agent (task-27.1.6), inside its own run, makes the model calls and judges which candidates become flow "umbrellas."
+
+**Approach.** Everything expensive or subjective belongs to task-27.1.6; this task ships the pure, testable, deterministic halves plus the writer contracts the sub-agent invokes — mirroring how task-27.1.1 shipped the `drift-sync` contract while task-27.1.6 ships its body. The LLM batch executor (description text) and the non-literal half of registry/entrypoint→doc inference are typed injected dependencies (`DescribeBatchExecutor`, the registry detector's `resolve_target`); only a no-op executor ships here. Three deterministic modules operate over the live Ariadne `CallGraph` (the same source `build_skeleton_flows` uses) plus the store's doc edges, and a fourth persists the result on the agentic lane.
+
+**What changed, at altitude.**
+
+- **Gap-detection** (`agentic/gap_detection.ts`): `detect_gaps` finds orphan entrypoints (no incident `code.literal-doc` edge, matched in symbol_path space via `flow_id_of`), unresolved-heavy / dynamic-dispatch shapes (a self-relative unresolved-ratio metric, default ≥ 0.5 over ≥ 2 call sites), and undirected disconnected components, each category bounded with a reported truncation (never a silent cap). `derive_candidate_seeds` turns orphan entrypoints and disconnected components into the candidate flow seeds task-27.1.6 consumes.
+- **Registry bridges** (`agentic/bridge.ts` + `agentic/registry_detector.ts`): `detect_meta_json_sub_agent_bridges` resolves a skill's `meta.json sub_agents[]` map into `BridgeCandidate`s; `build_bridge_edges` builds `agentic.bridge` edges at lower confidence carrying `inference_rationale` in the attributes bag and provenance whose `source_range` is the declaration span (NOT-NULL satisfied; click-through lands on real source).
+- **Description policy** (`agentic/describe_policy.ts` + `agentic/write_descriptions.ts`): `plan_descriptions` partitions a flow's members into docstring-first (no LLM), content-hash-cached (skipped), LLM-needed (up to a default-200 cap), and over-cap placeholder (the symbol name). Resolved descriptions are written as separate **`agentic.description` side-nodes**, one per code symbol, anchored to `symbol_path:content_hash` and stamped agentic-owned so a user override wins via the watermark ladder.
+- **The agentic writer** (`agentic/agentic_writer.ts`): `write_agentic_substrate` persists a `SubstrateProposal` (bridges + descriptions) scoped (no layer nuke), honoring the preservation invariant and a hard cost ceiling (count caps + a coarse deadline gate, every truncation logged).
+- **The task-21.2 → task-27.0 extractor port** (`packages/core/src/extractors/`): `ingest_skill` reads a skill directory and writes raw-tier `code.doc` nodes (frontmatter surfaced as attributes) plus `skill.to_script` / `skill.to_reference` / `code.literal-doc` / `skill.to_subagent` edges with span provenance, deduping repeated links to one edge with multiple provenance rows. task-21.1's standalone store never shipped — task-27.0 is the only store.
+
+**Key decisions.** Descriptions live on a separate `agentic.description` node rather than a field on the raw `code.function` node: `invalidate_nodes_for_files` and `rebuild_layer('raw')` delete only `layer='raw'` rows, so the side-node survives a re-parse and re-anchors through `re_extract`'s existing preserved-node reconciliation — no store changes, no shim. The provenance-carrying `build_bridge_edges` replaces `flow.ts`'s thin builder (no external callers). A single `read_sub_agents` reader feeds both the raw `skill.to_subagent` extractor and the agentic registry detector. No `packages/types` surface is added — all new contracts are core-internal over the existing row types.
+
+**How to navigate.** Start at the per-task export blocks in `packages/core/src/index.ts`. The deterministic substrate and writer are under `packages/core/src/agentic/`; the literal extractor port under `packages/core/src/extractors/`, writing through the existing `GraphStore` / `re_extract` seam. The substrate↔27.1.6 assembly chain is documented at the head of `agentic/agentic_writer.ts`: gaps → seeds → registry detector → `build_bridge_edges`; `plan_descriptions` → injected executor → `ResolvedDescription` → write.
+
+**What to watch.** Model calls and subjective umbrella-grouping are task-27.1.6's. The cost ceiling is primarily the count caps; the writer's deadline only gates the (already-resolved) description write, since the model-time budget belongs to 27.1.6's executor. The skill corpus supplies doc-to-doc `code.literal-doc` edges and the skill-flow corpus; orphan-detection over *code* entrypoints additionally needs code→doc literal edges from a future code-doc extractor. A persisted bridge endpoint is a NodeRow id, so 27.1.6 maps it back to a `SymbolId` before feeding `induce_members`.
 
 <!-- Added when work begins. -->

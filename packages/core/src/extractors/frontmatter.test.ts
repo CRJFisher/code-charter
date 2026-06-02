@@ -34,4 +34,9 @@ describe("parse_frontmatter (task-21.2 AC#4 — tolerant)", () => {
   it("strips surrounding quotes from a scalar", () => {
     expect(parse_frontmatter('---\nname: "quoted name"\n---\n').name).toBe("quoted name");
   });
+
+  it("keeps a quoted scalar containing commas as one string, not a list", () => {
+    const fm = parse_frontmatter('---\ndescription: "data flow, scripts, and artifacts"\n---\n');
+    expect(fm.description).toBe("data flow, scripts, and artifacts");
+  });
 });

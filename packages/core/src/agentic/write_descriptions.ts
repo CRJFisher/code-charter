@@ -11,7 +11,8 @@
  * Writes go through `write_fields(..., 'agentic')`, so a user-edited description (its node promoted to
  * `layer='user'`) is preserved by the field ladder — "user override wins." The side-node is never
  * re-upserted while it is user-owned (an upsert would reset its layer); the description is refreshed
- * through the ladder instead.
+ * through the ladder instead. A side-node soft-deleted into the re-attachment bin is left untouched —
+ * never silently resurrected — matching the bridge writer's preservation rule.
  */
 
 import type { GraphStore } from "@code-charter/types";
@@ -55,10 +56,17 @@ export function write_descriptions(
   const written: string[] = [];
   const skipped: string[] = [];
   const ordered = [...resolved].sort((a, b) => (a.symbol_path < b.symbol_path ? -1 : a.symbol_path > b.symbol_path ? 1 : 0));
+  // Look up including soft-deleted rows so a binned side-node is preserved, not resurrected (store.node
+  // hides deleted rows, which would otherwise re-create them live).
+  const existing_by_id = new Map(store.all_nodes({ include_deleted: true }).map((node) => [node.id, node]));
 
   for (const item of ordered) {
     const id = description_node_id(item.symbol_path);
-    const existing = store.node(id);
+    const existing = existing_by_id.get(id);
+    if (existing?.deleted_at != null) {
+      skipped.push(item.symbol_path); // in the re-attachment bin — leave it for drift.resolve
+      continue;
+    }
     // Re-upsert (re-anchor) only when the node is agentic-owned; never demote a user-promoted node.
     if (!existing || existing.layer !== "user") {
       store.upsert_node({
@@ -74,13 +82,19 @@ export function write_descriptions(
         deleted_at: null,
       });
     }
-    const result = store.write_fields(
+    // Write the description first; only stamp the cache-key siblings if it actually landed, so a
+    // user-owned description is never paired with an agentic-stamped hash.
+    const desc_result = store.write_fields({ kind: "node", id }, { description: item.text }, "agentic");
+    if (desc_result.skipped.includes("description")) {
+      skipped.push(item.symbol_path);
+      continue;
+    }
+    store.write_fields(
       { kind: "node", id },
-      { description: item.text, description_hash: item.content_hash, description_source: item.source },
+      { description_hash: item.content_hash, description_source: item.source },
       "agentic",
     );
-    if (result.skipped.includes("description")) skipped.push(item.symbol_path);
-    else written.push(item.symbol_path);
+    written.push(item.symbol_path);
   }
 
   return { written, skipped };

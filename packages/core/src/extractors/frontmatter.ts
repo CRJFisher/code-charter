@@ -21,17 +21,19 @@ function normalize_key(key: string): string {
   return ALIASES[trimmed] ?? trimmed.replace(/-/g, "_");
 }
 
+/** Whether a value is wrapped in matching single/double quotes. */
+function is_quoted(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return false;
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  return (first === '"' && last === '"') || (first === "'" && last === "'");
+}
+
 /** Strip matching surrounding single/double quotes from a scalar. */
 function unquote(value: string): string {
   const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
+  return is_quoted(trimmed) ? trimmed.slice(1, -1) : trimmed;
 }
 
 /** Coerce a scalar to boolean when it reads as one, else return the unquoted string. */
@@ -99,8 +101,9 @@ export function parse_frontmatter(source: string): Record<string, unknown> {
       continue;
     }
 
-    // Inline list when commas are present, else a scalar.
-    attributes[key] = rest.includes(",") ? parse_inline_list(rest) : coerce_scalar(rest);
+    // A quoted value is always a single scalar (a description may contain commas); only an unquoted
+    // comma-bearing value is an inline list.
+    attributes[key] = !is_quoted(rest) && rest.includes(",") ? parse_inline_list(rest) : coerce_scalar(rest);
   }
   return attributes;
 }

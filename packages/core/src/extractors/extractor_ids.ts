@@ -1,10 +1,12 @@
 /**
- * task-27.1.4 AC#6 — the literal-extractor identity catalog.
+ * task-27.1.4 AC#6 — the literal-extractor catalog: the provenance identities AND the graph edge/node
+ * kinds the skill extractors emit.
  *
  * Every raw row a literal extractor writes carries an `extractor_id` + `extractor_version` in its
- * provenance, so a later re-extraction can invalidate exactly the rows a given extractor produced.
- * These are the ids the skill-ingestion slice uses; they are open strings (the store enforces no
- * enum), gathered here so the catalog is one place.
+ * provenance, so a later re-extraction can invalidate exactly the rows a given extractor produced. The
+ * `*_KIND` constants are the node/edge kinds those extractors produce; they live with the extractor
+ * that emits them (gap-detection imports `LITERAL_DOC_EDGE_KIND` here because that is the doc-edge the
+ * extractor writes and gap-detection reads). All are open strings (the store enforces no enum).
  */
 
 /** Bumped when an extractor's output shape changes in a way that invalidates cached provenance. */

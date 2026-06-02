@@ -148,12 +148,8 @@ export type {
 export { DESCRIPTION_NODE_KIND, description_node_id, write_descriptions } from "./agentic/write_descriptions";
 export type { ResolvedDescription, WriteDescriptionsResult } from "./agentic/write_descriptions";
 
-// task-27.1.4 AC#5 — the agentic-substrate writer (scoped + rebuild_layer forms)
-export {
-  DEFAULT_AGENTIC_WRITER_LIMITS,
-  rebuild_agentic_substrate,
-  write_agentic_substrate,
-} from "./agentic/agentic_writer";
+// task-27.1.4 AC#5 — the agentic-substrate writer
+export { DEFAULT_AGENTIC_WRITER_LIMITS, write_agentic_substrate } from "./agentic/agentic_writer";
 export type {
   AgenticWriteOptions,
   AgenticWriteReport,

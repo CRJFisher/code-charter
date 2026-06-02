@@ -75,6 +75,18 @@ describe("find_orphan_entrypoints (AC#1)", () => {
     expect(find_orphan_entrypoints(graph, [], DEFAULT_GAP_OPTIONS)).toHaveLength(0);
     expect(find_orphan_entrypoints(graph, [], { ...DEFAULT_GAP_OPTIONS, include_tests: true })).toHaveLength(1);
   });
+
+  it("de-duplicates entrypoints that collapse to the same flow_id (D-FLOW-IDENTITY)", () => {
+    // Two distinct SymbolIds, same file+name+kind → one symbol_path → one candidate seed id.
+    const graph = make_graph(
+      [
+        { id: "m1", name: "main", file: "app.ts" },
+        { id: "m2", name: "main", file: "app.ts" },
+      ],
+      ["m1", "m2"],
+    );
+    expect(find_orphan_entrypoints(graph, [], DEFAULT_GAP_OPTIONS)).toHaveLength(1);
+  });
 });
 
 describe("find_unresolved_shapes (AC#1)", () => {
@@ -215,6 +227,27 @@ describe("find_disconnected_components (AC#1)", () => {
     };
     const components = find_disconnected_components(graph, DEFAULT_GAP_OPTIONS);
     expect(components.map((c) => c.representative)).toEqual(["b"]);
+  });
+
+  it("excludes an indirect-reachability node from a component regardless of its id ordering", () => {
+    // 'z' (indirect) sorts AFTER its neighbor 'b' — the ordering that previously pulled it in as a member.
+    const nodes = new Map(
+      [
+        make_node({ id: "b", name: "b", file: "i.ts", calls: ["c", "z"] }),
+        make_node({ id: "c", name: "c", file: "i.ts" }),
+        make_node({ id: "z", name: "z", file: "z.ts" }),
+      ].map((n) => [n.symbol_id, n]),
+    );
+    const graph: CallGraph = {
+      nodes,
+      entry_points: [],
+      indirect_reachability: new Map([
+        ["z" as SymbolId, { function_id: "z" as SymbolId, reason: { type: "function_reference", read_location: nodes.get("z" as SymbolId)!.location } }],
+      ]),
+    };
+    const components = find_disconnected_components(graph, DEFAULT_GAP_OPTIONS);
+    expect(components).toHaveLength(1);
+    expect(components[0].members).toEqual(["b", "c"]); // 'z' is never a member
   });
 });
 
