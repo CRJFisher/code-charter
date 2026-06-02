@@ -1,0 +1,6 @@
+{
+  "name": "skill-diagrammer",
+  "sub_agents": [
+    { "name": "reviewer", "file": "agents/reviewer.md" }
+  ]
+}

@@ -67,7 +67,6 @@ export type { ModuleResolver, ModuleScaffold } from "./model/module_scaffold";
 // task-27.1.3 — the flow entity, deterministic skeleton, membership, and persistence-row builders
 export {
   BRIDGE_EDGE_KIND,
-  build_bridge_edges,
   build_flow_member_edges,
   build_flow_node,
   build_skeleton_flows,
@@ -103,3 +102,78 @@ export {
   outstanding_drift,
 } from "./reextract/drift_observation";
 export type { DriftObservation } from "./reextract/drift_observation";
+
+// task-27.1.4 AC#1/#4 — deterministic gap-detection + candidate flow seeds
+export {
+  DEFAULT_GAP_OPTIONS,
+  derive_candidate_seeds,
+  detect_gaps,
+  find_disconnected_components,
+  find_orphan_entrypoints,
+  find_unresolved_shapes,
+} from "./agentic/gap_detection";
+export type {
+  CandidateSeed,
+  DisconnectedComponent,
+  GapDetectionOptions,
+  GapReport,
+  GapTruncation,
+  OrphanEntrypoint,
+  UnresolvedShape,
+} from "./agentic/gap_detection";
+
+// task-27.1.4 AC#2 — agentic bridge builder + registry-shaped detector
+export { BRIDGE_CONFIDENCE_INFERRED, bridge_edge_key, build_bridge_edges } from "./agentic/bridge";
+export type { BridgeCandidate } from "./agentic/bridge";
+export {
+  AGENTIC_REGISTRY_EXTRACTOR_ID,
+  AGENTIC_REGISTRY_EXTRACTOR_VERSION,
+  detect_meta_json_sub_agent_bridges,
+} from "./agentic/registry_detector";
+export type { MetaJsonRegistryInput } from "./agentic/registry_detector";
+
+// task-27.1.4 AC#3 — deterministic-first description policy + agentic-owned writer
+export { DEFAULT_DESCRIBE_CAP, null_describe_executor, plan_descriptions } from "./agentic/describe_policy";
+export type {
+  DescribeBatchExecutor,
+  DescribeBatchRequest,
+  DescribeBatchResult,
+  DescribeMember,
+  DescriptionPlan,
+  DescriptionSource,
+  DescribePolicyOptions,
+  ExistingDescription,
+  PlannedDescription,
+} from "./agentic/describe_policy";
+export { DESCRIPTION_NODE_KIND, description_node_id, write_descriptions } from "./agentic/write_descriptions";
+export type { ResolvedDescription, WriteDescriptionsResult } from "./agentic/write_descriptions";
+
+// task-27.1.4 AC#5 — the agentic-substrate writer (scoped + rebuild_layer forms)
+export {
+  DEFAULT_AGENTIC_WRITER_LIMITS,
+  rebuild_agentic_substrate,
+  write_agentic_substrate,
+} from "./agentic/agentic_writer";
+export type {
+  AgenticWriteOptions,
+  AgenticWriteReport,
+  AgenticWriterLimits,
+  SubstrateProposal,
+} from "./agentic/agentic_writer";
+
+// task-27.1.4 AC#6 — task-21.2 → task-27.0 literal skill extractor port
+export {
+  EXTRACTOR_ID_MARKDOWN,
+  EXTRACTOR_ID_META_JSON,
+  EXTRACTOR_VERSION,
+  ingest_skill,
+  LITERAL_DOC_EDGE_KIND,
+  parse_frontmatter,
+  parse_markdown_links,
+  read_sub_agents,
+  SKILL_DOC_KIND,
+  SKILL_TO_REFERENCE_KIND,
+  SKILL_TO_SCRIPT_KIND,
+  SKILL_TO_SUBAGENT_KIND,
+} from "./extractors";
+export type { MarkdownLink, SkillIngestDeps, SkillIngestResult, SubAgentDecl } from "./extractors";

@@ -2,8 +2,6 @@ import type { SymbolId } from "@ariadnejs/types";
 import type { FlowSummary } from "@code-charter/types";
 
 import {
-  BRIDGE_EDGE_KIND,
-  build_bridge_edges,
   build_flow_member_edges,
   build_flow_node,
   build_skeleton_flows,
@@ -277,12 +275,6 @@ describe("persistence-row builders (AC#1)", () => {
     expect(edges.map((e) => e.dst_id)).toEqual(["a", "z"]); // sorted
     expect(edges.every((e) => e.kind === FLOW_MEMBER_EDGE_KIND)).toBe(true);
     expect(edges[0].key).toBe("agentic.flow_member:flow1->a");
-  });
-
-  it("builds bridge edges with lower confidence so they render distinct", () => {
-    const edges = build_bridge_edges([{ src_id: "x", dst_id: "y" }]);
-    expect(edges[0].kind).toBe(BRIDGE_EDGE_KIND);
-    expect(edges[0].confidence).toBeLessThan(1);
   });
 });
 

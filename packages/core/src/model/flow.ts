@@ -283,26 +283,6 @@ export function build_flow_member_edges(flow_id: string, member_ids: readonly st
     }));
 }
 
-/** `agentic.bridge` edges for cross-call-graph links (AC#1). Lower confidence — renders distinct. */
-export function build_bridge_edges(bridges: readonly BridgeEdge[]): EdgeRow[] {
-  return [...bridges]
-    .sort((a, b) => (a.src_id + a.dst_id < b.src_id + b.dst_id ? -1 : 1))
-    .map((bridge) => ({
-      key: `${BRIDGE_EDGE_KIND}:${bridge.src_id}->${bridge.dst_id}`,
-      src_id: bridge.src_id,
-      dst_id: bridge.dst_id,
-      kind: BRIDGE_EDGE_KIND,
-      confidence: 0.5,
-      layer: "agentic" as const,
-      attributes: {},
-      field_ownership: {},
-      origin: "flow-detector",
-      intent_source: "code-edit",
-      adjudication: null,
-      deleted_at: null,
-    }));
-}
-
 function string_attr(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
