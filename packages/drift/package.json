@@ -1,0 +1,42 @@
+{
+  "name": "@code-charter/drift",
+  "version": "0.0.1",
+  "description": "Drift infrastructure substrate: drift MCP server, reconciliation sub-agent + drift-sync skill, and the .claude hook installer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "assets"
+  ],
+  "bin": {
+    "drift-mcp": "dist/bin/drift_mcp.js",
+    "drift-stop-hook": "dist/bin/drift_stop_hook.js",
+    "drift-session-start": "dist/bin/drift_session_start.js",
+    "drift-install": "dist/bin/drift_install.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -watch -p tsconfig.build.json",
+    "lint": "eslint src",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@code-charter/core": "^0.0.1",
+    "@code-charter/types": "^0.0.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

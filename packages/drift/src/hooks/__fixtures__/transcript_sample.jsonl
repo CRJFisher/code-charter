@@ -1,0 +1,6 @@
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"please edit the files"}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"editing"},{"type":"tool_use","name":"Edit","id":"t1","input":{"file_path":"src/a.ts","old_string":"a","new_string":"b"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Read","id":"t2","input":{"file_path":"src/should_not_count.ts"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","id":"t3","input":{"file_path":"src/b.ts","content":"x"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"MultiEdit","id":"t4","input":{"file_path":"src/a.ts","edits":[]}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"NotebookEdit","id":"t5","input":{"notebook_path":"nb/c.ipynb","new_source":"y"}}]}}
