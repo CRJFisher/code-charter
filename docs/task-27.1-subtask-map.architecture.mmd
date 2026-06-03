@@ -1,0 +1,58 @@
+flowchart TB
+  subgraph SESS["Your Claude Code session"]
+    direction TB
+    edit["You edit a flow's code"]
+    stop["Stop hook 〔27.1.1〕"]
+    main["Main agent"]
+    edit --> stop -->|blocks &amp; instructs| main
+  end
+
+  subgraph RECON["Reconcile / hydrate path — agentic, out-of-band"]
+    direction TB
+    sub["drift-reconciler sub-agent 〔27.1.1〕"]
+    skill["drift-sync skill 〔27.1.1〕"]
+    subgraph PIPE["drift-sync pipeline 〔27.1.6〕"]
+      direction TB
+      re["re_extract(file_set, origin) 〔27.1.2〕"]
+      gap["gap-detect · bridge-infer · describe 〔27.1.4〕"]
+      ind["re-induce flow: seeds+bridges+docs 〔27.1.3〕"]
+      pres["preserve user edits — watermark ladder 〔27.1.2 / 27.1.6〕"]
+      wr["write rows"]
+      re --> gap --> ind --> pres --> wr
+    end
+    main -->|launches| sub --> skill --> re
+  end
+
+  subgraph STORE["GraphStore — SQLite 〔task-27.0 / 27.0.1〕"]
+    direction LR
+    L0["L0 deterministic substrate"]
+    L1["L1 agentic structure"]
+    bin["re-attachment bin 〔27.1.6〕"]
+  end
+
+  subgraph VIEW["Webview"]
+    direction TB
+    sel["Flow selector — left panel 〔27.1.3〕"]
+    rnd["Per-flow render — React Flow 〔27.1.3 / 27.0.4〕"]
+    sel --> rnd
+  end
+
+  mcp["MCP server — drift.resolve / drift.list 〔27.1.1〕"]
+  banner["SessionStart drift banner 〔27.1.1 / 27.1.2〕"]
+  kcf["key-control-flow agent 〔27.1.7〕"]
+
+  wr ==> STORE
+  pres -. resolver miss .-> bin
+  STORE ==> rnd
+  STORE --> banner
+  mcp <-->|named user write| STORE
+  kcf -. ranks salience .-> STORE
+
+  classDef found fill:#0e2e22,stroke:#43d39e,color:#e7ebf0;
+  classDef crit  fill:#11243a,stroke:#5db0ff,color:#e7ebf0;
+  classDef addon fill:#241a3a,stroke:#b483ff,color:#e7ebf0;
+  classDef wrapc fill:#14171e,stroke:#2a2f3a,color:#9aa4b2;
+  class stop,sub,skill,mcp,banner,re,pres,ind,sel,rnd,gap,bin crit;
+  class L0,L1 found;
+  class kcf addon;
+  class SESS,RECON,PIPE,STORE,VIEW wrapc;

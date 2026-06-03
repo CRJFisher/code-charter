@@ -1,0 +1,33 @@
+flowchart LR
+  subgraph DET["Deterministic L0 — objective, free"]
+    direction TB
+    a["Ariadne call / import edges"]
+    b["function→file→dir scaffold"]
+    c["literal doc / frontmatter edges 〔27.1.4 ports 21.2〕"]
+    d["entrypoint roots"]
+  end
+  subgraph AGT["Agentic L1 — judged: what matters"]
+    direction TB
+    e["gap-detected seeds 〔27.1.4〕"]
+    f["agentic.bridge edges 〔27.1.4〕"]
+    g["agentic.flow umbrella + label 〔27.1.3〕"]
+    h["key-control-flow salience 〔27.1.7〕"]
+  end
+  flow(["A FLOW = induced subgraph"])
+  a --> e
+  b --> e
+  c --> f
+  d --> e
+  e --> g
+  f --> g
+  g --> flow
+  h -. essence layer .-> flow
+
+  classDef found fill:#0e2e22,stroke:#43d39e,color:#e7ebf0;
+  classDef crit  fill:#11243a,stroke:#5db0ff,color:#e7ebf0;
+  classDef addon fill:#241a3a,stroke:#b483ff,color:#e7ebf0;
+  classDef wrapc fill:#14171e,stroke:#2a2f3a,color:#9aa4b2;
+  class a,b,d found;
+  class c,e,f,g,flow crit;
+  class h addon;
+  class DET,AGT wrapc;

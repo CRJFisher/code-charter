@@ -1,0 +1,40 @@
+flowchart LR
+  t0["task-27.0 GraphStore foundation"]
+  t1["27.1.1 infra substrate"]
+  t2["27.1.2 ✓ rename milestone"]
+  t3["27.1.3 ✓ flow + selector"]
+  t4["27.1.4 agentic substrate"]
+  t6["27.1.6 ★ hydration + auto-sync — v1 SHIPS HERE"]
+  t7["27.1.7 key-control-flow"]
+
+  t0 --> t1 --> t2 --> t3 --> t4 --> t6 --> t7
+
+  subgraph DEFER["Deferred — post-v1, additive"]
+    direction TB
+    t8["27.1.8 portable bundle / 2nd host"]
+    t9["27.1.9 triage classifier + contract"]
+    t10["27.1.10 review surfaces + PreCommit gate"]
+    t11["27.1.11 clustering signal"]
+    t12["27.1.12 whole-repo zoomable map"]
+    t13["27.1.13 ariadne precision add-on"]
+  end
+
+  t6 -.-> t8
+  t6 -.-> t9
+  t9 -.-> t10
+  t7 -.-> t11
+  t3 -.-> t12
+  t7 -.-> t13
+
+  classDef found fill:#0e2e22,stroke:#43d39e,color:#e7ebf0;
+  classDef crit  fill:#11243a,stroke:#5db0ff,color:#e7ebf0;
+  classDef ship  fill:#0e2e22,stroke:#43d39e,color:#e7ebf0,stroke-width:2px;
+  classDef addon fill:#241a3a,stroke:#b483ff,color:#e7ebf0;
+  classDef defer fill:#1a1d24,stroke:#7b8494,color:#9aa4b2;
+  classDef wrapc fill:#14171e,stroke:#2a2f3a,color:#9aa4b2;
+  class t0 found;
+  class t1,t2,t3,t4 crit;
+  class t6 ship;
+  class t7 addon;
+  class t8,t9,t10,t11,t12,t13 defer;
+  class DEFER wrapc;

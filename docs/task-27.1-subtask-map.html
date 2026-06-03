@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task 27.1 — Code→Diagram v1: Architecture &amp; Subtask Map</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1d212b; --ink:#e7ebf0; --muted:#9aa4b2; --line:#2a2f3a;
+    --crit:#5db0ff; --addon:#b483ff; --defer:#7b8494; --found:#43d39e; --done:#43d39e; --todo:#e0a64b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:38px 24px 90px}
+  h1{font-size:29px;margin:0 0 4px;letter-spacing:-.4px}
+  h2{font-size:20px;margin:46px 0 6px;letter-spacing:-.2px}
+  .sub{color:var(--muted);margin:0 0 4px}
+  .note{color:var(--muted);font-size:13.5px;margin:4px 0 14px;max-width:90ch}
+  code{background:var(--panel-2);padding:1px 6px;border-radius:5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfe3ff}
+  em{color:var(--crit);font-style:normal;font-weight:600}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:6px 0 4px;overflow-x:auto;text-align:center}
+  .fig img{max-width:100%;height:auto;display:block;margin:0 auto}
+  .caption{color:var(--muted);font-size:12.5px;margin:8px 4px 0}
+
+  /* legend */
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:10px 2px 0;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:13px;height:13px;border-radius:4px;display:inline-block;border:1px solid #0006}
+  .sw.crit{background:#11243a;border-color:var(--crit)} .sw.addon{background:#241a3a;border-color:var(--addon)}
+  .sw.defer{background:#1a1d24;border-color:var(--defer)} .sw.found{background:#0e2e22;border-color:var(--found)}
+
+  /* reference table */
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+  tr:hover td{background:var(--panel-2)}
+  td.id{font-weight:800;white-space:nowrap}
+  .role{font-size:10.5px;font-weight:700;letter-spacing:.3px;border-radius:20px;padding:2px 8px;text-transform:uppercase;white-space:nowrap}
+  .r-crit{color:var(--crit);border:1px solid #1f3c5c;background:#11243a}
+  .r-addon{color:var(--addon);border:1px solid #432a6e;background:#241a3a}
+  .r-defer{color:var(--defer);border:1px solid #333a47;background:#1a1d24}
+  .st{font-size:10.5px;font-weight:700;border-radius:20px;padding:2px 8px;white-space:nowrap}
+  .st-done{color:var(--done);border:1px solid #1f6e4f;background:#0e2e22}
+  .st-todo{color:var(--todo);border:1px solid #5c4620;background:#2a2110}
+  td.builds{color:#c9d2dd}
+  .row-hi td{background:#11243a55}
+  footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  a{color:var(--crit);text-decoration:none} a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Task 27.1 — Code → Diagram (v1)</h1>
+  <p class="sub">The architecture, with each piece of work that builds it linked in. <code>doc-5</code> vision · <code>doc-5.1</code> v1 manifestation.</p>
+
+  <div class="legend">
+    <span><i class="sw found"></i> foundation (task-27.0)</span>
+    <span><i class="sw crit"></i> v1 critical path</span>
+    <span><i class="sw addon"></i> first add-on (27.1.7)</span>
+    <span><i class="sw defer"></i> deferred (post-v1)</span>
+    <span>〔n〕 = the subtask that delivers the box · full detail in §4</span>
+  </div>
+
+  <!-- ============ 1. OVERALL ARCHITECTURE ============ -->
+  <h2>1 · Overall architecture — the v1 system &amp; its reconcile loop</h2>
+  <p class="note">You edit a flow's code; the <code>Stop</code> hook drives an out-of-band sub-agent that re-extracts, re-induces the flow, preserves your edits, and writes the store. The webview reads the store to render the selected flow. The MCP server is the only user-facing write path; <code>SessionStart</code> only banners.</p>
+  <div class="fig">
+    <!-- mermaid source: task-27.1-subtask-map.architecture.mmd -->
+    <img src="task-27.1-subtask-map.architecture.svg" alt="Overall architecture: edit → Stop hook → main agent → drift-reconciler sub-agent → drift-sync skill pipeline (re_extract → gap-detect/bridge-infer/describe → re-induce flow → preserve edits → write) → SQLite GraphStore; webview flow selector and per-flow render read the store; MCP server is the user-facing write; SessionStart banners.">
+  </div>
+  <p class="caption">Solid bold arrows = data written/read; dashed = conditional/secondary. Every tagged box maps to a row in §4.</p>
+
+  <!-- ============ 2. THE SEAM ============ -->
+  <h2>2 · The organizing seam — deterministic L0 vs. agentic L1</h2>
+  <p class="note">task-27.0's cost-of-regeneration seam is the spine. Everything left is objective and free to regenerate from code; everything right is judgement about what matters, carried on <code>layer='agentic'</code> + namespaced <code>kind</code> + <code>confidence</code> + <code>inference_rationale</code>.</p>
+  <div class="fig">
+    <!-- mermaid source: task-27.1-subtask-map.seam.mmd -->
+    <img src="task-27.1-subtask-map.seam.svg" alt="The seam: deterministic L0 (Ariadne edges, function→file→dir scaffold, literal doc edges, entrypoint roots) feeds agentic L1 (gap-detected seeds, agentic.bridge edges, agentic.flow umbrella, key-control-flow salience), composing into a flow as an induced subgraph.">
+  </div>
+  <p class="caption">The agent judges only the seam (boundary, bridges, doc attachment); the deterministic call-graph fills each tree's interior for free.</p>
+
+  <!-- ============ 3. DEPENDENCY / CRITICAL PATH ============ -->
+  <h2>3 · Critical path &amp; dependencies — where v1 ships</h2>
+  <p class="note">Five tasks in order are everything v1 needs; <b>27.1.6 is the ship point</b>. 27.1.7 is the first add-on. The rest are additive layers the section-F seams keep non-breaking. There is no 27.1.5.</p>
+  <div class="fig">
+    <!-- mermaid source: task-27.1-subtask-map.critical-path.mmd -->
+    <img src="task-27.1-subtask-map.critical-path.svg" alt="Critical path: task-27.0 → 27.1.1 → 27.1.2 (done) → 27.1.3 (done) → 27.1.4 → 27.1.6 (v1 ships) → 27.1.7. Deferred post-v1: 27.1.8, 27.1.9 → 27.1.10, 27.1.11, 27.1.12, 27.1.13 branch off as additive dependencies.">
+  </div>
+  <p class="caption">Solid = blocking critical path; dashed = additive dependency.</p>
+
+  <!-- ============ 4. REFERENCE TABLE ============ -->
+  <h2>4 · Subtask reference</h2>
+  <p class="note">The pieces of work that link into the diagrams above. <em>Builds</em> names the component(s) each delivers.</p>
+  <table>
+    <thead><tr><th>ID</th><th>Role</th><th>Status</th><th>Builds (component in §1–§2)</th><th>What it delivers · why it matters</th></tr></thead>
+    <tbody>
+      <tr class="row-hi" id="s1"><td class="id">27.1.1</td><td><span class="role r-crit">critical</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">Stop hook · drift-reconciler sub-agent · drift-sync skill · MCP server · SessionStart banner · installer</td>
+        <td>The substrate that makes lazy hydration &amp; auto-sync possible — the deterministic trigger and the sub-agent→skill execution path. <b>Root dependency for all of v1.</b></td></tr>
+
+      <tr id="s2"><td class="id">27.1.2</td><td><span class="role r-crit">critical</span></td><td><span class="st st-done">Done</span></td>
+        <td class="builds"><code>re_extract</code> funnel · field-ownership preservation fix · drift staging · file-module tier · React Flow adapter · layout</td>
+        <td>First end-to-end slice: a renamed symbol's drift is detected on session open and the hand-written description carries across. Validates every seam contract.</td></tr>
+
+      <tr id="s3"><td class="id">27.1.3</td><td><span class="role r-crit">critical</span></td><td><span class="st st-done">Done</span></td>
+        <td class="builds">flow entity (<code>agentic.flow</code>) · subgraph induction · deterministic stub flows · left-panel selector · per-flow render</td>
+        <td>Makes <em>flow</em> a first-class entity and replaces the entrypoint list with a flow selector. The v1 comprehension unit; the tiling block of the eventual whole-repo map.</td></tr>
+
+      <tr id="s4"><td class="id">27.1.4</td><td><span class="role r-crit">critical</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">gap-detection · <code>agentic.bridge</code> inference · node descriptions · 21.2 extractor port · seed/bridge export</td>
+        <td>Closes the L0→L1 threshold static analysis can't fill (orphan entrypoints, doc↔code links) and produces the seeds + bridges the hydration agent assembles into umbrellas.</td></tr>
+
+      <tr class="row-hi" id="s6"><td class="id">27.1.6</td><td><span class="role r-crit">critical · ★ ship</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">Stop-hook dispatcher (HYDRATE vs RE-SYNC) · flow detection · drift-sync pipeline · watermark-ladder preservation · re-attachment bin</td>
+        <td><b>v1 ships here.</b> Builds each flow's diagram on first work and keeps it in step by pure auto-sync, preserving your edits. Embodies "anything you author is always considered" + "absorbs drift out-of-band".</td></tr>
+
+      <tr id="s7"><td class="id">27.1.7</td><td><span class="role r-addon">first add-on</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">key-control-flow agent · key-decision selection/ranking · budget-aware render · pin/suppress · semantic edge labels</td>
+        <td>Turns "renders the flow" into "renders the <em>essence</em> of the flow" — selects the golden-path decisions, quiets incidental branches. The comprehension headline.</td></tr>
+
+      <tr id="s8"><td class="id">27.1.8</td><td><span class="role r-defer">deferred</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">host-neutral bundle · host-keyed install target · Cursor/OpenCode + MCP fallback</td>
+        <td>Second-host parity without translation code. A distribution layer above the core; Claude Code ships v1 natively.</td></tr>
+
+      <tr id="s9"><td class="id">27.1.9</td><td><span class="role r-defer">deferred</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">drift triage classifier · typed <code>TriageSubject</code> / <code>TriageVerdict</code> contract</td>
+        <td>The review/escalation apparatus v1's silent auto-sync omits; also the reuse seam for diagram→code authoring (27.2).</td></tr>
+
+      <tr id="s10"><td class="id">27.1.10</td><td><span class="role r-defer">deferred</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds"><code>/drift</code> walkthrough · PreCommit gate · change-scoped summary · optional observation store</td>
+        <td>Optional surfaces for users who want to inspect/decide on drift before committing. Additive on top of v1's automatic absorption.</td></tr>
+
+      <tr id="s11"><td class="id">27.1.11</td><td><span class="role r-defer">deferred</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">clustering in <code>packages/core</code> · flow-chunking signal · cross-dir refactoring hints</td>
+        <td>Demoted to a budget-triggered fallback: extra signal when a flow is too large to read, plus refactoring hints. v1 chunks deterministically.</td></tr>
+
+      <tr id="s12"><td class="id">27.1.12</td><td><span class="role r-defer">deferred</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">multi-flow composition · budget-capped N-tier zoom · level-projection · partial hydration</td>
+        <td>Completes doc-5's "one zoomable map" as a composition of flows over the file/dir scaffold. Additive over the generic render seam.</td></tr>
+
+      <tr id="s13"><td class="id">27.1.13</td><td><span class="role r-defer">deferred</span></td><td><span class="st st-todo">To Do</span></td>
+        <td class="builds">Ariadne <code>block_kind</code>/<code>condition_text</code> · sibling scope linkage · <code>argument_texts</code></td>
+        <td>Upstream precision add-on: surfaces control-flow structure Ariadne already parses, so 27.1.7 can ground inferences in hard facts. Gates nothing.</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Built from a parallel read of all 12 subtask docs under <code>backlog/tasks/task-27.1.*</code>, anchored to
+    <a href="doc-5 - Diagram-Driven-Development-Functionality.md">doc-5</a> (vision) and
+    <a href="doc-5.1 - Diagram-Driven-Development-v1-Manifestation.md">doc-5.1</a> (v1). Status badges reflect each task's frontmatter at generation time.
+    Diagrams are pre-rendered SVGs; sources are the sibling <code>.mmd</code> files.
+  </footer>
+
+</div>
+</body>
+</html>

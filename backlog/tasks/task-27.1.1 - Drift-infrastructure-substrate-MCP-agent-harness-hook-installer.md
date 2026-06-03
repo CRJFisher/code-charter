@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.1
 title: "Drift infrastructure substrate: MCP server, reconciliation sub-agent + drift-sync skill, hook installer"
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-05-31"
 labels:
