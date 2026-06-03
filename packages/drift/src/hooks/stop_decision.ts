@@ -10,9 +10,12 @@
  * sub-agent. The downstream chain is: main agent → `drift-reconciler` (assets/agents) →
  * `drift-sync` skill → `drift_sync.js` → bin/`drift_reconcile.ts` → the reconcile engine
  * (task-27.1.6). Re-firing is safe because the engine's writes are idempotent and go through
- * SQLite (not Edit/Write), so they never re-arm this hook. The worked-on set is the session's
- * cumulative edits; a per-turn watermark that re-syncs only files touched since the previous Stop
- * is a deferred cost optimization (cumulative re-sync is correct, just not minimal).
+ * SQLite (not Edit/Write), so they never re-arm this hook.
+ *
+ * `worked_on` is the files edited *this turn* — the bin scopes it to edits since the previous Stop via
+ * the transcript watermark ({@link worked_on_since}). That is what makes guard 2 satisfiable: once a
+ * turn's edits are handed off, an idle turn yields an empty set and no-ops. (Without the watermark the
+ * set would be the whole session's cumulative edits and the hook would re-fire forever.)
  */
 
 import type { StopHookInput } from "./hook_payloads";

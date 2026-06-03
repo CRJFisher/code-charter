@@ -44,6 +44,43 @@ describe("drift_stop_hook bin", () => {
     }
   });
 
+  it("no-ops on a second fire with no new edits (watermark makes it satisfiable)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    const payload = { session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" };
+    try {
+      const first = run_stop_hook(payload);
+      expect(JSON.parse(first.stdout).decision).toBe("block"); // first fire reconciles the edit
+      const second = run_stop_hook(payload); // same transcript, nothing new
+      expect(second.stdout).toBe(""); // watermark advanced → no re-nag
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("re-fires for only the newly edited file after the watermark advances", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    const payload = { session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" };
+    try {
+      run_stop_hook(payload); // first fire handles src/a.ts, advances the cursor
+      const next_edit = JSON.stringify({
+        type: "assistant",
+        message: { content: [{ type: "tool_use", name: "Edit", id: "t2", input: { file_path: "src/b.ts" } }] },
+      });
+      fs.appendFileSync(transcript_path, next_edit + "\n");
+      const result = run_stop_hook(payload);
+      const output = JSON.parse(result.stdout);
+      expect(output.decision).toBe("block");
+      expect(output.reason).toContain("src/b.ts");
+      expect(output.reason).not.toContain("src/a.ts"); // already reconciled — not re-listed
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("no-ops (empty stdout) when stop_hook_active is set", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
     const transcript_path = path.join(dir, "t.jsonl");
