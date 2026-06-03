@@ -8,11 +8,11 @@
  * types from `@code-charter/types`.
  */
 
-export { derive_code_state } from "./code_state";
+export { build_symbol_path, derive_code_state } from "./code_state";
 export { format_anchor, parse_anchor } from "./anchor_string";
 export { build_resolver_index } from "./resolver_index";
 export type { ResolverIndex } from "./resolver_index";
 export { resolve_anchor } from "./resolve_anchor";
-export { resolver_symbols_from_ariadne } from "./from_ariadne";
-export type { AriadneFileInput } from "./from_ariadne";
+export { anchored_symbols_from_ariadne, resolver_symbols_from_ariadne } from "./from_ariadne";
+export type { AnchoredSymbol, AriadneFileInput } from "./from_ariadne";
 export type { ResolverSymbol } from "./resolver_symbol";

@@ -27,6 +27,10 @@ export const DRIFT_MCP_SERVER_NAME = "drift";
 const STOP_BIN = "drift_stop_hook.js";
 const SESSION_START_BIN = "drift_session_start.js";
 const MCP_BIN = "drift_mcp.js";
+const RECONCILE_BIN = "drift_reconcile.js";
+
+/** Sidecar the installer drops beside the drift-sync skill so its dependency-free script finds the bin. */
+const RECONCILE_BIN_SIDECAR = ".drift_reconcile_bin";
 
 // The store path is named by DRIFT_DB_ENV_VAR (CODE_CHARTER_DB) — the same var the MCP server and
 // the drift-sync skill resolve — so the installer pins all three to one path.
@@ -108,7 +112,7 @@ export function build_hook_specs(package_root: string): HookArtifactSpec[] {
 
 /** Install (or refresh) the drift substrate into `target_root` for the given host layout. */
 export function install_drift(target_root: string, layout: HostLayout, package_root: string): void {
-  for (const bin of [STOP_BIN, SESSION_START_BIN, MCP_BIN]) {
+  for (const bin of [STOP_BIN, SESSION_START_BIN, MCP_BIN, RECONCILE_BIN]) {
     assert_bin_built(package_root, bin);
   }
 
@@ -136,4 +140,9 @@ export function install_drift(target_root: string, layout: HostLayout, package_r
       path.join(target_root, asset.target_subdir),
     );
   }
+
+  // The drift-sync skill script is dependency-free and shells into the built reconcile bin; record the
+  // bin's absolute path beside the installed skill so the script can locate it with no node_modules.
+  const sidecar = path.join(target_root, layout.skills.target_subdir, "drift-sync", RECONCILE_BIN_SIDECAR);
+  fs.writeFileSync(sidecar, bin_path(package_root, RECONCILE_BIN) + "\n");
 }

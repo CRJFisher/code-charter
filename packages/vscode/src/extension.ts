@@ -8,12 +8,16 @@ import type { CallGraph } from "@ariadnejs/types";
 import { serialize_call_graph } from "@code-charter/types";
 import {
   build_skeleton_flows,
+  collect_persisted_flow,
   open_graph_store,
   order_flows,
   project_flow,
+  project_hydrated_flow,
   read_hydrated_flows,
+  reconstruct_flow_membership,
   skeleton_to_summary,
 } from "@code-charter/core";
+import type { FlowSummary, RenderedRows } from "@code-charter/types";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { AriadneProjectManager } from "./ariadne/project_manager";
@@ -115,20 +119,53 @@ async function show_webview_diagram(
     return call_graph;
   };
 
-  // Read persisted hydrated flows (`agentic.flow` nodes) so they sort ahead of the deterministic
-  // skeleton (AC#7). The store may not exist on a cold repo that has never been hydrated (task-27.1.6
-  // writes these); in that case there are simply no hydrated flows and the list is pure skeleton.
-  const read_hydrated = () => {
+  // Read the persisted store rows (the on-disk graph the Stop-hook reconcile sub-agent writes). Returns
+  // null on a cold repo that has never been hydrated, in which case the surface is pure skeleton.
+  const read_store_rows = (): { nodes: ReturnType<ReturnType<typeof open_graph_store>["all_nodes"]>; edges: ReturnType<ReturnType<typeof open_graph_store>["all_edges"]> } | null => {
     const db_path = path.join(work_folder.fsPath, graph_db_file);
     if (!fs.existsSync(db_path)) {
-      return [];
+      return null;
     }
     const store = open_graph_store(db_path);
     try {
-      return read_hydrated_flows(store.all_nodes());
+      return { nodes: store.all_nodes(), edges: store.all_edges() };
     } finally {
       store.close();
     }
+  };
+
+  // Hydrated flows (`agentic.flow` nodes) sort ahead of the deterministic skeleton (AC#7). A hydrated
+  // entry that supersedes its skeleton twin inherits the twin's jump-to-source `seed_location` and live
+  // `member_count`, which `read_hydrated_flows` cannot recover from the store alone.
+  const read_hydrated = (skeleton: FlowSummary[]): FlowSummary[] => {
+    const rows = read_store_rows();
+    if (rows === null) {
+      return [];
+    }
+    const by_id = new Map(skeleton.map((flow) => [flow.id, flow]));
+    return read_hydrated_flows(rows.nodes).map((flow) => {
+      const twin = by_id.get(flow.id);
+      return twin === undefined
+        ? flow
+        : { ...flow, seed_location: twin.seed_location, member_count: twin.member_count };
+    });
+  };
+
+  // Render a hydrated flow from its persisted seeds/bridges/docs (an `agentic.flow` id need not equal any
+  // skeleton id). Returns null when the id is not a live persisted flow, so the caller can fall through.
+  const render_hydrated_flow = (flow_id: string, graph: CallGraph): RenderedRows | null => {
+    const rows = read_store_rows();
+    if (rows === null) {
+      return null;
+    }
+    const persisted = collect_persisted_flow(flow_id, rows.nodes, rows.edges);
+    if (persisted === undefined) {
+      return null;
+    }
+    const membership = reconstruct_flow_membership(persisted, graph);
+    const doc_ids = new Set(membership.linked_docs ?? []);
+    const doc_nodes = rows.nodes.filter((node) => doc_ids.has(node.id));
+    return project_hydrated_flow(membership, graph, doc_nodes);
   };
 
   panel.webview.onDidReceiveMessage(
@@ -143,22 +180,26 @@ async function show_webview_diagram(
         list_flows: async () => {
           const graph = await ensure_call_graph();
           const skeleton = build_skeleton_flows(graph).map(skeleton_to_summary);
-          const flows = order_flows(read_hydrated(), skeleton);
+          const flows = order_flows(read_hydrated(skeleton), skeleton);
           panel.webview.postMessage({ id, command: "list_flows_response", data: flows });
         },
         render_flow: async () => {
           const { flow_id } = other_fields;
           const graph = await ensure_call_graph();
-          const flow = build_skeleton_flows(graph).find((candidate) => candidate.id === flow_id);
-          if (!flow) {
+          const skeleton = build_skeleton_flows(graph).find((candidate) => candidate.id === flow_id);
+          // A skeleton id renders deterministically; any other id is a hydrated flow read from the store.
+          const rows = skeleton ? project_flow(skeleton, graph) : render_hydrated_flow(flow_id, graph);
+          if (!rows) {
             throw new Error(`Unknown flow: ${flow_id}`);
           }
-          const rows = project_flow(flow, graph);
           panel.webview.postMessage({ id, command: "render_flow_response", data: rows });
         },
         navigate_to_doc: async () => {
           const { file_path, line_number } = other_fields;
-          const file_uri = vscode.Uri.file(file_path);
+          // Flow seed_locations are repo-relative (the call graph is keyed on repo-relative paths); resolve
+          // to absolute for the editor. An already-absolute path passes through unchanged.
+          const absolute = path.isAbsolute(file_path) ? file_path : path.join(workspace_path, file_path);
+          const file_uri = vscode.Uri.file(absolute);
           await navigate_to_doc(file_uri, line_number, webview_column);
           panel.webview.postMessage({ id, command: "navigate_to_doc_response", data: { success: true } });
         },

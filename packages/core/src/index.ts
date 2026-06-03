@@ -41,14 +41,16 @@ export type {
 
 // task-27.0.3 — the reusable anchor resolver
 export {
+  anchored_symbols_from_ariadne,
   build_resolver_index,
+  build_symbol_path,
   derive_code_state,
   format_anchor,
   parse_anchor,
   resolve_anchor,
   resolver_symbols_from_ariadne,
 } from "./resolver";
-export type { AriadneFileInput, ResolverIndex, ResolverSymbol } from "./resolver";
+export type { AnchoredSymbol, AriadneFileInput, ResolverIndex, ResolverSymbol } from "./resolver";
 
 // task-27.1.2 AC#9 — the deterministic file-module first-parent tier
 export {
@@ -70,6 +72,8 @@ export {
   build_flow_member_edges,
   build_flow_node,
   build_skeleton_flows,
+  build_symbol_path_index,
+  collect_persisted_flow,
   FLOW_MEMBER_EDGE_KIND,
   FLOW_NODE_KIND,
   flow_id_of,
@@ -78,14 +82,15 @@ export {
   order_flows,
   reachable_from,
   read_hydrated_flows,
+  reconstruct_flow_membership,
   skeleton_to_summary,
   UNATTRIBUTED_FLOW_ID,
   UNATTRIBUTED_FLOW_LABEL,
 } from "./model/flow";
-export type { BridgeEdge, FlowMembership, SkeletonFlow } from "./model/flow";
+export type { BridgeEdge, FlowMembership, PersistedFlowRows, SkeletonFlow } from "./model/flow";
 
 // task-27.1.3 AC#3/#6 — per-flow render projection + per-view budget
-export { DEFAULT_FLOW_BUDGET, project_flow } from "./model/flow_projection";
+export { DEFAULT_FLOW_BUDGET, project_flow, project_hydrated_flow } from "./model/flow_projection";
 export type { FlowBudget, ProjectFlowOptions } from "./model/flow_projection";
 
 // task-27.1.2 AC#2/#3/#4 — the single re-extraction funnel, outstanding-drift surface, and re-anchor write

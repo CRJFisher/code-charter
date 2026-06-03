@@ -23,7 +23,7 @@ import type { CallGraph, SymbolId } from "@ariadnejs/types";
 import type { EdgeRow, NodeRow, RenderedRows } from "@code-charter/types";
 
 import { build_module_scaffold, path_module_resolver } from "./module_scaffold";
-import { induce_members, type SkeletonFlow } from "./flow";
+import { induce_members, type FlowMembership, type SkeletonFlow } from "./flow";
 
 /** A per-view ceiling on rendered elements (AC#6). */
 export interface FlowBudget {
@@ -49,10 +49,39 @@ const CONFIDENCE_BY_CERTAINTY: Record<string, number> = { certain: 1, probable: 
 
 /** Project `flow`'s reachable subgraph into bounded, scaffold-folded render rows (AC#3, AC#6). */
 export function project_flow(flow: SkeletonFlow, graph: CallGraph, options: ProjectFlowOptions = {}): RenderedRows {
+  const members = induce_members({ id: flow.id, seeds: flow.seeds }, graph);
+  return project_member_set(members, graph, [], options);
+}
+
+/**
+ * Project a *hydrated* flow (task-27.1.6): induce from its full persisted membership (seeds + agent
+ * bridges + linked docs) and render. Doc-node members are not in the call graph, so the host passes
+ * their `NodeRow`s in `doc_nodes`; they are appended as render rows after the call-graph projection so a
+ * skill flow (whose members are docs, not callables) renders correctly. Code members render exactly as
+ * the skeleton path does.
+ */
+export function project_hydrated_flow(
+  membership: FlowMembership,
+  graph: CallGraph,
+  doc_nodes: readonly NodeRow[],
+  options: ProjectFlowOptions = {},
+): RenderedRows {
+  const members = induce_members(membership, graph);
+  const doc_ids = new Set(membership.linked_docs ?? []);
+  // Only append doc rows that are genuine members (a stale linked_doc no longer in the flow is dropped).
+  const member_docs = doc_nodes.filter((node) => doc_ids.has(node.id) && members.has(node.id as SymbolId));
+  return project_member_set(members, graph, member_docs, options);
+}
+
+/** Shared projection: render a resolved member set (+ any non-call-graph doc rows), folded and budgeted. */
+function project_member_set(
+  members: ReadonlySet<SymbolId>,
+  graph: CallGraph,
+  doc_nodes: readonly NodeRow[],
+  options: ProjectFlowOptions,
+): RenderedRows {
   const analyzed_root = options.analyzed_root ?? "";
   const budget = options.budget ?? DEFAULT_FLOW_BUDGET;
-
-  const members = induce_members({ id: flow.id, seeds: flow.seeds }, graph);
   const member_ids = [...members].sort();
 
   const function_rows: NodeRow[] = [];
@@ -61,17 +90,18 @@ export function project_flow(flow: SkeletonFlow, graph: CallGraph, options: Proj
     if (!node) continue;
     function_rows.push(function_row(id, node.location.file_path, node.name, node.location.start_line));
   }
+  const leaf_rows = [...function_rows, ...doc_nodes];
 
   const call_edges = build_call_edges(member_ids, members, graph);
-  const scaffold = build_module_scaffold(function_rows, path_module_resolver(analyzed_root));
+  const scaffold = build_module_scaffold(leaf_rows, path_module_resolver(analyzed_root));
 
   const within_budget =
-    function_rows.length + scaffold.module_nodes.length <= budget.max_nodes &&
+    leaf_rows.length + scaffold.module_nodes.length <= budget.max_nodes &&
     call_edges.length + scaffold.contains_edges.length <= budget.max_edges;
 
   if (within_budget) {
     return {
-      nodes: [...function_rows, ...scaffold.module_nodes],
+      nodes: [...leaf_rows, ...scaffold.module_nodes],
       edges: [...call_edges, ...scaffold.contains_edges],
     };
   }

@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 "use strict";
 
-// drift-sync bundled script — STUB (task-27.1.1).
+// drift-sync bundled script (task-27.1.6).
 //
-// Parses the pinned contract, logs the hydrate-vs-resync dispatch decision per affected flow,
-// and performs NO store mutation. The real body (re-extract -> re-induce -> preserve -> write)
-// lands in task-27.1.6. This file is intentionally dependency-free: it runs from an installed
-// `.claude` directory where no node_modules is guaranteed. task-27.1.6 gives it store access by
-// shelling into the built drift/core package, not by importing core from here.
+// This script is the single store-mutation entry for drift reconciliation, and it is intentionally
+// dependency-free: it runs from an installed `.claude` directory where no node_modules is guaranteed.
+// It validates the pinned contract, then SHELLS INTO the built `drift-reconcile` bin (which imports
+// @code-charter/core and drives the headless Ariadne reconcile engine). It locates that bin via the
+// `DRIFT_RECONCILE_BIN` env var, or the `.drift_reconcile_bin` sidecar the installer writes next to this
+// skill. An empty file set no-ops; the bin reports per-flow hydrate/resync over the changed files.
+
+const fs = require("node:fs");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const USAGE =
   "usage: drift_sync.js --files <a,b,...> --store <db_path> --repo-root <abs> [--json] [--dry-run]";
@@ -36,15 +41,9 @@ function parse_args(argv) {
       return { error: `unknown argument: ${token}` };
     }
   }
-  if (args.files === null) {
-    return { error: "missing required --files" };
-  }
-  if (args.store === null) {
-    return { error: "missing required --store" };
-  }
-  if (args.repo_root === null) {
-    return { error: "missing required --repo-root" };
-  }
+  if (args.files === null) return { error: "missing required --files" };
+  if (args.store === null) return { error: "missing required --store" };
+  if (args.repo_root === null) return { error: "missing required --repo-root" };
   return { args };
 }
 
@@ -55,17 +54,19 @@ function split_files(files_value) {
     .filter((p) => p.length > 0);
 }
 
-// Placeholder flow resolution. task-27.1.6 replaces this with real flow lookup (subgraph
-// induction from the changed file's seeds).
-function flow_key_for(file_path) {
-  return `flow:${file_path}`;
-}
-
-// Placeholder dispatch. task-27.1.6 replaces this body with a store query — hydrate when
-// EXISTS(agentic.flow node) is false, else resync — plus the actual re-extract / re-induce /
-// preserve / write. The stub always reports "hydrate" and mutates nothing.
-function dispatch_flow(file_path /* , store_path, repo_root */) {
-  return { file: file_path, flow_key: flow_key_for(file_path), decision: "hydrate", mutated: false };
+/** Locate the built drift-reconcile bin: env override first, then the installer-written sidecar. */
+function locate_reconcile_bin() {
+  const from_env = process.env.DRIFT_RECONCILE_BIN;
+  if (from_env && from_env.length > 0) return from_env;
+  // The installer writes the absolute bin path here, beside the installed skill (../ up from scripts/).
+  const sidecar = path.join(__dirname, "..", ".drift_reconcile_bin");
+  try {
+    const recorded = fs.readFileSync(sidecar, "utf8").trim();
+    if (recorded.length > 0) return recorded;
+  } catch {
+    // no sidecar present
+  }
+  return null;
 }
 
 function main() {
@@ -76,22 +77,32 @@ function main() {
   }
   const { args } = parsed;
   const files = split_files(args.files);
-  const records = files.map((file_path) => dispatch_flow(file_path, args.store, args.repo_root));
 
-  if (args.json) {
-    process.stdout.write(JSON.stringify(records) + "\n");
-  } else {
-    for (const record of records) {
-      process.stderr.write(
-        `drift-sync: ${record.decision} ${record.flow_key} (${record.file}) [no mutation]\n`,
-      );
-    }
+  // An empty file set is a clean no-op without needing the bin (mirrors the bin's own empty-set path).
+  if (files.length === 0) {
+    if (args.json) process.stdout.write("[]\n");
+    process.stderr.write("drift-sync: empty file set, no-op for 0 file(s)\n");
+    process.exit(0);
   }
-  process.stderr.write(
-    `drift-sync: stub, no store mutation performed for ${files.length} file(s) ` +
-      "(body lands in task-27.1.6)\n",
-  );
-  process.exit(0);
+
+  const bin = locate_reconcile_bin();
+  if (bin === null) {
+    process.stderr.write(
+      "drift-sync: reconcile bin not located. Set DRIFT_RECONCILE_BIN or re-run `drift-install`.\n",
+    );
+    process.exit(1);
+  }
+
+  const forwarded = [bin, "--files", args.files, "--store", args.store, "--repo-root", args.repo_root];
+  if (args.json) forwarded.push("--json");
+  if (args.dry_run) forwarded.push("--dry-run");
+
+  const result = spawnSync("node", forwarded, { stdio: "inherit" });
+  if (result.error) {
+    process.stderr.write(`drift-sync: failed to run reconcile bin: ${result.error.message}\n`);
+    process.exit(1);
+  }
+  process.exit(result.status === null ? 1 : result.status);
 }
 
 main();

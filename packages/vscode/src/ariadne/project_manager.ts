@@ -22,6 +22,15 @@ export class AriadneProjectManager {
     this.file_filter = file_filter;
   }
 
+  /**
+   * Feed Ariadne repo-relative, forward-slash paths so the call graph's `symbol_path`s live in the same
+   * portable space the persisted store + the drift reconcile engine use. Without this, a hydrated flow's
+   * repo-relative ids never match this host's absolute-keyed graph and the flow renders empty.
+   */
+  private to_repo_relative(abs_path: string): string {
+    return path.relative(this.workspace_path, abs_path).split(path.sep).join("/");
+  }
+
   private static readonly EXCLUDED_DIRS = new Set([
     "node_modules", "__pycache__", ".vscode", "out", ".git", ".hg",
     "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
@@ -79,7 +88,7 @@ export class AriadneProjectManager {
       for (const file_path of files) {
         try {
           const content = await fs.promises.readFile(file_path, "utf-8");
-          project.update_file(file_path as FilePath, content);
+          project.update_file(this.to_repo_relative(file_path) as FilePath, content);
           indexed++;
         } catch {
           // Parse failures are non-fatal — the file is omitted from the graph.
@@ -138,7 +147,7 @@ export class AriadneProjectManager {
     try {
       const content = await fs.promises.readFile(file_path, "utf-8");
       AriadneProjectManager.with_quiet_ariadne_warnings(() => {
-        project.update_file(file_path as FilePath, content);
+        project.update_file(this.to_repo_relative(file_path) as FilePath, content);
       });
     } catch {
       // Parse failures are non-fatal; the file is omitted from the call graph.
@@ -178,7 +187,7 @@ export class AriadneProjectManager {
     this.disposables.push(
       this.file_watcher.onDidDelete((uri) => {
         if (passes_filters(uri.fsPath) && this.project) {
-          this.project.remove_file(uri.fsPath as FilePath);
+          this.project.remove_file(this.to_repo_relative(uri.fsPath) as FilePath);
           this.emit_call_graph_changed();
         }
       })
@@ -209,7 +218,7 @@ export class AriadneProjectManager {
     }
     const project = this.project;
     AriadneProjectManager.with_quiet_ariadne_warnings(() => {
-      project.update_file(document.uri.fsPath as FilePath, document.getText());
+      project.update_file(this.to_repo_relative(document.uri.fsPath) as FilePath, document.getText());
     });
     this.debounce_call_graph_update();
   }

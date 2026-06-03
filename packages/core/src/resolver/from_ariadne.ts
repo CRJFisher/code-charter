@@ -4,8 +4,11 @@ import type {
   FunctionDefinition,
   MethodDefinition,
   ScopeId,
+  SymbolId,
 } from "@ariadnejs/types";
 
+import { format_anchor } from "./anchor_string";
+import { build_symbol_path, compute_content_hash } from "./code_state";
 import type { ResolverSymbol } from "./resolver_symbol";
 
 /**
@@ -117,45 +120,93 @@ function collect_symbol(
   });
 }
 
+/** Walk the top-level definitions of one file, invoking `visit` for each anchorable callable-with-a-body. */
+function walk_callables(
+  file: AriadneFileInput,
+  visit: (def: FunctionDefinition | MethodDefinition | ConstructorDefinition, enclosing: readonly string[]) => void,
+): void {
+  for (const def of file.definitions) {
+    switch (def.kind) {
+      case "function":
+        visit(def, []);
+        break;
+      case "class": {
+        const enclosing = [def.name];
+        for (const ctor of def.constructors ?? []) visit(ctor, enclosing);
+        for (const method of def.methods) visit(method, enclosing);
+        break;
+      }
+      case "interface": {
+        const enclosing = [def.name];
+        for (const method of def.methods) visit(method, enclosing);
+        break;
+      }
+      case "enum": {
+        const enclosing = [def.name];
+        for (const method of def.methods ?? []) visit(method, enclosing);
+        break;
+      }
+      default:
+        // variables, types, imports, namespaces, properties — not anchorable callables (YAGNI).
+        break;
+    }
+  }
+}
+
 /** Produce one {@link ResolverSymbol} per anchorable callable-with-a-body across the given files. */
 export function resolver_symbols_from_ariadne(files: readonly AriadneFileInput[]): ResolverSymbol[] {
   const out: ResolverSymbol[] = [];
   for (const file of files) {
     const lines = file.source.split("\n");
-    for (const def of file.definitions) {
-      switch (def.kind) {
-        case "function":
-          collect_symbol(out, file.file_path, lines, def, []);
-          break;
-        case "class": {
-          const enclosing = [def.name];
-          for (const ctor of def.constructors ?? []) {
-            collect_symbol(out, file.file_path, lines, ctor, enclosing);
-          }
-          for (const method of def.methods) {
-            collect_symbol(out, file.file_path, lines, method, enclosing);
-          }
-          break;
-        }
-        case "interface": {
-          const enclosing = [def.name];
-          for (const method of def.methods) {
-            collect_symbol(out, file.file_path, lines, method, enclosing);
-          }
-          break;
-        }
-        case "enum": {
-          const enclosing = [def.name];
-          for (const method of def.methods ?? []) {
-            collect_symbol(out, file.file_path, lines, method, enclosing);
-          }
-          break;
-        }
-        default:
-          // variables, types, imports, namespaces, properties — not anchorable callables (YAGNI).
-          break;
-      }
-    }
+    walk_callables(file, (def, enclosing) => collect_symbol(out, file.file_path, lines, def, enclosing));
+  }
+  return out;
+}
+
+/**
+ * An anchorable callable carrying its Ariadne {@link SymbolId} alongside its derived anchor — the seam a
+ * headless raw extractor needs to bridge the two id spaces in one pass. `symbol_id` is the `CallGraph`
+ * node key (location-based); `symbol_path` is the resolver's rename-stable, enclosing-qualified id; the
+ * two are otherwise unrelated, so callers persisting `code.calls` edges or `code.function` nodes from a
+ * `CallGraph` map endpoints through {@link AnchoredSymbol.symbol_path} to join them to the resolver index.
+ */
+export interface AnchoredSymbol {
+  /** The Ariadne `CallGraph` node key for this callable. */
+  symbol_id: SymbolId;
+  /** The resolver's enclosing-qualified, rename-stable id (`file#A.b:method`). */
+  symbol_path: string;
+  /** sha256 of the rename-stable body — the anchor's content half. */
+  content_hash: string;
+  /** `format_anchor(symbol_path:content_hash)` — ready to store as a `NodeRow.anchor`. */
+  anchor: string;
+  /** Repo-relative defining file. */
+  file_path: string;
+  /** The live Ariadne definition (read for its docstring + kind). */
+  definition: AnyDefinition;
+}
+
+/**
+ * Produce one {@link AnchoredSymbol} per anchorable callable-with-a-body, capturing each one's Ariadne
+ * `SymbolId`. Same traversal and skip rules as {@link resolver_symbols_from_ariadne} (signature-only
+ * members without a body are not anchorable and are omitted), plus the symbol_id↔symbol_path bridge.
+ */
+export function anchored_symbols_from_ariadne(files: readonly AriadneFileInput[]): AnchoredSymbol[] {
+  const out: AnchoredSymbol[] = [];
+  for (const file of files) {
+    const lines = file.source.split("\n");
+    walk_callables(file, (def, enclosing) => {
+      if (!def.body_scope_id) return;
+      const symbol_path = build_symbol_path(file.file_path, enclosing, def.name, def.kind);
+      const content_hash = compute_content_hash(slice_source(lines, parse_scope_range(def.body_scope_id)), def.name);
+      out.push({
+        symbol_id: def.symbol_id,
+        symbol_path,
+        content_hash,
+        anchor: format_anchor({ symbol_path, content_hash }),
+        file_path: file.file_path,
+        definition: def,
+      });
+    });
   }
   return out;
 }

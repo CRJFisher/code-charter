@@ -12,7 +12,8 @@
     "drift-mcp": "dist/bin/drift_mcp.js",
     "drift-stop-hook": "dist/bin/drift_stop_hook.js",
     "drift-session-start": "dist/bin/drift_session_start.js",
-    "drift-install": "dist/bin/drift_install.js"
+    "drift-install": "dist/bin/drift_install.js",
+    "drift-reconcile": "dist/bin/drift_reconcile.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -23,6 +24,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@ariadnejs/core": "^0.8.0",
+    "@ariadnejs/types": "^0.8.0",
     "@code-charter/core": "^0.0.1",
     "@code-charter/types": "^0.0.1",
     "@modelcontextprotocol/sdk": "^1.29.0",

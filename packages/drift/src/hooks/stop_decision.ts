@@ -7,8 +7,12 @@
  *
  * The reconcile trigger is this hook ALONE: it never reconciles inline and never spawns a
  * process — it hands the changed-file list to the main agent, which launches the registered
- * sub-agent. Scoping reconciliation to only-this-turn across multiple turns (the watermark)
- * lands in task-27.1.6; this substrate ships the block-and-instruct mechanism and its contract.
+ * sub-agent. The downstream chain is: main agent → `drift-reconciler` (assets/agents) →
+ * `drift-sync` skill → `drift_sync.js` → bin/`drift_reconcile.ts` → the reconcile engine
+ * (task-27.1.6). Re-firing is safe because the engine's writes are idempotent and go through
+ * SQLite (not Edit/Write), so they never re-arm this hook. The worked-on set is the session's
+ * cumulative edits; a per-turn watermark that re-syncs only files touched since the previous Stop
+ * is a deferred cost optimization (cumulative re-sync is correct, just not minimal).
  */
 
 import type { StopHookInput } from "./hook_payloads";

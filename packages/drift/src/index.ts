@@ -21,6 +21,10 @@ export type { StopDecision } from "./hooks/stop_decision";
 export { parse_worked_on_files, EDIT_TOOL_NAMES } from "./hooks/transcript_parser";
 export { build_session_start_output } from "./hooks/session_start_banner";
 
+// Reconcile engine (task-27.1.6 — the drift-sync skill body)
+export { reconcile, make_ariadne_adapter, HeadlessProject } from "./reconcile";
+export type { AriadneAdapter, FlowOutcome, ReconcileDeps, ReconcileResult } from "./reconcile";
+
 // Installer
 export { install_drift, build_hook_specs, hook_command, DRIFT_MCP_SERVER_NAME } from "./installer/install";
 export {

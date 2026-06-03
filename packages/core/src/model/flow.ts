@@ -233,6 +233,84 @@ export function flow_of_leaf(leaf: SymbolId, flows: FlowMembership[], graph: Cal
   return flows.filter((flow) => induce_members(flow, graph).has(leaf)).map((flow) => flow.id);
 }
 
+/**
+ * The `symbol_path → SymbolId` index over the current graph (the inverse of {@link flow_id_of}). A
+ * persisted flow stores its seeds/bridges as rename-stable `symbol_path`s (task-27.1.6), but induction
+ * traverses the live `CallGraph` keyed by `SymbolId`; this is the bridge between the two id spaces.
+ * First-wins in sorted-id order, mirroring `build_skeleton_flows`'s dedup, so the mapping is
+ * deterministic when two callables collapse to one enclosing-free `symbol_path`.
+ */
+export function build_symbol_path_index(graph: CallGraph): Map<string, SymbolId> {
+  const index = new Map<string, SymbolId>();
+  for (const id of [...graph.nodes.keys()].sort()) {
+    const symbol_path = flow_id_of(graph.nodes.get(id)!);
+    if (!index.has(symbol_path)) index.set(symbol_path, id);
+  }
+  return index;
+}
+
+/** The persisted rows a hydrated flow reconstructs from: its `agentic.flow` node + its incident edges. */
+export interface PersistedFlowRows {
+  flow_node: NodeRow;
+  /** `agentic.flow_member` edges whose `src_id` is the flow (dst = a seed root or a linked-doc id). */
+  member_edges: readonly EdgeRow[];
+  /** `agentic.bridge` edges incident to one of the flow's members. */
+  bridge_edges: readonly EdgeRow[];
+}
+
+/**
+ * Gather one persisted flow's rows from plain node/edge arrays — the host-agnostic read both the drift
+ * engine (over the store) and the webview render path (over a snapshot) share.
+ */
+export function collect_persisted_flow(
+  flow_id: string,
+  nodes: readonly NodeRow[],
+  edges: readonly EdgeRow[],
+): PersistedFlowRows | undefined {
+  const flow_node = nodes.find((n) => n.id === flow_id && n.kind === FLOW_NODE_KIND && n.deleted_at === null);
+  if (flow_node === undefined) return undefined;
+  const member_edges = edges.filter(
+    (e) => e.kind === FLOW_MEMBER_EDGE_KIND && e.src_id === flow_id && e.deleted_at === null,
+  );
+  const member_ids = new Set(member_edges.map((e) => e.dst_id));
+  const bridge_edges = edges.filter(
+    (e) => e.kind === BRIDGE_EDGE_KIND && e.deleted_at === null && (member_ids.has(e.src_id) || member_ids.has(e.dst_id)),
+  );
+  return { flow_node, member_edges, bridge_edges };
+}
+
+/**
+ * Reconstruct the induce-able {@link FlowMembership} for a persisted flow (task-27.1.6 render + re-sync).
+ * Stored member/bridge endpoints are `symbol_path`s; a dst that resolves to a live `SymbolId` is a
+ * call-graph seed/bridge target, and one that does not is a linked doc (doc nodes are not in the call
+ * graph). The flow id passes through unchanged (it is itself a `symbol_path`).
+ */
+export function reconstruct_flow_membership(rows: PersistedFlowRows, graph: CallGraph): FlowMembership {
+  const index = build_symbol_path_index(graph);
+  const seeds: SymbolId[] = [];
+  const linked_docs: string[] = [];
+  // Seeds live on the flow node's `entry_points` (so the flow node never needs a self-referential member
+  // edge); member edges carry the non-seed members (linked docs, extra roots). A candidate that resolves
+  // to a live SymbolId is a call-graph seed; one that does not is a doc member (docs are not in the graph).
+  const stored_entry = rows.flow_node.attributes.entry_points;
+  const candidates = new Set<string>([
+    ...(Array.isArray(stored_entry) ? (stored_entry as string[]) : []),
+    ...rows.member_edges.map((edge) => edge.dst_id),
+  ]);
+  for (const id of candidates) {
+    const symbol_id = index.get(id);
+    if (symbol_id !== undefined) seeds.push(symbol_id);
+    else linked_docs.push(id);
+  }
+  const bridges: BridgeEdge[] = [];
+  for (const edge of rows.bridge_edges) {
+    const symbol_id = index.get(edge.dst_id);
+    if (symbol_id !== undefined) bridges.push({ src_id: edge.src_id, dst_id: symbol_id });
+    else linked_docs.push(edge.dst_id); // a bridge to a doc (e.g. a skill sub-agent) is a doc member
+  }
+  return { id: rows.flow_node.id, seeds, bridges, linked_docs };
+}
+
 // --- persistence-row builders (AC#1 seam; task-27.1.6 persists, v1 only unit-tests) ----------------
 
 /**

@@ -42,6 +42,11 @@ describe("install_drift (idempotency + asset install)", () => {
       ).toBe(true);
       expect(fs.existsSync(path.join(target, ".claude", "commands", "drift.md"))).toBe(true);
 
+      // The dependency-free skill script finds the built reconcile bin via this installer-written sidecar.
+      const sidecar = path.join(target, ".claude", "skills", "drift-sync", ".drift_reconcile_bin");
+      expect(fs.existsSync(sidecar)).toBe(true);
+      expect(fs.readFileSync(sidecar, "utf8").trim()).toContain("drift_reconcile.js");
+
       // Idempotency at the byte level: a third run does not change settings.json.
       const before = fs.readFileSync(settings_path, "utf8");
       install_drift(target, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT);
