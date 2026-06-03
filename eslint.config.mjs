@@ -111,4 +111,17 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
   },
+  {
+    // Dependency-free bundled skill scripts run as standalone Node CommonJS: invoked `node script.js`
+    // from an installed `.claude/` with no node_modules (so ESM/TS is not an option), and verified by
+    // their contract test rather than tsc. Lint them as Node CommonJS — all other rules still apply.
+    files: ["**/assets/skills/**/*.js", "**/.claude/skills/**/*.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { ...globals.node },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 );
