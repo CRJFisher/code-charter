@@ -81,3 +81,15 @@ Task-27.1.3 ships the flow container + deterministic skeleton and leaves these h
 - **Carry `seed_location` + live `member_count` onto hydrated summaries.** `read_hydrated_flows` returns `seed_location: null` and a stored `member_count`, so a hydrated entry that supersedes its skeleton twin loses jump-to-source and the live count. Inherit them from the matching skeleton flow during the merge, or stamp them when persisting.
 - **Live re-sync.** The v1 flow surface is a per-request snapshot — there is no webview push (the dead `call_graph_updated` push was removed). The Stop-hook hydration sub-agent is the live-update path; when it writes a flow, the next `list_flows`/`render_flow` reflects it.
 - **D-FLOW-IDENTITY.** v1 ids are the dominant seed's `symbol_path` (content-hash excluded). The sorted-anchor-set hash + ≥50% overlap remap that survives non-deterministic re-detection is resolved here.
+
+### Inbound seams from task-27.1.4 — this task owns the model-call implementation
+
+Task-27.1.4 ships the **deterministic agentic substrate plus typed contracts**; it makes **no model call**. This task owns the model-call implementation and the subjective grouping that drive that substrate. Concretely, this task implements:
+
+- **The `DescribeBatchExecutor`** (`@code-charter/core`, `agentic/describe_policy.ts`) — the real batched, cost/time-bounded LLM call that fills the `needs_llm` descriptions `plan_descriptions` selects. task-27.1.4 ships only a `null_describe_executor`. The executor runs **inside the hydration sub-agent's own run** (no separate primitive), and its deadline is the model-time budget the substrate writer does not enforce.
+- **The non-literal inference half of AC#2** — the registry detector's injected `resolve_target` (and any entrypoint→doc inference beyond literal registry maps). task-27.1.4 ships the literal `meta.json sub_agents[]` detector and the provenance-carrying `build_bridge_edges`; this task supplies the model-backed resolution where the link is not a literal map.
+- **The subjective umbrella grouping** — `detect_gaps` / `derive_candidate_seeds` propose candidate flow seeds and `detect_meta_json_sub_agent_bridges` proposes bridges; this task's sub-agent **judges** which candidates become flow umbrellas, then assembles a `SubstrateProposal` and calls `write_agentic_substrate` (the assembly chain is documented at the head of `agentic/agentic_writer.ts`).
+- **The `PlannedDescription` → `ResolvedDescription` combine step** — after running the executor over `needs_llm`, this task merges its results with the `from_docstring` and `placeholder` buckets into the `ResolvedDescription[]` the writer persists.
+- **Id-space mapping for bridges** — a persisted `agentic.bridge` endpoint is a NodeRow id; map it back to its Ariadne `SymbolId` before feeding `induce_members`.
+
+The deterministic substrate (gap-detection, the description policy, the agentic-lane writer honoring preservation + the cost ceiling, and the task-21.2 literal skill extractor port) is complete and tested in task-27.1.4; this task wires the model and the judgement on top.

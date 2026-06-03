@@ -42,7 +42,12 @@ export const FLOW_MEMBER_EDGE_KIND = "agentic.flow_member";
 /** Cross-call-graph link edge (AC#1), inferred by the flow-detector (task-27.1.6). */
 export const BRIDGE_EDGE_KIND = "agentic.bridge";
 
-/** A cross-tree link the flow-detector (task-27.1.6) infers; v1 ships only the builder, never inference. */
+/**
+ * The endpoint-only shape of a bridge used to (re-)induce flow membership — `induce_members` traverses
+ * from `dst_id` (a call-graph `SymbolId`). The provenance-carrying persistence builder for
+ * `agentic.bridge` rows lives in `agentic/bridge.ts` ({@link BridgeCandidate} / `build_bridge_edges`,
+ * task-27.1.4); this interface is just the induction input, not the persisted row.
+ */
 export interface BridgeEdge {
   src_id: string;
   dst_id: string;
@@ -273,26 +278,6 @@ export function build_flow_member_edges(flow_id: string, member_ids: readonly st
       dst_id: member_id,
       kind: FLOW_MEMBER_EDGE_KIND,
       confidence: 1,
-      layer: "agentic" as const,
-      attributes: {},
-      field_ownership: {},
-      origin: "flow-detector",
-      intent_source: "code-edit",
-      adjudication: null,
-      deleted_at: null,
-    }));
-}
-
-/** `agentic.bridge` edges for cross-call-graph links (AC#1). Lower confidence — renders distinct. */
-export function build_bridge_edges(bridges: readonly BridgeEdge[]): EdgeRow[] {
-  return [...bridges]
-    .sort((a, b) => (a.src_id + a.dst_id < b.src_id + b.dst_id ? -1 : 1))
-    .map((bridge) => ({
-      key: `${BRIDGE_EDGE_KIND}:${bridge.src_id}->${bridge.dst_id}`,
-      src_id: bridge.src_id,
-      dst_id: bridge.dst_id,
-      kind: BRIDGE_EDGE_KIND,
-      confidence: 0.5,
       layer: "agentic" as const,
       attributes: {},
       field_ownership: {},
