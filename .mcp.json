@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "drift": {
+      "command": "node",
+      "args": [
+        "packages/drift/dist/bin/drift_mcp.js"
+      ],
+      "env": {
+        "CODE_CHARTER_DB": ".code-charter/graph.db"
+      }
+    }
+  }
+}

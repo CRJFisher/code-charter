@@ -45,9 +45,19 @@ function bin_path(package_root: string, bin_filename: string): string {
   return path.join(package_root, "dist", "bin", bin_filename);
 }
 
-/** The `node <abs-bin>` command string a hook entry runs. */
-export function hook_command(package_root: string, bin_filename: string): string {
-  return `node ${bin_path(package_root, bin_filename)}`;
+/**
+ * The bin path as a forward-slash path relative to the install target. Hooks, the MCP server, and the
+ * drift-sync skill all run with the target repo as their cwd, so a repo-relative path is portable across
+ * machines and checkouts — the installed `.claude` config can be committed without baking in an absolute
+ * home directory.
+ */
+function relative_bin(target_root: string, package_root: string, bin_filename: string): string {
+  return path.relative(target_root, bin_path(package_root, bin_filename)).split(path.sep).join("/");
+}
+
+/** The `node <repo-relative-bin>` command string a hook entry runs (cwd is the target repo). */
+export function hook_command(target_root: string, package_root: string, bin_filename: string): string {
+  return `node ${relative_bin(target_root, package_root, bin_filename)}`;
 }
 
 /**
@@ -93,18 +103,18 @@ function assert_bin_built(package_root: string, bin_filename: string): void {
 }
 
 /** The two hook specs the installer writes, with their identity tokens for idempotency. */
-export function build_hook_specs(package_root: string): HookArtifactSpec[] {
+export function build_hook_specs(target_root: string, package_root: string): HookArtifactSpec[] {
   return [
     {
       event_name: "Stop",
       matcher: null,
-      command: hook_command(package_root, STOP_BIN),
+      command: hook_command(target_root, package_root, STOP_BIN),
       identity_token: "drift_stop_hook",
     },
     {
       event_name: "SessionStart",
       matcher: "startup",
-      command: hook_command(package_root, SESSION_START_BIN),
+      command: hook_command(target_root, package_root, SESSION_START_BIN),
       identity_token: "drift_session_start",
     },
   ];
@@ -116,19 +126,19 @@ export function install_drift(target_root: string, layout: HostLayout, package_r
     assert_bin_built(package_root, bin);
   }
 
-  const specs = build_hook_specs(package_root);
+  const specs = build_hook_specs(target_root, package_root);
 
   const settings_path = path.join(target_root, layout.settings_file);
   const merged_settings = merge_all_hooks(read_json(settings_path), layout, specs);
   write_json(settings_path, merged_settings);
 
-  // The MCP server is pinned to the target repo's store via CODE_CHARTER_DB so it never depends
-  // on the cwd it happens to be launched from; the drift-sync skill resolves the same path.
+  // All paths are repo-relative: the MCP server launches with the target repo as cwd, so a relative bin
+  // path + a relative CODE_CHARTER_DB resolve against it, and the committed config stays machine-portable.
   const mcp_path = path.join(target_root, layout.mcp_config_file);
   const mcp_entry: McpServerEntry = {
     command: "node",
-    args: [bin_path(package_root, MCP_BIN)],
-    env: { [DRIFT_DB_ENV_VAR]: path.join(target_root, DB_RELATIVE_PATH) },
+    args: [relative_bin(target_root, package_root, MCP_BIN)],
+    env: { [DRIFT_DB_ENV_VAR]: DB_RELATIVE_PATH.split(path.sep).join("/") },
   };
   const merged_mcp = merge_mcp_server(read_json(mcp_path), DRIFT_MCP_SERVER_NAME, mcp_entry);
   write_json(mcp_path, merged_mcp);
@@ -142,7 +152,8 @@ export function install_drift(target_root: string, layout: HostLayout, package_r
   }
 
   // The drift-sync skill script is dependency-free and shells into the built reconcile bin; record the
-  // bin's absolute path beside the installed skill so the script can locate it with no node_modules.
+  // bin's repo-relative path beside the installed skill so the script (run with the repo as cwd) can
+  // locate it with no node_modules, portably across checkouts.
   const sidecar = path.join(target_root, layout.skills.target_subdir, "drift-sync", RECONCILE_BIN_SIDECAR);
-  fs.writeFileSync(sidecar, bin_path(package_root, RECONCILE_BIN) + "\n");
+  fs.writeFileSync(sidecar, relative_bin(target_root, package_root, RECONCILE_BIN) + "\n");
 }

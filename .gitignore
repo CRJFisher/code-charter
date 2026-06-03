@@ -170,9 +170,9 @@ cython_debug/
 **/node_modules
 .aider*
 # .claude/ holds tracked project config (skills, agents, commands). Only the per-user local settings
-# and the transient worktree checkouts are ignored.
-.claude/settings.local.json
-.claude/worktrees/
+# and the transient worktree checkouts are ignored — at any depth (root or a package's own .claude/).
+**/.claude/settings.local.json
+**/.claude/worktrees/
 .codex/
 .cursorrules
 
