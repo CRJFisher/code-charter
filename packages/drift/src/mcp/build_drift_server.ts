@@ -1,6 +1,6 @@
 /**
- * Build the `drift` MCP server: a low-level {@link Server} that advertises the two user-facing
- * tools (`drift_list`, `drift_resolve`) and dispatches each call to its pure handler plus call
+ * Build the `drift` MCP server: a low-level {@link Server} that advertises the three user-facing
+ * tools (`drift_list`, `drift_next`, `drift_resolve`) and dispatches each call to its pure handler plus call
  * logging. Tool inputs are declared as JSON Schema (the MCP wire shape) and validated per call
  * with an explicit zod parse — this sidesteps the `McpServer.registerTool` generic-inference
  * explosion while keeping argument typing exact. The transport is supplied by the caller

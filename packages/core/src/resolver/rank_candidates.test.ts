@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 
 import type { Anchor } from "@code-charter/types";
 
-import { type LiveAnchor, rank_candidates } from "./rank_candidates";
+import { rank_candidates } from "./rank_candidates";
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
@@ -11,17 +11,17 @@ const HASH_C = "c".repeat(64);
 /** The stranded description's original anchor: `compute` in `src/calc.ts`, body hash A. */
 const STRANDED: Anchor = { symbol_path: "src/calc.ts#compute:function", content_hash: HASH_A };
 
-function live(symbol_path: string, content_hash: string): LiveAnchor {
+function live(symbol_path: string, content_hash: string): Anchor {
   return { symbol_path, content_hash };
 }
 
 describe("rank_candidates", () => {
-  it("ranks a content_hash match first as a relocation", () => {
+  it("ranks a content_hash match first (the same body is anchored there)", () => {
     const ranked = rank_candidates(STRANDED, [
-      live("src/other.ts#renamed:function", HASH_A), // same body moved to another file
+      live("src/other.ts#renamed:function", HASH_A), // same body anchored in another file
       live("src/calc.ts#unrelated:function", HASH_B), // same file, different body/name
     ]);
-    expect(ranked[0]).toMatchObject({ symbol_path: "src/other.ts#renamed:function", reason: "relocated" });
+    expect(ranked[0]).toMatchObject({ symbol_path: "src/other.ts#renamed:function", reason: "content-match" });
     expect(ranked[0].score).toBeGreaterThanOrEqual(100);
   });
 
@@ -81,7 +81,7 @@ describe("rank_candidates", () => {
     targets.push(live("src/calc.ts#moved:function", HASH_A)); // the relocation, score 110
     const ranked = rank_candidates(STRANDED, targets, { limit: 3 });
     expect(ranked).toHaveLength(3);
-    expect(ranked[0]).toMatchObject({ symbol_path: "src/calc.ts#moved:function", reason: "relocated" });
+    expect(ranked[0]).toMatchObject({ symbol_path: "src/calc.ts#moved:function", reason: "content-match" });
   });
 
   it("returns [] for an empty live set", () => {

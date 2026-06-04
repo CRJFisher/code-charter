@@ -2,29 +2,24 @@
  * task-27.1.6.3 AC#2 — rank plausible new targets for a stranded re-attachment-bin entry.
  *
  * When a description's symbol is genuinely gone (a `miss`), the user often knows the *right new*
- * symbol but the bin offers no candidates to choose from. This ranks the live anchored symbols as
+ * symbol but the bin offers no candidates to choose from. This ranks live anchored symbols as
  * re-attachment targets purely over anchors — no Ariadne, no resolver index, no store — so the
  * caller (the `drift.list` bin query) supplies the live anchors it already read off the store and
  * gets back a deterministic, best-first shortlist a chooser can pick from without a follow-up hunt.
  *
- * The signal hierarchy mirrors the resolver cascade's notion of "same body moved": a content_hash
- * match is the strongest evidence (the body relocated here), then same-file proximity (a rename in
- * place), then a same-name+kind match in another file. The scoring is integer-tiered and ties break
- * on `symbol_path`, so the same inputs always yield byte-identical output.
+ * The signal hierarchy: a content_hash match is the strongest evidence (the same body is anchored
+ * there), then same-file proximity (a rename in place), then a same-name+kind match in another file.
+ * The scoring is integer-tiered and the gaps are sized so the strongest single signal always outranks
+ * any sum of weaker ones (5 + 10 < 100); `reason` reports the dominant signal while `score` is the sum
+ * used only for ordering. Ties break on `symbol_path`, so the same inputs always yield identical output.
  */
 
 import type { Anchor } from "@code-charter/types";
 
 import { file_of_symbol_path } from "../model/module_scaffold";
 
-/** A live anchored symbol the stranded content could re-attach to (parsed from a live node's anchor). */
-export interface LiveAnchor {
-  symbol_path: string;
-  content_hash: string;
-}
-
 /** Which signal earned a candidate its rank — the dominant one, for a chooser to read at a glance. */
-export type CandidateReason = "relocated" | "same-file" | "name-match";
+export type CandidateReason = "content-match" | "same-file" | "name-match";
 
 /** One ranked re-attachment target, strongest first. `path` is the target's defining file, for display. */
 export interface RankedCandidate {
@@ -52,7 +47,7 @@ const DEFAULT_LIMIT = 5;
  */
 export function rank_candidates(
   stranded: Anchor,
-  live: readonly LiveAnchor[],
+  live: readonly Anchor[],
   options?: RankCandidatesOptions,
 ): RankedCandidate[] {
   const stranded_file = file_of_symbol_path(stranded.symbol_path);
@@ -66,7 +61,11 @@ export function rank_candidates(
     const content_match = candidate.content_hash === stranded.content_hash;
     const same_file = file_of_symbol_path(candidate.symbol_path) === stranded_file;
     const candidate_name = symbol_name_kind(candidate.symbol_path);
-    const name_match = candidate_name.leaf === stranded_name.leaf && candidate_name.kind === stranded_name.kind;
+    // An empty leaf (a degenerate/anonymous symbol_path) is no signal, so it never name-matches.
+    const name_match =
+      stranded_name.leaf.length > 0 &&
+      candidate_name.leaf === stranded_name.leaf &&
+      candidate_name.kind === stranded_name.kind;
 
     const score =
       (content_match ? SCORE_CONTENT_MATCH : 0) +
@@ -75,7 +74,7 @@ export function rank_candidates(
     if (score === 0) {
       continue;
     }
-    const reason: CandidateReason = content_match ? "relocated" : same_file ? "same-file" : "name-match";
+    const reason: CandidateReason = content_match ? "content-match" : same_file ? "same-file" : "name-match";
     ranked.push({ symbol_path: candidate.symbol_path, path: file_of_symbol_path(candidate.symbol_path), score, reason });
   }
 
@@ -86,7 +85,8 @@ export function rank_candidates(
 /**
  * The leaf name and kind of a `symbol_path` (`<file>#<qualified>:<kind>`). `qualified` joins identifier
  * segments with `.`, the trailing `:<kind>` is a bare word — so the kind is the tail after the last `:`
- * and the leaf is the last `.`-segment of what precedes it.
+ * and the leaf is the last `.`-segment of what precedes it. E.g. `src/calc.ts#Helper.compute:function`
+ * → leaf `compute`, kind `function`.
  */
 function symbol_name_kind(symbol_path: string): { leaf: string; kind: string } {
   const hash = symbol_path.indexOf("#");

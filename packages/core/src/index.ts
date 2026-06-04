@@ -55,7 +55,6 @@ export type {
   AnchoredSymbol,
   AriadneFileInput,
   CandidateReason,
-  LiveAnchor,
   RankCandidatesOptions,
   RankedCandidate,
   ResolverIndex,

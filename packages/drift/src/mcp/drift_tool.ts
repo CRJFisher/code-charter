@@ -7,11 +7,11 @@
  * `all_nodes`/`all_edges` return `[]` and `restore`/`soft_delete`/`upsert_node` are no-ops.
  */
 
-import { outstanding_drift, parse_anchor, reanchor_node } from "@code-charter/core";
+import { outstanding_drift, reanchor_node } from "@code-charter/core";
 import type { GraphStore, GraphTarget } from "@code-charter/types";
 
 import { now_iso, type LogCall } from "./call_log";
-import { re_attachment_bin, type DriftBinEntry } from "./re_attachment_bin";
+import { live_anchored_targets, re_attachment_bin, type DriftBinEntry } from "./re_attachment_bin";
 import { TOOL_DRIFT_LIST, TOOL_DRIFT_NEXT, TOOL_DRIFT_RESOLVE } from "./tool_names";
 
 /** Per-call context threaded from the MCP layer into the pure handlers. */
@@ -117,17 +117,20 @@ export function drift_resolve(
 
 /**
  * Re-point a stranded bin node onto a chosen live symbol: restore it, then re-anchor it onto the
- * target's current anchor (read from the live target node — store-only, no resolver index). The
- * authored `description` and its `user` ownership ride across untouched. A `target` that resolves to
- * no live anchored node today is a no-op with `applied: false` — you cannot bind onto a symbol that
- * is not there.
+ * target's current anchor. The target is identified by its `symbol_path` (a candidate from `drift.list`)
+ * and resolved against the live anchored symbols the store already holds — `agentic.description`
+ * side-nodes and flow nodes, not raw rows (the raw tier is never persisted), so a code symbol's anchor
+ * is read from its persisted side-content. A `target` that matches no live anchored symbol is a no-op
+ * with `applied: false` — you cannot bind onto a symbol that is not there. The target is validated
+ * BEFORE any write, so a bad target short-circuits without disturbing the binned node; only then is the
+ * node restored (un-binned so `store.node` returns it) and re-anchored. The authored `description` and
+ * its `user` ownership ride across untouched (`reanchor_node` rewrites only the anchor).
  */
 function reattach_onto_target(store: GraphStore, id: string, target_symbol_path: string): DriftResolveResult {
-  const target_node = store.node(target_symbol_path);
-  if (target_node === undefined || target_node.anchor === null) {
+  const target_anchor = live_anchored_targets(store).find((anchor) => anchor.symbol_path === target_symbol_path);
+  if (target_anchor === undefined) {
     return { id, resolution: "reattach", target_kind: "node", applied: false, reanchored_to: null };
   }
-  const target_anchor = parse_anchor(target_node.anchor);
   store.restore({ kind: "node", id });
   const stranded = store.node(id);
   if (stranded === undefined) {

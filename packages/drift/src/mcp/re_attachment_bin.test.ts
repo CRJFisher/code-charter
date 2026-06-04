@@ -48,21 +48,37 @@ const ORIGINAL: ResolverSymbol = {
 const RELOCATED: ResolverSymbol = { ...ORIGINAL, name: "calculate" };
 
 describe("re_attachment_bin candidates (AC#2)", () => {
-  it("ranks a live raw symbol carrying the stranded body as a relocation candidate", () => {
+  it("ranks a live symbol carrying the stranded body as a content-match candidate", () => {
     const store = open_graph_store(":memory:");
-    store.upsert_node(raw_node(RELOCATED)); // the body moved here
+    store.upsert_node(raw_node(RELOCATED)); // a live anchored node carrying the same body
     store.upsert_node(description_node("user:desc:calc", format_anchor(derive_code_state(ORIGINAL)), "src/calc.ts"));
     store.soft_delete({ kind: "node", id: "user:desc:calc" });
 
     const entry = re_attachment_bin(store).find((e) => e.id === "user:desc:calc")!;
     expect(entry.candidates[0]).toMatchObject({
       symbol_path: derive_code_state(RELOCATED).symbol_path,
-      reason: "relocated",
+      reason: "content-match",
     });
     store.close();
   });
 
-  it("draws candidate targets only from live raw symbols, not scaffold/agentic rows", () => {
+  it("draws candidate targets from the persisted side-content of live symbols (no raw rows in production)", () => {
+    // In production the raw tier is the in-memory call graph (never persisted); a code symbol's
+    // anchor is read off its `agentic.description` side-node. Candidates must come from those.
+    const store = open_graph_store(":memory:");
+    const renamed = derive_code_state(RELOCATED);
+    store.upsert_node(
+      description_node(`agentic.description:${renamed.symbol_path}`, format_anchor(renamed), "src/calc.ts"),
+    );
+    store.upsert_node(description_node("user:desc:calc", format_anchor(derive_code_state(ORIGINAL)), "src/calc.ts"));
+    store.soft_delete({ kind: "node", id: "user:desc:calc" });
+
+    const entry = re_attachment_bin(store).find((e) => e.id === "user:desc:calc")!;
+    expect(entry.candidates.map((c) => c.symbol_path)).toContain(renamed.symbol_path);
+    store.close();
+  });
+
+  it("excludes anchorless scaffold rows from candidate targets", () => {
     const store = open_graph_store(":memory:");
     // a live agentic group (anchorless scaffold) must never be offered as a target
     store.upsert_node({

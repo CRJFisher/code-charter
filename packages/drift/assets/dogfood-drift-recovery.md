@@ -68,23 +68,29 @@ session after the edit and read the `SessionStart` banner — it tells you which
    - `description` — the stranded authored text you are about to recover.
    - `node_kind` (e.g. `user.description`), `user_authored` (true ⇒ hand-written, irreplaceable),
      `intent_source`, `path`, `deleted_at`.
-   - `candidates[]` — ranked plausible new targets, strongest first: each is a live `symbol_path` with a
-     `reason` (`relocated` = the body moved there, `same-file`, or `name-match`) and a `score`.
+   - `candidates[]` — ranked plausible new targets, strongest first: each is a live `symbol_path` (note
+     `id` is the bin entry's own opaque key, e.g. `user:description:calc`, while a candidate `symbol_path`
+     is a code symbol like `src/calc.ts#calculate:function` — they are different id-spaces) with a `reason`
+     (`content-match` = the same body is anchored there, `same-file`, or `name-match`) and a `score`. For a
+     rename-and-rewrite miss the renamed symbol typically shows up as a `same-file` candidate.
 
 4b. **Resolve.** Call `mcp__drift__drift_resolve` with `kind: "node"` and the entry `id`:
    - `{ resolution: "reattach", target: "<candidate symbol_path>" }` re-points the stranded description
      onto the chosen live symbol, carrying the hand-written text across. Pick `target` from the entry's
-     `candidates[]` (usually `candidates[0]` when its `reason` is `relocated`).
+     `candidates[]` (`candidates[0]` is the strongest match).
    - `{ resolution: "reattach" }` (no `target`) restores onto the *original* anchor — for when the symbol
      is genuinely gone with no better home.
-   - `{ resolution: "delete" }` keeps the entry removed.
+   - `{ resolution: "delete" }` keeps the entry removed. The never-auto-pruned guarantee means a deleted
+     entry stays in the bin as a tombstone (still recoverable later), so it does **not** drain the loop —
+     only a `reattach` removes an entry from the bin.
 
-   Then call `drift.next` again and repeat until it returns `null` — the bin is drained.
+   A `reattach` un-bins its entry, so re-call `drift.next` and repeat to drain the recoverable entries;
+   the entries you choose to `delete` remain as tombstones (re-call with a `scope` to skip past them).
 
 ### Confirm (both loops)
 
 5. **Confirm.** Re-open the session (a resolved relocation no longer banners) or re-run `drift.list` /
-   `drift.next` (a resolved bin entry is gone), and open the flow in the webview to see the description
+   `drift.next` (a reattached bin entry is gone), and open the flow in the webview to see the description
    back on its node — on the new target symbol when you reattached with one.
 
 ## What to watch for

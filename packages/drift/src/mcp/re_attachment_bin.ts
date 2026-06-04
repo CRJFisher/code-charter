@@ -16,7 +16,7 @@
  */
 
 import { MODULE_SCAFFOLD_ORIGIN, parse_anchor, rank_candidates, type RankedCandidate } from "@code-charter/core";
-import type { GraphStore, Layer, NodeRow } from "@code-charter/types";
+import type { Anchor, GraphStore, Layer } from "@code-charter/types";
 
 /** A ranked plausible new target for a stranded entry — a live code symbol it could re-attach onto. */
 export type DriftCandidate = RankedCandidate;
@@ -83,7 +83,7 @@ export function re_attachment_bin(store: GraphStore, scope?: string): DriftBinEn
         description,
         user_authored: node.field_ownership.description === "user",
         intent_source: node.intent_source,
-        candidates: node.anchor === null ? [] : rank_candidates(parse_anchor(node.anchor), live_targets),
+        candidates: candidates_for(node.anchor, live_targets),
       },
     ];
   });
@@ -116,21 +116,68 @@ export function re_attachment_bin(store: GraphStore, scope?: string): DriftBinEn
   );
 }
 
+/** The number of entries currently in the (optionally scoped) bin, without ranking candidates — for the cheap session-start banner count. */
+export function re_attachment_bin_size(store: GraphStore, scope?: string): number {
+  const nodes = store
+    .all_nodes({ include_deleted: true })
+    .filter(
+      (node) =>
+        node.deleted_at !== null &&
+        node.layer !== "raw" &&
+        node.origin !== MODULE_SCAFFOLD_ORIGIN &&
+        (scope === undefined || node.path.startsWith(scope)),
+    ).length;
+  const edges = store
+    .all_edges({ include_deleted: true })
+    .filter(
+      (edge) =>
+        edge.deleted_at !== null &&
+        edge.layer !== "raw" &&
+        edge.origin !== MODULE_SCAFFOLD_ORIGIN &&
+        (scope === undefined || edge.src_id.startsWith(scope) || edge.dst_id.startsWith(scope)),
+    ).length;
+  return nodes + edges;
+}
+
 /**
- * The live code symbols a stranded entry can re-attach onto: every live `raw`-layer anchored node,
- * whose id is its `symbol_path` (so `drift.resolve`'s `store.node(target)` lookup resolves). Inverts
- * the bin's raw-exclusion — raw rows are not *recoverable content*, but they ARE the re-attach
- * *targets*. A corrupt anchor on one live row is skipped so it cannot sink the whole listing.
+ * Rank the live targets for a stranded node's `anchor`. An unanchored node ([]) and a corrupt anchor
+ * (skipped) both yield no candidates rather than throwing — the bin must list a stranded entry even
+ * when its own anchor cannot be parsed, mirroring the per-row resilience of {@link live_anchored_targets}.
  */
-function live_anchored_targets(store: GraphStore): { symbol_path: string; content_hash: string }[] {
-  return store.all_nodes().flatMap((node: NodeRow) => {
-    if (node.layer !== "raw" || node.anchor === null) {
-      return [];
+function candidates_for(anchor: string | null, live_targets: readonly Anchor[]): DriftCandidate[] {
+  if (anchor === null) {
+    return [];
+  }
+  try {
+    return rank_candidates(parse_anchor(anchor), live_targets);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The live code symbols a stranded entry can re-attach onto: every live, anchored, non-scaffold node's
+ * anchor, deduplicated by `symbol_path`. The persisted footprint of a code symbol is its anchored
+ * side-content — an `agentic.description` side-node (`@code-charter/core`'s `write_descriptions`) or a
+ * flow node — not a `raw` row (the raw tier is the in-memory call graph, never persisted), so the targets
+ * are drawn from any live anchored node, not just one layer. A corrupt anchor on one live row is skipped
+ * so it cannot sink the whole listing.
+ */
+export function live_anchored_targets(store: GraphStore): Anchor[] {
+  const by_symbol_path = new Map<string, Anchor>();
+  for (const node of store.all_nodes()) {
+    if (node.anchor === null || node.origin === MODULE_SCAFFOLD_ORIGIN) {
+      continue;
     }
+    let parsed: Anchor;
     try {
-      return [parse_anchor(node.anchor)];
+      parsed = parse_anchor(node.anchor);
     } catch {
-      return [];
+      continue;
     }
-  });
+    if (!by_symbol_path.has(parsed.symbol_path)) {
+      by_symbol_path.set(parsed.symbol_path, parsed);
+    }
+  }
+  return [...by_symbol_path.values()];
 }

@@ -322,10 +322,27 @@ describe("drift.resolve reattach-onto-new-target (AC#1)", () => {
     body_source: "{\n  return xs.reduce((a, b) => a + b, 0);\n}",
   };
 
-  /** Seed a soft-deleted (binned) description whose original anchor resolves nowhere, plus a live target. */
+  /**
+   * Seed a soft-deleted (binned) description whose original anchor resolves nowhere, plus the TARGET
+   * symbol's live persisted representation. In production the live symbol is its `agentic.description`
+   * side-node (the raw tier is never persisted), so the target is seeded that way — its anchor is what
+   * `live_anchored_targets` reads, and the node id is irrelevant to the symbol_path match.
+   */
   function seeded_target_store(): GraphStore {
     const store = open_graph_store(":memory:");
-    store.upsert_node(raw_node(TARGET)); // the live symbol that resolves today
+    const target_state = derive_code_state(TARGET);
+    store.upsert_node({
+      id: `agentic.description:${target_state.symbol_path}`,
+      kind: "agentic.description",
+      path: "src/calc.ts",
+      anchor: format_anchor(target_state),
+      layer: "agentic",
+      attributes: { description: "the running total" },
+      field_ownership: { description: "agentic" },
+      origin: "test",
+      intent_source: "code-edit",
+      deleted_at: null,
+    });
     store.upsert_node({
       id: DESC_ID,
       kind: "user.description",

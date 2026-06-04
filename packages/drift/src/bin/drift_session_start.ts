@@ -10,25 +10,27 @@ import { open_graph_store, outstanding_drift, type DriftObservation } from "@cod
 
 import { is_session_start_hook_input } from "../hooks/hook_payloads";
 import { build_session_start_output } from "../hooks/session_start_banner";
+import { re_attachment_bin_size } from "../mcp/re_attachment_bin";
 import { resolve_db_path } from "../mcp/resolve_db_path";
 import { read_stdin } from "./read_stdin";
 
 /**
- * Read outstanding drift from the store for `cwd`, degrading to an empty list on any failure —
- * including a fresh repo whose `.code-charter` store does not exist yet (opening it throws). The
- * banner is best-effort context, never a reason to disturb the session.
+ * Read both recoverable populations from the store for `cwd` — outstanding relocations and the
+ * re-attachment-bin size — degrading to empty on any failure, including a fresh repo whose
+ * `.code-charter` store does not exist yet (opening it throws). The banner is best-effort context,
+ * never a reason to disturb the session.
  */
-function read_outstanding_drift(cwd: string): DriftObservation[] {
+function read_recoverable(cwd: string): { drift: DriftObservation[]; bin_size: number } {
   let store;
   try {
     store = open_graph_store(resolve_db_path(process.env, cwd));
   } catch {
-    return [];
+    return { drift: [], bin_size: 0 };
   }
   try {
-    return outstanding_drift(store);
+    return { drift: outstanding_drift(store), bin_size: re_attachment_bin_size(store) };
   } catch {
-    return [];
+    return { drift: [], bin_size: 0 };
   } finally {
     store.close();
   }
@@ -43,7 +45,8 @@ async function main(): Promise<void> {
     return;
   }
   const cwd = is_session_start_hook_input(payload) ? payload.cwd : process.cwd();
-  const output = build_session_start_output(read_outstanding_drift(cwd));
+  const { drift, bin_size } = read_recoverable(cwd);
+  const output = build_session_start_output(drift, bin_size);
   if (output.hookSpecificOutput !== undefined) {
     process.stdout.write(JSON.stringify(output));
   }
