@@ -47,10 +47,20 @@ export {
   derive_code_state,
   format_anchor,
   parse_anchor,
+  rank_candidates,
   resolve_anchor,
   resolver_symbols_from_ariadne,
 } from "./resolver";
-export type { AnchoredSymbol, AriadneFileInput, ResolverIndex, ResolverSymbol } from "./resolver";
+export type {
+  AnchoredSymbol,
+  AriadneFileInput,
+  CandidateReason,
+  LiveAnchor,
+  RankCandidatesOptions,
+  RankedCandidate,
+  ResolverIndex,
+  ResolverSymbol,
+} from "./resolver";
 
 // task-27.1.2 AC#9 — the deterministic file-module first-parent tier
 export {

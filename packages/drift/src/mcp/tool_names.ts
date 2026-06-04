@@ -12,3 +12,4 @@ export const DRIFT_SERVER_VERSION = "0.0.1";
 
 export const TOOL_DRIFT_LIST = "drift_list";
 export const TOOL_DRIFT_RESOLVE = "drift_resolve";
+export const TOOL_DRIFT_NEXT = "drift_next";

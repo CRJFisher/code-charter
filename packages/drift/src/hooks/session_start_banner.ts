@@ -21,8 +21,11 @@ export function build_session_start_output(drift: readonly DriftObservation[]): 
     `Code Charter: ${drift.length} node(s) have outstanding drift ` +
       "(a code rename re-synced their diagram; the hand-written description is preserved, awaiting accept):",
     list,
-    'Accept a re-anchor with the `drift.resolve` MCP tool (`{ id, resolution: "reanchor" }`), ' +
-      "or inspect the re-attachment bin with `drift.list`.",
+    'Accept a re-anchor with the `drift.resolve` MCP tool (`{ kind: "node", id, resolution: "reanchor" }`). ' +
+      "Inspect the re-attachment bin with `drift.list` (each entry carries the stranded text and ranked " +
+      "candidate targets), step through it one entry at a time with `drift.next`, and restore a binned " +
+      "description with `drift.resolve` — bare to its original anchor, or onto a different live symbol via a " +
+      "`target` from the candidates.",
   ].join("\n");
   return {
     hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: additional_context },

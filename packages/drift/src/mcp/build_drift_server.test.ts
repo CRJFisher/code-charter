@@ -7,7 +7,7 @@ import { NullGraphStore } from "@code-charter/core";
 
 import type { DriftCallLogEntry } from "./call_log";
 import { build_drift_server } from "./build_drift_server";
-import { TOOL_DRIFT_LIST, TOOL_DRIFT_RESOLVE } from "./tool_names";
+import { TOOL_DRIFT_LIST, TOOL_DRIFT_NEXT, TOOL_DRIFT_RESOLVE } from "./tool_names";
 
 async function connected_client(): Promise<{ client: Client; log: DriftCallLogEntry[] }> {
   const log: DriftCallLogEntry[] = [];
@@ -20,10 +20,23 @@ async function connected_client(): Promise<{ client: Client; log: DriftCallLogEn
 }
 
 describe("build_drift_server", () => {
-  it("registers exactly the two drift tools", async () => {
+  it("registers exactly the three drift tools", async () => {
     const { client } = await connected_client();
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual([TOOL_DRIFT_LIST, TOOL_DRIFT_RESOLVE].sort());
+    expect(tools.map((tool) => tool.name).sort()).toEqual(
+      [TOOL_DRIFT_LIST, TOOL_DRIFT_NEXT, TOOL_DRIFT_RESOLVE].sort(),
+    );
+    await client.close();
+  });
+
+  it("drift_next is callable and logs the call (null on NullGraphStore)", async () => {
+    const { client, log } = await connected_client();
+    const result = await client.callTool({ name: TOOL_DRIFT_NEXT, arguments: {} });
+    const content = result.content;
+    const text = Array.isArray(content) && content[0]?.type === "text" ? content[0].text : "";
+    expect(JSON.parse(text)).toBeNull();
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ tool: TOOL_DRIFT_NEXT });
     await client.close();
   });
 
@@ -40,8 +53,21 @@ describe("build_drift_server", () => {
 
   it("drift_resolve is callable and logs the call", async () => {
     const { client, log } = await connected_client();
-    await client.callTool({ name: TOOL_DRIFT_RESOLVE, arguments: { id: "x", resolution: "delete" } });
+    await client.callTool({ name: TOOL_DRIFT_RESOLVE, arguments: { kind: "node", id: "x", resolution: "delete" } });
     expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ tool: TOOL_DRIFT_RESOLVE });
+    await client.close();
+  });
+
+  it("drift_resolve accepts the kind disambiguator and an optional reattach target through the schema", async () => {
+    const { client, log } = await connected_client();
+    const result = await client.callTool({
+      name: TOOL_DRIFT_RESOLVE,
+      arguments: { kind: "node", id: "x", resolution: "reattach", target: "src/a.ts#y:function" },
+    });
+    const content = result.content;
+    const text = Array.isArray(content) && content[0]?.type === "text" ? content[0].text : "";
+    expect(JSON.parse(text)).toMatchObject({ applied: false }); // no-op on the empty null store, but parses
     expect(log[0]).toMatchObject({ tool: TOOL_DRIFT_RESOLVE });
     await client.close();
   });
