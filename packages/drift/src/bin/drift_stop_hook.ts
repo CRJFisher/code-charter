@@ -19,6 +19,7 @@ import { decide_stop_action } from "../hooks/stop_decision";
 import { parse_watermark, serialize_watermark, worked_on_since } from "../hooks/stop_watermark";
 import { resolve_db_path } from "../mcp/resolve_db_path";
 import { filter_flow_relevant } from "../reconcile/flow_relevance";
+import { to_repo_relative } from "../reconcile/paths";
 import { read_stdin } from "./read_stdin";
 
 /** The watermark lives beside the store, so it is per-repo and shares the gitignored `.code-charter/`. */
@@ -71,9 +72,8 @@ async function main(): Promise<void> {
   // no-new-drift guard no-ops it instead of launching a reconcile that would find nothing.
   const { relevant, dropped } = filter_flow_relevant(worked_on, payload.cwd);
   if (dropped.length > 0) {
-    process.stderr.write(
-      `drift: skipping ${dropped.length} non-flow file(s) this turn: ${dropped.join(", ")}\n`,
-    );
+    const names = dropped.map((file_path) => to_repo_relative(file_path, payload.cwd)).join(", ");
+    process.stderr.write(`drift: skipping ${dropped.length} non-flow file(s) this turn: ${names}\n`);
   }
 
   const decision = decide_stop_action(payload, relevant);

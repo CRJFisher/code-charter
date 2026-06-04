@@ -41,6 +41,9 @@ export interface DriftBinEntry {
   intent_source: string;
 }
 
+// Edges carry no authored description, so `node_kind`/`description` are null and `user_authored` is
+// false by definition (not a signal that the edge is regenerable) — only `intent_source` is meaningful.
+
 /**
  * The current re-attachment bin: every soft-deleted agentic/user row, optionally narrowed to a
  * path/id `scope` prefix. Raw rows are never in the bin (they are rebuilt, not preserved). On a

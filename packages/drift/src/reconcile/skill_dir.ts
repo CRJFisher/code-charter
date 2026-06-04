@@ -16,12 +16,23 @@ import { ingest_skill } from "@code-charter/core";
 
 const SKILL_FILE = "SKILL.md";
 
+/** True when `p` exists and is a directory, never throwing (a stat race / EACCES / ELOOP yields false). */
+function is_directory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The absolute path of the skill bundle a file belongs to, or undefined. Walks from the file's directory
- * up to (and including) the repo root, returning the nearest ancestor that holds a `SKILL.md`.
+ * up to (and including) the repo root, returning the nearest ancestor that holds a `SKILL.md`. Never
+ * throws — it runs inside the never-throw `Stop` hook (flow-relevance pre-filter), so a filesystem error
+ * degrades to "no skill root" rather than aborting the walk.
  */
 export function find_skill_root(abs_file: string, repo_root_abs: string): string | undefined {
-  let dir = fs.existsSync(abs_file) && fs.statSync(abs_file).isDirectory() ? abs_file : path.dirname(abs_file);
+  let dir = is_directory(abs_file) ? abs_file : path.dirname(abs_file);
   const root = path.resolve(repo_root_abs);
   for (;;) {
     if (fs.existsSync(path.join(dir, SKILL_FILE))) return dir;

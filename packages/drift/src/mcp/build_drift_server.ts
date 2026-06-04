@@ -29,7 +29,9 @@ const TOOL_DEFINITIONS = [
     name: TOOL_DRIFT_LIST,
     description:
       "List the drift re-attachment bin: user-authored and agentic diagram content detached " +
-      "from the code it described, awaiting reattachment or deletion. Read-only.",
+      "from the code it described, awaiting reattachment or deletion. Each entry carries the " +
+      "stranded `description` text, `node_kind`, `intent_source`, and a `user_authored` flag so a " +
+      "chooser can decide what to recover without a follow-up read. Read-only.",
     inputSchema: {
       type: "object",
       properties: { scope: { type: "string", description: "Optional path/id prefix to narrow the bin." } },
