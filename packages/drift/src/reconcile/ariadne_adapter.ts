@@ -66,8 +66,14 @@ function file_inputs(project: HeadlessProject, rel_files: readonly string[]): Ar
  * Index `symbols` after deduping by derived `symbol_path` (first-wins, in input order). `build_resolver_index`
  * throws on a duplicate symbol_path; left to reach it, that throw would collapse the whole index to empty
  * and make `re_extract` mass-soft-delete every preserved description. Deduping first means a residual
- * duplicate can never reach the throw. Anonymous callables are already excluded upstream, so this is
- * defense-in-depth — and every drop is logged, never silently capped (no silent narrowing).
+ * duplicate can never reach the throw.
+ *
+ * Anonymous callables — the routine source of colliding symbol_paths — are excluded upstream in
+ * `walk_callables`, so in normal operation nothing is dropped here. The dedup guards the residual case:
+ * two *named* symbols that still derive one `symbol_path` (a derivation defect, e.g. a redeclaration or a
+ * future emitter change). That should never happen, so a drop is logged loudly for investigation, never
+ * silently capped (no silent narrowing). The dedup key is `build_symbol_path` — exactly the key
+ * `build_resolver_index` derives internally via `derive_code_state`, so the two cannot disagree.
  */
 export function build_dedup_index(
   symbols: readonly ResolverSymbol[],

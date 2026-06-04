@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import {
+  derive_code_state,
   description_node_id,
   open_graph_store,
   re_extract,
@@ -50,9 +51,10 @@ afterEach(() => {
 
 describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", () => {
   it("the fixture really contains >= 2 bodied anonymous callables (collision guard, at the Ariadne layer)", () => {
-    // Asserted against the raw Ariadne index, not the resolver output: the resolver now skips anonymous
-    // callables, so this guard pins the fixture's triggering property independently of the fix and stays
-    // green before and after it. If it ever drops below 2, the regression no longer exercises the bug.
+    // Asserted against the raw Ariadne index, not the resolver output (do not rewrite this against
+    // adapter/resolver output): the resolver now skips anonymous callables, so this guard pins the
+    // fixture's triggering property independently of the fix and stays green before and after it. If it
+    // ever drops below 2, the regression no longer exercises the bug.
     const index = project.get_index_single_file(REL);
     expect(index).toBeDefined();
     const anon = [...index!.functions.values()].filter((f) => f.name === "<anonymous>" && f.body_scope_id);
@@ -62,8 +64,9 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
   it("(AC#1/#2/#4a) build_index returns a populated index with the named symbol and no <anonymous> record", () => {
     const index = adapter.build_index([REL]);
 
-    // The duplicate anonymous callables no longer empty the index (the bug), and they are not symbols.
-    expect(index.by_symbol_path.size).toBeGreaterThanOrEqual(1);
+    // The duplicate anonymous callables no longer empty the index (the bug), and they are not symbols:
+    // the fixture's only resolver symbol is the named function, so the index holds exactly one entry.
+    expect(index.by_symbol_path.size).toBe(1);
     expect(index.by_symbol_path.has(NAMED_SYMBOL_PATH)).toBe(true);
     expect(index.by_symbol_path.has(ANON_SYMBOL_PATH)).toBe(false);
   });
@@ -101,15 +104,22 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     expect(binned).toBeUndefined();
   });
 
-  it("(AC#5) logs a drop when a residual duplicate symbol_path is deduped", () => {
-    // Anonymous callables are skipped upstream, so build_index never drops in practice; this asserts the
-    // defense-in-depth path is wired to the log seam (no silent cap) by feeding it a hand-built duplicate.
+  it("(AC#5) logs a drop and keeps the first when a residual duplicate symbol_path is deduped", () => {
+    // The upstream skip removes anonymous collisions, so build_index never drops in practice. The dedup
+    // still guards the residual case — two *named* symbols deriving one symbol_path (a derivation defect,
+    // e.g. a redeclaration) — which is reproduced here by two records sharing {name,kind,enclosing,file}.
+    // This proves the defense path is wired to the log seam (no silent cap) AND keeps the first occurrence.
     const messages: string[] = [];
     const log = (message: string) => messages.push(message);
-    const dup = { file_path: "x.ts", name: "f", kind: "function" as const, enclosing: [], body_source: "return 1;" };
-    // Two resolver symbols share one symbol_path; the first wins, the second is logged + dropped.
-    const index = build_dedup_index([dup, { ...dup, body_source: "return 2;" }], log);
+    const first = { file_path: "x.ts", name: "f", kind: "function" as const, enclosing: [], body_source: "return 1;" };
+    const second = { ...first, body_source: "return 2;" };
+    const index = build_dedup_index([first, second], log);
+
     expect(index.by_symbol_path.size).toBe(1);
+    // First-wins, not just "one survives": the kept state carries the FIRST record's body, not the second's.
+    const kept = index.by_symbol_path.get("x.ts#f:function");
+    expect(kept?.content_hash).toBe(derive_code_state(first).content_hash);
+    expect(kept?.content_hash).not.toBe(derive_code_state(second).content_hash);
     expect(messages.some((m) => m.includes("dropped duplicate symbol_path") && m.includes("x.ts#f:function"))).toBe(true);
   });
 });
