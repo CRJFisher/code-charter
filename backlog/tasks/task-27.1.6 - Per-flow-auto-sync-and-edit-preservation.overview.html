@@ -204,7 +204,7 @@
         <div>
           <span class="id">task-27.1.6.3</span>
           <h3>Richer drift recovery</h3>
-          <p>Build on the kept <code>drift.*</code> surface: reattach onto a new target, candidate suggestions, a kind disambiguator, and a resolve-next loop — the follow-ups spun out of 27.1.6.1's review.</p>
+          <p>The kept <code>drift.*</code> surface covers two strandings — commit a relocation, or restore onto the original anchor — but not the middle case: the symbol is gone and you know the right <em>new</em> one. Four additions reach it: reattach a binned description onto a chosen current symbol (carrying authored fields through <code>reanchor_node</code>), ranked <code>candidates[]</code> computed store-only from live anchored nodes, a <code>kind</code> disambiguator that stops node-vs-edge guessing, and a resolve-next loop primitive.</p>
         </div>
       </div>
       <div class="step">
@@ -257,16 +257,16 @@
 
     <div class="doc-group">
       <div class="gh">
-        <span class="status-dot pending"></span>
+        <span class="status-dot live"></span>
         <span class="id">task-27.1.6.3</span>
         <span class="title">Richer drift recovery — reattach-onto-target, candidates, resolve-next</span>
       </div>
       <div class="doc-links">
-        <div class="pending-row">
-          <span class="status-dot pending"></span>
-          <span>No companion generated yet</span>
-          <span class="ng">not yet generated</span>
-        </div>
+        <a class="doc-link" href="task-27.1.6.3 - Richer-drift-recovery-reattach-onto-target-candidates-and-resolve-next.recovery-walkthrough.html">
+          <span class="status-dot live"></span>
+          <span class="lbl"><b>Recovery walkthrough</b><small>three strandings &middot; reattach-onto-target through reanchor_node &middot; candidate ranking &middot; kind &amp; resolve-next</small></span>
+          <span class="arrow">→</span>
+        </a>
       </div>
     </div>
 
@@ -287,12 +287,12 @@
 
     <div class="callout">
       <span class="k">Reading order</span>
-      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work: the <strong>drift.* surface review</strong> (the decision confirmed), then the <strong>Stop-hook filter</strong> (the focused trigger change), then the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read it once you know what the loop preserves and where the bin sits).</p>
+      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work: the <strong>drift.* surface review</strong> (the decision confirmed), then the <strong>Stop-hook filter</strong> (the focused trigger change), then the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read it once you know what the loop preserves and where the bin sits). Then the <strong>recovery walkthrough</strong> (how the kept surface grows the three-case recovery into reaching a new target).</p>
     </div>
 
     <footer>
       task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation.<br>
-      Companions present: 3 — two under task-27.1.6.1, one under task-27.1.6.2 · task-27.1.6.3 / .4: none yet.
+      Companions present: 4 — two under task-27.1.6.1, one under task-27.1.6.2, one under task-27.1.6.3 · task-27.1.6.4: none yet.
     </footer>
   </main>
 

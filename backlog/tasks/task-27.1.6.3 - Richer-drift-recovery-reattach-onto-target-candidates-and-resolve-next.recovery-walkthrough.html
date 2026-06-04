@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension companion for task-27.1.6.3 — the richer drift-recovery surface.
+     Generated from the task doc plus the drift/core/resolver/types source it references.
+     Self-contained: all CSS + JS inline, no external assets, opens from file://. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Richer drift recovery — reattach-onto-target, candidates, kind, resolve-next</title>
+<style>
+  :root {
+    --ivory:#f8f4ec; --slate:#2b2b29; --clay:#b5683f; --olive:#6b7a3f; --oat:#e7dcc6;
+    --rust:#9c3b25; --g1:#fbf9f4; --g2:#efe9dd; --g3:#ddd4c2; --g4:#b8ad97; --g5:#6f6857; --g6:#4a463c;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --rad:10px;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--ivory); color:var(--slate); font-family:var(--sans);
+         line-height:1.6; font-size:15px; }
+  .wrap { display:grid; grid-template-columns:minmax(0,1fr) 248px; gap:36px; max-width:1140px;
+          margin:0 auto; padding:40px 28px 80px; }
+  main { min-width:0; }
+  h1 { font-family:var(--serif); font-size:31px; line-height:1.18; margin:.1em 0 .25em; font-weight:600; letter-spacing:-.01em; }
+  h2 { font-family:var(--serif); font-size:22px; margin:2.2em 0 .5em; font-weight:600; scroll-margin-top:24px; }
+  h3 { font-family:var(--serif); font-size:17px; margin:1.5em 0 .4em; font-weight:600; }
+  p { margin:.6em 0; }
+  .eyebrow { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.14em; color:var(--clay); margin:0; }
+  code { font-family:var(--mono); font-size:.86em; background:var(--g2); padding:1px 5px; border-radius:5px; color:var(--g6); }
+  a { color:var(--rust); }
+  .meta { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 4px; }
+  .chip { font-family:var(--mono); font-size:11px; background:var(--g2); border:1px solid var(--g3); border-radius:999px;
+          padding:3px 10px; color:var(--g6); }
+  .chip strong { color:var(--slate); }
+  .prompt-box { border:1px solid var(--g3); border-left:4px solid var(--clay); background:var(--g1); border-radius:var(--rad);
+                padding:14px 16px; margin:18px 0; }
+  .prompt-box .label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--clay); }
+  .prompt-box p { margin:.35em 0 0; font-size:14px; }
+  .files { list-style:none; padding:0; margin:.5em 0 0; display:flex; flex-wrap:wrap; gap:5px 8px; }
+  .files li { font-family:var(--mono); font-size:11px; color:var(--g5); }
+
+  nav.toc { position:sticky; top:24px; align-self:start; font-size:13px; }
+  nav.toc .t { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--g5); margin:0 0 8px; }
+  nav.toc a { display:block; color:var(--g6); text-decoration:none; padding:4px 0 4px 12px; border-left:2px solid var(--g3); }
+  nav.toc a:hover { border-color:var(--clay); color:var(--rust); }
+  nav.toc .related { margin-top:18px; }
+  nav.toc .related a { border-left-color:var(--oat); font-family:var(--mono); font-size:11px; }
+
+  /* callouts */
+  aside.note { border:1px solid var(--g3); border-left:4px solid var(--clay); background:var(--g1); border-radius:var(--rad);
+               padding:14px 16px; margin:18px 0; }
+  aside.note.good { border-left-color:var(--olive); }
+  aside.note.warn { border-left-color:var(--rust); }
+  aside.note .k { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--clay); display:block; margin-bottom:4px; }
+  aside.note.good .k { color:var(--olive); } aside.note.warn .k { color:var(--rust); }
+  .invert { background:var(--slate); color:var(--ivory); border-radius:var(--rad); padding:18px 20px; margin:20px 0; }
+  .invert .k { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--oat); display:block; margin-bottom:6px; }
+  .invert code { background:#3d3b36; color:var(--oat); }
+
+  /* three-case comparison grid */
+  .cases { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:18px 0; }
+  .case { border:1px solid var(--g3); border-radius:var(--rad); background:#fff; padding:0; overflow:hidden; display:flex; flex-direction:column; }
+  .case .hd { padding:12px 14px 10px; border-bottom:1px solid var(--g2); }
+  .case .badge { font-family:var(--mono); font-size:10px; font-weight:700; display:inline-block; padding:2px 8px; border-radius:999px; letter-spacing:.05em; }
+  .case.reloc .badge { background:#eaf0d8; color:var(--olive); }
+  .case.gap .badge { background:#f6e2d4; color:var(--rust); }
+  .case.miss .badge { background:#e9e3d5; color:var(--g6); }
+  .case h3 { margin:.55em 0 .1em; font-size:15.5px; }
+  .case .bd { padding:11px 14px 14px; font-size:13px; flex:1; }
+  .case .bd p { margin:.3em 0; }
+  .case .tool { font-family:var(--mono); font-size:11px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--g3); color:var(--g6); }
+  .case .tool b { color:var(--slate); }
+  .case.gap { box-shadow:0 0 0 2px #f6e2d4; }
+  .case .tag-new { display:inline-block; font-family:var(--mono); font-size:9px; background:var(--rust); color:#fff; padding:1px 6px; border-radius:4px; letter-spacing:.05em; margin-left:6px; vertical-align:middle; }
+
+  /* code panels */
+  .code { background:#26241f; border-radius:var(--rad); margin:14px 0; overflow:hidden; border:1px solid #1b1a16; }
+  .code .file-label { font-family:var(--mono); font-size:11px; color:#b9b09a; background:#1d1b17; padding:7px 14px; border-bottom:1px solid #000; display:flex; justify-content:space-between; }
+  .code .file-label .loc { color:#8a8270; }
+  .code pre { margin:0; padding:13px 16px; overflow-x:auto; font-family:var(--mono); font-size:12.5px; line-height:1.55; color:#dcd6c8; }
+  .code .kw { color:#c98a6b; } .code .str { color:#aeb87f; } .code .cm { color:#6f6a5c; font-style:italic; }
+  .code .fn { color:#d6b36a; } .code .hl { background:#3a3528; display:inline-block; width:100%; }
+  .code .dim { color:#7a7464; } .code .add { background:#2c3a22; display:inline-block; width:100%; }
+  .code .typ { color:#9ab0c4; }
+
+  /* numbered steps */
+  .steps { margin:16px 0; }
+  .step { display:grid; grid-template-columns:40px 1fr; gap:14px; margin:0 0 8px; }
+  .step .badge { width:30px; height:30px; border-radius:50%; background:var(--clay); color:#fff; font-family:var(--mono);
+                 font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .step.s2 .badge { background:var(--olive); } .step.s3 .badge { background:var(--rust); } .step.s4 .badge { background:var(--g6); }
+  .step .body { border:1px solid var(--g3); border-radius:8px; background:#fff; padding:10px 13px; }
+  .step .body .ttl { font-weight:600; }
+  .step .where { font-family:var(--mono); font-size:11px; color:var(--g5); float:right; }
+
+  /* svg holder */
+  .svg-holder { border:1px solid var(--g3); border-radius:var(--rad); background:#fff; padding:14px; margin:16px 0; overflow-x:auto; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-family:var(--mono); font-size:11px; color:var(--g6); margin-top:8px; }
+  .legend span { display:flex; align-items:center; gap:6px; }
+  .legend .sw { width:22px; height:0; border-top-width:2.5px; border-top-style:solid; display:inline-block; }
+
+  /* candidate ranking */
+  .rank { border:1px solid var(--g3); border-radius:var(--rad); background:#fff; overflow:hidden; margin:14px 0; }
+  .rank .row { display:grid; grid-template-columns:34px 1fr; border-top:1px solid var(--g2); }
+  .rank .row:first-child { border-top:none; }
+  .rank .num { background:var(--g1); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-weight:700; color:var(--clay); }
+  .rank .c { padding:10px 13px; }
+  .rank .c .sig { font-family:var(--mono); font-size:12px; color:var(--g6); }
+  .rank .c .why { font-size:12.5px; color:var(--g5); margin-top:2px; }
+  .scorebar { display:flex; gap:3px; margin-top:6px; }
+  .scorebar i { height:7px; border-radius:2px; }
+  .scorebar .f { background:var(--olive); } .scorebar .p { background:var(--clay); } .scorebar .e { background:var(--g3); }
+
+  table.axes { border-collapse:collapse; width:100%; margin:14px 0; font-size:13px; }
+  table.axes th, table.axes td { border:1px solid var(--g3); padding:8px 11px; text-align:left; vertical-align:top; }
+  table.axes th { background:var(--g2); font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  table.axes td.dot::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+  td.good::before { background:var(--olive); } td.bad::before { background:var(--rust); } td.mid::before { background:var(--clay); }
+
+  details { border:1px solid var(--g3); border-radius:8px; background:#fff; margin:10px 0; padding:0 14px; }
+  details summary { cursor:pointer; padding:11px 0; font-weight:600; list-style:none; }
+  details summary::-webkit-details-marker { display:none; }
+  details summary::before { content:"▸"; color:var(--clay); margin-right:8px; display:inline-block; transition:transform .15s; }
+  details[open] summary::before { transform:rotate(90deg); }
+  details .dc { padding-bottom:12px; }
+
+  footer { margin-top:40px; padding-top:16px; border-top:1px solid var(--g3); font-family:var(--mono); font-size:11px; color:var(--g5); }
+  .term { border-bottom:1px dotted var(--g4); cursor:help; }
+
+  @media (max-width:920px) {
+    .wrap { grid-template-columns:1fr; }
+    nav.toc { position:static; }
+    .cases { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<main>
+  <p class="eyebrow">task-27.1.6.3 · drift recovery surface</p>
+  <h1>Recovering a stranded description onto the symbol you actually meant</h1>
+  <div class="meta">
+    <span class="chip"><strong>drift_list</strong> / <strong>drift_resolve</strong></span>
+    <span class="chip">MCP user-facing surface</span>
+    <span class="chip">store-only · <strong>no new table</strong></span>
+    <span class="chip">parent <strong>task-27.1.6</strong> (v1)</span>
+  </div>
+
+  <div class="prompt-box">
+    <span class="label">What this surface does</span>
+    <p>The auto-sync loop carries your authored descriptions and names across renames automatically. When it can't — the symbol is genuinely gone — the content lands in a recoverable <span class="term" data-t="bin">re-attachment bin</span>. Today the recovery tools handle two endpoints (commit a relocation; un-delete onto the original anchor) but not the case in the middle: <em>the symbol is gone and you know the right new one.</em> This task adds four capabilities to the same two tools so that case is reachable.</p>
+    <ul class="files">
+      <li>packages/drift/src/mcp/drift_tool.ts</li>
+      <li>re_attachment_bin.ts</li>
+      <li>build_drift_server.ts</li>
+      <li>core/reextract/reanchor.ts</li>
+      <li>core/reextract/drift_observation.ts</li>
+      <li>core/resolver/{resolver_index,resolve_anchor,anchor_string}.ts</li>
+      <li>types/graph_store.ts</li>
+    </ul>
+  </div>
+
+  <h2 id="three-cases">The three strandings — and where the gap is</h2>
+  <p>When you stop working and code has moved, every preserved description gets re-resolved against the current code (the resolver cascade in <code>resolve_anchor.ts</code>). The verdict puts the description into one of three states. The recovery tools cover the two ends; this task fills the middle.</p>
+
+  <div class="cases">
+    <div class="case reloc">
+      <div class="hd"><span class="badge">A · RELOCATED</span><h3>The body moved, intact</h3></div>
+      <div class="bd">
+        <p>The symbol was renamed or moved but its body is byte-identical somewhere new. The resolver finds it by <code>content_hash</code> and <em>stages</em> the new target on the node.</p>
+        <p>The node stays <strong>live</strong>, never binned. It carries <code>drift_status:"relocated"</code> staging attributes.</p>
+        <div class="tool"><b>drift.resolve {reanchor}</b> — commit the staged move. Authored fields ride across untouched; only the anchor changes.</div>
+      </div>
+    </div>
+    <div class="case gap">
+      <div class="hd"><span class="badge">B · GONE, NEW TARGET KNOWN</span><span class="tag-new">THE GAP</span><h3>You know the right symbol</h3></div>
+      <div class="bd">
+        <p>The body changed enough that no <code>content_hash</code> match exists — the resolver says <strong>miss</strong>, so the content is binned. But <em>you</em> know which current symbol it now describes.</p>
+        <p>Today the tools can't get you there: <code>reattach</code> only un-deletes onto the <em>old, absent</em> anchor, and the listing offers no targets to pick from.</p>
+        <div class="tool"><b>drift.resolve {reattach, target}</b> <span class="tag-new">NEW</span> — bind the binned content to a chosen current symbol.</div>
+      </div>
+    </div>
+    <div class="case miss">
+      <div class="hd"><span class="badge">C · GONE, NO TARGET</span><h3>The thing is just gone</h3></div>
+      <div class="bd">
+        <p>The code it described was deleted outright and there is no successor. The content is binned, preserved, never auto-pruned.</p>
+        <p>You either keep it parked, restore it onto its original anchor as a note, or delete it.</p>
+        <div class="tool"><b>drift.resolve {reattach}</b> (bare) restores onto the original anchor · <b>{delete}</b> keeps it removed.</div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="note">
+    <span class="k">The shape of the fix</span>
+    Case A and Case C already work. The whole task is reachability of <strong>Case B</strong>: give <code>drift.resolve</code> a target argument (capability 1), give <code>drift.list</code> ranked candidate targets so you don't have to hunt (capability 2), make node-vs-edge addressing explicit (capability 3, an integrity fix), and add a primitive to walk the bin one entry at a time (capability 4).
+  </aside>
+
+  <h2 id="reattach-target">Reattach-onto-target: how authored fields thread across</h2>
+  <p>The new path reuses the exact write that Case A already trusts — <code>reanchor_node</code> — which is the single place an anchor is rewritten while every authored field is preserved. The only new work is choosing the target from an argument instead of from staged drift attributes, and restoring the soft-deleted row first.</p>
+
+  <div class="svg-holder">
+    <svg viewBox="0 0 720 300" role="img" aria-label="Flow of drift.resolve reattach-onto-target through restore and reanchor_node" width="100%" style="max-width:720px;height:auto;">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#6b7a3f"/>
+        </marker>
+        <marker id="arc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#b5683f"/>
+        </marker>
+      </defs>
+      <!-- start -->
+      <rect x="14" y="120" width="150" height="58" rx="10" fill="#fff" stroke="#b5683f" stroke-width="1.5"/>
+      <text x="89" y="143" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11.5" fill="#2b2b29">drift.resolve</text>
+      <text x="89" y="160" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#6f6857">{ id, reattach, target }</text>
+
+      <!-- decision diamond: target present? -->
+      <path d="M232 149 L290 116 L348 149 L290 182 Z" fill="#f6e2d4" stroke="#9c3b25" stroke-width="1.5"/>
+      <text x="290" y="146" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="10.5" fill="#9c3b25">target</text>
+      <text x="290" y="160" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="10.5" fill="#9c3b25">given?</text>
+      <line x1="164" y1="149" x2="230" y2="149" stroke="#6b7a3f" stroke-width="1.8" marker-end="url(#ar)"/>
+
+      <!-- NO branch: bare reattach -->
+      <rect x="232" y="222" width="240" height="50" rx="10" fill="#fff" stroke="#b8ad97" stroke-width="1.5"/>
+      <text x="352" y="242" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">store.restore(target)</text>
+      <text x="352" y="258" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="9.5" fill="#6f6857">un-delete onto ORIGINAL anchor (Case C)</text>
+      <path d="M290 182 L290 222" stroke="#b8ad97" stroke-width="1.8" marker-end="url(#ar)" fill="none"/>
+      <text x="300" y="206" font-family="ui-monospace,monospace" font-size="9.5" fill="#6f6857">no</text>
+
+      <!-- YES branch -->
+      <text x="358" y="138" font-family="ui-monospace,monospace" font-size="9.5" fill="#9c3b25">yes</text>
+      <line x1="348" y1="149" x2="408" y2="149" stroke="#b5683f" stroke-width="1.8" marker-end="url(#arc)"/>
+
+      <rect x="410" y="80" width="150" height="50" rx="10" fill="#fff" stroke="#b5683f" stroke-width="1.5"/>
+      <text x="485" y="100" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">store.restore()</text>
+      <text x="485" y="116" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="9.5" fill="#6f6857">un-delete the row</text>
+      <path d="M408 142 L430 130" stroke="#b5683f" stroke-width="1.8" marker-end="url(#arc)" fill="none"/>
+
+      <rect x="410" y="148" width="150" height="56" rx="10" fill="#faf0e8" stroke="#b5683f" stroke-width="1.8"/>
+      <text x="485" y="168" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">reanchor_node(</text>
+      <text x="485" y="182" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">store, node, target)</text>
+      <text x="485" y="197" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="9" fill="#9c3b25">rewrites anchor only</text>
+      <path d="M430 168 L432 158" stroke="#b5683f" stroke-width="0" fill="none"/>
+      <line x1="485" y1="130" x2="485" y2="148" stroke="#b5683f" stroke-width="1.8" marker-end="url(#arc)"/>
+
+      <rect x="580" y="148" width="126" height="56" rx="10" fill="#eaf0d8" stroke="#6b7a3f" stroke-width="1.5"/>
+      <text x="643" y="170" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="10.5" fill="#3c4523">description +</text>
+      <text x="643" y="184" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="10.5" fill="#3c4523">name + pin</text>
+      <text x="643" y="198" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="9.5" fill="#6b7a3f">carried across</text>
+      <line x1="560" y1="176" x2="578" y2="176" stroke="#6b7a3f" stroke-width="1.8" marker-end="url(#ar)"/>
+    </svg>
+    <div class="legend">
+      <span><i class="sw" style="border-color:var(--clay)"></i> reattach-onto-target (new)</span>
+      <span><i class="sw" style="border-color:var(--g4)"></i> bare reattach (still works)</span>
+      <span><i class="sw" style="border-color:var(--olive)"></i> preserved authored fields</span>
+    </div>
+  </div>
+
+  <p>The load-bearing guarantee lives in <code>reanchor_node</code>: it writes only the structural <code>anchor</code> column and strips the <code>drift_*</code> staging keys; <strong>every authored field, including a <code>user</code>-owned description, is copied through verbatim.</strong> Reattach-onto-target gets edit preservation for free by routing through it.</p>
+
+  <div class="code">
+    <div class="file-label"><span>packages/core/src/reextract/reanchor.ts</span><span class="loc">:21–29</span></div>
+<pre><span class="cm">/** Strips drift-staging attrs, rewrites anchor, leaves everything else exactly as it was. */</span>
+<span class="kw">export function</span> <span class="fn">reanchor_node</span>(store: GraphStore, node: NodeRow, target: Anchor): <span class="typ">void</span> {
+  <span class="kw">const</span> attributes = { ...node.attributes };
+  <span class="kw">const</span> field_ownership = { ...node.field_ownership };
+  <span class="kw">for</span> (<span class="kw">const</span> key <span class="kw">of</span> DRIFT_STAGING_KEYS) {
+    <span class="kw">delete</span> attributes[key];
+    <span class="kw">delete</span> field_ownership[key];
+  }
+<span class="hl">  store.<span class="fn">upsert_node</span>({ ...node, anchor: <span class="fn">format_anchor</span>(target), attributes, field_ownership });</span>
+}
+</pre>
+  </div>
+
+  <p>The current handler only ever calls this from <code>reanchor</code>, reading the target from staged attributes. Reattach-onto-target supplies the target from the argument instead, after un-deleting the row. The <code>target</code> must be a symbol that <em>resolves today</em> — so its <code>(symbol_path, content_hash)</code> comes from the same live index that produces candidates (next section).</p>
+
+  <div class="code">
+    <div class="file-label"><span>packages/drift/src/mcp/drift_tool.ts — current reanchor path</span><span class="loc">:88–97</span></div>
+<pre><span class="kw">function</span> <span class="fn">reanchor_resolve</span>(store: GraphStore, id: <span class="typ">string</span>): DriftResolveResult {
+  <span class="kw">const</span> observation = <span class="fn">outstanding_drift</span>(store).<span class="fn">find</span>((o) => o.node_id === id);
+  <span class="kw">const</span> node = observation === <span class="kw">undefined</span> ? <span class="kw">undefined</span> : store.<span class="fn">node</span>(id);
+  <span class="kw">if</span> (observation === <span class="kw">undefined</span> || node === <span class="kw">undefined</span>) <span class="kw">return</span> { <span class="cm">/* applied:false */</span> };
+<span class="hl">  <span class="fn">reanchor_node</span>(store, node, { symbol_path: observation.to_symbol_path, content_hash: observation.to_content_hash });</span>
+  <span class="kw">return</span> { id, resolution: <span class="str">"reanchor"</span>, target_kind: <span class="str">"node"</span>, applied: <span class="kw">true</span>, reanchored_to: observation.to_symbol_path };
+}
+</pre>
+  </div>
+
+  <aside class="note good">
+    <span class="k">Why this is safe</span>
+    Reattach-onto-target is not a new write primitive. It is <code>store.restore()</code> + the already-trusted <code>reanchor_node</code>, differing from Case A only in <em>where the target comes from</em> (an argument resolved against the live index, not staged drift attributes). The edit-preservation invariant is enforced in one place for all three resolutions.
+  </aside>
+
+  <h2 id="candidates">Candidate ranking — store-only, never a re-extraction</h2>
+  <p>A chooser shouldn't have to hunt for the right symbol. Each <code>drift.list</code> entry will carry a ranked <code>candidates[]</code>. The hard invariant: <strong>candidates are computed from the store's live anchored nodes</strong> — never by asking Ariadne to re-extract from the MCP layer. The signals all come from data already in hand on each soft-deleted bin entry and each live node's anchor.</p>
+
+  <h3>The three ranking signals</h3>
+  <table class="axes">
+    <thead><tr><th>Signal</th><th>Source (store-only)</th><th>Strength</th></tr></thead>
+    <tbody>
+      <tr><td class="dot good"><b>content_hash match</b></td><td>A live anchored node whose <code>content_hash</code> equals the binned entry's — the body survived somewhere. Equivalent to the resolver's <em>relocated</em> arm.</td><td class="dot good">strongest — same body</td></tr>
+      <tr><td class="dot mid"><b>symbol_path similarity</b></td><td>Live nodes whose <code>symbol_path</code> shares the file + chain + name stem with the stranded anchor (parsed via <code>parse_anchor</code>).</td><td class="dot mid">strong — a likely rename</td></tr>
+      <tr><td class="dot mid"><b>same file</b></td><td>Any live anchored node whose path equals the binned entry's <code>path</code>.</td><td class="dot mid">weak — narrows the field</td></tr>
+    </tbody>
+  </table>
+
+  <p>The bin entry already exposes its <code>path</code> and (via its row) its anchor; the live nodes expose theirs through <code>store.all_nodes()</code>. Building the candidate list is a join over those two — exactly what the resolver index already shapes for the cascade (<code>by_symbol_path</code>, <code>by_content_hash</code>), so the ranking can reuse the same index built from live nodes.</p>
+
+  <h3>What a ranked listing looks like</h3>
+  <div class="rank">
+    <div class="row"><div class="num">1</div><div class="c">
+      <div class="sig">src/auth/session.ts#refresh_token:function</div>
+      <div class="why">content_hash identical — the body relocated here intact</div>
+      <div class="scorebar"><i class="f" style="width:46%"></i><i class="f" style="width:30%"></i><i class="f" style="width:18%"></i></div>
+    </div></div>
+    <div class="row"><div class="num">2</div><div class="c">
+      <div class="sig">src/auth/session.ts#refresh_session:function</div>
+      <div class="why">same file + name stem "refresh" — a plausible rename</div>
+      <div class="scorebar"><i class="e" style="width:46%"></i><i class="p" style="width:30%"></i><i class="p" style="width:18%"></i></div>
+    </div></div>
+    <div class="row"><div class="num">3</div><div class="c">
+      <div class="sig">src/auth/session.ts#revoke_token:function</div>
+      <div class="why">same file only</div>
+      <div class="scorebar"><i class="e" style="width:46%"></i><i class="e" style="width:30%"></i><i class="p" style="width:18%"></i></div>
+    </div></div>
+  </div>
+
+  <p>The resolver's own cascade is the template for the ordering — it already prefers a <code>content_hash</code> match (relocated) over weaker signals, and breaks ties deterministically by sorted <code>symbol_path</code>:</p>
+
+  <div class="code">
+    <div class="file-label"><span>packages/core/src/resolver/resolve_anchor.ts — the cascade candidates echo</span><span class="loc">:18–46</span></div>
+<pre><span class="cm">// 1. exact symbol_path + content_hash   → hit</span>
+<span class="cm">// 2. symbol_path matches, body differs  → downgrade / body-changed</span>
+<span class="cm">// 3. content matches at a different path → downgrade / relocated  ← strongest candidate signal</span>
+<span class="cm">// 4. otherwise                           → miss  ← these land in the bin; this task ranks the rescue</span>
+  <span class="kw">const</span> bucket = index.by_content_hash.<span class="fn">get</span>(anchor.content_hash);
+  <span class="kw">if</span> (bucket) {
+    <span class="cm">// sorted by symbol_path → deterministic pick among identical bodies</span>
+    <span class="kw">const</span> candidate = bucket.<span class="fn">find</span>((state) => state.symbol_path !== anchor.symbol_path);
+    ...
+  }
+</pre>
+  </div>
+
+  <aside class="note warn">
+    <span class="k">Invariant — no re-extraction from the MCP layer</span>
+    Candidates must be derived from the store's already-persisted live anchored nodes. The MCP surface stays user-facing-only: it never spins up Ariadne or re-parses files (that is the <code>Stop</code>-hook → sub-agent → <code>drift-sync</code> path's job). A bin that mass-empties under a pathological file (the task-27.1.6.2 fault) is exactly the kind of cross-coupling this boundary avoids.
+  </aside>
+
+  <h2 id="kind">The <code>kind</code> disambiguator — closing an integrity hole</h2>
+  <p>Today <code>drift.resolve</code> takes only an <code>id</code> and recovers whether it's a node or an edge by looking it up in the bin (<code>re_attachment_bin(store).find(c =&gt; c.id === args.id)</code>). That rests on an <strong>unenforced assumption</strong>: that a node id can never equal an edge key. Nothing in the store contract guarantees this — <code>GraphTarget</code> is explicitly <code>{ kind: "node" | "edge"; id: string }</code> precisely because the id alone is not self-describing.</p>
+
+  <div class="step steps">
+    <div class="step"><div class="badge">!</div><div class="body">
+      <span class="where">drift_tool.ts:74, 79</span>
+      <div class="ttl">The current recovery-by-find</div>
+      <code>const entry = re_attachment_bin(store).find(c =&gt; c.id === args.id)</code> — then <code>{ kind: entry.kind, id: entry.id }</code>. A collision would silently address the wrong target kind.
+    </div></div>
+  </div>
+
+  <p>The fix is to let the caller pass <code>kind: "node" | "edge"</code> explicitly, so <code>drift.resolve</code> constructs the <code>GraphTarget</code> from the argument rather than reverse-engineering it. The store's <code>soft_delete</code> / <code>restore</code> already take a fully-qualified <code>GraphTarget</code> — the disambiguator simply stops the surface from guessing.</p>
+
+  <div class="code">
+    <div class="file-label"><span>packages/types/src/graph_store.ts — the target is already kind-qualified</span><span class="loc">:145, 198–200</span></div>
+<pre><span class="cm">/** A node or edge addressed by its stable id/key. */</span>
+<span class="kw">export type</span> <span class="typ">GraphTarget</span> = { kind: <span class="str">"node"</span> | <span class="str">"edge"</span>; id: <span class="typ">string</span> };
+
+  soft_delete(target: <span class="typ">GraphTarget</span>): <span class="typ">void</span>;
+  restore(target: <span class="typ">GraphTarget</span>): <span class="typ">void</span>;
+</pre>
+  </div>
+
+  <h2 id="resolve-next">Resolve-next — walking the bin one entry at a time</h2>
+  <p>The fourth capability is a loop primitive. Recovery is a sequence of single decisions, and a user or agent shouldn't re-read the whole bin between each. Resolve-next returns the next outstanding entry so the caller can drive a tight loop: <em>list once → resolve → get the next → resolve → …</em> until the bin is empty.</p>
+
+  <div class="svg-holder">
+    <svg viewBox="0 0 640 150" role="img" aria-label="resolve-next loop over the re-attachment bin" width="100%" style="max-width:640px;height:auto;">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#6f6857"/>
+        </marker>
+      </defs>
+      <rect x="16" y="52" width="120" height="46" rx="10" fill="#fff" stroke="#b5683f" stroke-width="1.5"/>
+      <text x="76" y="79" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#2b2b29">drift.list</text>
+      <rect x="186" y="52" width="150" height="46" rx="10" fill="#fff" stroke="#b8ad97" stroke-width="1.5"/>
+      <text x="261" y="73" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">resolve(entry,</text>
+      <text x="261" y="88" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">target?)</text>
+      <rect x="386" y="52" width="150" height="46" rx="10" fill="#fff" stroke="#6b7a3f" stroke-width="1.5"/>
+      <text x="461" y="73" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2b2b29">next outstanding</text>
+      <text x="461" y="88" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="9.5" fill="#6f6857">entry or ∅</text>
+      <rect x="572" y="52" width="52" height="46" rx="10" fill="#eaf0d8" stroke="#6b7a3f" stroke-width="1.5"/>
+      <text x="598" y="79" text-anchor="middle" font-family="ui-sans-serif,sans-serif" font-size="10.5" fill="#3c4523">done</text>
+
+      <line x1="136" y1="75" x2="184" y2="75" stroke="#6f6857" stroke-width="1.6" marker-end="url(#ar2)"/>
+      <line x1="336" y1="75" x2="384" y2="75" stroke="#6f6857" stroke-width="1.6" marker-end="url(#ar2)"/>
+      <line x1="536" y1="75" x2="570" y2="75" stroke="#6b7a3f" stroke-width="1.6" marker-end="url(#ar2)"/>
+      <text x="552" y="68" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6b7a3f">∅</text>
+      <!-- loop back -->
+      <path d="M461 98 C461 132, 261 132, 261 100" stroke="#6f6857" stroke-width="1.6" fill="none" stroke-dasharray="4 4" marker-end="url(#ar2)"/>
+      <text x="361" y="128" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6f6857">non-empty → loop</text>
+    </svg>
+  </div>
+
+  <p>The data is already there: <code>re_attachment_bin(store, scope?)</code> returns every soft-deleted non-raw row, ordered. Resolve-next is a thin read — return the head of that list (optionally the head after the just-resolved id), so the primitive adds no new state and no new table.</p>
+
+  <details>
+    <summary>Where each capability lands in the code</summary>
+    <div class="dc">
+      <div class="steps">
+        <div class="step"><div class="badge">1</div><div class="body"><span class="where">drift_tool.ts</span><div class="ttl">Reattach-onto-target</div>Extend <code>drift_resolve</code> with optional <code>target</code> + <code>kind</code>; on <code>reattach</code> with a target, <code>restore</code> then <code>reanchor_node(store, node, target)</code>. Bare <code>reattach</code> unchanged.</div></div>
+        <div class="step s2"><div class="badge">2</div><div class="body"><span class="where">re_attachment_bin.ts</span><div class="ttl">Candidate suggestions</div>Compute ranked <code>candidates[]</code> per entry from the live resolver index (content_hash / symbol_path / same-file). Store-only.</div></div>
+        <div class="step s3"><div class="badge">3</div><div class="body"><span class="where">drift_tool.ts + build_drift_server.ts</span><div class="ttl"><code>kind</code> disambiguator</div>Accept <code>kind</code> in <code>RESOLVE_INPUT</code>; build the <code>GraphTarget</code> from it instead of finding by id.</div></div>
+        <div class="step s4"><div class="badge">4</div><div class="body"><span class="where">drift_tool.ts + tool_names.ts</span><div class="ttl">Resolve-next</div>Return the next outstanding bin entry (a field on the resolve result, or a thin <code>drift.next</code>). Reads the existing bin query.</div></div>
+      </div>
+    </div>
+  </details>
+
+  <h2 id="invariants">Invariants that constrain every choice</h2>
+  <table class="axes">
+    <thead><tr><th>Invariant</th><th>What it forbids</th></tr></thead>
+    <tbody>
+      <tr><td class="dot good">User-facing-only surface</td><td>No reconcile-via-MCP creep. Reconciliation stays the <code>Stop</code>-hook → sub-agent → <code>drift-sync</code> path. The tools only read the store and apply user decisions.</td></tr>
+      <tr><td class="dot good">Additive to task-27.0 reservations</td><td>No new table, no schema migration. Candidates, <code>kind</code>, and resolve-next all read existing columns / the existing bin query.</td></tr>
+      <tr><td class="dot good">Candidates computed store-only</td><td>No Ariadne re-extraction from the MCP layer. Candidates come from the store's live anchored nodes.</td></tr>
+      <tr><td class="dot good">Bare <code>reattach</code> still works</td><td>The single-arg restore-onto-original path must not regress when <code>target</code> is absent.</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Generated from task-27.1.6.3 and the drift / core / resolver / types source it references.
+    Source paths cited inline are file:line ranges in this worktree. No external assets — opens from file://.
+  </footer>
+</main>
+
+<nav class="toc" aria-label="Section navigation">
+  <p class="t">On this page</p>
+  <a href="#three-cases">Three strandings</a>
+  <a href="#reattach-target">Reattach-onto-target</a>
+  <a href="#candidates">Candidate ranking</a>
+  <a href="#kind">kind disambiguator</a>
+  <a href="#resolve-next">Resolve-next loop</a>
+  <a href="#invariants">Invariants</a>
+  <div class="related">
+    <p class="t">In this family</p>
+    <a href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↗ task-27.1.6 overview</a>
+    <a href="task-27.1.6.1 - Drift-MCP-tool-ergonomics-try-out-and-review.drift-surface-review.html">↗ .1 surface review</a>
+    <a href="task-27.1.6.2 - Fix-re-sync-mass-bin-anonymous-symbol-paths-and-build-index-empties-on-duplicate.fault-walkthrough.html">↗ .2 mass-bin fault</a>
+  </div>
+</nav>
+</div>
+
+<script>
+// Glossary cross-highlight (progressive enhancement only).
+(function () {
+  var defs = { bin: "Soft-deleted agentic/user rows awaiting recovery — a query over the store, not a new table." };
+  document.querySelectorAll(".term").forEach(function (el) {
+    var t = el.getAttribute("data-t");
+    if (!defs[t]) return;
+    el.setAttribute("title", defs[t]);
+  });
+  // Arrival ring on TOC navigation.
+  document.querySelectorAll('nav.toc a[href^="#"]').forEach(function (a) {
+    a.addEventListener("click", function () {
+      var id = a.getAttribute("href").slice(1);
+      var tgt = document.getElementById(id);
+      if (!tgt) return;
+      tgt.style.transition = "box-shadow .5s";
+      tgt.style.boxShadow = "0 -22px 0 -18px var(--clay)";
+      setTimeout(function () { tgt.style.boxShadow = "none"; }, 700);
+    });
+  });
+})();
+</script>
+</body>
+</html>
