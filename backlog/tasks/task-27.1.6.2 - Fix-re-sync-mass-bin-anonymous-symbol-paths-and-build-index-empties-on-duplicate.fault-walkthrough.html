@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension companion for task-27.1.6.2: the two-hop re-sync mass-bin fault.
+     Generated from the task doc + the four source files in the task-27.1.6.2 worktree:
+       packages/core/src/resolver/from_ariadne.ts (walk_callables, the two emitters)
+       packages/drift/src/reconcile/ariadne_adapter.ts (build_index — the broken try/catch)
+       packages/core/src/resolver/resolver_index.ts (build_resolver_index — the throw)
+       packages/core/src/reextract/re_extract.ts (miss -> soft_delete into the bin)
+     Present-tense; describes the fault and the fix as they ARE in the code. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The re-sync mass-bin fault — two anonymous callbacks empty the index (task-27.1.6.2)</title>
+<style>
+  :root {
+    --ivory: #f7f4ec; --oat: #ece5d6; --slate: #2c3038; --ink: #20242b;
+    --clay: #b5683e; --olive: #6c7a3b; --rust: #9e3b2e;
+    --g1: #fbfaf5; --g2: #efeadd; --g3: #d9d2c1; --g4: #aaa492; --g5: #6c6759;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --r: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ivory); color: var(--slate); font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 40px 24px 100px; display: grid; grid-template-columns: minmax(0,1fr) 232px; gap: 40px; }
+  main { min-width: 0; }
+  .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 11px; color: var(--g5); margin: 0 0 10px; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 32px; line-height: 1.13; margin: 0 0 14px; color: var(--ink); }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 23px; margin: 50px 0 14px; color: var(--ink); scroll-margin-top: 24px; }
+  h3 { font-family: var(--serif); font-weight: 600; font-size: 17px; margin: 26px 0 8px; color: var(--ink); }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--g5); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; font-family: var(--mono); font-size: 11px; }
+  .pill { background: var(--oat); border: 1px solid var(--g3); border-radius: 999px; padding: 3px 11px; color: var(--g5); }
+  .pill strong { color: var(--slate); font-weight: 600; }
+  .pill.bug { background: var(--rust); color: #fff; border-color: var(--rust); }
+  .pill.bug strong { color: #fff; }
+
+  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1); border-radius: var(--r); padding: 14px 16px; margin: 22px 0; }
+  .prompt-box .label { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 8px; }
+  .prompt-box ul { margin: 6px 0 0; padding-left: 18px; }
+  .prompt-box li { font-size: 12.5px; margin: 3px 0; }
+  .prompt-box code { font-family: var(--mono); font-size: 12px; color: var(--clay); }
+
+  .callout { border-radius: var(--r); padding: 14px 18px; margin: 20px 0; border-left: 4px solid var(--clay); background: #f3ece2; }
+  .callout.olive { border-left-color: var(--olive); background: #eef0e3; }
+  .callout.rust { border-left-color: var(--rust); background: #f4e6e2; }
+  .callout .k { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); display: block; margin-bottom: 6px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .invert { background: var(--slate); color: var(--ivory); border-left-color: var(--clay); }
+  .invert .k { color: var(--g4); }
+  .invert code { color: #e7c3a6; }
+  .invert strong { color: #fff; }
+
+  code, .mono { font-family: var(--mono); }
+  p code, li code, td code { font-family: var(--mono); font-size: 12.5px; background: var(--oat); border: 1px solid var(--g3); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
+
+  .diagram-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); padding: 10px; }
+  svg { display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-family: var(--mono); font-size: 11px; color: var(--g5); margin: 8px 2px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 22px; height: 0; border-top: 2px solid; display: inline-block; }
+  .legend i.solid { border-top-style: solid; border-color: var(--g5); }
+  .legend i.fail { border-top-style: dashed; border-color: var(--rust); }
+  .legend i.ok { border-top-style: solid; border-color: var(--olive); }
+
+  /* numbered chain steps */
+  .steps { margin: 18px 0; }
+  .step { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--g2); }
+  .step:last-child { border-bottom: none; }
+  .badge { width: 30px; height: 30px; border-radius: 50%; background: var(--g4); color: #fff; font-family: var(--mono); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .badge.hot { background: var(--rust); }
+  .step h3 { margin: 1px 0 4px; font-size: 15.5px; }
+  .step p { font-size: 13.5px; margin: 0 0 4px; }
+  .step p:last-child { margin-bottom: 0; }
+  .loc { font-family: var(--mono); font-size: 10.5px; color: var(--g5); }
+  .loc .rng { color: var(--g4); }
+
+  /* code panels */
+  .code { background: var(--ink); border-radius: var(--r); overflow: hidden; margin: 14px 0; border: 1px solid #11141a; }
+  .code .file-label { font-family: var(--mono); font-size: 11px; color: var(--g4); padding: 8px 14px; border-bottom: 1px solid #2f343d; background: #191c22; }
+  .code pre { margin: 0; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.62; color: #d7dae0; white-space: pre; }
+  .code .kw { color: #c98a5e; } .code .str { color: #9aab63; } .code .fn { color: #7fb0c4; }
+  .code .cm { color: #6a7180; font-style: italic; } .code .dim { color: #565d6a; }
+  .code .hl { background: rgba(181,104,62,.20); display: inline-block; width: 100%; }
+  .code .hl-rust { background: rgba(158,59,46,.26); display: inline-block; width: 100%; }
+  .code .hl-ok { background: rgba(108,122,59,.22); display: inline-block; width: 100%; }
+  .code .add { background: rgba(108,122,59,.22); display: inline-block; width: 100%; }
+  .code .del { background: rgba(158,59,46,.24); display: inline-block; width: 100%; text-decoration: line-through; text-decoration-color: rgba(158,59,46,.7); }
+  .annot { font-family: var(--mono); font-size: 10px; color: #e7b08c; }
+
+  /* AC checklist */
+  .check-list { list-style: none; margin: 16px 0; padding: 0; }
+  .check-list li { display: grid; grid-template-columns: 24px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--g2); align-items: start; }
+  .check-list li:last-child { border-bottom: none; }
+  .check { width: 18px; height: 18px; border: 2px solid var(--g4); border-radius: 5px; margin-top: 2px; }
+  .check-list .n { font-family: var(--mono); font-size: 11px; color: var(--clay); font-weight: 700; }
+  .check-list .ac-body { font-size: 13.5px; }
+  .check-list .ac-body strong { color: var(--ink); }
+
+  table.fx { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  table.fx th, table.fx td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--g2); }
+  table.fx th { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--g5); }
+  table.fx code { font-size: 11.5px; }
+  table.fx .dup { color: var(--rust); font-weight: 600; }
+
+  aside.toc { position: sticky; top: 28px; align-self: start; }
+  aside.toc .toc-h { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 10px; }
+  aside.toc nav a { display: block; text-decoration: none; color: var(--g5); font-size: 13px; padding: 5px 0; border-left: 2px solid transparent; padding-left: 10px; }
+  aside.toc nav a:hover { color: var(--clay); border-left-color: var(--clay); }
+  aside.toc .files { margin-top: 22px; }
+  aside.toc .files code { display: block; font-size: 10.5px; color: var(--g5); padding: 3px 0; }
+
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--g3); font-family: var(--mono); font-size: 11px; color: var(--g4); }
+  footer a { color: var(--clay); }
+
+  @media (max-width: 920px) {
+    .wrap { grid-template-columns: 1fr; }
+    aside.toc { display: none; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+    <header>
+      <p class="eyebrow">task-27.1.6.2 · bug · drift / resolver / preservation</p>
+      <h1>Two anonymous callbacks in one file empty the resolver index — and re-sync bins every preserved description</h1>
+      <p class="lede">A live re-sync of a real repo soft-deletes valid, current <code>agentic.description</code> side-nodes into the re-attachment bin. In the dogfood run that surfaced it, 25 of 29 descriptions were binned in a single re-sync of unchanged-meaning code. The fault is a two-step chain, both halves in the code&rarr;diagram preservation path.</p>
+      <div class="meta">
+        <span class="pill bug">status <strong>To Do</strong></span>
+        <span class="pill">priority <strong>high</strong></span>
+        <span class="pill">parent <strong>task-27.1.6</strong></span>
+        <span class="pill">dogfood <strong>25 / 29 binned</strong></span>
+        <span class="pill">diagnostic <strong>#&lt;anonymous&gt;:function &times;6</strong></span>
+      </div>
+    </header>
+
+    <div class="prompt-box">
+      <p class="label">Read against these source files</p>
+      <ul>
+        <li><code>packages/core/src/resolver/from_ariadne.ts</code> — <code>walk_callables</code> + the two emitters</li>
+        <li><code>packages/drift/src/reconcile/ariadne_adapter.ts</code> — <code>build_index</code>, the misleading try/catch</li>
+        <li><code>packages/core/src/resolver/resolver_index.ts</code> — <code>build_resolver_index</code>, the throw</li>
+        <li><code>packages/core/src/reextract/re_extract.ts</code> — how a <code>miss</code> &rarr; <code>soft_delete</code> into the bin</li>
+      </ul>
+    </div>
+
+    <div class="callout rust">
+      <span class="k">The blast radius</span>
+      <p>The data is <strong>recoverable</strong> — it lands in the bin, not deleted — but a re-sync must never strand content whose anchor still resolves. One pathological file silently empties the index for the <em>whole changed set</em>, so <em>every</em> preserved, anchored description in that re-sync misses and is binned. This is the unimplemented half of task-27.1.6's review finding&nbsp;C.</p>
+    </div>
+
+    <h2 id="chain">The two-hop failure chain</h2>
+    <p>The trigger is mundane: a file with two or more bodied anonymous callbacks. Ariadne names each one <code>&lt;anonymous&gt;</code>, so they derive the <em>same</em> <code>symbol_path</code>. From there a single duplicate cascades, through a misrouted <code>catch</code>, into a mass soft-delete.</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 360" width="980" height="360" role="img"
+        aria-label="Two anonymous callbacks derive the same symbol_path; walk_callables emits a duplicate; build_resolver_index throws; build_index's outer catch returns an empty index; re_extract resolves every preserved description against the empty index, gets miss for all, and soft-deletes them into the re-attachment bin.">
+        <defs>
+          <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+          <marker id="ar-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+        </defs>
+        <g font-family="ui-sans-serif,system-ui" font-size="12" fill="#2c3038" text-anchor="middle">
+
+          <!-- node 1: file with 2 anon callbacks -->
+          <rect x="20" y="36" width="186" height="64" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+          <text x="113" y="60" font-weight="600">file: 2 anon callbacks</text>
+          <text x="113" y="78" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">arr.map(() =&gt; …)</text>
+          <text x="113" y="91" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">on(() =&gt; …)</text>
+
+          <!-- node 2: duplicate symbol_path -->
+          <rect x="20" y="146" width="186" height="64" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+          <text x="113" y="170" font-weight="600">duplicate symbol_path</text>
+          <text x="113" y="188" font-family="ui-monospace,monospace" font-size="8.5" fill="#8a3528">&lt;file&gt;#&lt;anonymous&gt;:function</text>
+          <text x="113" y="201" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528">×2 (collision)</text>
+          <path d="M113 100 L113 144" fill="none" stroke="#9e3b2e" stroke-width="1.8" marker-end="url(#ar-rust)"/>
+          <text x="200" y="126" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528" text-anchor="start">walk_callables emits both</text>
+
+          <!-- node 3: build_resolver_index throws -->
+          <rect x="20" y="256" width="186" height="64" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+          <text x="113" y="280" font-weight="600">build_resolver_index</text>
+          <text x="113" y="297" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528">throws "duplicate</text>
+          <text x="113" y="309" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528">symbol_path"</text>
+          <path d="M113 210 L113 254" fill="none" stroke="#9e3b2e" stroke-width="1.8" marker-end="url(#ar-rust)"/>
+
+          <!-- node 4: outer catch -> empty index -->
+          <rect x="300" y="256" width="200" height="64" rx="10" fill="#2c3038" stroke="#11141a" stroke-width="1.5"/>
+          <text x="400" y="280" font-weight="600" fill="#f7f4ec">build_index outer catch</text>
+          <text x="400" y="297" font-family="ui-monospace,monospace" font-size="9" fill="#e7b08c">returns build_resolver_index([])</text>
+          <text x="400" y="309" font-family="ui-monospace,monospace" font-size="9.5" fill="#e7a193" font-weight="700">→ EMPTY index</text>
+          <path d="M206 288 L298 288" fill="none" stroke="#9e3b2e" stroke-width="1.8" marker-end="url(#ar-rust)"/>
+
+          <!-- node 5: re_extract resolves all -->
+          <rect x="554" y="146" width="200" height="64" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+          <text x="654" y="170" font-weight="600">re_extract</text>
+          <text x="654" y="187" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">resolve every preserved</text>
+          <text x="654" y="199" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">anchored node vs index</text>
+          <path d="M500 276 C540 250 540 215 560 200" fill="none" stroke="#9e3b2e" stroke-width="1.8" marker-end="url(#ar-rust)"/>
+
+          <!-- node 6: miss for all -->
+          <rect x="554" y="36" width="200" height="56" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+          <text x="654" y="60" font-weight="600">miss — for ALL</text>
+          <text x="654" y="78" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528">empty index ⇒ nothing resolves</text>
+          <path d="M654 146 L654 94" fill="none" stroke="#9e3b2e" stroke-width="1.8" marker-end="url(#ar-rust)"/>
+
+          <!-- node 7: bin -->
+          <rect x="800" y="36" width="160" height="56" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+          <text x="880" y="58" font-weight="600">re-attachment bin</text>
+          <text x="880" y="76" font-family="ui-monospace,monospace" font-size="8.5" fill="#8a3528">soft_delete the lot</text>
+          <path d="M754 64 L798 64" fill="none" stroke="#9e3b2e" stroke-width="1.8" marker-end="url(#ar-rust)"/>
+
+          <!-- the would-be happy outcome (what should happen) -->
+          <rect x="800" y="146" width="160" height="64" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="880" y="168" font-weight="600" fill="#4f5630">should: hit</text>
+          <text x="880" y="186" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">symbol_path resolves</text>
+          <text x="880" y="199" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">description preserved</text>
+          <path d="M754 178 L798 178" fill="none" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar-g)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i class="fail"></i> the actual fault path (rust)</span>
+      <span><i class="ok"></i> the outcome the fix restores (olive, dashed)</span>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="badge hot">1</div>
+        <div>
+          <h3>Two bodied anonymous callbacks share one <code>symbol_path</code></h3>
+          <p>Ariadne gives an unnamed callable <code>name === "&lt;anonymous&gt;"</code>. <code>walk_callables</code> emits one record per bodied callable including these, so a file with &ge;2 anon callbacks derives two identical <code>&lt;file&gt;#&lt;anonymous&gt;:function</code> paths. An unnamed callback has no stable, addressable identity — it should not be a resolver symbol at all.</p>
+          <p class="loc">packages/core/src/resolver/from_ariadne.ts <span class="rng">:124&ndash;154 (walk_callables), :157, :193 (the two emitters)</span></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge hot">2</div>
+        <div>
+          <h3><code>build_resolver_index</code> throws on the duplicate</h3>
+          <p>The index requires <code>symbol_path</code> to be unique. Two indistinguishable symbols are treated as a derivation defect to fix upstream — never silently overwritten, because that would make the hit / body-changed arms depend on input order. So it throws <code>duplicate symbol_path in resolver index</code>.</p>
+          <p class="loc">packages/core/src/resolver/resolver_index.ts <span class="rng">:24&ndash;49 (throw at :30&ndash;32)</span></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge hot">3</div>
+        <div>
+          <h3><code>build_index</code>'s <em>outer</em> <code>catch</code> swallows it into an empty index</h3>
+          <p>The comment claims <code>build_index</code> isolates a thrower per file. It does not. The inner <code>try</code> wraps <code>resolver_symbols_from_ariadne</code>, which <em>never throws</em>; the real throw — <code>build_resolver_index(symbols)</code> — sits in the <strong>outer</strong> <code>try</code>, whose <code>catch</code> returns <code>build_resolver_index([])</code>. One duplicate anywhere in the set collapses the whole index to empty.</p>
+          <p class="loc">packages/drift/src/reconcile/ariadne_adapter.ts <span class="rng">:72&ndash;89 (build_index)</span></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge hot">4</div>
+        <div>
+          <h3><code>re_extract</code> resolves every preserved description against the empty index</h3>
+          <p>Against an empty index every anchored node returns <code>miss</code>. A <code>miss</code> means the symbol is both renamed and re-bodied, so <code>reconcile_node</code> calls <code>store.soft_delete(target)</code> — moving the description into the re-attachment bin. With the index empty, that happens to the entire changed set at once.</p>
+          <p class="loc">packages/core/src/reextract/re_extract.ts <span class="rng">:88 (build_index), :107&ndash;133 (reconcile_node, miss &rarr; soft_delete)</span></p>
+        </div>
+      </div>
+    </div>
+
+    <h2 id="evidence">The collision, concretely</h2>
+    <p>What <code>walk_callables</code> hands the index when a file holds two anonymous functions: identical paths, distinct content. The index rejects the second one and aborts.</p>
+    <table class="fx">
+      <thead><tr><th>callable</th><th>name from Ariadne</th><th>derived symbol_path</th><th>indexed?</th></tr></thead>
+      <tbody>
+        <tr><td><code>function handleA()</code></td><td><code>handleA</code></td><td><code>x.ts#handleA:function</code></td><td>ok</td></tr>
+        <tr><td><code>items.map(() =&gt; …)</code></td><td><code>&lt;anonymous&gt;</code></td><td><code>x.ts#&lt;anonymous&gt;:function</code></td><td>ok (first)</td></tr>
+        <tr><td><code>bus.on(() =&gt; …)</code></td><td><code>&lt;anonymous&gt;</code></td><td class="dup"><code>x.ts#&lt;anonymous&gt;:function</code></td><td class="dup">THROWS — duplicate</td></tr>
+      </tbody>
+    </table>
+    <p>From the live dogfood diagnostic over the changed code files: <code>symbols: 115&nbsp;&nbsp;distinct: 55&nbsp;&nbsp;DUPLICATES: [ &lt;file&gt;#&lt;anonymous&gt;:function &times;6 ]</code>, then <code>build_resolver_index THREW</code>. The store afterward: <code>agentic.description</code> total=29, live=4, binned=25.</p>
+
+    <h2 id="trycatch">The misleading try/catch in <code>build_index</code> today</h2>
+    <p>The whole defect lives in which <code>try</code> the throwing call sits in. The annotations mark exactly where the throw lands and where it gets swallowed.</p>
+    <div class="code">
+      <div class="file-label">packages/drift/src/reconcile/ariadne_adapter.ts &mdash; build_index (current, faulty)</div>
+<pre><span class="kw">build_index</span>(file_set) {
+  <span class="cm">// `build_resolver_index` throws on a duplicate symbol_path (a derivation defect in one</span>
+  <span class="cm">// file); a single pathological file must not break the hook, so index file-by-file</span>
+  <span class="cm">// and skip a thrower.   <span class="annot">← the comment describes a per-file skip that never happens</span></span>
+  <span class="kw">const</span> symbols = [];
+  <span class="kw">for</span> (<span class="kw">const</span> input <span class="kw">of</span> <span class="fn">file_inputs</span>(project, file_set)) {
+<span class="hl">    <span class="kw">try</span> {                                                       <span class="annot">← INNER try</span></span>
+<span class="hl">      symbols.<span class="fn">push</span>(...<span class="fn">resolver_symbols_from_ariadne</span>([input]));   <span class="annot">← this NEVER throws</span></span>
+    } <span class="kw">catch</span> {
+      <span class="cm">// skip the offending file's symbols; the rest of the set still reconciles.</span>
+    }
+  }
+  <span class="kw">try</span> {                                                         <span class="annot">← OUTER try</span>
+<span class="hl-rust">    <span class="kw">return</span> <span class="fn">build_resolver_index</span>(symbols);                      <span class="annot">← the REAL throw lands here</span></span>
+  } <span class="kw">catch</span> {
+    <span class="cm">// A cross-file duplicate: fall back to an empty index rather than aborting.</span>
+<span class="hl-rust">    <span class="kw">return</span> <span class="fn">build_resolver_index</span>([]);                          <span class="annot">← swallowed → EMPTY index for the whole set</span></span>
+  }
+}</pre>
+    </div>
+    <div class="callout">
+      <span class="k">Why the tests shipped green</span>
+      <p>The committed <code>build_index</code> <em>describes</em> a per-file skip in its comment but never does it, and the suite never exercised a file with multiple anonymous callbacks. No duplicate was ever produced in a test, so the outer <code>catch</code> never fired and the empty-index fallback was never observed.</p>
+    </div>
+
+    <h2 id="fix">The two-part fix &mdash; and why both halves are needed</h2>
+    <p>Skip-at-source removes the duplicates entirely; dedup-in-<code>build_index</code> is defense-in-depth so a residual duplicate can never empty the index again. Either half alone leaves a hole.</p>
+
+    <h3>Part 1 &mdash; skip the <code>&lt;anonymous&gt;</code> sentinel in <code>walk_callables</code></h3>
+    <p>One guard in the shared traversal removes anonymous callables from <em>both</em> <code>resolver_symbols_from_ariadne</code> and <code>anchored_symbols_from_ariadne</code> at the source — no colliding paths, and no pointless <code>&lt;anonymous&gt;</code> descriptions for unaddressable callbacks.</p>
+    <div class="code">
+      <div class="file-label">packages/core/src/resolver/from_ariadne.ts &mdash; walk_callables (proposed)</div>
+<pre><span class="kw">function</span> <span class="fn">walk_callables</span>(file, visit) {
+  <span class="kw">const</span> <span class="fn">visit_named</span> = (def, enclosing) =&gt; {
+<span class="add">    <span class="cm">// Anonymous callables have no rename-stable identity and collide in symbol_path</span></span>
+<span class="add">    <span class="cm">// space; they are never anchorable resolver symbols.</span></span>
+<span class="add">    <span class="kw">if</span> (def.name === <span class="str">"&lt;anonymous&gt;"</span>) <span class="kw">return</span>;</span>
+<span class="add">    <span class="fn">visit</span>(def, enclosing);</span>
+  };
+  <span class="kw">for</span> (<span class="kw">const</span> def <span class="kw">of</span> file.definitions) {
+    <span class="cm">// … each arm now calls visit_named(...) instead of visit(...)</span>
+  }
+}</pre>
+    </div>
+    <p class="loc">Confirm the exact sentinel Ariadne emits before pinning the literal. The diagnostic shows <code>&lt;anonymous&gt;</code>.</p>
+
+    <h3>Part 2 &mdash; dedup by <code>symbol_path</code> before <code>build_resolver_index</code></h3>
+    <p>Even with Part 1, a future derivation defect could re-introduce a duplicate. Dedup the accumulated <code>ResolverSymbol[]</code> first-wins, deterministic, before building — so a duplicate can never reach the throwing path and empty the index. Log any drop (AC#5: no silent narrowing). The misleading per-file try/catch is removed.</p>
+    <div class="code">
+      <div class="file-label">packages/drift/src/reconcile/ariadne_adapter.ts &mdash; build_index (proposed)</div>
+<pre><span class="kw">build_index</span>(file_set) {
+<span class="del">  const symbols = [];</span>
+<span class="del">  for (const input of file_inputs(project, file_set)) {</span>
+<span class="del">    try { symbols.push(...resolver_symbols_from_ariadne([input])); } catch {}</span>
+<span class="del">  }</span>
+<span class="del">  try { return build_resolver_index(symbols); }</span>
+<span class="del">  catch { return build_resolver_index([]); }</span>
+<span class="add">  <span class="kw">const</span> symbols = <span class="fn">resolver_symbols_from_ariadne</span>(<span class="fn">file_inputs</span>(project, file_set));</span>
+<span class="add">  <span class="kw">const</span> seen = <span class="kw">new</span> Set&lt;<span class="kw">string</span>&gt;();</span>
+<span class="add">  <span class="kw">const</span> deduped = [];</span>
+<span class="add">  <span class="kw">for</span> (<span class="kw">const</span> sym <span class="kw">of</span> symbols) {</span>
+<span class="add">    <span class="kw">const</span> path = <span class="fn">derive_symbol_path</span>(sym);          <span class="cm">// first-wins, deterministic order</span></span>
+<span class="add">    <span class="kw">if</span> (seen.<span class="fn">has</span>(path)) { <span class="fn">log_drop</span>(path); <span class="kw">continue</span>; }  <span class="cm">// AC#5: report, never silently cap</span></span>
+<span class="add">    seen.<span class="fn">add</span>(path); deduped.<span class="fn">push</span>(sym);</span>
+<span class="add">  }</span>
+<span class="add">  <span class="kw">return</span> <span class="fn">build_resolver_index</span>(deduped);          <span class="cm">// can no longer throw on a duplicate</span></span>
+}</pre>
+    </div>
+
+    <div class="callout invert">
+      <span class="k">Why both, not one</span>
+      <p><strong>Part 1 alone</strong> stops <em>this</em> collision but leaves <code>build_index</code> still able to wipe the index if any other source of duplicates appears — the mass-bin remains one derivation bug away. <strong>Part 2 alone</strong> keeps the index populated but still emits meaningless <code>&lt;anonymous&gt;</code> descriptions for unaddressable callbacks, and arbitrarily drops one of two real anon symbols. Together: no anonymous symbols are ever produced, <em>and</em> a residual duplicate can never empty the index again.</p>
+    </div>
+
+    <h2 id="ac">Acceptance criteria</h2>
+    <p>The five conditions that close the bug. The regression test (AC#4) is the safeguard that the green-test gap can never recur.</p>
+    <ul class="check-list">
+      <li><span class="check"></span><span class="ac-body"><span class="n">#1</span> <strong>No anonymous resolver symbols.</strong> Both emitters skip callables with no stable name (<code>name === "&lt;anonymous&gt;"</code>), so they never emit colliding <code>&lt;file&gt;#&lt;anonymous&gt;:…</code> records and never produce descriptions for unaddressable callbacks.</span></li>
+      <li><span class="check"></span><span class="ac-body"><span class="n">#2</span> <strong><code>build_index</code> never empties on a duplicate.</strong> A residual duplicate anywhere in the file set must not collapse the index to empty — dedup by <code>symbol_path</code> (deterministic, first-wins) before <code>build_resolver_index</code>, so every non-colliding symbol still resolves.</span></li>
+      <li><span class="check"></span><span class="ac-body"><span class="n">#3</span> <strong>Re-sync preserves resolvable descriptions.</strong> Re-syncing a file with multiple anonymous callbacks does not soft-delete any <code>agentic.description</code> whose <code>symbol_path:content_hash</code> still resolves; only genuine relocations / misses are staged or binned.</span></li>
+      <li><span class="check"></span><span class="ac-body"><span class="n">#4</span> <strong>Regression test.</strong> A fixture with &ge;2 bodied anonymous functions plus a named, described symbol drives a re-sync and asserts (a) <code>build_index</code> returns a populated index, and (b) the named symbol's description survives (not binned).</span></li>
+      <li><span class="check"></span><span class="ac-body"><span class="n">#5</span> <strong>No silent narrowing.</strong> If dedup drops a duplicate it is logged / reported (never a silent cap), consistent with the rest of the engine.</span></li>
+    </ul>
+
+    <div class="callout olive">
+      <span class="k">Out of scope — do not conflate</span>
+      <p>The call-graph layer legitimately includes <code>&lt;anonymous&gt;</code> <em>entry points</em>, so flow detection still emits small <code>…#&lt;anonymous&gt;:function</code> flows — deterministic v1 grouping noise, the agent-judged umbrella concern (task-27.1.7), separate from this resolver / preservation fix. The <code>Stop</code>-hook trigger UX is task-27.1.6.1.</p>
+    </div>
+
+    <footer>
+      Companion for task-27.1.6.2 · generated from from_ariadne.ts, ariadne_adapter.ts, resolver_index.ts, re_extract.ts in the worktree.<br>
+      Code panels are verbatim today / proposed; line ranges cite the source at generation time.
+    </footer>
+  </main>
+
+  <aside class="toc">
+    <p class="toc-h">On this page</p>
+    <nav>
+      <a href="#chain">The two-hop chain</a>
+      <a href="#evidence">The collision, concretely</a>
+      <a href="#trycatch">The misleading try/catch</a>
+      <a href="#fix">The two-part fix</a>
+      <a href="#ac">Acceptance criteria</a>
+    </nav>
+    <div class="files">
+      <p class="toc-h">Source</p>
+      <code>resolver/from_ariadne.ts</code>
+      <code>reconcile/ariadne_adapter.ts</code>
+      <code>resolver/resolver_index.ts</code>
+      <code>reextract/re_extract.ts</code>
+    </div>
+  </aside>
+</div>
+</body>
+</html>

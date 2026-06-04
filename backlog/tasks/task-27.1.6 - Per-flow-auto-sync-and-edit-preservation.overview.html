@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- task-family-overview for task-27.1.6 (Per-flow auto-sync + edit preservation), the v1 ship point.
-     Frames the parent's intention and routes to the sub-task companions (27.1.6.1, 27.1.6.2).
+     Frames the parent's intention and routes to the sub-task companions (27.1.6.1, .2, .3, .4).
      Cross-file hrefs are sibling filenames only; missing companions render as not-yet-generated rows.
      Re-scanned the backlog/tasks/ dir for child companions on generation. Present-tense. -->
 <html lang="en">
@@ -103,18 +103,19 @@
     <header>
       <p class="eyebrow">task-27.1.6 · family overview · v1 ship point</p>
       <h1>Per-flow auto-sync &amp; edit preservation — the live loop</h1>
-      <p class="lede">Build a flow's diagram the first time you work on its code, keep it in step as you edit, and always preserve anything you authored. This hub frames the parent's intention and routes you to each sub-task companion.</p>
+      <p class="lede">Build a flow's diagram the first time you work on its code, keep it in step as you edit, and always preserve anything you authored. This page explains the parent task's intention and links to the detail for each sub-task.</p>
       <div class="meta">
         <span class="pill done">parent <strong>Done</strong></span>
         <span class="pill">entry point <strong>Stop hook → sub-agent → drift-sync</strong></span>
         <span class="pill">first target <strong>a skill's flow</strong></span>
         <span class="pill">model <strong>auto-sync, not a review queue</strong></span>
+        <span class="pill">children <strong>4</strong></span>
       </div>
     </header>
 
     <div class="prompt-box">
-      <p class="label">This overview frames</p>
-      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter) and <code>task-27.1.6.2</code> (re-sync mass-bin bug). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
+      <p class="label">This overview covers</p>
+      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), and <code>task-27.1.6.4</code> (standalone-doc flows). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
     </div>
 
     <div class="callout invert">
@@ -172,7 +173,7 @@
     </div>
 
     <h2 id="fit">How the sub-tasks fit together</h2>
-    <p>With the parent <strong>Done</strong>, the children are the <em>come-back-and-make-it-real</em> pass: prove the recovery surface against a genuine stranding, sand the hook's trigger UX, and fix a re-sync bug the live loop surfaced.</p>
+    <p>With the parent <strong>Done</strong>, the children are the <em>come-back-and-make-it-real</em> pass: prove and sand the recovery surface, fix a re-sync bug the live loop surfaced, then extend recovery and reach beyond code into standalone docs.</p>
     <div class="steps">
       <div class="step">
         <div class="badge">1</div>
@@ -195,7 +196,23 @@
         <div>
           <span class="id">task-27.1.6.2</span>
           <h3>Fix the re-sync mass-bin bug</h3>
-          <p>A separate defect the live loop exposed: anonymous <code>symbol_path</code> collisions empty the resolver index, so a re-sync mass-bins valid descriptions. Out of scope for the 27.1.6.1 UX review — its own bug.</p>
+          <p>A separate defect the live loop exposed: two anonymous callbacks in one file collide in <code>symbol_path</code> space, <code>build_index</code> empties the resolver index on the duplicate, and re-sync then mass-bins every preserved description (25 of 29 in the dogfood run). Skip <code>&lt;anonymous&gt;</code> at the source; dedup before building as defense-in-depth.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">4</div>
+        <div>
+          <span class="id">task-27.1.6.3</span>
+          <h3>Richer drift recovery</h3>
+          <p>Build on the kept <code>drift.*</code> surface: reattach onto a new target, candidate suggestions, a kind disambiguator, and a resolve-next loop — the follow-ups spun out of 27.1.6.1's review.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">5</div>
+        <div>
+          <span class="id">task-27.1.6.4</span>
+          <h3>Standalone-doc flows</h3>
+          <p>Doc nodes and doc&harr;code linkage so unconnected <code>.md</code> edits can be reconciled — extends the loop past code-only flows into documentation.</p>
         </div>
       </div>
     </div>
@@ -225,9 +242,39 @@
 
     <div class="doc-group">
       <div class="gh">
-        <span class="status-dot pending"></span>
+        <span class="status-dot live"></span>
         <span class="id">task-27.1.6.2</span>
         <span class="title">Fix re-sync mass-bin (anonymous symbol_path / build_index empties)</span>
+      </div>
+      <div class="doc-links">
+        <a class="doc-link" href="task-27.1.6.2 - Fix-re-sync-mass-bin-anonymous-symbol-paths-and-build-index-empties-on-duplicate.fault-walkthrough.html">
+          <span class="status-dot live"></span>
+          <span class="lbl"><b>Two-hop fault walkthrough</b><small>failure-chain diagram · the misleading try/catch · two-part fix · AC checklist</small></span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="doc-group">
+      <div class="gh">
+        <span class="status-dot pending"></span>
+        <span class="id">task-27.1.6.3</span>
+        <span class="title">Richer drift recovery — reattach-onto-target, candidates, resolve-next</span>
+      </div>
+      <div class="doc-links">
+        <div class="pending-row">
+          <span class="status-dot pending"></span>
+          <span>No companion generated yet</span>
+          <span class="ng">not yet generated</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-group">
+      <div class="gh">
+        <span class="status-dot pending"></span>
+        <span class="id">task-27.1.6.4</span>
+        <span class="title">Standalone-doc flows — doc nodes and doc&harr;code linkage</span>
       </div>
       <div class="doc-links">
         <div class="pending-row">
@@ -240,12 +287,12 @@
 
     <div class="callout">
       <span class="k">Reading order</span>
-      <p>Start with the <strong>drift.* surface review</strong> (the decision you confirm), then the <strong>Stop-hook filter</strong> (the one focused code change). Both are scoped to task-27.1.6.1.</p>
+      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work: the <strong>drift.* surface review</strong> (the decision confirmed), then the <strong>Stop-hook filter</strong> (the focused trigger change), then the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read it once you know what the loop preserves and where the bin sits).</p>
     </div>
 
     <footer>
       task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation.<br>
-      Companions present: 2 (both under task-27.1.6.1) · task-27.1.6.2: none yet.
+      Companions present: 3 — two under task-27.1.6.1, one under task-27.1.6.2 · task-27.1.6.3 / .4: none yet.
     </footer>
   </main>
 
