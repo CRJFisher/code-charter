@@ -8,6 +8,8 @@ export { make_ariadne_adapter } from "./ariadne_adapter";
 export type { AriadneAdapter } from "./ariadne_adapter";
 export { HeadlessProject, is_supported_source } from "./headless_project";
 export { find_skill_root, ingest_skill_dir } from "./skill_dir";
+export { filter_flow_relevant, is_flow_relevant } from "./flow_relevance";
+export type { FlowRelevancePartition } from "./flow_relevance";
 export { affected_persisted_flows } from "./affected_flows";
 export { read_persisted_flow, read_persisted_flows, write_flow } from "./flow_store";
 export type { PersistedFlow, WriteFlowArgs } from "./flow_store";

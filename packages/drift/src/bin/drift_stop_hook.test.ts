@@ -17,6 +17,13 @@ const TRANSCRIPT_LINE = JSON.stringify({
   },
 });
 
+function edit_line(file_path: string, id: string): string {
+  return JSON.stringify({
+    type: "assistant",
+    message: { content: [{ type: "tool_use", name: "Edit", id, input: { file_path } }] },
+  });
+}
+
 function run_stop_hook(payload: Record<string, unknown>): { status: number | null; stdout: string } {
   const result = spawnSync("node", [BIN], { input: JSON.stringify(payload), encoding: "utf8" });
   return { status: result.status, stdout: result.stdout };
@@ -76,6 +83,37 @@ describe("drift_stop_hook bin", () => {
       expect(output.decision).toBe("block");
       expect(output.reason).toContain("src/b.ts");
       expect(output.reason).not.toContain("src/a.ts"); // already reconciled — not re-listed
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("no-ops when the only edits this turn are non-flow files (the standalone-doc case)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    // A standalone README under the repo root: no supported extension and no SKILL.md ancestor.
+    fs.writeFileSync(transcript_path, edit_line(path.join(dir, "README.md"), "d1") + "\n");
+    try {
+      const result = run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe(""); // dropped to empty → no-new-drift guard no-ops, no reconcile launched
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks for only the flow-relevant file when a turn mixes source and docs", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    const doc = path.join(dir, "README.md");
+    const src = path.join(dir, "src", "a.ts");
+    fs.writeFileSync(transcript_path, edit_line(doc, "m1") + "\n" + edit_line(src, "m2") + "\n");
+    try {
+      const result = run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
+      const output = JSON.parse(result.stdout);
+      expect(output.decision).toBe("block");
+      expect(output.reason).toContain(src);
+      expect(output.reason).not.toContain(doc); // the doc is filtered out, not handed to the reconciler
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

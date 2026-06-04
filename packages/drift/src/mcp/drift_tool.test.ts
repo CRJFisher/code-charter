@@ -45,6 +45,23 @@ function seeded_store(): GraphStore {
   return store;
 }
 
+/** A raw `code.function` node anchored to `symbol`'s current state. */
+function raw_node(symbol: ResolverSymbol): NodeRow {
+  const state = derive_code_state(symbol);
+  return {
+    id: state.symbol_path,
+    kind: "code.function",
+    path: symbol.file_path,
+    anchor: format_anchor(state),
+    layer: "raw",
+    attributes: {},
+    field_ownership: {},
+    origin: "test",
+    intent_source: "code-edit",
+    deleted_at: null,
+  };
+}
+
 describe("drift_list", () => {
   it("returns the re-attachment bin (soft-deleted agentic rows) and logs the call", () => {
     const store = seeded_store();
@@ -131,22 +148,6 @@ describe("drift.resolve reanchor — leaf-rename milestone (AC#3/#4)", () => {
   // identical body ⇒ identical content_hash ⇒ the resolver reports `relocated`, not `miss`.
   const CALCULATE: ResolverSymbol = { ...COMPUTE, name: "calculate" };
 
-  function raw_node(symbol: ResolverSymbol): NodeRow {
-    const state = derive_code_state(symbol);
-    return {
-      id: state.symbol_path,
-      kind: "code.function",
-      path: symbol.file_path,
-      anchor: format_anchor(state),
-      layer: "raw",
-      attributes: {},
-      field_ownership: {},
-      origin: "test",
-      intent_source: "code-edit",
-      deleted_at: null,
-    };
-  }
-
   /** Seed raw v1 (`compute`) plus a user description node anchored to it (promoted to layer='user'). */
   function seeded_milestone_store(): GraphStore {
     const store = open_graph_store(":memory:");
@@ -207,6 +208,94 @@ describe("drift.resolve reanchor — leaf-rename milestone (AC#3/#4)", () => {
     const { context } = make_context();
     const result = drift_resolve(store, { id: DESC_ID, resolution: "reanchor" }, context);
     expect(result).toMatchObject({ applied: false, target_kind: null, reanchored_to: null });
+    store.close();
+  });
+});
+
+// The genuine MISS milestone end-to-end (AC#1): a rename that ALSO changes the body produces a content
+// hash the resolver cannot relocate, so the stranded user description is binned (soft-deleted) rather
+// than staged. The user recovers it via the enriched `drift.list` payload — which surfaces the stranded
+// text so the choice is informed — and `drift.resolve {reattach}` restores it. (Re-pointing a recovered
+// description onto a NEW symbol is a documented follow-up, not reattach's job: reattach undeletes onto the
+// original anchor.)
+describe("drift.list + reattach — genuine-miss recovery (AC#1)", () => {
+  const DESC_ID = "user:description:calc";
+  const STRANDED = "computes the running total, by hand";
+  const ORIGINAL: ResolverSymbol = {
+    file_path: "src/calc.ts",
+    name: "compute",
+    kind: "function",
+    enclosing: [],
+    body_source: "{\n  return a + b;\n}",
+  };
+  // Different name AND a different body (the `* b - 1` survives identifier-stripping) ⇒ a new content_hash
+  // the resolver finds nowhere ⇒ `miss`, not `relocated`.
+  const REWRITTEN: ResolverSymbol = { ...ORIGINAL, name: "calculate", body_source: "{\n  return a * b - 1;\n}" };
+
+  function seeded_miss_store(): GraphStore {
+    const store = open_graph_store(":memory:");
+    store.upsert_node(raw_node(ORIGINAL));
+    store.upsert_node({
+      id: DESC_ID,
+      kind: "user.description",
+      path: "src/calc.ts",
+      anchor: format_anchor(derive_code_state(ORIGINAL)),
+      layer: "agentic",
+      attributes: {},
+      field_ownership: {},
+      origin: "test",
+      intent_source: "explicit-pin",
+      deleted_at: null,
+    });
+    store.write_fields({ kind: "node", id: DESC_ID }, { description: STRANDED }, "user");
+    return store;
+  }
+
+  function rewrite_deps(store: GraphStore): ReExtractDeps {
+    return {
+      store,
+      extract_raw: (s) => s.upsert_node(raw_node(REWRITTEN)),
+      build_index: () => build_resolver_index([REWRITTEN]),
+      analyzed_root: "src",
+    };
+  }
+
+  it("bins a genuine miss, surfaces it with the stranded text in drift.list, and reattach restores it", () => {
+    // precondition: the rewrite genuinely changes the content hash (else it would relocate, not miss)
+    expect(derive_code_state(ORIGINAL).content_hash).not.toBe(derive_code_state(REWRITTEN).content_hash);
+
+    const store = seeded_miss_store();
+    const { context } = make_context();
+
+    // (1) the rename+rewrite re-syncs through the single funnel and reports exactly one miss
+    const result = re_extract(["src/calc.ts"], "code-change", rewrite_deps(store));
+    const misses = result.findings.filter((f) => f.reason === "miss");
+    expect(misses).toHaveLength(1);
+    expect(misses[0]).toMatchObject({ node_id: DESC_ID, to_symbol_path: null });
+
+    // (2) a miss is binned, not staged: outstanding_drift stays empty, the bin holds the stranded node
+    expect(outstanding_drift(store)).toHaveLength(0);
+    const bin = drift_list(store, {}, context);
+    const entry = bin.find((e) => e.id === DESC_ID);
+    expect(entry).toMatchObject({
+      kind: "node",
+      node_kind: "user.description",
+      user_authored: true,
+      intent_source: "explicit-pin",
+      description: STRANDED, // the enriched payload lets the chooser see what they are recovering
+    });
+
+    // (3) reattach restores the soft-deleted content
+    const resolved = drift_resolve(store, { id: DESC_ID, resolution: "reattach" }, context);
+    expect(resolved).toMatchObject({ target_kind: "node", applied: true, reanchored_to: null });
+
+    // (4) the description survives, and reattach restores onto the ORIGINAL anchor (it does not re-point
+    //     onto `calculate` — re-pointing-on-reattach is a documented follow-up)
+    const node = store.node(DESC_ID)!;
+    expect(node.deleted_at).toBeNull();
+    expect(node.attributes.description).toBe(STRANDED);
+    expect(node.field_ownership.description).toBe("user");
+    expect(parse_anchor(node.anchor!).symbol_path).toBe(derive_code_state(ORIGINAL).symbol_path);
     store.close();
   });
 });

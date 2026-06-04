@@ -15,7 +15,13 @@
 import { MODULE_SCAFFOLD_ORIGIN } from "@code-charter/core";
 import type { GraphStore, Layer } from "@code-charter/types";
 
-/** One entry in the re-attachment bin — a soft-deleted node or edge awaiting resolution. */
+/**
+ * One entry in the re-attachment bin — a soft-deleted node or edge awaiting resolution. The payload
+ * answers the two questions a chooser needs: *what am I about to recover* (`description` carries the
+ * stranded authored text; `node_kind` and `intent_source` say what kind of thing it is) and *is it
+ * hand-authored and so irreplaceable* (`user_authored`). All of it reads off the soft-deleted row that
+ * is already in hand — no extra query, no schema change.
+ */
 export interface DriftBinEntry {
   kind: "node" | "edge";
   /** Node id or edge key. */
@@ -25,6 +31,14 @@ export interface DriftBinEntry {
   path: string | null;
   /** ISO-8601 soft-delete timestamp. */
   deleted_at: string;
+  /** The row's namespaced kind (e.g. `user.description`, `agentic.flow`); null for edges. */
+  node_kind: string | null;
+  /** The stranded authored description text being recovered, when the row carries one; else null. */
+  description: string | null;
+  /** True when the `description` field is user-owned — hand-authored content, not regenerable agentic. */
+  user_authored: boolean;
+  /** Provenance of the row (e.g. `explicit-pin`, `code-edit`). */
+  intent_source: string;
 }
 
 /**
@@ -40,7 +54,20 @@ export function re_attachment_bin(store: GraphStore, scope?: string): DriftBinEn
     if (scope !== undefined && !node.path.startsWith(scope)) {
       return [];
     }
-    return [{ kind: "node", id: node.id, layer: node.layer, path: node.path, deleted_at: node.deleted_at }];
+    const description = typeof node.attributes.description === "string" ? node.attributes.description : null;
+    return [
+      {
+        kind: "node",
+        id: node.id,
+        layer: node.layer,
+        path: node.path,
+        deleted_at: node.deleted_at,
+        node_kind: node.kind,
+        description,
+        user_authored: node.field_ownership.description === "user",
+        intent_source: node.intent_source,
+      },
+    ];
   });
 
   const edges = store.all_edges({ include_deleted: true }).flatMap((edge): DriftBinEntry[] => {
@@ -50,7 +77,19 @@ export function re_attachment_bin(store: GraphStore, scope?: string): DriftBinEn
     if (scope !== undefined && !edge.src_id.startsWith(scope) && !edge.dst_id.startsWith(scope)) {
       return [];
     }
-    return [{ kind: "edge", id: edge.key, layer: edge.layer, path: null, deleted_at: edge.deleted_at }];
+    return [
+      {
+        kind: "edge",
+        id: edge.key,
+        layer: edge.layer,
+        path: null,
+        deleted_at: edge.deleted_at,
+        node_kind: null,
+        description: null,
+        user_authored: false,
+        intent_source: edge.intent_source,
+      },
+    ];
   });
 
   return [...nodes, ...edges];
