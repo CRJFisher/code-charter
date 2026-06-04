@@ -27,7 +27,7 @@ async function run(file_set: string[]): Promise<void> {
   await project.initialize();
   const deps: ReconcileDeps = {
     store,
-    adapter: make_ariadne_adapter(project),
+    adapter: make_ariadne_adapter(project, () => {}),
     repo_root_abs: repo,
     analyzed_root: "",
     now: () => new Date(2026, 0, 1, 0, 0, clock++).toISOString(),

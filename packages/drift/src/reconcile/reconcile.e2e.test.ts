@@ -42,7 +42,7 @@ function make_deps(): ReconcileDeps {
 async function run(file_set: string[]): Promise<ReconcileDeps> {
   const project = new HeadlessProject(SKILLS_ROOT);
   await project.initialize();
-  const deps = { ...make_deps(), adapter: make_ariadne_adapter(project) };
+  const deps = { ...make_deps(), adapter: make_ariadne_adapter(project, () => {}) };
   await reconcile(file_set, deps);
   return deps;
 }

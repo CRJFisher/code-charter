@@ -81,7 +81,8 @@ async function main(): Promise<void> {
   try {
     const project = new HeadlessProject(args.repo_root);
     await project.initialize();
-    const adapter = make_ariadne_adapter(project);
+    const log = (message: string) => process.stderr.write(`drift-reconcile: ${message}\n`);
+    const adapter = make_ariadne_adapter(project, log);
 
     const result = await reconcile(args.files, {
       store: args.dry_run ? read_only_store(store) : store,
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
       analyzed_root: "",
       goal: args.goal,
       now: () => new Date().toISOString(),
-      log: (message) => process.stderr.write(`drift-reconcile: ${message}\n`),
+      log,
     });
 
     if (args.json) {

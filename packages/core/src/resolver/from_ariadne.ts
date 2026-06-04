@@ -25,7 +25,8 @@ import type { ResolverSymbol } from "./resolver_symbol";
  * Scope: top-level functions and the methods/constructors of top-level classes, interfaces, and enums.
  * Namespace/module nesting, classes declared inside functions, and arrow/function-expression callables
  * bound to variables are not descended (their symbols are not anchored); extend the walk when a
- * consumer needs them.
+ * consumer needs them. Anonymous callables (Ariadne's `<anonymous>`) are excluded outright — they have
+ * no rename-stable identity, so they can neither be addressed nor distinguished in `symbol_path` space.
  */
 export interface AriadneFileInput {
   /** Repo-relative, forward-slash file path — becomes the `symbol_path` prefix. */
@@ -120,30 +121,47 @@ function collect_symbol(
   });
 }
 
+/**
+ * The name Ariadne stamps on an anonymous callable (its `anonymous_function_symbol` sets
+ * `name: "<anonymous>"`). An unnamed callback has no rename-stable, addressable identity, so two of
+ * them in one file would derive the same `<file>#<anonymous>:<kind>` `symbol_path` — a collision that
+ * has no place in the resolver index. They are skipped at this single traversal seam.
+ */
+const ANONYMOUS_NAME = "<anonymous>";
+
 /** Walk the top-level definitions of one file, invoking `visit` for each anchorable callable-with-a-body. */
 function walk_callables(
   file: AriadneFileInput,
   visit: (def: FunctionDefinition | MethodDefinition | ConstructorDefinition, enclosing: readonly string[]) => void,
 ): void {
+  // One chokepoint for both emitters: an anonymous callable has no addressable identity, so it is
+  // never a resolver symbol (it would collide in `symbol_path` space and carry an unanchorable description).
+  const visit_named = (
+    def: FunctionDefinition | MethodDefinition | ConstructorDefinition,
+    enclosing: readonly string[],
+  ): void => {
+    if (def.name === ANONYMOUS_NAME) return;
+    visit(def, enclosing);
+  };
   for (const def of file.definitions) {
     switch (def.kind) {
       case "function":
-        visit(def, []);
+        visit_named(def, []);
         break;
       case "class": {
         const enclosing = [def.name];
-        for (const ctor of def.constructors ?? []) visit(ctor, enclosing);
-        for (const method of def.methods) visit(method, enclosing);
+        for (const ctor of def.constructors ?? []) visit_named(ctor, enclosing);
+        for (const method of def.methods) visit_named(method, enclosing);
         break;
       }
       case "interface": {
         const enclosing = [def.name];
-        for (const method of def.methods) visit(method, enclosing);
+        for (const method of def.methods) visit_named(method, enclosing);
         break;
       }
       case "enum": {
         const enclosing = [def.name];
-        for (const method of def.methods ?? []) visit(method, enclosing);
+        for (const method of def.methods ?? []) visit_named(method, enclosing);
         break;
       }
       default:

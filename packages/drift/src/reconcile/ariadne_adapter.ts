@@ -17,10 +17,11 @@
  * raw code rows — re_extract still drives the preservation reconcile against `build_index`.
  */
 
-import type { AnchoredSymbol, AriadneFileInput, GraphStore, ResolverIndex } from "@code-charter/core";
+import type { AnchoredSymbol, AriadneFileInput, GraphStore, ResolverIndex, ResolverSymbol } from "@code-charter/core";
 import {
   anchored_symbols_from_ariadne,
   build_resolver_index,
+  build_symbol_path,
   resolver_symbols_from_ariadne,
 } from "@code-charter/core";
 import type { AnyDefinition, CallGraph, SymbolId } from "@ariadnejs/types";
@@ -61,7 +62,33 @@ function file_inputs(project: HeadlessProject, rel_files: readonly string[]): Ar
   return inputs;
 }
 
-export function make_ariadne_adapter(project: HeadlessProject): AriadneAdapter {
+/**
+ * Index `symbols` after deduping by derived `symbol_path` (first-wins, in input order). `build_resolver_index`
+ * throws on a duplicate symbol_path; left to reach it, that throw would collapse the whole index to empty
+ * and make `re_extract` mass-soft-delete every preserved description. Deduping first means a residual
+ * duplicate can never reach the throw. Anonymous callables are already excluded upstream, so this is
+ * defense-in-depth — and every drop is logged, never silently capped (no silent narrowing).
+ */
+export function build_dedup_index(
+  symbols: readonly ResolverSymbol[],
+  log: (message: string) => void,
+): ResolverIndex {
+  const by_path = new Map<string, ResolverSymbol>();
+  for (const symbol of symbols) {
+    const symbol_path = build_symbol_path(symbol.file_path, symbol.enclosing, symbol.name, symbol.kind);
+    if (by_path.has(symbol_path)) {
+      log(`build_index: dropped duplicate symbol_path ${symbol_path}`);
+      continue;
+    }
+    by_path.set(symbol_path, symbol);
+  }
+  return build_resolver_index([...by_path.values()]);
+}
+
+export function make_ariadne_adapter(
+  project: HeadlessProject,
+  log: (message: string) => void,
+): AriadneAdapter {
   return {
     call_graph: () => project.get_call_graph(),
 
@@ -69,24 +96,7 @@ export function make_ariadne_adapter(project: HeadlessProject): AriadneAdapter {
     // a raw `code.function` keyed by a seed symbol_path would collide with the flow node of the same id.
     extract_raw() {},
 
-    build_index(file_set) {
-      // `build_resolver_index` throws on a duplicate symbol_path (a derivation defect in one file); a
-      // single pathological file must not break the hook, so index file-by-file and skip a thrower.
-      const symbols = [];
-      for (const input of file_inputs(project, file_set)) {
-        try {
-          symbols.push(...resolver_symbols_from_ariadne([input]));
-        } catch {
-          // skip the offending file's symbols; the rest of the set still reconciles.
-        }
-      }
-      try {
-        return build_resolver_index(symbols);
-      } catch {
-        // A cross-file duplicate: fall back to an empty index rather than aborting reconciliation.
-        return build_resolver_index([]);
-      }
-    },
+    build_index: (file_set) => build_dedup_index(resolver_symbols_from_ariadne(file_inputs(project, file_set)), log),
 
     anchored_symbols: (file_set) => anchored_symbols_from_ariadne(file_inputs(project, file_set)),
 
