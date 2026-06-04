@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension companion for task-27.1.6.1 (Half A): the drift.* MCP surface review.
+     Generated from the task doc + packages/drift/src/mcp/{drift_tool,re_attachment_bin,tool_names}.ts
+     and drift_tool.test.ts in the task-27.1.6.1 worktree. Present-tense; describes the surface as it IS. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>drift.* surface review — keep / revise / follow-up (task-27.1.6.1)</title>
+<style>
+  :root {
+    --ivory: #f7f4ec;
+    --oat: #ece5d6;
+    --slate: #2c3038;
+    --ink: #20242b;
+    --clay: #b5683e;
+    --olive: #6c7a3b;
+    --rust: #9e3b2e;
+    --g1: #fbfaf5; --g2: #efeadd; --g3: #d9d2c1; --g4: #aaa492; --g5: #6c6759;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --r: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ivory); color: var(--slate);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 40px 24px 100px; }
+  .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em;
+    font-size: 11px; color: var(--g5); margin: 0 0 10px; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 34px; line-height: 1.12;
+    margin: 0 0 14px; color: var(--ink); }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 23px; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font-family: var(--serif); font-weight: 600; font-size: 17px; margin: 26px 0 8px; color: var(--ink); }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--g5); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; font-family: var(--mono); font-size: 11px; }
+  .pill { background: var(--oat); border: 1px solid var(--g3); border-radius: 999px; padding: 3px 11px; color: var(--g5); }
+  .pill strong { color: var(--slate); font-weight: 600; }
+  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1);
+    border-radius: var(--r); padding: 14px 16px; margin: 22px 0; }
+  .prompt-box .label { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em;
+    font-size: 10px; color: var(--g5); margin: 0 0 8px; }
+  .prompt-box code { font-family: var(--mono); font-size: 12px; color: var(--clay); }
+  .prompt-box ul { margin: 6px 0 0; padding-left: 18px; }
+  .prompt-box li { font-size: 12.5px; margin: 2px 0; }
+
+  /* callouts */
+  .callout { border-radius: var(--r); padding: 14px 18px; margin: 20px 0;
+    border-left: 4px solid var(--clay); background: #f3ece2; }
+  .callout.olive { border-left-color: var(--olive); background: #eef0e3; }
+  .callout.rust { border-left-color: var(--rust); background: #f4e6e2; }
+  .callout .k { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em;
+    font-size: 10px; color: var(--g5); display: block; margin-bottom: 6px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .invert { background: var(--slate); color: var(--ivory); border-left-color: var(--clay); }
+  .invert .k { color: var(--g4); }
+  .invert code { color: #e7c3a6; }
+
+  code, .mono { font-family: var(--mono); }
+  p code, li code, td code { font-family: var(--mono); font-size: 12.5px; background: var(--oat);
+    border: 1px solid var(--g3); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
+
+  /* decision board */
+  .board { display: grid; gap: 14px; margin: 18px 0; }
+  .row { border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1);
+    overflow: hidden; }
+  .row > .head { display: flex; align-items: center; gap: 12px; padding: 13px 16px;
+    border-bottom: 1px solid var(--g3); background: #fdfcf8; }
+  .verdict { font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; padding: 4px 9px; border-radius: 6px; white-space: nowrap; }
+  .verdict.keep { background: var(--olive); color: #fff; }
+  .verdict.revise { background: var(--clay); color: #fff; }
+  .verdict.followup { background: var(--g4); color: #fff; }
+  .row .head h3 { margin: 0; font-size: 16px; }
+  .ac { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--g5);
+    border: 1px solid var(--g3); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .row .body { padding: 13px 16px; }
+  .row .body p { font-size: 14px; }
+  .row .body p:last-child { margin-bottom: 0; }
+  .finding { font-size: 13px; }
+
+  /* code panels */
+  .code { background: var(--ink); border-radius: var(--r); overflow: hidden; margin: 14px 0; border: 1px solid #11141a; }
+  .code .file-label { font-family: var(--mono); font-size: 11px; color: var(--g4); padding: 8px 14px;
+    border-bottom: 1px solid #2f343d; background: #191c22; }
+  .code pre { margin: 0; padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px;
+    line-height: 1.6; color: #d6d3c8; white-space: pre; }
+  .kw { color: #c98b6b; } .str { color: #a7b46f; } .cm { color: #6f7681; font-style: italic; }
+  .fn { color: #e0c285; } .hl { background: rgba(181,104,62,.22); display: inline-block; width: 100%; }
+  .add { background: rgba(108,122,59,.22); display: inline-block; width: 100%; }
+  .del { background: rgba(158,59,46,.22); display: inline-block; width: 100%; }
+
+  /* two-path diagram */
+  .diagram-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--g3); border-radius: var(--r);
+    background: var(--g1); padding: 8px; }
+  svg { display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-family: var(--mono); font-size: 11px;
+    color: var(--g5); margin: 10px 2px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 14px; height: 0; border-top: 3px solid; }
+
+  /* tables */
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--g3); vertical-align: top; }
+  th { font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: 10px;
+    color: var(--g5); background: var(--g2); }
+  tr:last-child td { border-bottom: none; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.olive { background: var(--olive); } .dot.clay { background: var(--clay); } .dot.rust { background: var(--rust); }
+
+  /* checklist */
+  .check { list-style: none; padding: 0; margin: 14px 0; }
+  .check li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--g2); }
+  .check li:last-child { border-bottom: none; }
+  .box { flex: none; width: 17px; height: 17px; border: 2px solid var(--g4); border-radius: 4px; margin-top: 2px; }
+  .check li.done .box { background: var(--olive); border-color: var(--olive); position: relative; }
+  .check li.done .box::after { content: ""; position: absolute; left: 4px; top: 0px; width: 5px; height: 10px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(40deg); }
+  .check .t { font-size: 14px; }
+  .check .t b { font-weight: 600; }
+
+  footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--g3);
+    font-family: var(--mono); font-size: 11px; color: var(--g4); }
+  a.up { color: var(--clay); text-decoration: none; border-bottom: 1px dotted var(--clay); }
+
+  @media (max-width: 720px) {
+    h1 { font-size: 27px; }
+    .row .head { flex-wrap: wrap; }
+    .ac { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">task-27.1.6.1 · Half A · review + decision</p>
+    <h1>The <code style="font-family:var(--mono);font-size:.78em;background:none;border:none;padding:0;color:var(--clay)">drift.*</code> recovery surface — keep, revise, follow-up</h1>
+    <p class="lede">Driving <code>drift_list</code> / <code>drift_resolve</code> against a genuine stranding, then deciding the shape. This page makes the decision legible so you can confirm scope <em>before</em> the one focused change lands.</p>
+    <div class="meta">
+      <span class="pill">surface <strong>drift_list · drift_resolve</strong></span>
+      <span class="pill">verdict <strong>KEEP + 1 REVISE</strong></span>
+      <span class="pill">AC <strong>#1–#4</strong></span>
+      <span class="pill">change <strong>payload enrichment</strong></span>
+    </div>
+    <a class="up" href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↑ task-27.1.6 family overview</a>
+  </header>
+
+  <div class="prompt-box">
+    <p class="label">Source read to ground this review</p>
+    <ul>
+      <li><code>packages/drift/src/mcp/drift_tool.ts</code> — <code>drift_list</code> / <code>drift_resolve</code> + <code>DriftResolution</code></li>
+      <li><code>packages/drift/src/mcp/re_attachment_bin.ts</code> — <code>re_attachment_bin()</code> + <code>DriftBinEntry</code></li>
+      <li><code>packages/drift/src/mcp/drift_tool.test.ts</code> — what is already exercised end-to-end</li>
+      <li><code>packages/drift/src/hooks/session_start_banner.ts</code> · <code>mcp/tool_names.ts</code></li>
+    </ul>
+  </div>
+
+  <div class="callout invert">
+    <span class="k">TL;DR — the decision you are confirming</span>
+    <p><strong>KEEP</strong> the surface: the <code>drift_list</code>/<code>drift_resolve</code> naming, the id-only addressing, and the <code>reattach</code>/<code>delete</code>/<code>reanchor</code> vocabulary all hold up under a real run. <strong>REVISE</strong> exactly one thing here — enrich <code>drift_list</code>'s payload with the stranded authored content so a user can tell <em>what</em> they are recovering. <strong>FOLLOW-UP</strong> the deeper limitation: <code>reattach</code> can only undelete onto the old, now-gone anchor — recovery <em>onto a new symbol</em> after a true miss is unsupported.</p>
+  </div>
+
+  <h2>Two recovery paths — and which one is proven</h2>
+  <p>The conceptually hardest part of this surface is that there are <strong>two distinct recovery paths</strong> that are easy to conflate. They diverge the moment a rename happens, on a single question: <em>did the body change too?</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 920 470" width="920" height="470" role="img"
+      aria-label="Two recovery paths: a rename with an identical body becomes a staged relocation resolved by reanchor; a rename with a changed body or a split/merge becomes a miss that goes to the re-attachment bin and is resolved by reattach or delete.">
+      <defs>
+        <marker id="ah-olive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+        <marker id="ah-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+        <marker id="ah-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+        <marker id="ah-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+
+      <!-- start -->
+      <rect x="350" y="18" width="220" height="48" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+      <text x="460" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="13" font-weight="600" fill="#2c3038">A code rename re-syncs</text>
+      <text x="460" y="57" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">via re_extract()  ·  resolver runs</text>
+
+      <!-- decision diamond -->
+      <path d="M460 86 L585 150 L460 214 L335 150 Z" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+      <text x="460" y="142" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12.5" font-weight="600" fill="#20242b">Body unchanged?</text>
+      <text x="460" y="160" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">same content_hash?</text>
+
+      <line x1="460" y1="66" x2="460" y2="84" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ah-g)"/>
+
+      <!-- YES edge -->
+      <path d="M335 150 H190 V210" fill="none" stroke="#6c7a3b" stroke-width="2" marker-end="url(#ah-olive)"/>
+      <text x="262" y="142" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#6c7a3b">YES — relocated</text>
+
+      <!-- NO edge -->
+      <path d="M585 150 H730 V210" fill="none" stroke="#9e3b2e" stroke-width="2" marker-end="url(#ah-rust)"/>
+      <text x="658" y="142" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#9e3b2e">NO — miss / split</text>
+
+      <!-- LEFT path (relocated) -->
+      <rect x="60" y="212" width="260" height="74" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+      <text x="190" y="236" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12.5" font-weight="600" fill="#20242b">Staged relocation — NOT in bin</text>
+      <text x="190" y="254" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">content stays LIVE, w/ staged</text>
+      <text x="190" y="269" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">drift_* attrs · outstanding_drift()</text>
+
+      <line x1="190" y1="286" x2="190" y2="316" stroke="#6c7a3b" stroke-width="2" marker-end="url(#ah-olive)"/>
+      <rect x="60" y="318" width="260" height="50" rx="10" fill="#fbfaf5" stroke="#6c7a3b" stroke-width="1.5"/>
+      <text x="190" y="339" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#5b6233">drift.resolve {reanchor}</text>
+      <text x="190" y="356" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#2c3038">re-anchors onto the renamed symbol</text>
+
+      <rect x="60" y="392" width="260" height="56" rx="10" fill="#6c7a3b" stroke="#5b6233" stroke-width="1.5"/>
+      <text x="190" y="414" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12.5" font-weight="700" fill="#fff">PROVEN end-to-end</text>
+      <text x="190" y="432" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#e7ecd4">drift_tool.test.ts — leaf-rename milestone</text>
+      <line x1="190" y1="368" x2="190" y2="390" stroke="#6c7a3b" stroke-width="2" marker-end="url(#ah-olive)"/>
+
+      <!-- RIGHT path (miss) -->
+      <rect x="600" y="212" width="260" height="74" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+      <text x="730" y="236" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12.5" font-weight="600" fill="#20242b">Genuine stranding — IN the bin</text>
+      <text x="730" y="254" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">anchor no longer resolves → content</text>
+      <text x="730" y="269" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">soft-deleted into re_attachment_bin</text>
+
+      <line x1="730" y1="286" x2="730" y2="316" stroke="#9e3b2e" stroke-width="2" marker-end="url(#ah-rust)"/>
+      <rect x="600" y="318" width="260" height="50" rx="10" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5"/>
+      <text x="730" y="339" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#8a3528">drift.list → resolve {reattach|delete}</text>
+      <text x="730" y="356" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#2c3038">undelete onto the OLD anchor, or drop</text>
+
+      <rect x="600" y="392" width="260" height="56" rx="10" fill="#b5683e" stroke="#92522f" stroke-width="1.5"/>
+      <text x="730" y="411" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12.5" font-weight="700" fill="#fff">Only SYNTHETIC coverage</text>
+      <text x="730" y="429" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#f3ddcb">soft-deleted node — not a real resolver miss</text>
+      <line x1="730" y1="368" x2="730" y2="390" stroke="#9e3b2e" stroke-width="2" marker-end="url(#ah-rust)"/>
+    </svg>
+  </div>
+  <div class="legend">
+    <span><span class="sw" style="border-color:#6c7a3b"></span>relocated → reanchor (already proven)</span>
+    <span><span class="sw" style="border-color:#9e3b2e"></span>miss → bin → reattach/delete</span>
+    <span><span class="sw" style="border-color:#6c6759"></span>shared entry / decision</span>
+  </div>
+
+  <div class="callout rust">
+    <span class="k">The sharpest gap — sits on the right path</span>
+    <p><strong><code>drift_list</code>'s payload is too thin to choose with confidence (AC#2).</strong> A user on the miss path sees an opaque id + a timestamp and cannot tell <em>what</em> they are about to recover. The stranded authored text — the very thing they are trying to get back — is not in the entry.</p>
+  </div>
+
+  <h3>What <code>drift_list</code> returns today</h3>
+  <div class="code">
+    <div class="file-label">packages/drift/src/mcp/re_attachment_bin.ts — DriftBinEntry</div>
+    <pre><span class="kw">export interface</span> <span class="fn">DriftBinEntry</span> {
+  kind: <span class="str">"node"</span> | <span class="str">"edge"</span>;
+  <span class="cm">/** Node id or edge key. */</span>
+  id: <span class="kw">string</span>;
+  layer: Layer;
+  <span class="cm">/** The node's file path; null for edges. */</span>
+  path: <span class="kw">string</span> | <span class="kw">null</span>;
+  <span class="cm">/** ISO-8601 soft-delete timestamp. */</span>
+  deleted_at: <span class="kw">string</span>;
+<span class="hl">  <span class="cm">// ← no description / name: you cannot see WHAT you are recovering</span></span>
+}</pre>
+  </div>
+
+  <h3>The revise that lands here — enrich the payload (additive, AC#4-safe)</h3>
+  <p>The bin query <em>already reads the full node row</em> (<code>store.all_nodes({ include_deleted: true })</code>), so the authored fields are in hand — they are simply dropped. Surfacing them is cheap, reads existing attributes, and needs <strong>no schema change and no new table</strong>, so it stays additive to task-27.0's reservations.</p>
+  <div class="code">
+    <div class="file-label">re_attachment_bin.ts — proposed enrichment (illustrative shape)</div>
+    <pre><span class="kw">export interface</span> <span class="fn">DriftBinEntry</span> {
+  kind: <span class="str">"node"</span> | <span class="str">"edge"</span>;
+  id: <span class="kw">string</span>;
+  layer: Layer;
+  path: <span class="kw">string</span> | <span class="kw">null</span>;
+  deleted_at: <span class="kw">string</span>;
+<span class="add">  <span class="cm">/** The stranded authored text, so the caller can choose with confidence. */</span></span>
+<span class="add">  description: <span class="kw">string</span> | <span class="kw">null</span>;</span>
+<span class="add">  name: <span class="kw">string</span> | <span class="kw">null</span>;</span>
+}
+<span class="cm">// populated from node.attributes already loaded by the bin query — no extra read.</span></pre>
+  </div>
+
+  <h2>The keep / revise / follow-up board</h2>
+  <p>Each ergonomics dimension from AC#2, scored against a real run, with the AC#3 verdict.</p>
+
+  <div class="board">
+
+    <div class="row">
+      <div class="head">
+        <span class="verdict keep">Keep</span>
+        <h3>Naming — <code>drift_list</code> / <code>drift_resolve</code></h3>
+        <span class="ac">AC#2 · AC#3</span>
+      </div>
+      <div class="body">
+        <p class="finding">The underscore is <strong>forced, not a choice</strong>: a dot in an MCP tool name is rejected by clients that flatten the namespace (Claude Code surfaces a tool as <code>mcp__&lt;server&gt;__&lt;tool&gt;</code>, where <code>&lt;tool&gt;</code> must be <code>[a-z0-9_]</code>). The conceptual <code>drift.*</code> family reads cleanly; the server is named <code>drift</code>. No change.</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="head">
+        <span class="verdict keep">Keep</span>
+        <h3>Id-only addressing</h3>
+        <span class="ac">AC#2</span>
+      </div>
+      <div class="body">
+        <p class="finding"><code>drift_resolve</code> recovers the target's kind/space from the store, so the caller passes only an <code>id</code>. It works in the real run. It rests on an <em>unenforced</em> node-id vs edge-key disjointness — <code>drift_resolve</code> does a <code>.find(c =&gt; c.id === args.id)</code> over nodes-then-edges. Adequate today; a <code>kind</code> disambiguator is parked as a follow-up, not a blocker.</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="head">
+        <span class="verdict keep">Keep</span>
+        <h3>Resolution vocabulary — <code>reattach</code> / <code>delete</code> / <code>reanchor</code></h3>
+        <span class="ac">AC#2 · AC#3</span>
+      </div>
+      <div class="body">
+        <p class="finding">The surface <strong>already grew past the task doc's premise.</strong> The doc (2026-06-02) describes a two-word <code>reattach</code>/<code>delete</code> vocabulary; the code now has <strong>three</strong> resolutions. <code>reanchor</code> commits a staged relocation onto the renamed symbol, carrying the user description across untouched — exactly the right affordance for the relocated case, and it is already wired into the <code>SessionStart</code> banner. The vocabulary is correct as-is.</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="head">
+        <span class="verdict keep">Keep</span>
+        <h3>Discoverability — banner → list → resolve</h3>
+        <span class="ac">AC#2</span>
+      </div>
+      <div class="body">
+        <p class="finding">The read-only <code>SessionStart</code> banner reports the outstanding-drift count and points the user at <code>drift.resolve { reanchor }</code> for relocations and <code>drift.list</code> for the bin. The loop a user/agent actually follows is intact. No change.</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="head">
+        <span class="verdict revise">Revise</span>
+        <h3>Payload richness — <code>drift_list</code> output</h3>
+        <span class="ac">AC#2 · AC#3 · AC#4</span>
+      </div>
+      <div class="body">
+        <p class="finding"><strong>The one change that lands here.</strong> Enrich <code>DriftBinEntry</code> with the stranded authored fields (<code>description</code> / <code>name</code>) so a user can tell what they are recovering. Cheap (the row is already loaded), additive (no schema change → AC#4 holds), and the highest-leverage ergonomics fix found.</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="head">
+        <span class="verdict followup">Follow-up</span>
+        <h3>Reattach-onto-a-new-target + candidate suggestions</h3>
+        <span class="ac">deeper limitation</span>
+      </div>
+      <div class="body">
+        <p class="finding"><strong>Named, not built here.</strong> <code>reattach</code> only <em>undeletes onto the old, now-gone anchor</em> — it does not re-point stranded content onto a <em>new</em> symbol. Only <code>reanchor</code> re-points, and only for the staged-relocation case. Genuine recovery-onto-a-new-symbol after a true miss is unsupported. Candidate follow-ups: a reattach-onto-new-target affordance + candidate-target suggestions in <code>drift.list</code>; a <code>kind</code> disambiguator on <code>resolve</code>; a "resolve-next" affordance.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <h2>Coverage today — proven vs synthetic</h2>
+  <table>
+    <thead><tr><th>Path</th><th>Trigger</th><th>Resolution</th><th>In bin?</th><th>Test coverage</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="dot olive"></span><strong>Relocated</strong></td>
+        <td>rename, identical body</td>
+        <td><code>reanchor</code></td>
+        <td>No — stays live, staged</td>
+        <td><span class="dot olive"></span>Proven e2e (leaf-rename milestone)</td>
+      </tr>
+      <tr>
+        <td><span class="dot rust"></span><strong>Miss</strong></td>
+        <td>body changed too / split / merge</td>
+        <td><code>reattach</code> / <code>delete</code></td>
+        <td>Yes — soft-deleted</td>
+        <td><span class="dot clay"></span>Synthetic node only — not a real resolver miss</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout olive">
+    <span class="k">AC#4 invariants — confirmed still hold</span>
+    <p>The surface stays <strong>user-facing only</strong> (no reconcile-via-MCP creep — reconciliation remains the <code>Stop</code>-hook → sub-agent → <code>drift-sync</code> path) and stays <strong>additive to task-27.0's reservations</strong> (no new table, no schema migration). The payload enrichment reads existing attributes, so both invariants survive it.</p>
+  </div>
+
+  <h2>What you are confirming before I build</h2>
+  <ul class="check">
+    <li class="done"><span class="box"></span><span class="t"><b>KEEP</b> the surface — naming, id-only addressing, the three-word vocabulary, the banner loop.</span></li>
+    <li><span class="box"></span><span class="t"><b>REVISE</b> here — land the <code>drift_list</code> payload enrichment (stranded <code>description</code> / <code>name</code>).</span></li>
+    <li><span class="box"></span><span class="t"><b>FOLLOW-UP</b> — spin a concrete task for reattach-onto-new-target + candidate suggestions + <code>kind</code> disambiguator + resolve-next.</span></li>
+    <li><span class="box"></span><span class="t"><b>AC#1 evidence</b> — drive the miss path against a <em>genuine</em> resolver-miss stranding (not the synthetic soft-deleted node) to close the only coverage gap.</span></li>
+  </ul>
+
+  <footer>
+    Generated companion · task-27.1.6.1 Half A · describes the <code>drift.*</code> surface as it currently is.<br>
+    Source: packages/drift/src/mcp/{drift_tool, re_attachment_bin, tool_names}.ts · drift_tool.test.ts · hooks/session_start_banner.ts
+  </footer>
+</main>
+</body>
+</html>

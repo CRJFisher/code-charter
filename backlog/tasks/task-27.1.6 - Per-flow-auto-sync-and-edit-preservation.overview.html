@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- task-family-overview for task-27.1.6 (Per-flow auto-sync + edit preservation), the v1 ship point.
+     Frames the parent's intention and routes to the sub-task companions (27.1.6.1, 27.1.6.2).
+     Cross-file hrefs are sibling filenames only; missing companions render as not-yet-generated rows.
+     Re-scanned the backlog/tasks/ dir for child companions on generation. Present-tense. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>task-27.1.6 family — per-flow auto-sync + edit preservation</title>
+<style>
+  :root {
+    --ivory: #f7f4ec; --oat: #ece5d6; --slate: #2c3038; --ink: #20242b;
+    --clay: #b5683e; --olive: #6c7a3b; --rust: #9e3b2e;
+    --g1: #fbfaf5; --g2: #efeadd; --g3: #d9d2c1; --g4: #aaa492; --g5: #6c6759;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --r: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ivory); color: var(--slate); font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 40px 24px 100px; display: grid; grid-template-columns: minmax(0,1fr) 250px; gap: 40px; }
+  main { min-width: 0; }
+  .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 11px; color: var(--g5); margin: 0 0 10px; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 33px; line-height: 1.13; margin: 0 0 14px; color: var(--ink); }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 23px; margin: 46px 0 14px; color: var(--ink); scroll-margin-top: 24px; }
+  h3 { font-family: var(--serif); font-weight: 600; font-size: 17px; margin: 22px 0 8px; color: var(--ink); }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--g5); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; font-family: var(--mono); font-size: 11px; }
+  .pill { background: var(--oat); border: 1px solid var(--g3); border-radius: 999px; padding: 3px 11px; color: var(--g5); }
+  .pill strong { color: var(--slate); font-weight: 600; }
+  .pill.done { background: var(--olive); color: #fff; border-color: var(--olive); }
+
+  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1); border-radius: var(--r); padding: 14px 16px; margin: 22px 0; }
+  .prompt-box .label { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 6px; }
+  .prompt-box p { font-size: 13px; margin: 0; }
+  .prompt-box code { font-family: var(--mono); font-size: 12px; color: var(--clay); }
+
+  .callout { border-radius: var(--r); padding: 14px 18px; margin: 20px 0; border-left: 4px solid var(--clay); background: #f3ece2; }
+  .callout.olive { border-left-color: var(--olive); background: #eef0e3; }
+  .callout .k { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); display: block; margin-bottom: 6px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .invert { background: var(--slate); color: var(--ivory); border-left-color: var(--clay); }
+  .invert .k { color: var(--g4); }
+  .invert code { color: #e7c3a6; }
+
+  code, .mono { font-family: var(--mono); }
+  p code, li code { font-family: var(--mono); font-size: 12.5px; background: var(--oat); border: 1px solid var(--g3); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
+
+  .diagram-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); padding: 8px; }
+  svg { display: block; }
+
+  /* cross-doc nav */
+  .doc-group { border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); margin: 14px 0; overflow: hidden; }
+  .doc-group > .gh { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--g3); background: #fdfcf8; }
+  .doc-group .gh .id { font-family: var(--mono); font-size: 11px; color: var(--g5); }
+  .doc-group .gh .title { font-weight: 600; font-size: 14.5px; color: var(--ink); }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .status-dot.live { background: var(--olive); } .status-dot.pending { background: var(--g4); } .status-dot.note { background: var(--clay); }
+  .doc-links { padding: 6px 16px 12px; display: flex; flex-direction: column; gap: 6px; }
+  a.doc-link { display: flex; align-items: center; gap: 10px; text-decoration: none; padding: 9px 12px; border: 1px solid var(--g3);
+    border-radius: 8px; background: #fff; color: var(--slate); font-size: 13.5px; transition: border-color .12s, background .12s; }
+  a.doc-link:hover { border-color: var(--clay); background: #fbf3ec; }
+  a.doc-link .arrow { margin-left: auto; color: var(--clay); font-family: var(--mono); }
+  a.doc-link .lbl b { font-weight: 600; }
+  a.doc-link .lbl small { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--g5); }
+  .pending-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px dashed var(--g4); border-radius: 8px;
+    background: #f6f2e8; color: var(--g5); font-size: 13.5px; }
+  .pending-row .ng { margin-left: auto; font-family: var(--mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+    background: var(--g4); color: #fff; border-radius: 5px; padding: 2px 7px; }
+
+  /* sub-task fit numbered list */
+  .steps { margin: 16px 0; }
+  .step { display: grid; grid-template-columns: 40px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--g2); }
+  .step:last-child { border-bottom: none; }
+  .badge { width: 28px; height: 28px; border-radius: 50%; background: var(--clay); color: #fff; font-family: var(--mono); font-weight: 700;
+    font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .step h3 { margin: 1px 0 3px; font-size: 15px; }
+  .step p { font-size: 13.5px; margin: 0; }
+  .step .id { font-family: var(--mono); font-size: 10.5px; color: var(--g5); }
+
+  /* sticky toc */
+  aside { position: sticky; top: 28px; align-self: start; }
+  aside .toc-h { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 10px; }
+  aside nav a { display: block; text-decoration: none; color: var(--g5); font-size: 13px; padding: 5px 0; border-left: 2px solid transparent; padding-left: 10px; }
+  aside nav a:hover { color: var(--clay); border-left-color: var(--clay); }
+
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--g3); font-family: var(--mono); font-size: 11px; color: var(--g4); }
+
+  @media (max-width: 900px) {
+    .wrap { grid-template-columns: 1fr; }
+    aside { display: none; }
+    h1 { font-size: 27px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+    <header>
+      <p class="eyebrow">task-27.1.6 · family overview · v1 ship point</p>
+      <h1>Per-flow auto-sync &amp; edit preservation — the live loop</h1>
+      <p class="lede">Build a flow's diagram the first time you work on its code, keep it in step as you edit, and always preserve anything you authored. This hub frames the parent's intention and routes you to each sub-task companion.</p>
+      <div class="meta">
+        <span class="pill done">parent <strong>Done</strong></span>
+        <span class="pill">entry point <strong>Stop hook → sub-agent → drift-sync</strong></span>
+        <span class="pill">first target <strong>a skill's flow</strong></span>
+        <span class="pill">model <strong>auto-sync, not a review queue</strong></span>
+      </div>
+    </header>
+
+    <div class="prompt-box">
+      <p class="label">This overview frames</p>
+      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter) and <code>task-27.1.6.2</code> (re-sync mass-bin bug). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
+    </div>
+
+    <div class="callout invert">
+      <span class="k">Why this exists</span>
+      <p>Task-27.1.6 turns the inert substrate the earlier subtasks built into a <strong>live loop</strong>. Before it, no production path populates the on-disk graph store and the <code>drift-sync</code> skill is a no-op stub — so a hydrated flow can never reach the webview. This task wires the full <code>Stop</code>-hook → sub-agent → skill → reconcile engine → store path end to end, doing double duty: <strong>HYDRATE</strong> a flow on first work, <strong>RE-SYNC</strong> it on later edits — always updating, never gating, always re-applying your authored description / name / pin.</p>
+    </div>
+
+    <h2 id="loop">The loop the parent ships</h2>
+    <p>One <code>Stop</code>-hook entry point, two branches, with preservation woven through both. A genuine miss — content whose anchor no longer resolves, or a split/merge that strands a name — goes to the <strong>re-attachment bin</strong>, recoverable and never auto-pruned.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 900 240" width="900" height="240" role="img"
+        aria-label="The Stop hook detects worked-on files, dispatches HYDRATE when no diagram exists or RE-SYNC when one does, preserves user edits via the resolver, and routes genuine misses to the re-attachment bin.">
+        <defs>
+          <marker id="ov-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+          <marker id="ov-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+        </defs>
+        <g font-family="ui-sans-serif,system-ui" font-size="12" fill="#2c3038" text-anchor="middle">
+          <rect x="20" y="92" width="150" height="56" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+          <text x="95" y="115" font-weight="600">Stop hook</text>
+          <text x="95" y="133" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">files worked this turn</text>
+
+          <path d="M210 120 L300 92 L390 120 L300 148 Z" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+          <text x="300" y="116" font-weight="600">agentic diagram?</text>
+          <text x="300" y="132" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">EXISTS(agentic.flow)</text>
+          <line x1="170" y1="120" x2="208" y2="120" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ov-g)"/>
+
+          <rect x="430" y="44" width="150" height="50" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+          <text x="505" y="65" font-weight="600">HYDRATE</text>
+          <text x="505" y="82" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">detect + create flow</text>
+          <text x="372" y="78" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#6c7a3b">no</text>
+          <path d="M335 100 L430 72" fill="none" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#ov-g)"/>
+
+          <rect x="430" y="146" width="150" height="50" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+          <text x="505" y="167" font-weight="600">RE-SYNC</text>
+          <text x="505" y="184" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">re-extract + re-induce</text>
+          <text x="372" y="166" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#6c7a3b">yes</text>
+          <path d="M335 140 L430 168" fill="none" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#ov-g)"/>
+
+          <rect x="640" y="44" width="150" height="50" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+          <text x="715" y="65" font-weight="600">preserve edits</text>
+          <text x="715" y="82" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">resolver + watermark ladder</text>
+          <line x1="580" y1="69" x2="638" y2="69" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ov-g)"/>
+          <line x1="580" y1="171" x2="700" y2="171" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ov-g)"/>
+
+          <rect x="640" y="146" width="150" height="50" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+          <text x="715" y="167" font-weight="600">re-attachment bin</text>
+          <text x="715" y="184" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528">misses · split/merge strands</text>
+          <path d="M715 94 L715 144" fill="none" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ov-rust)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="callout olive">
+      <span class="k">No review apparatus in v1</span>
+      <p>No observation/adjudication tables, no <code>open→triaged→resolved</code> lifecycle, no cosmetic/intent classifier, no PreCommit gate, no drift inbox. The diagram absorbs drift out-of-band, off your attention. Those are deferred to task-27.1.9 / task-27.1.10.</p>
+    </div>
+
+    <h2 id="fit">How the sub-tasks fit together</h2>
+    <p>With the parent <strong>Done</strong>, the children are the <em>come-back-and-make-it-real</em> pass: prove the recovery surface against a genuine stranding, sand the hook's trigger UX, and fix a re-sync bug the live loop surfaced.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="badge">1</div>
+        <div>
+          <span class="id">task-27.1.6.1 · Half A</span>
+          <h3>Prove + decide the <code>drift.*</code> recovery surface</h3>
+          <p>Drive <code>drift_list</code> / <code>drift_resolve</code> against a real stranding and decide keep/revise/replace. Verdict: keep the surface, land one payload enrichment, spin the deeper items as follow-ups.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">2</div>
+        <div>
+          <span class="id">task-27.1.6.1 · Half B</span>
+          <h3>Stop only for flow-relevant edits</h3>
+          <p>Pre-filter <code>worked_on</code> so a doc/config-only turn does not trigger a no-op full-repo reconcile. Layers on the per-turn watermark already shipped; resolves the standalone-doc question (ignore-and-log).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">3</div>
+        <div>
+          <span class="id">task-27.1.6.2</span>
+          <h3>Fix the re-sync mass-bin bug</h3>
+          <p>A separate defect the live loop exposed: anonymous <code>symbol_path</code> collisions empty the resolver index, so a re-sync mass-bins valid descriptions. Out of scope for the 27.1.6.1 UX review — its own bug.</p>
+        </div>
+      </div>
+    </div>
+
+    <h2 id="nav">Open a companion</h2>
+    <p>Each sub-task's generated companions, grouped by child id. Sub-tasks without a companion yet are marked not-yet-generated.</p>
+
+    <div class="doc-group">
+      <div class="gh">
+        <span class="status-dot live"></span>
+        <span class="id">task-27.1.6.1</span>
+        <span class="title">Drift MCP tool ergonomics — try-out &amp; review</span>
+      </div>
+      <div class="doc-links">
+        <a class="doc-link" href="task-27.1.6.1 - Drift-MCP-tool-ergonomics-try-out-and-review.drift-surface-review.html">
+          <span class="status-dot live"></span>
+          <span class="lbl"><b>drift.* surface review</b><small>keep/revise/follow-up board · two-path diagram · payload gap</small></span>
+          <span class="arrow">→</span>
+        </a>
+        <a class="doc-link" href="task-27.1.6.1 - Drift-MCP-tool-ergonomics-try-out-and-review.stop-hook-filter.html">
+          <span class="status-dot live"></span>
+          <span class="lbl"><b>Stop-hook flow-relevance filter</b><small>before/after trigger chain · truth table · AC#5/#6</small></span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="doc-group">
+      <div class="gh">
+        <span class="status-dot pending"></span>
+        <span class="id">task-27.1.6.2</span>
+        <span class="title">Fix re-sync mass-bin (anonymous symbol_path / build_index empties)</span>
+      </div>
+      <div class="doc-links">
+        <div class="pending-row">
+          <span class="status-dot pending"></span>
+          <span>No companion generated yet</span>
+          <span class="ng">not yet generated</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="k">Reading order</span>
+      <p>Start with the <strong>drift.* surface review</strong> (the decision you confirm), then the <strong>Stop-hook filter</strong> (the one focused code change). Both are scoped to task-27.1.6.1.</p>
+    </div>
+
+    <footer>
+      task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation.<br>
+      Companions present: 2 (both under task-27.1.6.1) · task-27.1.6.2: none yet.
+    </footer>
+  </main>
+
+  <aside>
+    <p class="toc-h">On this page</p>
+    <nav>
+      <a href="#loop">The loop the parent ships</a>
+      <a href="#fit">How the sub-tasks fit</a>
+      <a href="#nav">Open a companion</a>
+    </nav>
+  </aside>
+</div>
+</body>
+</html>

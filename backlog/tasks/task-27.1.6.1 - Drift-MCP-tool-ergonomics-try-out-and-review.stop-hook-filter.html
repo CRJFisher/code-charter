@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension companion for task-27.1.6.1 (Half B): the Stop-hook flow-relevance filter (AC#5/#6).
+     Grounded in packages/drift/src/hooks/{stop_decision,transcript_parser,stop_watermark}.ts,
+     bin/drift_stop_hook.ts, reconcile/{reconcile,skill_dir,headless_project}.ts (task-27.1.6.1 worktree).
+     Present-tense; describes the trigger chain as it IS and where the filter slots in. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stop-hook flow-relevance filter — before / after (task-27.1.6.1)</title>
+<style>
+  :root {
+    --ivory: #f7f4ec; --oat: #ece5d6; --slate: #2c3038; --ink: #20242b;
+    --clay: #b5683e; --olive: #6c7a3b; --rust: #9e3b2e;
+    --g1: #fbfaf5; --g2: #efeadd; --g3: #d9d2c1; --g4: #aaa492; --g5: #6c6759;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --r: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ivory); color: var(--slate); font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  main { max-width: 960px; margin: 0 auto; padding: 40px 24px 100px; }
+  .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 11px; color: var(--g5); margin: 0 0 10px; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 33px; line-height: 1.12; margin: 0 0 14px; color: var(--ink); }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 23px; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font-family: var(--serif); font-weight: 600; font-size: 17px; margin: 24px 0 8px; color: var(--ink); }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--g5); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; font-family: var(--mono); font-size: 11px; }
+  .pill { background: var(--oat); border: 1px solid var(--g3); border-radius: 999px; padding: 3px 11px; color: var(--g5); }
+  .pill strong { color: var(--slate); font-weight: 600; }
+  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1); border-radius: var(--r); padding: 14px 16px; margin: 22px 0; }
+  .prompt-box .label { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 8px; }
+  .prompt-box ul { margin: 6px 0 0; padding-left: 18px; }
+  .prompt-box li { font-size: 12.5px; margin: 2px 0; }
+  .prompt-box code { font-family: var(--mono); font-size: 12px; color: var(--clay); }
+
+  .callout { border-radius: var(--r); padding: 14px 18px; margin: 20px 0; border-left: 4px solid var(--clay); background: #f3ece2; }
+  .callout.olive { border-left-color: var(--olive); background: #eef0e3; }
+  .callout.rust { border-left-color: var(--rust); background: #f4e6e2; }
+  .callout .k { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); display: block; margin-bottom: 6px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .invert { background: var(--slate); color: var(--ivory); border-left-color: var(--clay); }
+  .invert .k { color: var(--g4); }
+  .invert code { color: #e7c3a6; }
+
+  code, .mono { font-family: var(--mono); }
+  p code, li code, td code, .step code { font-family: var(--mono); font-size: 12.5px; background: var(--oat); border: 1px solid var(--g3); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
+
+  .diagram-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); padding: 8px; }
+  svg { display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-family: var(--mono); font-size: 11px; color: var(--g5); margin: 10px 2px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 14px; height: 0; border-top: 3px solid; }
+
+  /* numbered chain */
+  .steps { margin: 16px 0; }
+  .step { display: grid; grid-template-columns: 44px 1fr; gap: 14px; margin-bottom: 4px; padding: 12px 0; border-bottom: 1px solid var(--g2); }
+  .step:last-child { border-bottom: none; }
+  .badge { width: 30px; height: 30px; border-radius: 50%; background: var(--g3); color: var(--ink);
+    font-family: var(--mono); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .step.new .badge { background: var(--clay); color: #fff; }
+  .step h3 { margin: 2px 0 4px; font-size: 15px; }
+  .step .loc { font-family: var(--mono); font-size: 11px; color: var(--g5); }
+  .step p { font-size: 13.5px; margin: 4px 0 0; }
+  .tag-new { font-family: var(--mono); font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    background: var(--clay); color: #fff; border-radius: 5px; padding: 2px 6px; margin-left: 8px; vertical-align: middle; }
+
+  .code { background: var(--ink); border-radius: var(--r); overflow: hidden; margin: 14px 0; border: 1px solid #11141a; }
+  .code .file-label { font-family: var(--mono); font-size: 11px; color: var(--g4); padding: 8px 14px; border-bottom: 1px solid #2f343d; background: #191c22; }
+  .code pre { margin: 0; padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: #d6d3c8; white-space: pre; }
+  .kw { color: #c98b6b; } .str { color: #a7b46f; } .cm { color: #6f7681; font-style: italic; }
+  .fn { color: #e0c285; } .hl { background: rgba(181,104,62,.22); display: inline-block; width: 100%; }
+  .add { background: rgba(108,122,59,.22); display: inline-block; width: 100%; }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--g3); vertical-align: top; }
+  th { font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: 10px; color: var(--g5); background: var(--g2); }
+  tr:last-child td { border-bottom: none; }
+  td.f { font-family: var(--mono); font-size: 12.5px; }
+  .verdict-cell { font-family: var(--mono); font-weight: 700; font-size: 11px; white-space: nowrap; }
+  .verdict-cell.go { color: var(--olive); } .verdict-cell.skip { color: var(--g5); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.olive { background: var(--olive); } .dot.g4 { background: var(--g4); } .dot.clay { background: var(--clay); }
+
+  footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--g3); font-family: var(--mono); font-size: 11px; color: var(--g4); }
+  a.up { color: var(--clay); text-decoration: none; border-bottom: 1px dotted var(--clay); }
+
+  @media (max-width: 720px) { h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">task-27.1.6.1 · Half B · AC#5 + AC#6</p>
+    <h1>The Stop-hook flow-relevance filter</h1>
+    <p class="lede">The hook blocks the turn for <em>any</em> edited file — including docs/config that can never form a flow — so a doc-only turn triggers a full-repo reconcile that no-ops. This page shows the trigger chain, where one filter slots in, and the standalone-doc decision that falls out of it for free.</p>
+    <div class="meta">
+      <span class="pill">change <strong>filter worked_on</strong></span>
+      <span class="pill">layers on <strong>per-turn watermark (cb51e03)</strong></span>
+      <span class="pill">AC#6 <strong>option (a): ignore-and-log</strong></span>
+    </div>
+    <a class="up" href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↑ task-27.1.6 family overview</a>
+  </header>
+
+  <div class="prompt-box">
+    <p class="label">Source read to ground this</p>
+    <ul>
+      <li><code>packages/drift/src/bin/drift_stop_hook.ts</code> — the hook entry: parse → watermark → decide</li>
+      <li><code>hooks/stop_watermark.ts</code> · <code>transcript_parser.ts</code> · <code>stop_decision.ts</code> — the trigger chain</li>
+      <li><code>reconcile/headless_project.ts</code> — <code>is_supported_source</code> + <code>.ts/.tsx/.js/.jsx/.py/.rs</code></li>
+      <li><code>reconcile/skill_dir.ts</code> — <code>find_skill_root</code> (walk to a <code>SKILL.md</code> ancestor)</li>
+      <li><code>reconcile/reconcile.ts</code> lines 52–62 — the partition that <em>already</em> drops non-flow files downstream</li>
+    </ul>
+  </div>
+
+  <div class="callout invert">
+    <span class="k">TL;DR — the decision you are confirming</span>
+    <p>Add <strong>one flow-relevance pre-filter</strong> to <code>worked_on</code> in the Stop-hook bin, just before <code>decide_stop_action</code>. A file is flow-relevant if <code>is_supported_source(path)</code> <em>or</em> <code>find_skill_root(path, cwd)</code> is defined. The existing <code>worked_on.length === 0</code> guard then naturally no-ops an all-non-flow turn. <strong>AC#6 is option (a) — ignore-and-log:</strong> a standalone <code>.md</code> is simply dropped by the filter and never blocks; giving docs their own flow (option b) is deferred.</p>
+  </div>
+
+  <h2>The root cause — the filter is missing, not the downstream guard</h2>
+  <p>The reconcile <em>engine</em> already ignores non-flow files: <code>reconcile()</code>'s partition (lines 52–62) routes a file to a skill bundle only when <code>find_skill_root</code> hits, and to code only when <code>is_supported_source</code> holds — everything else is silently dropped. So a <code>README.md</code> reaching the reconciler is a guaranteed no-op.</p>
+  <p>The waste is <strong>upstream</strong>: the Stop hook still decides to <em>block the turn and launch the reconciler sub-agent</em> for that file, paying the full-repo, uncached Ariadne index before the engine drops it. The fix is to apply the same flow-relevance test the engine uses, one step earlier — in the hook, before <code>decide_stop_action</code> sees the list.</p>
+
+  <h2>The trigger chain — before vs after</h2>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 920 300" width="920" height="300" role="img"
+      aria-label="The Stop-hook trigger chain. Before: parse worked-on files, apply the per-turn watermark, then decide-stop-action. After: the same chain with a flow-relevance filter inserted between the watermark and the decision.">
+      <defs>
+        <marker id="a-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="a-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+
+      <!-- BEFORE row -->
+      <text x="14" y="36" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#6c6759" letter-spacing=".08em">BEFORE</text>
+      <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
+        <rect x="80" y="48" width="150" height="52" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="155" y="70" font-weight="600">parse_worked_on</text>
+        <text x="155" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">transcript_parser</text>
+
+        <rect x="290" y="48" width="150" height="52" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="365" y="70" font-weight="600">watermark</text>
+        <text x="365" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">worked_on_since</text>
+
+        <rect x="500" y="48" width="160" height="52" rx="9" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+        <text x="580" y="70" font-weight="600">decide_stop_action</text>
+        <text x="580" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#8a3528">blocks for README.md too</text>
+
+        <rect x="720" y="48" width="170" height="52" rx="9" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="805" y="70" font-weight="600">launch reconciler</text>
+        <text x="805" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">full-repo index → no-op</text>
+      </g>
+      <line x1="230" y1="74" x2="288" y2="74" stroke="#6c6759" stroke-width="1.5" marker-end="url(#a-g)"/>
+      <line x1="440" y1="74" x2="498" y2="74" stroke="#6c6759" stroke-width="1.5" marker-end="url(#a-g)"/>
+      <line x1="660" y1="74" x2="718" y2="74" stroke="#6c6759" stroke-width="1.5" marker-end="url(#a-g)"/>
+
+      <line x1="0" y1="130" x2="920" y2="130" stroke="#d9d2c1" stroke-width="1"/>
+
+      <!-- AFTER row -->
+      <text x="14" y="186" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#b5683e" letter-spacing=".08em">AFTER</text>
+      <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
+        <rect x="60" y="198" width="128" height="52" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="124" y="220" font-weight="600">parse_worked_on</text>
+        <text x="124" y="237" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">transcript_parser</text>
+
+        <rect x="208" y="198" width="118" height="52" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="267" y="220" font-weight="600">watermark</text>
+        <text x="267" y="237" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">this turn's edits</text>
+
+        <rect x="346" y="194" width="158" height="60" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="2"/>
+        <text x="425" y="214" font-weight="700" fill="#92522f">flow-relevance filter</text>
+        <text x="425" y="230" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">is_supported_source ||</text>
+        <text x="425" y="243" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">find_skill_root</text>
+
+        <rect x="524" y="198" width="158" height="52" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="603" y="220" font-weight="600">decide_stop_action</text>
+        <text x="603" y="237" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">len===0 guard no-ops</text>
+
+        <rect x="702" y="198" width="188" height="52" rx="9" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="796" y="220" font-weight="600">launch only if relevant</text>
+        <text x="796" y="237" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">non-flow turn → silent skip</text>
+      </g>
+      <line x1="188" y1="224" x2="206" y2="224" stroke="#6c6759" stroke-width="1.5" marker-end="url(#a-g)"/>
+      <line x1="326" y1="224" x2="344" y2="224" stroke="#b5683e" stroke-width="1.5" marker-end="url(#a-clay)"/>
+      <line x1="504" y1="224" x2="522" y2="224" stroke="#b5683e" stroke-width="1.5" marker-end="url(#a-clay)"/>
+      <line x1="682" y1="224" x2="700" y2="224" stroke="#6c6759" stroke-width="1.5" marker-end="url(#a-g)"/>
+    </svg>
+  </div>
+  <div class="legend">
+    <span><span class="sw" style="border-color:#b5683e"></span>new step / new edge</span>
+    <span><span class="sw" style="border-color:#6c6759"></span>existing chain</span>
+  </div>
+
+  <div class="callout">
+    <span class="k">Two filters, two layers — not the same thing</span>
+    <p>The <strong>watermark</strong> (commit <code>cb51e03</code>, already shipped) scopes <code>worked_on</code> to <em>this turn's</em> edits — it answers "<em>when</em>." The <strong>flow-relevance filter</strong> (this task) drops the <em>non-flow</em> edits within that set — it answers "<em>which</em>." They compose: the new filter layers on top of the watermark, it does not replace it.</p>
+  </div>
+
+  <h2>Where the filter slots in — the hook bin</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="badge">1</div>
+      <div>
+        <h3>Parse the transcript</h3>
+        <span class="loc">bin/drift_stop_hook.ts → hooks/transcript_parser.ts</span>
+        <p><code>parse_worked_on_files</code> reads <code>Edit</code>/<code>Write</code>/<code>MultiEdit</code>/<code>NotebookEdit</code> tool-uses out of the JSONL transcript.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="badge">2</div>
+      <div>
+        <h3>Scope to this turn</h3>
+        <span class="loc">hooks/stop_watermark.ts → worked_on_since</span>
+        <p>The per-turn watermark drops edits from lines a prior fire already handed off. <em>Already shipped.</em></p>
+      </div>
+    </div>
+    <div class="step new">
+      <div class="badge">3</div>
+      <div>
+        <h3>Filter to flow-relevant paths <span class="tag-new">new — AC#5</span></h3>
+        <span class="loc">bin/drift_stop_hook.ts — between worked_on_since and decide_stop_action · payload.cwd gives the repo root</span>
+        <p>Keep a path only when <code>is_supported_source(path)</code> (reused from <code>headless_project.ts</code>) <em>or</em> <code>find_skill_root(path, cwd)</code> (reused from <code>skill_dir.ts</code>) holds. Both are already-tested helpers — no new logic, just composition.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="badge">4</div>
+      <div>
+        <h3>Decide — guard does the rest</h3>
+        <span class="loc">hooks/stop_decision.ts → decide_stop_action</span>
+        <p>Its existing <code>worked_on.length === 0</code> branch already returns <code>{ block: false }</code>. Feed it the filtered list and an all-non-flow turn no-ops with <strong>zero new branching</strong> in the decision function.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>The insertion point in <code>drift_stop_hook.ts</code></h3>
+  <div class="code">
+    <div class="file-label">packages/drift/src/bin/drift_stop_hook.ts — main() (filter inserted)</div>
+    <pre>  <span class="kw">const</span> { worked_on, next } = <span class="fn">worked_on_since</span>(transcript_text, payload.transcript_path, prev);
+
+  <span class="cm">// advance the cursor every fire …</span>
+  fs.<span class="fn">writeFileSync</span>(state_path, <span class="fn">serialize_watermark</span>(next));
+
+<span class="add">  <span class="cm">// AC#5: keep only files that can form a flow — a supported source extension, or under a SKILL.md.</span></span>
+<span class="add">  <span class="kw">const</span> flow_relevant = worked_on.<span class="fn">filter</span>(</span>
+<span class="add">    (f) =&gt; <span class="fn">is_supported_source</span>(f) || <span class="fn">find_skill_root</span>(to_abs(f, payload.cwd), payload.cwd) !== <span class="kw">undefined</span>,</span>
+<span class="add">  );</span>
+
+  <span class="kw">const</span> decision = <span class="fn">decide_stop_action</span>(payload, <span class="hl">flow_relevant</span>); <span class="cm">// was: worked_on</span></pre>
+  </div>
+  <p style="font-size:13px;color:var(--g5)"><span class="dot clay"></span>Illustrative shape — <code>is_supported_source</code> and <code>find_skill_root</code> are imported from the reconcile module; <code>to_abs</code> resolves the repo-relative path against <code>payload.cwd</code> exactly as <code>reconcile()</code> does. The decision function itself is untouched.</p>
+
+  <h2>Truth table — what fires after the filter</h2>
+  <table>
+    <thead><tr><th>Turn's edits</th><th>Filter keeps</th><th>Why</th><th>Outcome</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="f">foo.ts</td>
+        <td class="f">foo.ts</td>
+        <td>supported source (<code>.ts</code>)</td>
+        <td class="verdict-cell go"><span class="dot olive"></span>RECONCILE</td>
+      </tr>
+      <tr>
+        <td class="f">skills/x/SKILL.md</td>
+        <td class="f">skills/x/SKILL.md</td>
+        <td><code>find_skill_root</code> hits the bundle</td>
+        <td class="verdict-cell go"><span class="dot olive"></span>RECONCILE</td>
+      </tr>
+      <tr>
+        <td class="f">skills/x/refs/note.md</td>
+        <td class="f">skills/x/refs/note.md</td>
+        <td>under a <code>SKILL.md</code> ancestor</td>
+        <td class="verdict-cell go"><span class="dot olive"></span>RECONCILE</td>
+      </tr>
+      <tr>
+        <td class="f">README.md <span style="color:var(--g5)">(standalone)</span></td>
+        <td class="f">— dropped</td>
+        <td>not supported source, no skill ancestor → <strong>AC#6 (a)</strong></td>
+        <td class="verdict-cell skip"><span class="dot g4"></span>SKIP (logged)</td>
+      </tr>
+      <tr>
+        <td class="f">.gitignore / config.json</td>
+        <td class="f">— dropped</td>
+        <td>can never form a flow</td>
+        <td class="verdict-cell skip"><span class="dot g4"></span>SKIP (logged)</td>
+      </tr>
+      <tr>
+        <td class="f">foo.ts + README.md <span style="color:var(--g5)">(mixed)</span></td>
+        <td class="f">foo.ts</td>
+        <td>relevant subset survives, non-flow dropped</td>
+        <td class="verdict-cell go"><span class="dot olive"></span>RECONCILE foo.ts only</td>
+      </tr>
+      <tr>
+        <td class="f">README.md + config.json <span style="color:var(--g5)">(non-flow only)</span></td>
+        <td class="f">— empty</td>
+        <td><code>length === 0</code> guard fires</td>
+        <td class="verdict-cell skip"><span class="dot g4"></span>NO BLOCK</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout olive">
+    <span class="k">AC#6 — standalone-doc decision: option (a) ignore-and-log</span>
+    <p>A standalone <code>.md</code> (not under a skill dir, extension not supported) is simply dropped by the AC#5 filter — it never blocks the turn. <strong>AC#6 falls out of AC#5 for free.</strong> Giving docs their own flow (doc nodes + doc↔code linkage) is option (b), deferred as a follow-up — that is the larger doc-flow support the task explicitly does not build here.</p>
+  </div>
+
+  <h2>What you are confirming before I build</h2>
+  <table>
+    <thead><tr><th>Decision</th><th>Confirm</th></tr></thead>
+    <tbody>
+      <tr><td>Filter location — in the hook bin, between watermark and decide, using <code>payload.cwd</code> as the root</td><td class="verdict-cell go">yes</td></tr>
+      <tr><td>Flow-relevance test — reuse <code>is_supported_source</code> OR <code>find_skill_root</code> (no new logic)</td><td class="verdict-cell go">yes</td></tr>
+      <tr><td>AC#6 — option (a) ignore-and-log; defer doc-flow support (option b) as a follow-up</td><td class="verdict-cell go">yes</td></tr>
+      <tr><td>Leave <code>decide_stop_action</code> untouched (the <code>length===0</code> guard already handles the empty case)</td><td class="verdict-cell go">yes</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Generated companion · task-27.1.6.1 Half B · describes the Stop-hook trigger chain as it currently is.<br>
+    Source: bin/drift_stop_hook.ts · hooks/{stop_decision, transcript_parser, stop_watermark}.ts · reconcile/{reconcile, skill_dir, headless_project}.ts
+  </footer>
+</main>
+</body>
+</html>
