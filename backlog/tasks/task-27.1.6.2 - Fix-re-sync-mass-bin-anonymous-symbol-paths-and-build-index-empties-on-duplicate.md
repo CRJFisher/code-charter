@@ -68,8 +68,6 @@ This is the unimplemented half of task-27.1.6's review finding C ("one pathologi
 
 **Faulty code today** (`ariadne_adapter.ts` `build_index`): the inner `try` wraps the non-throwing `resolver_symbols_from_ariadne([input])`; the throwing `build_resolver_index(symbols)` sits in the outer `try` whose `catch` returns `build_resolver_index([])`.
 
-**Related, out of scope here:** the call-graph layer legitimately includes `<anonymous>` *entry points*, so flow detection still emits small `…#<anonymous>:function` flows (deterministic v1 grouping noise). That is the agent-judged umbrella-grouping concern (27.1.7 territory), separate from this resolver/preservation fix — do not conflate.
-
-**Separate follow-up (Stop-hook UX, task-27.1.1 area — not this task):** the `Stop` hook blocks on *any* edited file, including docs/config (`.md`, `.json`, `.gitignore`) that can never produce a flow, so a doc-only turn still prompts a full-repo reconcile that no-ops. The hook should pre-filter `worked_on` to flow-relevant paths (supported source extensions, or files under a skill dir) before deciding to block — same `transcript_parser`/`stop_decision` area as the per-turn watermark fix (commit `cb51e03`). Spin its own tiny task when picked up.
+**Related, out of scope here:** the call-graph layer legitimately includes `<anonymous>` *entry points*, so flow detection still emits small `…#<anonymous>:function` flows (deterministic v1 grouping noise). That is the agent-judged umbrella-grouping concern (27.1.7 territory), separate from this resolver/preservation fix — do not conflate. The `Stop`-hook trigger UX (firing for non-flow files) is captured in task-27.1.6.1.
 
 <!-- SECTION:NOTES:END -->
