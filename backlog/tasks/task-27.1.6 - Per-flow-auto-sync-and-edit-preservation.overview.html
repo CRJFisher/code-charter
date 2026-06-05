@@ -115,7 +115,7 @@
 
     <div class="prompt-box">
       <p class="label">This overview covers</p>
-      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), and <code>task-27.1.6.4</code> (standalone-doc flows). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
+      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), and <code>task-27.1.6.4</code> (fine-grained change detection). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
     </div>
 
     <div class="callout invert">
@@ -211,8 +211,8 @@
         <div class="badge">5</div>
         <div>
           <span class="id">task-27.1.6.4</span>
-          <h3>Standalone-doc flows</h3>
-          <p>Doc nodes and doc&harr;code linkage so unconnected <code>.md</code> edits can be reconciled — extends the loop past code-only flows into documentation.</p>
+          <h3>Fine-grained change detection</h3>
+          <p>Drive drift sync from the <em>symbols</em> that changed, not the files that were touched — a turn's edits reduce to an add/remove/modify/relocate <code>SymbolDelta</code> (from the resolver's existing <code>content_hash</code> anchors) that scopes which flows re-sync and which symbols re-describe.</p>
         </div>
       </div>
     </div>
@@ -274,7 +274,7 @@
       <div class="gh">
         <span class="status-dot pending"></span>
         <span class="id">task-27.1.6.4</span>
-        <span class="title">Standalone-doc flows — doc nodes and doc&harr;code linkage</span>
+        <span class="title">Fine-grained change detection — symbol-level drift sync</span>
       </div>
       <div class="doc-links">
         <div class="pending-row">
