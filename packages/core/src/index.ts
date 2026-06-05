@@ -89,6 +89,7 @@ export {
   flow_of_leaf,
   induce_members,
   order_flows,
+  paths_of,
   reachable_from,
   read_hydrated_flows,
   reconstruct_flow_membership,
@@ -105,6 +106,9 @@ export type { FlowBudget, ProjectFlowOptions } from "./model/flow_projection";
 // task-27.1.2 AC#2/#3/#4 — the single re-extraction funnel, outstanding-drift surface, and re-anchor write
 export { re_extract } from "./reextract/re_extract";
 export type { DriftFinding, ReExtractDeps, ReExtractOrigin, ReExtractResult } from "./reextract/re_extract";
+// task-27.1.6.4 AC#1 — the turn-level symbol change set the funnel emits
+export { compute_symbol_delta } from "./reextract/symbol_delta";
+export type { RelocatedSymbol, SymbolDelta } from "./reextract/symbol_delta";
 export { reanchor_node } from "./reextract/reanchor";
 export {
   DRIFT_FROM_KEY,

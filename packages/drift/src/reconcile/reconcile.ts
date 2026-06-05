@@ -25,6 +25,7 @@ import {
   read_sub_agents,
   re_extract,
 } from "@code-charter/core";
+import type { SymbolDelta } from "@code-charter/core";
 
 import { affected_persisted_flows } from "./affected_flows";
 import { read_persisted_flows } from "./flow_store";
@@ -61,15 +62,17 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     }
   }
 
-  // 2. Refresh raw substrate. re_extract is the single funnel (preservation for existing flows); skill
-  //    bundles re-ingest their literal doc tier.
+  // 2. Refresh raw substrate. re_extract is the single funnel (preservation for existing flows) and
+  //    emits the turn's symbol delta; skill bundles re-ingest their literal doc tier.
+  let delta: SymbolDelta = { added: [], removed: [], modified: [], relocated: [] };
   if (code_files.length > 0) {
-    re_extract(code_files, "code-change", {
+    delta = re_extract(code_files, "code-change", {
       store: deps.store,
       extract_raw: deps.adapter.extract_raw,
       build_index: deps.adapter.build_index,
       analyzed_root: deps.analyzed_root,
-    });
+      log: deps.log,
+    }).delta;
   }
   const skill_umbrellas: SkillUmbrella[] = [];
   for (const [root, name] of [...skill_roots].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
@@ -79,7 +82,6 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   const graph = deps.adapter.call_graph();
   const persisted = read_persisted_flows(deps.store);
   const persisted_ids = new Set(persisted.map((f) => f.node.id));
-  const node_path = build_node_path_lookup(deps);
 
   const outcomes: FlowOutcome[] = [];
   const handled = new Set<string>();
@@ -94,9 +96,11 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     handled.add(umbrella.id);
   }
 
-  // 3b. RE-SYNC the persisted CODE flows whose re-induced membership intersects the changed files (AC#5).
-  //     Sorted by id so the emitted outcomes are byte-stable across runs.
-  const affected = affected_persisted_flows(new Set(changed), persisted, graph, deps.adapter, node_path)
+  // 3b. RE-SYNC the persisted CODE flows whose body or membership drifted this turn (AC#2): a
+  //     body-modified symbol is a member, or the induced member set changed. Sorted by id so the
+  //     emitted outcomes are byte-stable across runs.
+  const changed_member_ids = modified_member_ids(deps, code_files, delta);
+  const affected = affected_persisted_flows(changed_member_ids, persisted, graph)
     .filter((flow) => !handled.has(flow.node.id))
     .sort((a, b) => (a.node.id < b.node.id ? -1 : a.node.id > b.node.id ? 1 : 0));
   for (const flow of affected) {
@@ -216,8 +220,19 @@ function build_skill_umbrella(deps: ReconcileDeps, skill_root_abs: string, skill
   };
 }
 
-/** id → repo-relative path, over every live store node (for the doc-member intersection in AC#5). */
-function build_node_path_lookup(deps: ReconcileDeps): (id: string) => string | undefined {
-  const by_id = new Map(deps.store.all_nodes().map((n) => [n.id, n.path]));
-  return (id) => by_id.get(id);
+/**
+ * The live `SymbolId`s of this turn's body-modified symbols — the body-drift re-sync trigger (AC#2).
+ * Added/removed/relocated members are caught by the membership-diff trigger inside
+ * `affected_persisted_flows`, so only `modified` needs the symbol_path → SymbolId join here. The join
+ * goes through `anchored_symbols` (the one place a resolver `symbol_path` is paired with a call-graph id).
+ */
+function modified_member_ids(deps: ReconcileDeps, code_files: readonly string[], delta: SymbolDelta): Set<SymbolId> {
+  if (delta.modified.length === 0) return new Set();
+  const path_to_id = new Map(deps.adapter.anchored_symbols([...code_files]).map((a) => [a.symbol_path, a.symbol_id]));
+  const ids = new Set<SymbolId>();
+  for (const symbol_path of delta.modified) {
+    const id = path_to_id.get(symbol_path);
+    if (id !== undefined) ids.add(id);
+  }
+  return ids;
 }

@@ -24,8 +24,8 @@ import type { BridgeCandidate, EdgeRow, ProvenanceRow, SubstrateProposal } from 
 import {
   build_bridge_edges,
   detect_meta_json_sub_agent_bridges,
-  flow_id_of,
   induce_members,
+  paths_of,
   write_agentic_substrate,
 } from "@code-charter/core";
 
@@ -183,14 +183,4 @@ export async function hydrate_code_flow(
   restamp_carried_label(deps, umbrella.id, remap);
 
   return { flow_id: umbrella.id, action: "hydrate", kind: "code", member_count: member_paths.length, last_synced_at };
-}
-
-/** Map a SymbolId set to sorted, deduped flow-layer symbol_paths (the inverse of the call graph keys). */
-function paths_of(ids: ReadonlySet<SymbolId>, graph: CallGraph): string[] {
-  const paths = new Set<string>();
-  for (const id of ids) {
-    const node = graph.nodes.get(id);
-    if (node !== undefined) paths.add(flow_id_of(node));
-  }
-  return [...paths].sort();
 }

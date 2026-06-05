@@ -36,6 +36,8 @@ import {
   DRIFT_TO_CONTENT_HASH_KEY,
   DRIFT_TO_SYMBOL_PATH_KEY,
 } from "./drift_observation";
+import { compute_symbol_delta } from "./symbol_delta";
+import type { SymbolDelta } from "./symbol_delta";
 
 /** Where a re-extraction was triggered from. Open union — task-27.2 adds `'apply'` with no change. */
 export type ReExtractOrigin = "code-change" | (string & {});
@@ -52,6 +54,8 @@ export interface ReExtractDeps {
   build_index: (file_set: readonly string[]) => ResolverIndex;
   /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold (AC#9). */
   analyzed_root: string;
+  /** Optional diagnostics sink — used only to flag a baseline anomaly (a conflicting anchor). */
+  log?: (message: string) => void;
 }
 
 /** One node the resolver moved (or lost) during a re-extraction. */
@@ -67,6 +71,8 @@ export interface ReExtractResult {
   file_set: readonly string[];
   origin: ReExtractOrigin;
   findings: DriftFinding[];
+  /** The turn-level symbol change set for `file_set` (AC#1) — drives scoped re-sync/re-describe. */
+  delta: SymbolDelta;
 }
 
 /**
@@ -84,15 +90,38 @@ export function re_extract(file_set: readonly string[], origin: ReExtractOrigin,
   // 2. Rebuild the file-module scaffold for the freshly-extracted leaves (deterministic, idempotent).
   rebuild_file_module_scaffold(store, file_set, analyzed_root);
 
-  // 3. Resolve every preserved, anchored node in the set against the fresh index.
+  // 3. Resolve every preserved, anchored node in the set against the fresh index — staging drift per
+  //    node — and accumulate the persisted-anchor baseline the symbol delta diffs against.
   const index = build_index(file_set);
   const findings: DriftFinding[] = [];
+  const baseline = new Map<string, string>();
   for (const node of preserved_anchored_nodes(store, file_set)) {
     const finding = reconcile_node(store, node, index);
     if (finding !== null) findings.push(finding);
+    record_baseline_anchor(baseline, node, deps.log);
   }
 
-  return { file_set, origin, findings };
+  // 4. Promote the per-node verdicts into the turn-level symbol delta (AC#1).
+  const delta = compute_symbol_delta(baseline, index);
+
+  return { file_set, origin, findings, delta };
+}
+
+/**
+ * Record one preserved node's anchor in the baseline (`symbol_path → content_hash`), first-wins.
+ * Multiple preserved nodes may anchor to one symbol (e.g. a description and a behaviour); an identical
+ * content_hash is the normal multiplicity and merges silently. A *conflicting* content_hash for the same
+ * symbol_path is a baseline inconsistency: keep the first and log it loudly (never silently narrow),
+ * mirroring `build_dedup_index`.
+ */
+function record_baseline_anchor(baseline: Map<string, string>, node: NodeRow, log?: (message: string) => void): void {
+  const { symbol_path, content_hash } = parse_anchor(node.anchor!);
+  const existing = baseline.get(symbol_path);
+  if (existing === undefined) {
+    baseline.set(symbol_path, content_hash);
+  } else if (existing !== content_hash) {
+    log?.(`symbol-delta baseline: conflicting content_hash for ${symbol_path}; keeping first`);
+  }
 }
 
 /** The live preserved (non-raw), anchored nodes whose defining file is in `file_set`. */

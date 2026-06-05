@@ -234,6 +234,21 @@ export function flow_of_leaf(leaf: SymbolId, flows: FlowMembership[], graph: Cal
 }
 
 /**
+ * Map a `SymbolId` set to sorted, deduped flow-layer `symbol_path`s (the inverse of {@link flow_id_of}).
+ * This is the single derivation of a flow's member-path set — a hydrated flow persists it as its
+ * `anchor_set`, and the symbol-level re-sync trigger re-derives it to detect membership drift, so the
+ * "anchor_set == paths_of(members)" invariant lives in one place.
+ */
+export function paths_of(ids: ReadonlySet<SymbolId>, graph: CallGraph): string[] {
+  const paths = new Set<string>();
+  for (const id of ids) {
+    const node = graph.nodes.get(id);
+    if (node !== undefined) paths.add(flow_id_of(node));
+  }
+  return [...paths].sort();
+}
+
+/**
  * The `symbol_path → SymbolId` index over the current graph (the inverse of {@link flow_id_of}). A
  * persisted flow stores its seeds/bridges as rename-stable `symbol_path`s (task-27.1.6), but induction
  * traverses the live `CallGraph` keyed by `SymbolId`; this is the bridge between the two id spaces.
