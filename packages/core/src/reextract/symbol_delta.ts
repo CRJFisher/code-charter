@@ -34,7 +34,11 @@ export interface RelocatedSymbol {
 
 /** The structured, symbol-level change set for a turn's edits (AC#1). All buckets keyed by `symbol_path`. */
 export interface SymbolDelta {
-  /** Fresh symbol_paths with no baseline anchor (relocation targets excluded). */
+  /**
+   * Fresh symbol_paths with no baseline anchor (relocation targets excluded). NOTE: "added" is relative
+   * to ANCHORED knowledge, not to "code the user just wrote" — an existing-but-undescribed symbol has no
+   * persisted anchor and so reads as `added`. Harmless: downstream work is scoped through flows.
+   */
   added: string[];
   /** Baseline symbol_paths that resolve nowhere in the fresh code (a `miss`). */
   removed: string[];

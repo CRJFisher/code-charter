@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- task-family-overview for task-27.1.6 (Per-flow auto-sync + edit preservation), the v1 ship point.
-     Frames the parent's intention and routes to the sub-task companions (27.1.6.1, .2, .3, .4).
+     Frames the parent's intention and routes to the sub-task companions (27.1.6.1, .2, .3, .4, .5).
      Cross-file hrefs are sibling filenames only; missing companions render as not-yet-generated rows.
      Re-scanned the backlog/tasks/ dir for child companions on generation. Present-tense. -->
 <html lang="en">
@@ -81,6 +81,7 @@
   .step h3 { margin: 1px 0 3px; font-size: 15px; }
   .step p { font-size: 13.5px; margin: 0; }
   .step .id { font-family: var(--mono); font-size: 10.5px; color: var(--g5); }
+  .step .badge.todo { background: var(--g4); }
 
   /* sticky toc */
   aside { position: sticky; top: 28px; align-self: start; }
@@ -109,13 +110,13 @@
         <span class="pill">entry point <strong>Stop hook → sub-agent → drift-sync</strong></span>
         <span class="pill">first target <strong>a skill's flow</strong></span>
         <span class="pill">model <strong>auto-sync, not a review queue</strong></span>
-        <span class="pill">children <strong>4</strong></span>
+        <span class="pill">children <strong>5</strong></span>
       </div>
     </header>
 
     <div class="prompt-box">
       <p class="label">This overview covers</p>
-      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), and <code>task-27.1.6.4</code> (fine-grained change detection). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
+      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), <code>task-27.1.6.4</code> (fine-grained change detection), and <code>task-27.1.6.5</code> (concise Stop-hook instruction). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
     </div>
 
     <div class="callout invert">
@@ -173,12 +174,12 @@
     </div>
 
     <h2 id="fit">How the sub-tasks fit together</h2>
-    <p>With the parent <strong>Done</strong>, the children are the <em>come-back-and-make-it-real</em> pass: prove and sand the recovery surface, fix a re-sync bug the live loop surfaced, then extend recovery and reach beyond code into standalone docs.</p>
+    <p>With the parent <strong>Done</strong>, the children are the <em>come-back-and-make-it-real</em> pass: prove and sand the recovery surface, fix a re-sync bug the live loop surfaced, extend recovery, sharpen change detection so drift follows the code rather than the file, and trim the Stop-hook transport.</p>
     <div class="steps">
       <div class="step">
         <div class="badge">1</div>
         <div>
-          <span class="id">task-27.1.6.1 · Half A</span>
+          <span class="id">task-27.1.6.1 · Half A · Done</span>
           <h3>Prove + decide the <code>drift.*</code> recovery surface</h3>
           <p>Drive <code>drift_list</code> / <code>drift_resolve</code> against a real stranding and decide keep/revise/replace. Verdict: keep the surface, land one payload enrichment, spin the deeper items as follow-ups.</p>
         </div>
@@ -186,7 +187,7 @@
       <div class="step">
         <div class="badge">2</div>
         <div>
-          <span class="id">task-27.1.6.1 · Half B</span>
+          <span class="id">task-27.1.6.1 · Half B · Done</span>
           <h3>Stop only for flow-relevant edits</h3>
           <p>Pre-filter <code>worked_on</code> so a doc/config-only turn does not trigger a no-op full-repo reconcile. Layers on the per-turn watermark already shipped; resolves the standalone-doc question (ignore-and-log).</p>
         </div>
@@ -194,7 +195,7 @@
       <div class="step">
         <div class="badge">3</div>
         <div>
-          <span class="id">task-27.1.6.2</span>
+          <span class="id">task-27.1.6.2 · Done</span>
           <h3>Fix the re-sync mass-bin bug</h3>
           <p>A separate defect the live loop exposed: two anonymous callbacks in one file collide in <code>symbol_path</code> space, <code>build_index</code> empties the resolver index on the duplicate, and re-sync then mass-bins every preserved description (25 of 29 in the dogfood run). Skip <code>&lt;anonymous&gt;</code> at the source; dedup before building as defense-in-depth.</p>
         </div>
@@ -202,7 +203,7 @@
       <div class="step">
         <div class="badge">4</div>
         <div>
-          <span class="id">task-27.1.6.3</span>
+          <span class="id">task-27.1.6.3 · Done</span>
           <h3>Richer drift recovery</h3>
           <p>The kept <code>drift.*</code> surface covers two strandings — commit a relocation, or restore onto the original anchor — but not the middle case: the symbol is gone and you know the right <em>new</em> one. Four additions reach it: reattach a binned description onto a chosen current symbol (carrying authored fields through <code>reanchor_node</code>), ranked <code>candidates[]</code> computed store-only from live anchored nodes, a <code>kind</code> disambiguator that stops node-vs-edge guessing, and a resolve-next loop primitive.</p>
         </div>
@@ -210,9 +211,17 @@
       <div class="step">
         <div class="badge">5</div>
         <div>
-          <span class="id">task-27.1.6.4</span>
+          <span class="id">task-27.1.6.4 · To Do</span>
           <h3>Fine-grained change detection</h3>
-          <p>Drive drift sync from the <em>symbols</em> that changed, not the files that were touched — a turn's edits reduce to an add/remove/modify/relocate <code>SymbolDelta</code> (from the resolver's existing <code>content_hash</code> anchors) that scopes which flows re-sync and which symbols re-describe.</p>
+          <p>Drive drift sync from the <em>symbols</em> that changed, not the files that were touched — a turn's edits reduce to an add/remove/modify/relocate <code>SymbolDelta</code> (from the resolver's existing <code>content_hash</code> anchors) that scopes which flows re-sync and which symbols re-describe. An edit to a shared file that touches no symbol a flow depends on no longer re-syncs it.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge todo">6</div>
+        <div>
+          <span class="id">task-27.1.6.5 · To Do</span>
+          <h3>Concise Stop-hook instruction</h3>
+          <p>The Stop block currently emits one bullet line <em>per worked-on file</em> and threads the file set through the prompt prose. This makes the block concise — <em>"N file(s) drifted — run <code>drift-reconciler</code>"</em> — and moves the exact divergence set off the prompt onto a script the reconciler's <code>drift-sync</code> skill reads directly, in reconcile-ready structured form.</p>
         </div>
       </div>
     </div>
@@ -272,9 +281,24 @@
 
     <div class="doc-group">
       <div class="gh">
-        <span class="status-dot pending"></span>
+        <span class="status-dot live"></span>
         <span class="id">task-27.1.6.4</span>
         <span class="title">Fine-grained change detection — symbol-level drift sync</span>
+      </div>
+      <div class="doc-links">
+        <a class="doc-link" href="task-27.1.6.4 - Fine-grained-change-detection-symbol-level-drift-sync.symbol-change-detection.html">
+          <span class="status-dot live"></span>
+          <span class="lbl"><b>Symbol-level change detection</b><small>before/after pipeline &middot; SymbolDelta classes &middot; the three-id-space join &middot; (a)+(b) re-sync trigger &middot; cost posture</small></span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="doc-group">
+      <div class="gh">
+        <span class="status-dot pending"></span>
+        <span class="id">task-27.1.6.5</span>
+        <span class="title">Concise Stop-hook instruction — reconciler-driven divergence source</span>
       </div>
       <div class="doc-links">
         <div class="pending-row">
@@ -287,12 +311,12 @@
 
     <div class="callout">
       <span class="k">Reading order</span>
-      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work: the <strong>drift.* surface review</strong> (the decision confirmed), then the <strong>Stop-hook filter</strong> (the focused trigger change), then the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read it once you know what the loop preserves and where the bin sits). Then the <strong>recovery walkthrough</strong> (how the kept surface grows the three-case recovery into reaching a new target).</p>
+      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work: the <strong>drift.* surface review</strong> (the decision confirmed), then the <strong>Stop-hook filter</strong> (the focused trigger change), then the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read it once you know what the loop preserves and where the bin sits), then the <strong>recovery walkthrough</strong> (how the kept surface grows the three-case recovery into reaching a new target). Finally, <strong>symbol-level change detection</strong> (task-27.1.6.4) sharpens the trigger from the file to the symbol — read it after the filter, since it replaces that same changed-file intersection inside the reconcile engine.</p>
     </div>
 
     <footer>
       task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation.<br>
-      Companions present: 4 — two under task-27.1.6.1, one under task-27.1.6.2, one under task-27.1.6.3 · task-27.1.6.4: none yet.
+      Companions present: 5 — two under task-27.1.6.1, one each under task-27.1.6.2, task-27.1.6.3, task-27.1.6.4 · task-27.1.6.5: none yet.
     </footer>
   </main>
 

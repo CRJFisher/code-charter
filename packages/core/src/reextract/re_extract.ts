@@ -16,6 +16,11 @@
  * re-resolve. A `miss` (the symbol is both renamed and re-bodied) soft-deletes the node into the
  * re-attachment bin.
  *
+ * Alongside the per-node findings, `re_extract` promotes those same verdicts into a turn-level
+ * {@link SymbolDelta} (`{added, removed, modified, relocated}` keyed by symbol_path; see `symbol_delta.ts`)
+ * by diffing the fresh resolver index against the persisted-anchor baseline it accumulates in the same
+ * pass. Downstream re-sync (`affected_persisted_flows`) and re-describe scope to that delta (task-27.1.6.4).
+ *
  * `re_extract` is not a single transaction. Each store call is atomic and idempotent, so a re-run after
  * a mid-way failure re-applies cleanly: raw invalidation/extraction is repeatable and staging a
  * relocation twice is a no-op.
@@ -77,7 +82,8 @@ export interface ReExtractResult {
 
 /**
  * Re-extract `file_set` and reconcile the preserved tiers against the fresh code. See the module
- * docstring for the full contract. Returns one {@link DriftFinding} per relocated/missed node.
+ * docstring for the full contract. Returns one {@link DriftFinding} per relocated/missed node and the
+ * turn-level {@link SymbolDelta} for the file set.
  */
 export function re_extract(file_set: readonly string[], origin: ReExtractOrigin, deps: ReExtractDeps): ReExtractResult {
   const { store, extract_raw, build_index, analyzed_root } = deps;

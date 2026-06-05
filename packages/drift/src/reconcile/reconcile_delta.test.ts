@@ -158,6 +158,9 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     const relocated = drift.find((d) => d.to_symbol_path === "main.ts#beta_renamed:function");
     expect(relocated).toBeDefined();
     expect(relocated!.node_id).toBe(`${DESCRIPTION_NODE_KIND}:main.ts#beta:function`);
+    // AC#3: the relocated symbol is NOT re-described — no fresh description node at the new path; the
+    // carried description (still on the old-path node, staged) is the single source until drift.resolve.
+    expect(store.node(`${DESCRIPTION_NODE_KIND}:main.ts#beta_renamed:function`)).toBeUndefined();
   });
 
   it("no-op: a whitespace/comment edit that changes no member body reconciles nothing (AC#4)", async () => {
@@ -209,5 +212,24 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
 
     expect(flow_sync(skill_id)).toBe(skill_before); // no churn
     expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(skill_id); // still live
+  });
+
+  it("membership drift alone re-syncs a flow: a cross-file member deleted without editing its caller", async () => {
+    // The membership-drift trigger (b) must fire independently of the body-drift trigger (a). main (in
+    // app.ts) calls leaf (in lib.ts); deleting leaf — WITHOUT touching app.ts — changes no persisted
+    // member's body (delta.modified is empty for this turn), yet the flow's induced member set shrinks.
+    write("app.ts", "import { leaf } from './lib';\n\nexport function app_main() {\n  return leaf();\n}\n");
+    write("lib.ts", "export function leaf() {\n  return 1;\n}\n");
+    await run(["app.ts", "lib.ts"]);
+    const flow_id = "app.ts#app_main:function";
+    const before = flow_sync(flow_id);
+    expect(anchor_set(flow_id)).toContain("lib.ts#leaf:function");
+
+    // Delete leaf from lib.ts only; app.ts (the caller) is untouched, so no member body changed.
+    write("lib.ts", "export function other() {\n  return 2;\n}\n");
+    await run(["lib.ts"]);
+
+    expect(flow_sync(flow_id) > before).toBe(true); // (b) fired despite (a) being empty
+    expect(anchor_set(flow_id)).not.toContain("lib.ts#leaf:function"); // stale member dropped
   });
 });

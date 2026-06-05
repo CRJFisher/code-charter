@@ -69,6 +69,13 @@ export interface HydrateOptions {
   allow_remap?: boolean;
   /** Run the (cost-bearing) describe step. False for the singleton-stub overflow above the cap (AC#8). */
   describe?: boolean;
+  /**
+   * symbol_paths relocated this turn (the delta's `relocated` targets). They are NOT re-described: the
+   * resolver carries the existing description across via the relocation staged by `re_extract` (committed
+   * by `drift.resolve`), so describing them afresh would both waste a model call and orphan the carried
+   * description on a stale-id node (task-27.1.6.4 AC#3).
+   */
+  relocated_targets?: ReadonlySet<string>;
 }
 
 interface RemapResult {
@@ -162,7 +169,10 @@ export async function hydrate_code_flow(
       const file = deps.adapter.file_of(id as SymbolId);
       if (file !== undefined) member_files.add(file);
     }
-    const anchored = deps.adapter.anchored_symbols([...member_files]).filter((a) => members.has(a.symbol_id));
+    const relocated_targets = options.relocated_targets;
+    const anchored = deps.adapter
+      .anchored_symbols([...member_files])
+      .filter((a) => members.has(a.symbol_id) && !(relocated_targets?.has(a.symbol_path) ?? false));
     descriptions = await resolve_descriptions(deps.store, anchored, deps.describe);
   }
 

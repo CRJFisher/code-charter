@@ -99,4 +99,24 @@ describe("compute_symbol_delta (AC#1)", () => {
 
     expect(delta).toEqual({ added: [], removed: [], modified: [], relocated: [] });
   });
+
+  it("sorts every bucket deterministically regardless of input order", () => {
+    const sym = (name: string): ResolverSymbol => ({
+      file_path: "src/app.ts",
+      name,
+      kind: "function",
+      enclosing: [],
+      body_source: `{\n  return "${name}";\n}`,
+    });
+    // Fresh index built in deliberately non-sorted name order; all three are unbaselined → all `added`.
+    const index = build_resolver_index([sym("zed"), sym("alpha"), sym("mid")]);
+
+    const delta = compute_symbol_delta(new Map(), index);
+
+    expect(delta.added).toEqual([
+      symbol_path_of(sym("alpha")),
+      symbol_path_of(sym("mid")),
+      symbol_path_of(sym("zed")),
+    ]);
+  });
 });

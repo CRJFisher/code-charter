@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Symbol-level change detection — drift sync</title>
+<style>
+  :root {
+    --ivory: #f6f2e9;
+    --oat: #ece4d3;
+    --slate: #2b2a26;
+    --ink: #34322c;
+    --clay: #b5683c;
+    --olive: #6f7a3f;
+    --rust: #9c3b2e;
+    --g100: #efeadd;
+    --g200: #ded6c4;
+    --g300: #c7bda7;
+    --g400: #9c937f;
+    --g500: #6f685a;
+    --g600: #4a463d;
+    --serif: ui-serif, "Iowan Old Style", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ivory);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 28px 96px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 232px;
+    gap: 48px;
+  }
+  main { min-width: 0; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--clay);
+    margin: 0 0 12px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 34px;
+    line-height: 1.18;
+    margin: 0 0 18px;
+    color: var(--slate);
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 25px;
+    margin: 56px 0 14px;
+    color: var(--slate);
+    scroll-margin-top: 24px;
+  }
+  h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 19px;
+    margin: 30px 0 8px;
+    color: var(--slate);
+  }
+  p { margin: 0 0 14px; }
+  .lede { font-size: 18px; color: var(--g600); }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  p code, li code, td code {
+    background: var(--oat);
+    padding: 1px 5px;
+    border-radius: 5px;
+    color: var(--g600);
+    white-space: nowrap;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .meta-row span {
+    background: var(--oat);
+    border: 1px solid var(--g200);
+    border-radius: 999px;
+    padding: 4px 11px;
+    color: var(--g600);
+  }
+  .meta-row strong { color: var(--slate); font-weight: 600; }
+
+  .prompt-box {
+    border: 1px solid var(--g200);
+    border-left: 4px solid var(--g400);
+    background: #fbf8f1;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 14px 18px;
+    margin: 0 0 8px;
+  }
+  .prompt-box .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin: 0 0 6px;
+  }
+  .prompt-box ul { margin: 0; padding-left: 18px; }
+  .prompt-box li { font-family: var(--mono); font-size: 12.5px; color: var(--g600); }
+
+  aside.toc {
+    position: sticky;
+    top: 28px;
+    align-self: start;
+    font-size: 13.5px;
+  }
+  aside.toc .toc-h {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin: 0 0 10px;
+  }
+  aside.toc a {
+    display: block;
+    color: var(--g600);
+    text-decoration: none;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--g200);
+  }
+  aside.toc a:hover { color: var(--clay); }
+
+  .callout {
+    border-radius: var(--radius);
+    border: 1px solid var(--g200);
+    border-left: 4px solid var(--clay);
+    background: #fbf8f1;
+    padding: 16px 20px;
+    margin: 22px 0;
+  }
+  .callout.olive { border-left-color: var(--olive); }
+  .callout.rust { border-left-color: var(--rust); }
+  .callout .k {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin: 0 0 6px;
+  }
+  .callout.invert {
+    background: var(--slate);
+    color: var(--ivory);
+    border-left-color: var(--clay);
+  }
+  .callout.invert .k { color: var(--g300); }
+  .callout.invert code { background: rgba(255,255,255,0.12); color: #f0e9da; }
+
+  /* before / after grid */
+  .ba {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 18px 0;
+  }
+  .ba article {
+    border: 1px solid var(--g200);
+    border-radius: var(--radius);
+    background: #fcfaf4;
+    padding: 16px 18px;
+  }
+  .ba article.now { border-color: var(--rust); }
+  .ba article.next { border-color: var(--olive); }
+  .ba .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+  .ba .now .tag { background: #f3ddd6; color: var(--rust); }
+  .ba .next .tag { background: #e7ead4; color: var(--olive); }
+  .ba h3 { margin-top: 0; }
+  .ba p { font-size: 14.5px; margin-bottom: 8px; }
+
+  /* code panel */
+  .code {
+    background: #21201c;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 16px 0;
+    border: 1px solid #11100e;
+  }
+  .code .file-label {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #b9b09c;
+    padding: 9px 16px;
+    border-bottom: 1px solid #38362f;
+    background: #1a1916;
+    letter-spacing: 0.04em;
+  }
+  .code pre {
+    margin: 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.7px;
+    line-height: 1.62;
+    color: #e4ddca;
+    white-space: pre;
+  }
+  .code .kw { color: #c98b6b; }
+  .code .str { color: #9aa86b; }
+  .code .fn { color: #e3c97a; }
+  .code .cm { color: #6f6a5c; font-style: italic; }
+  .code .dim { color: #837c6c; }
+  .code .hl { background: rgba(181,104,60,0.22); display: inline-block; width: 100%; }
+  .code .add { background: rgba(111,122,63,0.24); display: inline-block; width: 100%; }
+  .code .del { background: rgba(156,59,46,0.26); display: inline-block; width: 100%; text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.35); }
+
+  /* delta classification table */
+  table.delta {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  table.delta th, table.delta td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--g200);
+    vertical-align: top;
+  }
+  table.delta th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--g500);
+    background: var(--g100);
+  }
+  table.delta td:first-child { white-space: nowrap; }
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .pill.added { background: #e7ead4; color: var(--olive); }
+  .pill.modified { background: #f3e4d0; color: var(--clay); }
+  .pill.relocated { background: #e2dd52; color: #5a5410; background: #ece9c0; color: #6a651e; }
+  .pill.removed { background: #f3ddd6; color: var(--rust); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.olive { background: var(--olive); }
+  .dot.clay { background: var(--clay); }
+  .dot.rust { background: var(--rust); }
+  .dot.gold { background: #b9a93b; }
+
+  /* id-space join */
+  .idspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin: 18px 0 6px;
+  }
+  .idspace .col {
+    border: 1px solid var(--g200);
+    border-radius: var(--radius);
+    background: #fcfaf4;
+    padding: 14px 15px;
+  }
+  .idspace .col h4 {
+    font-family: var(--serif);
+    font-size: 16px;
+    margin: 0 0 4px;
+    color: var(--slate);
+  }
+  .idspace .col .who {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--clay);
+    margin-bottom: 8px;
+  }
+  .idspace .col p { font-size: 13px; margin-bottom: 8px; color: var(--g600); }
+  .idspace .col .ex {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: #2a2924;
+    color: #e4ddca;
+    padding: 7px 9px;
+    border-radius: 7px;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--g600);
+    margin: 10px 0 0;
+  }
+  .legend span { display: inline-flex; align-items: center; }
+
+  .figwrap { overflow-x: auto; border: 1px solid var(--g200); border-radius: var(--radius); background: #fcfaf4; padding: 14px; margin: 16px 0; }
+  svg { display: block; }
+  svg text { font-family: var(--mono); }
+
+  ul.clean { list-style: none; padding: 0; margin: 14px 0; }
+  ul.clean li {
+    padding: 10px 0 10px 30px;
+    border-bottom: 1px solid var(--g200);
+    position: relative;
+  }
+  ul.clean li::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 17px;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--clay);
+  }
+  ul.clean li.ok::before { background: var(--olive); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 18px;
+    border-top: 1px solid var(--g200);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--g400);
+  }
+
+  @media (max-width: 940px) {
+    .wrap { grid-template-columns: 1fr; gap: 28px; }
+    aside.toc { position: static; order: -1; }
+    .ba, .idspace { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<main>
+  <p class="eyebrow">task-27.1.6.4 · drift / change-detection</p>
+  <h1>Drift follows the code change, not the file save</h1>
+  <p class="lede">The reconcile engine reduces a turn's edits to a structured, symbol-level change set, then scopes re-sync and re-describe to exactly the symbols that moved. An edit to a shared file that touches no symbol a flow depends on no longer re-syncs that flow.</p>
+
+  <div class="meta-row">
+    <span><strong>unit of change</strong> file → symbol</span>
+    <span><strong>delta</strong> added · removed · modified · relocated</span>
+    <span><strong>new tables</strong> 0</span>
+    <span><strong>new hooks</strong> 0</span>
+    <span><strong>rides</strong> Stop-hook → drift-reconciler → drift-sync → reconcile</span>
+  </div>
+
+  <div class="prompt-box">
+    <p class="label">Source read for this page</p>
+    <ul>
+      <li>packages/drift/src/reconcile/reconcile.ts · affected_flows.ts</li>
+      <li>packages/core/src/reextract/re_extract.ts · resolver/resolve_anchor.ts · resolver/code_state.ts</li>
+      <li>packages/core/src/model/flow.ts · resolver/from_ariadne.ts · agentic/describe_policy.ts</li>
+    </ul>
+  </div>
+
+  <h2 id="why">What changes, and why it matters</h2>
+  <p>Today the unit of change is the <strong>file</strong>. The <code>Stop</code> hook hands <code>reconcile(file_set)</code> the files edited this turn; a persisted flow re-syncs whenever any member's <em>defining file</em> intersects that set &mdash; regardless of whether the symbol that actually changed is in the flow, and regardless of whether the edit changed any symbol's body at all. Editing one helper in a shared file re-syncs every flow that reaches anything else in that file, and a comment-only edit still triggers a full re-sync and re-render.</p>
+  <p>The symbol-level signal already exists: <code>re_extract</code> classifies every anchored node as hit / body-changed / relocated / miss against its <code>symbol_path:content_hash</code> anchor &mdash; but that verdict drives <em>description preservation only</em>. Nothing aggregates those verdicts into a "which symbols changed this turn" delta, and nothing uses it to scope which flows re-sync. This task computes and uses that delta.</p>
+
+  <div class="callout olive">
+    <p class="k">The two payoffs</p>
+    <p style="margin:0"><strong>Correctness</strong> — no spurious whole-flow re-syncs off an unrelated edit in a shared file. <strong>Cost</strong> — the reconcile stops doing downstream work (re-syncs, re-describes, flow writes) the delta proves unnecessary.</p>
+  </div>
+
+  <h2 id="pipeline">The reconcile pipeline: before &amp; after</h2>
+  <p>The chain is unchanged from the substrate up: <code>re_extract</code> still refreshes raw, still emits its <code>findings</code> (existing consumers untouched). What changes is one extra return value from <code>re_extract</code> and the predicate inside <code>affected_persisted_flows</code>.</p>
+
+  <div class="figwrap">
+    <svg viewBox="0 0 920 360" width="920" height="360" role="img" aria-label="Before and after reconcile data flow">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#6f685a" />
+        </marker>
+        <marker id="arrowR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#9c3b2e" />
+        </marker>
+        <marker id="arrowO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#6f7a3f" />
+        </marker>
+      </defs>
+
+      <!-- BEFORE -->
+      <text x="20" y="26" font-size="12" fill="#9c3b2e" letter-spacing="1.5">TODAY · FILE-UNIT</text>
+      <rect x="20" y="40" width="140" height="44" rx="9" fill="#f3ddd6" stroke="#9c3b2e"/>
+      <text x="90" y="60" font-size="11" fill="#4a463d" text-anchor="middle">changed FILE set</text>
+      <text x="90" y="75" font-size="10" fill="#6f685a" text-anchor="middle">this turn</text>
+
+      <rect x="200" y="40" width="150" height="44" rx="9" fill="#fcfaf4" stroke="#c7bda7"/>
+      <text x="275" y="60" font-size="11" fill="#4a463d" text-anchor="middle">re_extract()</text>
+      <text x="275" y="75" font-size="10" fill="#6f685a" text-anchor="middle">refresh raw + findings</text>
+
+      <rect x="390" y="34" width="180" height="56" rx="9" fill="#f3ddd6" stroke="#9c3b2e"/>
+      <text x="480" y="55" font-size="11" fill="#4a463d" text-anchor="middle">affected_persisted_flows</text>
+      <text x="480" y="71" font-size="10" fill="#9c3b2e" text-anchor="middle">member's FILE ∈ changed?</text>
+      <text x="480" y="84" font-size="10" fill="#6f685a" text-anchor="middle">(coarse)</text>
+
+      <rect x="610" y="40" width="150" height="44" rx="9" fill="#fcfaf4" stroke="#c7bda7"/>
+      <text x="685" y="60" font-size="11" fill="#4a463d" text-anchor="middle">re-sync flow</text>
+      <text x="685" y="75" font-size="10" fill="#6f685a" text-anchor="middle">re-induce + re-describe</text>
+
+      <line x1="160" y1="62" x2="196" y2="62" stroke="#6f685a" stroke-width="1.6" marker-end="url(#arrow)"/>
+      <line x1="350" y1="62" x2="386" y2="62" stroke="#6f685a" stroke-width="1.6" marker-end="url(#arrow)"/>
+      <line x1="570" y1="62" x2="606" y2="62" stroke="#9c3b2e" stroke-width="1.6" marker-end="url(#arrowR)"/>
+
+      <text x="790" y="58" font-size="10" fill="#9c3b2e">over-fires:</text>
+      <text x="790" y="73" font-size="10" fill="#6f685a">any edit to a shared</text>
+      <text x="790" y="86" font-size="10" fill="#6f685a">file re-syncs all flows</text>
+
+      <line x1="20" y1="120" x2="900" y2="120" stroke="#ded6c4" stroke-width="1" stroke-dasharray="3 4"/>
+
+      <!-- AFTER -->
+      <text x="20" y="160" font-size="12" fill="#6f7a3f" letter-spacing="1.5">THIS TASK · SYMBOL-UNIT</text>
+      <rect x="20" y="176" width="140" height="44" rx="9" fill="#fcfaf4" stroke="#c7bda7"/>
+      <text x="90" y="196" font-size="11" fill="#4a463d" text-anchor="middle">changed FILE set</text>
+      <text x="90" y="211" font-size="10" fill="#6f685a" text-anchor="middle">this turn</text>
+
+      <rect x="200" y="170" width="150" height="56" rx="9" fill="#e7ead4" stroke="#6f7a3f"/>
+      <text x="275" y="190" font-size="11" fill="#4a463d" text-anchor="middle">re_extract()</text>
+      <text x="275" y="205" font-size="10" fill="#6f685a" text-anchor="middle">+ SymbolDelta</text>
+      <text x="275" y="219" font-size="10" fill="#6f7a3f" text-anchor="middle">add·rm·mod·reloc</text>
+
+      <rect x="390" y="164" width="180" height="68" rx="9" fill="#e7ead4" stroke="#6f7a3f"/>
+      <text x="480" y="184" font-size="11" fill="#4a463d" text-anchor="middle">affected_persisted_flows</text>
+      <text x="480" y="200" font-size="10" fill="#6f7a3f" text-anchor="middle">(a) modified SYMBOL ∈ flow?</text>
+      <text x="480" y="214" font-size="10" fill="#6f7a3f" text-anchor="middle">(b) membership set ≠ stored?</text>
+      <text x="480" y="227" font-size="10" fill="#6f685a" text-anchor="middle">re-sync iff (a) OR (b)</text>
+
+      <rect x="610" y="176" width="150" height="44" rx="9" fill="#fcfaf4" stroke="#c7bda7"/>
+      <text x="685" y="196" font-size="11" fill="#4a463d" text-anchor="middle">re-sync flow</text>
+      <text x="685" y="211" font-size="10" fill="#6f685a" text-anchor="middle">added ∪ modified only</text>
+
+      <line x1="160" y1="198" x2="196" y2="198" stroke="#6f685a" stroke-width="1.6" marker-end="url(#arrow)"/>
+      <line x1="350" y1="198" x2="386" y2="198" stroke="#6f7a3f" stroke-width="1.6" marker-end="url(#arrowO)"/>
+      <line x1="570" y1="198" x2="606" y2="198" stroke="#6f7a3f" stroke-width="1.6" marker-end="url(#arrowO)"/>
+
+      <text x="790" y="190" font-size="10" fill="#6f7a3f">scoped:</text>
+      <text x="790" y="205" font-size="10" fill="#6f685a">comment-only edit →</text>
+      <text x="790" y="218" font-size="10" fill="#6f685a">empty delta → no-op</text>
+
+      <!-- bridge call-out -->
+      <rect x="200" y="262" width="370" height="66" rx="9" fill="#fbf8f1" stroke="#b5683c" stroke-dasharray="4 3"/>
+      <text x="385" y="282" font-size="11" fill="#b5683c" text-anchor="middle">the join (the correctness crux)</text>
+      <text x="385" y="298" font-size="10" fill="#6f685a" text-anchor="middle">delta is keyed by symbol_path · membership is keyed by SymbolId</text>
+      <text x="385" y="312" font-size="10" fill="#6f685a" text-anchor="middle">anchored_symbols bridge maps symbol_path ↔ SymbolId</text>
+      <line x1="385" y1="232" x2="385" y2="260" stroke="#b5683c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+      <g font-size="10" fill="#6f685a">
+        <text x="600" y="280">legend</text>
+        <line x1="600" y1="294" x2="624" y2="294" stroke="#6f7a3f" stroke-width="1.6" marker-end="url(#arrowO)"/>
+        <text x="630" y="298">scoped path</text>
+        <line x1="600" y1="312" x2="624" y2="312" stroke="#9c3b2e" stroke-width="1.6" marker-end="url(#arrowR)"/>
+        <text x="630" y="316">over-fires</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="ba">
+    <article class="now">
+      <span class="tag">today</span>
+      <h3>file intersection</h3>
+      <p>Re-induce the flow's members; re-sync if any member's <em>defining file</em> is in the changed set.</p>
+      <p style="color:var(--rust)">An edit to a shared file re-syncs every flow that reaches anything in that file &mdash; even an unrelated symbol, even a comment-only change.</p>
+    </article>
+    <article class="next">
+      <span class="tag">this task</span>
+      <h3>symbol intersection</h3>
+      <p>Re-induce the flow's members; re-sync if a <em>changed symbol</em> is a member (body drift) <strong>or</strong> the membership set itself changed (structural drift).</p>
+      <p style="color:var(--olive)">An edit that changes no symbol the flow depends on does not reach it. An empty delta reconciles nothing.</p>
+    </article>
+  </div>
+
+  <h2 id="delta">The SymbolDelta &mdash; reusing verdicts that already exist</h2>
+  <p>The delta is a pure function in core: diff the <strong>fresh resolver index</strong> of the changed files against the store's <strong>persisted anchors</strong> (the <code>symbol_path:content_hash</code> carried by anchored description/flow nodes). Each class is one of <code>resolve_anchor</code>'s verdicts, lifted from per-node to per-turn. Ariadne supplies the structure; the resolver's existing <code>content_hash</code> supplies body identity.</p>
+
+  <table class="delta">
+    <thead>
+      <tr><th>Delta class</th><th>Resolver verdict</th><th>Meaning</th><th>Detected by</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="pill added">added</span></td>
+        <td><span class="dot olive"></span>(no anchor)</td>
+        <td>A fresh <code>symbol_path</code> with no persisted anchor.</td>
+        <td>Fresh index entries not present in the persisted anchor set.</td>
+      </tr>
+      <tr>
+        <td><span class="pill modified">modified</span></td>
+        <td><span class="dot clay"></span>body-changed</td>
+        <td>Body changed under a stable <code>symbol_path</code> (<code>content_hash</code> differs, path matches).</td>
+        <td><code>resolve_anchor</code> arm 2.</td>
+      </tr>
+      <tr>
+        <td><span class="pill relocated">relocated</span></td>
+        <td><span class="dot gold"></span>relocated</td>
+        <td><code>symbol_path</code> changed under a stable body (rename-in-place or cross-file move).</td>
+        <td><code>resolve_anchor</code> arm 3 (content matches at a different path).</td>
+      </tr>
+      <tr>
+        <td><span class="pill removed">removed</span></td>
+        <td><span class="dot rust"></span>miss</td>
+        <td>Neither path nor body resolves (a simultaneous rename + re-body).</td>
+        <td><code>resolve_anchor</code> arm 4.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <p class="k">Caveat to keep in view</p>
+    <p style="margin:0"><code>added</code> is "relative to anchored knowledge", not "new to the repo". An existing-but-never-described code symbol reads as <code>added</code> the first time its file is reconciled. This is harmless: downstream work is scoped through flows, so an <code>added</code> symbol only does anything if it lands in a flow's induced membership.</p>
+  </div>
+
+  <h3>It rides on what <code>re_extract</code> already does</h3>
+  <p><code>reconcile_node</code> already computes the verdict per anchored node. The change is additive: <code>re_extract</code> returns the aggregate <code>SymbolDelta</code> alongside its existing <code>findings</code>. Every current <code>.findings</code> consumer is untouched.</p>
+
+  <div class="code">
+    <div class="file-label">packages/core/src/reextract/re_extract.ts — additive return (AC#1)</div>
+    <pre><span class="cm">// existing per-node loop already classifies hit / body-changed / relocated / miss …</span>
+<span class="kw">for</span> (<span class="kw">const</span> node <span class="kw">of</span> preserved_anchored_nodes(store, file_set)) {
+  <span class="kw">const</span> finding = <span class="fn">reconcile_node</span>(store, node, index);
+  <span class="kw">if</span> (finding !== <span class="kw">null</span>) findings.<span class="fn">push</span>(finding);
+}
+<span class="add">  const delta = compute_symbol_delta(index, persisted_anchors_for(store, file_set));  // NEW (AC#1)</span>
+<span class="del">  return { file_set, origin, findings };</span>
+<span class="add">  return { file_set, origin, findings, delta };  // additive — .findings consumers unchanged</span></pre>
+  </div>
+
+  <h2 id="idspace">The id-space join (the correctness crux)</h2>
+  <p>Three id spaces describe the same callable, and the re-sync predicate must cross all three. This is the subtle part: the delta is keyed in resolver space, but flow membership is computed in call-graph space.</p>
+
+  <div class="idspace">
+    <div class="col">
+      <h4>symbol_path</h4>
+      <p class="who">resolver · enclosing-aware</p>
+      <p>File + enclosing class/namespace chain + name + kind. Rename- and move-stable; the key the delta and persisted anchors use.</p>
+      <div class="ex">auth.ts#Session.verify:method</div>
+    </div>
+    <div class="col">
+      <h4>SymbolId</h4>
+      <p class="who">Ariadne call graph · location-based</p>
+      <p>The <code>CallGraph</code> node key. What <code>induce_members</code> traverses to compute a flow's membership.</p>
+      <div class="ex">function:auth.ts:14:0:31:1</div>
+    </div>
+    <div class="col">
+      <h4>flow_id_of</h4>
+      <p class="who">flow layer · enclosing-FREE</p>
+      <p>A flow's id / a stored member endpoint: file + name + kind, <em>no</em> enclosing chain. The form the stored <code>anchor_set</code> compares against.</p>
+      <div class="ex">auth.ts#verify:method</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p class="k">The bridge</p>
+    <p style="margin:0"><code>anchored_symbols_from_ariadne</code> emits, per callable in one pass, the <code>symbol_id</code>, the <code>symbol_path</code>, and the <code>content_hash</code> together &mdash; the only place all three meet. <code>build_symbol_path_index(graph)</code> gives the <code>symbol_path → SymbolId</code> inverse. A <code>modified</code> symbol_path is mapped through these to its live <code>SymbolId</code> before testing flow membership.</p>
+  </div>
+
+  <p>Note the third space is deliberately different: <code>flow_id_of</code> drops the enclosing chain (entrypoints are top-level, so enclosing is <code>[]</code>). The membership-change test (b) compares the flow's fresh induced member set <em>as <code>flow_id_of</code> values</em> against the stored <code>anchor_set</code> &mdash; so be careful not to compare an enclosing-aware <code>symbol_path</code> against an enclosing-free <code>flow_id_of</code> value. They are mapped through the live graph, not string-compared across spaces.</p>
+
+  <div class="code">
+    <div class="file-label">packages/core/src/resolver/from_ariadne.ts — the one place all three id forms meet</div>
+    <pre><span class="kw">export interface</span> <span class="fn">AnchoredSymbol</span> {
+  symbol_id: SymbolId;      <span class="cm">// CallGraph node key (location-based)</span>
+  symbol_path: <span class="kw">string</span>;     <span class="cm">// enclosing-qualified, rename-stable (file#A.b:method)</span>
+  content_hash: <span class="kw">string</span>;    <span class="cm">// the anchor's body half</span>
+  <span class="dim">…</span>
+}</pre>
+  </div>
+
+  <h2 id="trigger">The (a) + (b) re-sync trigger &mdash; why both</h2>
+  <p>Per CODE flow (skill/doc flows with no code seeds are skipped &mdash; handled elsewhere), two complementary symbol-level triggers fire a re-sync. They catch orthogonal kinds of drift, so both are required.</p>
+
+  <ul class="clean">
+    <li><strong>(a) body change.</strong> A <code>modified</code> symbol &mdash; mapped to its live <code>SymbolId</code> via the bridge &mdash; is in the flow's induced membership. The flow's <em>contents</em> changed even though its shape did not.</li>
+    <li><strong>(b) membership change.</strong> The flow's fresh induced member set (as <code>flow_id_of</code> values) differs from its stored <code>anchor_set</code>. This catches <code>added</code> / <code>removed</code> / <code>relocated</code> members &mdash; the flow's <em>shape</em> changed.</li>
+  </ul>
+
+  <p><strong>Why (a) alone is insufficient:</strong> a new call edge can pull a previously-unrelated symbol into the flow without that symbol being "modified" relative to its own anchor. <strong>Why (b) alone is insufficient:</strong> editing the body of a symbol already in the flow changes no membership but absolutely needs a re-sync. Together: re-sync iff body OR membership drifted.</p>
+
+  <div class="code">
+    <div class="file-label">packages/drift/src/reconcile/affected_flows.ts — the predicate that changes (AC#2)</div>
+    <pre><span class="kw">return</span> persisted.<span class="fn">filter</span>((flow) => {
+  <span class="kw">if</span> (is_skill_or_doc_flow(flow)) <span class="kw">return</span> <span class="kw">false</span>;  <span class="cm">// no code seeds → handled elsewhere</span>
+  <span class="kw">const</span> membership = <span class="fn">reconstruct_flow_membership</span>(rows_of(flow), graph);
+  <span class="kw">const</span> members = <span class="fn">induce_members</span>(membership, graph);
+
+<span class="del">  for (const member of members) {                                  // TODAY: changed-FILE intersection</span>
+<span class="del">    const file = adapter.file_of(member) ?? node_path(member);</span>
+<span class="del">    if (file !== undefined && changed_files.has(file)) return true;</span>
+<span class="del">  }</span>
+<span class="del">  return false;</span>
+<span class="add">  // (a) a modified SYMBOL (mapped to its live SymbolId) is a member</span>
+<span class="add">  for (const sp of delta.modified) {</span>
+<span class="add">    const id = symbol_path_index.get(sp);</span>
+<span class="add">    if (id !== undefined && members.has(id)) return true;</span>
+<span class="add">  }</span>
+<span class="add">  // (b) the induced membership set (as flow_id_of) differs from the stored anchor_set</span>
+<span class="add">  const fresh = new Set([...members].map((id) => flow_id_of(graph.nodes.get(id)!)));</span>
+<span class="add">  return !set_equal(fresh, flow.anchor_set);</span>
+});</pre>
+  </div>
+
+  <h2 id="describe">Re-describe is already scoped &mdash; this task verifies it</h2>
+  <p>AC#3 (scoped re-describe) is <strong>already delivered</strong> by <code>plan_descriptions</code>' content-hash cache &mdash; a member already described at its current <code>content_hash</code> is skipped. So this task adds little or no new describe code; it drives describe from <code>added ∪ modified</code>, verifies the behaviour, and tests it.</p>
+
+  <div class="code">
+    <div class="file-label">packages/core/src/agentic/describe_policy.ts — the cache skip is already in place</div>
+    <pre><span class="kw">for</span> (<span class="kw">const</span> member <span class="kw">of</span> members) {
+  <span class="hl">  if (existing?.get(member.symbol_path)?.described_at_content_hash === member.content_hash) {</span>
+<span class="hl">    cached.push(member.symbol_path);  // unchanged member — skipped, never re-described</span>
+<span class="hl">    continue;</span>
+<span class="hl">  }</span>
+  <span class="cm">// … docstring-first, then LLM batch, then placeholder</span>
+}</pre>
+  </div>
+
+  <ul class="clean">
+    <li class="ok"><strong>unchanged</strong> members → skipped (same <code>content_hash</code>).</li>
+    <li class="ok"><strong>added / modified</strong> members → re-described.</li>
+    <li class="ok"><strong>relocated</strong> (same <code>content_hash</code>) → rides the resolver's carry-across (re-anchored via drift staging), <em>not</em> re-described.</li>
+  </ul>
+
+  <h2 id="noop">No-op on non-semantic edits (falls out for free)</h2>
+  <p>AC#4 is not separate work &mdash; it is a consequence. <code>content_hash</code> trims and normalizes EOL but <em>does</em> include in-body comments, so a comment edit is not literally invisible at hash level. But a comment-only or whitespace-only edit that changes no symbol body produces a delta that is empty <em>for that flow</em>: neither (a) nor (b) fires, so there is no flow write, no <code>last_synced_at</code> churn, and no description rewrite.</p>
+
+  <div class="callout invert">
+    <p class="k">One subtlety worth flagging in review</p>
+    <p style="margin:0"><code>content_hash</code> strips the symbol's own identifier (so a rename stays hash-stable) and includes in-body comments. A comment change therefore <em>does</em> shift <code>content_hash</code> &mdash; it would surface as <code>modified</code>. The no-op guarantee holds at the <em>flow</em> level: a comment edit to a symbol no flow depends on reconciles nothing. Confirm this matches the intended AC#4 boundary before building the comment-only fixture.</p>
+  </div>
+
+  <h2 id="cost">Cost posture &mdash; what the delta saves, what it doesn't (AC#5)</h2>
+  <p>The whole-repo Ariadne re-index per Stop-hook run <strong>remains</strong>. The bin is a fresh process each turn, and persisting Ariadne's incremental <code>Project</code> across processes needs a daemon or serialization Ariadne does not expose &mdash; larger than this task.</p>
+
+  <div class="ba">
+    <article class="now">
+      <span class="tag">stays full each run</span>
+      <h3>Ariadne re-index</h3>
+      <p>The whole-repo call graph is rebuilt from scratch every turn. Ariadne's <code>update_file</code>/<code>remove_file</code> incrementality is thrown away because the process is fresh.</p>
+      <p style="color:var(--rust)">Index incrementality (persisted/daemonised <code>Project</code>) is a <strong>named follow-up</strong>, grounded in the task-27.1.6.1 cache-cost note.</p>
+    </article>
+    <article class="next">
+      <span class="tag">this task saves</span>
+      <h3>downstream work</h3>
+      <p>Spurious whole-flow re-syncs, needless re-describes, and flow writes the delta proves unnecessary.</p>
+      <p style="color:var(--olive)">The delta is computed <em>from</em> the (still-full) fresh graph + existing persisted anchors &mdash; it cuts what happens after the index, not the index itself.</p>
+    </article>
+  </div>
+
+  <div class="callout rust">
+    <p class="k">Decision recorded</p>
+    <p style="margin:0">Index incrementality is <strong>out of scope</strong> for this task → named follow-up. In scope: the delta computation, re-sync scoping, and the cost reduction in downstream work.</p>
+  </div>
+
+  <h2 id="additive">Additive &mdash; no new trigger surface (AC#6)</h2>
+  <ul class="clean">
+    <li class="ok">No new hook, table, schema migration, or trigger surface.</li>
+    <li class="ok">The delta is computed from existing persisted anchors + the fresh graph.</li>
+    <li class="ok">Rides the existing Stop-hook → drift-reconciler → drift-sync → reconcile chain.</li>
+    <li class="ok">Preserves task-27.1.6's invariants: auto-sync only; the <code>drift.*</code> surface stays user-facing.</li>
+  </ul>
+
+  <h2 id="tests">Test matrix (AC#7) &mdash; one fixture per delta class</h2>
+  <table class="delta">
+    <thead><tr><th>Fixture</th><th>Delta class</th><th>Re-sync scoping asserted</th><th>Re-describe asserted</th></tr></thead>
+    <tbody>
+      <tr><td>add a new member</td><td><span class="pill added">added</span></td><td>only flows whose membership now includes it</td><td>the added symbol is described</td></tr>
+      <tr><td>remove a member</td><td><span class="pill removed">removed</span></td><td>only flows that lost a member (membership ≠ stored)</td><td>nothing new described</td></tr>
+      <tr><td>edit a body</td><td><span class="pill modified">modified</span></td><td>only flows containing that symbol</td><td>only that symbol re-described</td></tr>
+      <tr><td>rename / relocate</td><td><span class="pill relocated">relocated</span></td><td>only flows whose membership shape changed</td><td>carried across, not re-described</td></tr>
+      <tr><td>comment-only / whitespace</td><td><em>empty delta</em></td><td>no flow re-syncs</td><td>no description rewrite, no <code>last_synced_at</code> churn</td></tr>
+    </tbody>
+  </table>
+
+  <p class="legend">
+    <span><span class="dot olive"></span>added / good / done</span>
+    <span><span class="dot clay"></span>modified / attention</span>
+    <span><span class="dot gold"></span>relocated</span>
+    <span><span class="dot rust"></span>removed / severe</span>
+  </p>
+
+  <footer>
+    Planning companion for task-27.1.6.4 · generated from the cited source under packages/drift and packages/core · self-contained, no external dependencies.
+  </footer>
+</main>
+
+<aside class="toc">
+  <p class="toc-h">On this page</p>
+  <a href="#why">Why symbol-level</a>
+  <a href="#pipeline">Pipeline before / after</a>
+  <a href="#delta">The SymbolDelta</a>
+  <a href="#idspace">Id-space join</a>
+  <a href="#trigger">(a) + (b) trigger</a>
+  <a href="#describe">Re-describe (already done)</a>
+  <a href="#noop">No-op on non-semantic edits</a>
+  <a href="#cost">Cost posture (AC#5)</a>
+  <a href="#additive">Additive (AC#6)</a>
+  <a href="#tests">Test matrix (AC#7)</a>
+</aside>
+</div>
+</body>
+</html>

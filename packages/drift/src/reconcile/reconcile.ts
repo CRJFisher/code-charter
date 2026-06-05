@@ -96,15 +96,18 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     handled.add(umbrella.id);
   }
 
-  // 3b. RE-SYNC the persisted CODE flows whose body or membership drifted this turn (AC#2): a
-  //     body-modified symbol is a member, or the induced member set changed. Sorted by id so the
-  //     emitted outcomes are byte-stable across runs.
-  const changed_member_ids = modified_member_ids(deps, code_files, delta);
-  const affected = affected_persisted_flows(changed_member_ids, persisted, graph)
+  // 3b. RE-SYNC the persisted CODE flows whose body or membership drifted this turn (task-27.1.6.4 AC#2).
+  //     The delta drives this: its `modified` class maps to the body-drift trigger (a changed body is a
+  //     member), while `added`/`removed`/`relocated` reshape a flow's induced member set and are realized
+  //     by the membership-drift trigger inside affected_persisted_flows (the id-robust intersection of the
+  //     structural delta classes with the flow). Sorted by id so the emitted outcomes are byte-stable.
+  const body_modified_ids = body_modified_member_ids(deps, code_files, delta);
+  const relocated_targets = new Set(delta.relocated.map((r) => r.to));
+  const affected = affected_persisted_flows(body_modified_ids, persisted, graph)
     .filter((flow) => !handled.has(flow.node.id))
     .sort((a, b) => (a.node.id < b.node.id ? -1 : a.node.id > b.node.id ? 1 : 0));
   for (const flow of affected) {
-    const outcome = await resync_persisted_flow(deps, flow, graph);
+    const outcome = await resync_persisted_flow(deps, flow, graph, relocated_targets);
     if (outcome !== undefined) {
       outcomes.push(outcome);
       handled.add(flow.node.id);
@@ -119,7 +122,9 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   );
   for (const [index, umbrella] of new_code.entries()) {
     const full = index < MAX_FULL_CODE_HYDRATIONS;
-    outcomes.push(await hydrate_code_flow(deps, umbrella, graph, { allow_remap: true, describe: full }));
+    outcomes.push(
+      await hydrate_code_flow(deps, umbrella, graph, { allow_remap: true, describe: full, relocated_targets }),
+    );
     handled.add(umbrella.id);
   }
   if (new_code.length > MAX_FULL_CODE_HYDRATIONS) {
@@ -137,6 +142,7 @@ async function resync_persisted_flow(
   deps: ReconcileDeps,
   flow: PersistedFlow,
   graph: CallGraph,
+  relocated_targets: ReadonlySet<string>,
 ): Promise<FlowOutcome | undefined> {
   const seeds = stored_seed_symbol_ids(flow, graph);
   if (seeds.length === 0) {
@@ -153,7 +159,10 @@ async function resync_persisted_flow(
     label: typeof flow.node.attributes.label === "string" ? flow.node.attributes.label : flow.node.id,
     seeds,
   };
-  return { ...(await hydrate_code_flow(deps, umbrella, graph, { allow_remap: false })), action: "resync" };
+  return {
+    ...(await hydrate_code_flow(deps, umbrella, graph, { allow_remap: false, relocated_targets })),
+    action: "resync",
+  };
 }
 
 /** Map a code flow's stored `entry_points` (symbol_paths) back to live `SymbolId`s (the inverse of flow_id_of). */
@@ -221,12 +230,12 @@ function build_skill_umbrella(deps: ReconcileDeps, skill_root_abs: string, skill
 }
 
 /**
- * The live `SymbolId`s of this turn's body-modified symbols — the body-drift re-sync trigger (AC#2).
- * Added/removed/relocated members are caught by the membership-diff trigger inside
+ * The live `SymbolId`s of this turn's body-modified symbols — the body-drift re-sync trigger
+ * (task-27.1.6.4 AC#2). Added/removed/relocated members are caught by the membership-diff trigger inside
  * `affected_persisted_flows`, so only `modified` needs the symbol_path → SymbolId join here. The join
  * goes through `anchored_symbols` (the one place a resolver `symbol_path` is paired with a call-graph id).
  */
-function modified_member_ids(deps: ReconcileDeps, code_files: readonly string[], delta: SymbolDelta): Set<SymbolId> {
+function body_modified_member_ids(deps: ReconcileDeps, code_files: readonly string[], delta: SymbolDelta): Set<SymbolId> {
   if (delta.modified.length === 0) return new Set();
   const path_to_id = new Map(deps.adapter.anchored_symbols([...code_files]).map((a) => [a.symbol_path, a.symbol_id]));
   const ids = new Set<SymbolId>();

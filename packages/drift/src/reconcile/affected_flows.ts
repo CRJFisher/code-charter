@@ -4,7 +4,8 @@
  * that changes a symbol no flow depends on no longer re-syncs that flow:
  *
  *   (a) BODY drift       — a `modified` symbol (a member whose body changed) lies in the flow's induced
- *                          membership. The caller maps `delta.modified` symbol_paths to live SymbolIds.
+ *                          membership. `reconcile.body_modified_member_ids` maps `delta.modified`
+ *                          symbol_paths to the live SymbolIds passed in here.
  *   (b) MEMBERSHIP drift — the flow's freshly induced member set (as `flow_id_of` symbol_paths) differs
  *                          from its persisted `anchor_set`. This is what catches added, removed, and
  *                          relocated members — each reshapes the member-path set.
@@ -26,12 +27,12 @@ import { induce_members, paths_of, reconstruct_flow_membership } from "@code-cha
 import type { PersistedFlow } from "./flow_store";
 
 /**
- * The persisted code flows touched by this turn's change. `changed_member_ids` are the live `SymbolId`s
+ * The persisted code flows touched by this turn's change. `body_modified_ids` are the live `SymbolId`s
  * of the body-modified symbols (the body-drift trigger); membership drift is detected per flow against
  * its stored `anchor_set`.
  */
 export function affected_persisted_flows(
-  changed_member_ids: ReadonlySet<SymbolId>,
+  body_modified_ids: ReadonlySet<SymbolId>,
   persisted: readonly PersistedFlow[],
   graph: CallGraph,
 ): PersistedFlow[] {
@@ -47,7 +48,7 @@ export function affected_persisted_flows(
 
     // (a) BODY drift: a body-modified symbol is a current member of this flow.
     for (const member of members) {
-      if (changed_member_ids.has(member)) return true;
+      if (body_modified_ids.has(member)) return true;
     }
 
     // (b) MEMBERSHIP drift: the induced member-path set no longer matches the persisted anchor_set.
