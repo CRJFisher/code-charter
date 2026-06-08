@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension doc: Flow Construction. How a flow is detected and constructed — the deterministic skeleton always available, and the agentic hydration that enriches it. Present-tense, canonical, self-contained. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flow Construction — Code Charter comprehension</title>
+<style>
+  :root{
+    --ivory:#f7f4ec; --oat:#ece5d6; --slate:#2c3038; --ink:#20242b;
+    --clay:#b5683e; --olive:#6c7a3b; --rust:#9e3b2e;
+    --g1:#fbfaf5; --g2:#efeadd; --g3:#d9d2c1; --g4:#aaa492; --g5:#6c6759;
+    --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --r:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;}
+
+  /* ===== FULL-WIDTH STICKY TOP NAV (no sidebar) ===== */
+  .topnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:2px;flex-wrap:wrap;
+    background:var(--slate);padding:0 3%;border-bottom:3px solid var(--clay);}
+  .topnav .brand{display:flex;flex-direction:column;margin-right:22px;padding:11px 0;}
+  .topnav .brand b{color:var(--ivory);font-size:14px;font-weight:600;letter-spacing:.01em;line-height:1.1;}
+  .topnav .brand span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--g4);}
+  .topnav a{text-decoration:none;color:var(--g3);font-size:13px;padding:14px 13px;border-bottom:3px solid transparent;margin-bottom:-3px;white-space:nowrap;}
+  .topnav a:hover{color:#fff;background:#363b45;}
+  .topnav a.active{color:#fff;border-bottom-color:var(--clay);background:rgba(181,104,62,.18);font-weight:600;}
+  .topnav a .n{font-family:var(--mono);font-size:10px;color:var(--g4);margin-right:5px;}
+  .topnav a.active .n{color:#e7c3a6;}
+
+  /* ===== FULL-WIDTH BODY: ~3% gutter, no max-width ===== */
+  main{max-width:none;margin:0;padding:30px 3% 96px;}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--g5);margin:0 0 9px;}
+  h1{font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.12;margin:0 0 8px;color:var(--ink);}
+  .deck{font-size:15.5px;color:var(--g5);margin:0 0 6px;max-width:90ch;}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 0;font-family:var(--mono);font-size:11px;}
+  .pill{background:var(--oat);border:1px solid var(--g3);border-radius:999px;padding:3px 11px;color:var(--g5);}
+  .pill b{color:var(--slate);font-weight:600;}
+  .pill.done{background:var(--olive);color:#fff;border-color:var(--olive);}
+  .pill.done b{color:#fff;}
+
+  h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:48px 0 4px;color:var(--ink);scroll-margin-top:64px;}
+  .thesis{font-size:15.5px;color:var(--ink);font-weight:500;margin:0 0 14px;max-width:96ch;}
+  .cap{font-size:12.5px;color:var(--g5);margin:10px 0 0;font-family:var(--mono);line-height:1.5;}
+  .cap b{color:var(--clay);font-weight:600;}
+
+  /* ===== DIAGRAM FRAME (diagrams may bleed to full content width) ===== */
+  .fig{width:100%;margin:14px 0 0;border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:8px;}
+  .fig svg{display:block;width:100%;height:auto;}
+
+  /* ===== REUSABLE LEGEND / CHIP ROW ===== */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-family:var(--mono);font-size:10.5px;color:var(--g5);padding:8px 4px 2px;}
+  .legend .sw{display:inline-flex;align-items:center;gap:6px;}
+  .legend .sw i{width:14px;height:12px;border-radius:3px;border:1px solid var(--g4);display:inline-block;}
+  .legend .sw .raw{background:var(--oat);border-color:var(--g4);}
+  .legend .sw .agentic{background:#eef0e3;border-color:var(--olive);}
+  .legend .sw .engine{background:var(--g1);border-color:var(--g5);}
+  .legend .sw .hook{background:#f3ece2;border-color:var(--clay);}
+  .legend .sw .miss{background:#f4e6e2;border-color:var(--rust);}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 6px;color:var(--ink);white-space:nowrap;}
+  .chip.clay{color:var(--clay);background:#f3ece2;border-color:#e0c2bb;}
+
+  /* ===== NUMBERED REFS STRIP (details tier keyed to SVG badges) ===== */
+  .refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 20px;margin:14px 0 0;}
+  .refs .r{display:grid;grid-template-columns:22px 1fr;gap:9px;align-items:baseline;font-size:13px;}
+  .refs .n{width:20px;height:20px;border-radius:50%;background:var(--slate);color:var(--g1);
+    font:700 11px var(--mono);display:flex;align-items:center;justify-content:center;}
+  .refs .r b{font-weight:600;color:var(--ink);}
+  .refs .r code{font-family:var(--mono);font-size:11px;color:var(--clay);background:none;border:none;padding:0;}
+
+  /* ===== TIGHT LEDGER TABLE (verb | detail | file) ===== */
+  table.ledger{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px;}
+  table.ledger th,table.ledger td{text-align:left;padding:7px 11px;border-bottom:1px solid var(--g2);vertical-align:top;}
+  table.ledger th{font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;font-size:10px;color:var(--g5);border-bottom:1px solid var(--g3);}
+  table.ledger td b{font-weight:600;color:var(--ink);}
+  table.ledger td code{font-family:var(--mono);font-size:11.5px;color:var(--clay);background:none;border:none;padding:0;}
+  table.ledger tr:last-child td{border-bottom:none;}
+
+  /* ===== INLINE CODE ===== */
+  code{font-family:var(--mono);}
+  p code,li code,.thesis code,.cap code{font-family:var(--mono);font-size:12px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 5px;color:var(--ink);}
+
+  /* ===== CALLOUT / INVARIANT (rationed; one per section max) ===== */
+  .callout{margin:14px 0 0;border-left:4px solid var(--clay);background:#f3ece2;border-radius:8px;padding:11px 16px;font-size:13.5px;line-height:1.5;}
+  .callout.olive{border-left-color:var(--olive);background:#eef0e3;}
+  .callout .k{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--g5);display:block;margin-bottom:5px;}
+  .callout code{font-family:var(--mono);color:#8a3528;}
+  .callout.invert{background:var(--slate);color:var(--ivory);border-left-color:var(--clay);}
+  .callout.invert .k{color:var(--g4);}
+  .callout.invert code{color:#e7c3a6;}
+
+  footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--g3);font-family:var(--mono);font-size:11px;color:var(--g4);}
+
+  @media (max-width:760px){
+    main{padding:22px 4% 70px;}
+    h1{font-size:26px;}
+    .topnav{gap:0;}
+    .topnav a{padding:11px 9px;font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <span class="brand"><b>Code Charter</b><span>comprehension</span></span>
+  <a href="index.html"><span class="n">00</span>Overview &amp; Map</a>
+  <a href="architecture.html"><span class="n">01</span>Architecture &amp; Data Model</a>
+  <a href="core-engine.html"><span class="n">02</span>Core Engine</a>
+  <a href="drift-sync.html"><span class="n">03</span>Drift Sync</a>
+  <a href="ui-and-extension.html"><span class="n">04</span>UI &amp; Extension</a>
+  <a href="flow-construction.html" class="active" aria-current="page"><span class="n">05</span>Flow Construction</a>
+</nav>
+
+<main>
+  <header>
+    <p class="eyebrow">comprehension · code charter · 05</p>
+    <h1>Flow Construction</h1>
+    <p class="deck">A flow is v1's unit of comprehension — an agent-detected functionality umbrella over one or more call graphs. It is constructed in two tiers: a deterministic skeleton that is always available, and an agentic hydration that enriches it.</p>
+    <div class="meta">
+      <span class="pill">unit <b>the flow</b></span>
+      <span class="pill">source of truth <b>core/model/flow.ts</b></span>
+      <span class="pill done">skeleton <b>always available</b></span>
+      <span class="pill">hydration <b>lazy · per flow</b></span>
+      <span class="pill">id <b>dominant seed symbol_path</b></span>
+    </div>
+    <div class="legend">
+      <span class="sw"><i class="raw"></i> raw / call graph (deterministic)</span>
+      <span class="sw"><i class="agentic"></i> agentic / hydrated</span>
+      <span class="sw"><i class="engine"></i> pure engine logic</span>
+      <span class="sw"><i class="hook"></i> store write</span>
+      <span class="sw"><i class="miss"></i> unattributed / catch-all</span>
+      <span class="sw">— grey = flow · <b style="color:var(--clay)">clay = store write / bridge</b> · dashed = inferred</span>
+    </div>
+  </header>
+
+  <!-- ============================ 1 · THESIS: TWO TIERS ============================ -->
+  <h2 id="thesis">Two tiers of one flow</h2>
+  <p class="thesis">The deterministic skeleton is recomputed each session from the call graph and costs nothing to regenerate; the agentic hydration is an expensive, non-deterministic upgrade persisted once and preserved thereafter. The line between them is the cost-of-regeneration seam.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1280 340" role="img"
+      aria-label="Two construction tiers stacked over the call graph. The bottom band is the call graph, raw and disposable: functions, files and resolved call edges, rebuilt on every re-parse. The middle band is the deterministic skeleton: build_skeleton_flows turns the call graph into one flow per top-level entrypoint plus the unattributed bucket, recomputed each session, free to regenerate, always available even on a cold repo with no store. The top band is the agentic hydration: a persisted agentic.flow node carrying a label, description and bridges, built lazily per worked-on flow, expensive and non-deterministic, preserved across re-parses. A clay seam line separates the free deterministic tier below from the preserved expensive tier above.">
+      <defs>
+        <marker id="t-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="t-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038">
+        <!-- top: agentic hydration -->
+        <rect x="40" y="22" width="1000" height="78" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="60" y="48" font-size="14" font-weight="700" fill="#20242b">TIER 2 · agentic hydration</text>
+        <text x="60" y="68" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">persisted agentic.flow · built lazily, per worked-on flow · expensive · non-deterministic · PRESERVED</text>
+        <g font-family="ui-monospace,monospace" font-size="10.5" fill="#20242b" text-anchor="middle">
+          <rect x="640" y="58" width="78" height="26" rx="6" fill="#fbfaf5" stroke="#6c7a3b"/><text x="679" y="75">label</text>
+          <rect x="728" y="58" width="118" height="26" rx="6" fill="#fbfaf5" stroke="#6c7a3b"/><text x="787" y="75">descriptions</text>
+          <rect x="856" y="58" width="84" height="26" rx="6" fill="#fbfaf5" stroke="#6c7a3b"/><text x="898" y="75">bridges</text>
+          <rect x="950" y="58" width="72" height="26" rx="6" fill="#f3ece2" stroke="#b5683e"/><text x="986" y="75">pin</text>
+        </g>
+        <!-- seam -->
+        <line x1="40" y1="120" x2="1240" y2="120" stroke="#b5683e" stroke-width="3"/>
+        <text x="1240" y="114" text-anchor="end" font-family="ui-monospace,monospace" font-size="10.5" fill="#b5683e">the cost-of-regeneration seam</text>
+        <!-- middle: deterministic skeleton -->
+        <rect x="40" y="138" width="1000" height="78" rx="11" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="60" y="164" font-size="14" font-weight="700" fill="#20242b">TIER 1 · deterministic skeleton</text>
+        <text x="60" y="184" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">build_skeleton_flows(graph) · recomputed each session · FREE to regenerate · always available on a cold repo</text>
+        <text x="60" y="203" font-size="11.5" fill="#2c3038">one flow per top-level entrypoint + the single unattributed bucket — what F5 renders before any agent runs</text>
+        <!-- bottom: call graph -->
+        <rect x="40" y="240" width="1000" height="74" rx="11" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="60" y="266" font-size="14" font-weight="700" fill="#20242b">RAW · the Ariadne call graph</text>
+        <text x="60" y="286" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">SymbolId → CallableNode · resolved call edges · entry_points · rebuilt on every re-parse (disposable)</text>
+        <g font-family="ui-monospace,monospace" font-size="11" fill="#20242b" text-anchor="middle">
+          <rect x="700" y="262" width="92" height="34" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="746" y="283">fn → fn</text>
+          <rect x="804" y="262" width="92" height="34" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="850" y="283">files</text>
+          <rect x="908" y="262" width="114" height="34" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="965" y="283">entry_points</text>
+        </g>
+        <!-- arrows up -->
+        <path d="M240 240 L240 218" fill="none" stroke="#6c6759" stroke-width="1.8" marker-end="url(#t-g)"/>
+        <text x="252" y="232" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759" text-anchor="start">induce + rank</text>
+        <path d="M240 138 L240 102" fill="none" stroke="#b5683e" stroke-width="2.2" marker-end="url(#t-clay)"/>
+        <text x="252" y="124" font-family="ui-monospace,monospace" font-size="9.5" fill="#b5683e" text-anchor="start">upgrade in place (lazy)</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">The skeleton is the permanent cheap substrate; hydration upgrades a skeleton stub in place to the <em>same id</em>, so the agentic layer enriches rather than replaces. <b>core/model/flow.ts</b></p>
+
+  <!-- ============================ 2 · THE DETERMINISTIC SKELETON (HERO) ============================ -->
+  <h2 id="skeleton">The deterministic skeleton</h2>
+  <p class="thesis"><code>build_skeleton_flows(graph)</code> is the path the VS Code extension renders first, on a cold repo with no store. Each top-level entrypoint seeds one flow; forward-reachability fills its interior; the dominant seed's <code>symbol_path</code> names it; everything reachable from no entrypoint falls into the single <code>unattributed</code> bucket.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1320 410" role="img"
+      aria-label="The build_skeleton_flows pipeline in five numbered stages over the call graph. Stage one: seeds — sort graph.entry_points by id, one flow per entrypoint. Stage two: reachable_from(seed) does a deterministic forward traversal of resolved call edges, children visited in sorted id order with cycles guarded and external resolutions skipped, yielding the member set. Stage three: flow_id_of takes the dominant seed and builds its enclosing-free symbol_path, which is the flow id; the label is the entrypoint's name. Stage four: rank flows by reachable member_count descending with id ascending as tiebreak, then de-duplicate by id keeping the first occurrence. Stage five: the unattributed catch-all — every node reachable from no entrypoint is gathered, sorted, into the single UNATTRIBUTED_FLOW_ID bucket appended last. The output is an ordered SkeletonFlow list, byte-stable across runs.">
+      <defs>
+        <marker id="sk-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="sk-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" text-anchor="middle">
+        <!-- stage 1 seeds -->
+        <circle cx="58" cy="44" r="12" fill="#2c3038"/><text x="58" y="48" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
+        <rect x="40" y="60" width="220" height="92" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="150" y="86" font-size="13.5" font-weight="700">seeds</text>
+        <text x="150" y="108" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">[...graph.entry_points]</text>
+        <text x="150" y="122" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">.sort()</text>
+        <text x="150" y="140" font-size="11" fill="#2c3038">one flow per entrypoint</text>
+
+        <!-- stage 2 reachable -->
+        <circle cx="318" cy="44" r="12" fill="#2c3038"/><text x="318" y="48" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <rect x="300" y="60" width="240" height="92" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="420" y="86" font-size="13.5" font-weight="700">reachable_from(seed)</text>
+        <text x="420" y="108" font-size="11" fill="#2c3038">forward traversal of</text>
+        <text x="420" y="124" font-size="11" fill="#2c3038">resolved call edges → members</text>
+        <text x="420" y="142" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">sorted ids · cycle-guarded · skips external</text>
+        <line x1="260" y1="106" x2="298" y2="106" stroke="#6c6759" stroke-width="1.6" marker-end="url(#sk-g)"/>
+
+        <!-- stage 3 flow_id_of -->
+        <circle cx="598" cy="44" r="12" fill="#2c3038"/><text x="598" y="48" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
+        <rect x="580" y="60" width="240" height="92" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="700" y="86" font-size="13.5" font-weight="700">flow_id_of(seed)</text>
+        <text x="700" y="108" font-size="11" fill="#2c3038">dominant seed →</text>
+        <text x="700" y="124" font-family="ui-monospace,monospace" font-size="10" fill="#b5683e">symbol_path = id</text>
+        <text x="700" y="142" font-size="11" fill="#2c3038">label = entrypoint name</text>
+        <line x1="540" y1="106" x2="578" y2="106" stroke="#6c6759" stroke-width="1.6" marker-end="url(#sk-g)"/>
+
+        <!-- stage 4 rank+dedup -->
+        <circle cx="878" cy="44" r="12" fill="#2c3038"/><text x="878" y="48" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
+        <rect x="860" y="60" width="240" height="92" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="980" y="86" font-size="13.5" font-weight="700">rank + dedup</text>
+        <text x="980" y="108" font-size="11" fill="#2c3038">member_count ↓, id ↑ tiebreak</text>
+        <text x="980" y="124" font-size="11" fill="#2c3038">de-dupe by id — keep first</text>
+        <text x="980" y="142" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">collapsed same-name methods drop</text>
+        <line x1="820" y1="106" x2="858" y2="106" stroke="#6c6759" stroke-width="1.6" marker-end="url(#sk-g)"/>
+
+        <!-- stage 5 unattributed -->
+        <circle cx="1138" cy="44" r="12" fill="#2c3038"/><text x="1138" y="48" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">5</text>
+        <rect x="1120" y="60" width="170" height="92" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.6"/>
+        <text x="1205" y="86" font-size="13" font-weight="700" fill="#7a2c22">unattributed</text>
+        <text x="1205" y="108" font-size="10.5" fill="#2c3038">nodes reachable from</text>
+        <text x="1205" y="123" font-size="10.5" fill="#2c3038">no entrypoint, sorted</text>
+        <text x="1205" y="142" font-family="ui-monospace,monospace" font-size="8" fill="#9e3b2e">appended LAST</text>
+        <line x1="1100" y1="106" x2="1118" y2="106" stroke="#9e3b2e" stroke-width="1.6" marker-end="url(#sk-clay)"/>
+
+        <!-- worked example below -->
+        <text x="40" y="206" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">EXAMPLE · one entrypoint's reachable subgraph becomes one flow</text>
+        <!-- seed node -->
+        <rect x="60" y="232" width="150" height="46" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
+        <text x="135" y="252" font-size="12.5" font-weight="600">main()</text>
+        <text x="135" y="269" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">entry_point · seed</text>
+        <!-- reachable members -->
+        <rect x="300" y="200" width="140" height="40" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="370" y="224" font-size="11.5">parse_args</text>
+        <rect x="300" y="256" width="140" height="40" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="370" y="280" font-size="11.5">run_loop</text>
+        <rect x="300" y="312" width="140" height="40" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="370" y="336" font-size="11.5">load_config</text>
+        <rect x="520" y="284" width="140" height="40" rx="8" fill="#fbfaf5" stroke="#aaa492"/><text x="590" y="308" font-size="11.5">tick</text>
+        <line x1="210" y1="248" x2="298" y2="222" stroke="#6c6759" stroke-width="1.4" marker-end="url(#sk-g)"/>
+        <line x1="210" y1="255" x2="298" y2="274" stroke="#6c6759" stroke-width="1.4" marker-end="url(#sk-g)"/>
+        <line x1="210" y1="262" x2="298" y2="328" stroke="#6c6759" stroke-width="1.4" marker-end="url(#sk-g)"/>
+        <line x1="440" y1="280" x2="518" y2="300" stroke="#6c6759" stroke-width="1.4" marker-end="url(#sk-g)"/>
+        <!-- flow boundary -->
+        <rect x="44" y="186" width="640" height="180" rx="12" fill="none" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="7 5"/>
+        <text x="680" y="200" text-anchor="end" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">SkeletonFlow{ id=flow_id_of(main), member_count=5 }</text>
+        <!-- unattributed island -->
+        <rect x="760" y="232" width="520" height="120" rx="12" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4"/>
+        <text x="784" y="258" text-anchor="start" font-size="12.5" font-weight="700" fill="#7a2c22">UNATTRIBUTED_FLOW_ID</text>
+        <text x="784" y="277" text-anchor="start" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">"agentic.flow:unattributed" · no seed entrypoint</text>
+        <g font-family="ui-monospace,monospace" font-size="10.5" fill="#20242b" text-anchor="middle">
+          <rect x="784" y="298" width="120" height="36" rx="7" fill="#fbfaf5" stroke="#aaa492" stroke-dasharray="4 3"/><text x="844" y="321">dead_helper</text>
+          <rect x="922" y="298" width="140" height="36" rx="7" fill="#fbfaf5" stroke="#aaa492" stroke-dasharray="4 3"/><text x="992" y="321">unreferenced_util</text>
+        </g>
+        <text x="1256" y="277" text-anchor="end" font-size="11" fill="#2c3038">the render catch-all</text>
+      </g>
+    </svg>
+  </div>
+  <div class="refs">
+    <div class="r"><span class="n">1</span><div><b>Seeds.</b> <code>build_skeleton_flows</code> sorts <code>graph.entry_points</code> by id and walks them in that order, so output is byte-stable across runs. One <code>SkeletonFlow</code> per entrypoint. <code>build_skeleton_flows</code></div></div>
+    <div class="r"><span class="n">2</span><div><b>Reachable.</b> <code>reachable_from(seed, graph)</code> forward-traverses resolved call edges, visiting children in sorted id order; cycles guard, external/unresolved targets skip. The reachable set is the flow's <code>member_count</code>. <code>reachable_from</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Identity.</b> <code>flow_id_of(node)</code> = the entrypoint's enclosing-free <code>symbol_path</code> (entrypoints are top-level, so the enclosing scope is <code>[]</code>). The label is the entrypoint's <code>name</code>. <code>flow_id_of</code></div></div>
+    <div class="r"><span class="n">4</span><div><b>Rank + dedup.</b> Sort by <code>member_count</code> descending, id ascending to break ties; de-duplicate by id keeping the first (largest) — two same-named methods on different classes collapse to one v1 <code>symbol_path</code>.</div></div>
+    <div class="r"><span class="n">5</span><div><b>Unattributed.</b> Every node in no entrypoint's reachable set is gathered, sorted, into the single <code>UNATTRIBUTED_FLOW_ID</code> bucket, appended last — the catch-all for dead/unreachable code. <code>UNATTRIBUTED_FLOW_LABEL</code></div></div>
+  </div>
+  <p class="cap">Membership is never a stored leaf set — <code>induce_members</code> re-derives it on demand, so a leaf reachable from two entrypoints legitimately belongs to both flows. <b>core/model/flow.ts</b></p>
+  <div class="callout olive">
+    <span class="k">Identity excludes the body</span>
+    A flow id is the dominant seed's <code>symbol_path</code> only — the <code>content_hash</code> is deliberately excluded. Editing an entrypoint's body never re-keys its flow; a rename moves the name segment, re-anchored by the resolver when the flow is persisted.
+  </div>
+
+  <!-- ============================ 3 · AGENTIC HYDRATION ============================ -->
+  <h2 id="hydration">Agentic hydration &amp; induction</h2>
+  <p class="thesis"><b>Does an agent search the repo and connect Ariadne's entrypoints into logical groupings? No — not in v1.</b> Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code>, and it is <b>fully deterministic and headless</b>: a flow's grouping <em>is</em> reachability, already computed by <code>build_skeleton_flows</code> — one entrypoint plus its reachable subgraph. "Agentic" names the storage <em>lane</em> the result is written to (lower-confidence, judgement-tier), not a runtime AI. The engine induces members, infers bridges with deterministic heuristics, runs a deterministic-first describe ladder, and writes the result. The only place a model can speak is an <b>optional</b> side input that supplies member <em>descriptions</em> — never boundaries.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1320 470" role="img"
+      aria-label="The hydration pipeline as a single deterministic engine spine, answering the question does an agent group entrypoints: no, not in v1. The spine runs left to right across the middle. Stage one, detect_code_umbrellas: build_skeleton_flows turns the call graph into one flow per entrypoint, and any flow whose induced members touch a changed file this turn is kept as a CodeUmbrella. The grouping is reachability, computed in code, with no agent. Stage two, induce_members: re-derive the member node set from the umbrella's seeds by forward reachability, plus deterministic bridge endpoints. Stage three, build_bridge_edges and detect_meta_json_sub_agent_bridges: deterministic heuristics infer cross-call-graph and sub-agent links as agentic.bridge edges at confidence 0.5, rendered dashed. Stage four, plan_descriptions, the deterministic-first ladder: cache, then docstring, then optional LLM up to 200, then a name placeholder. Stage five, write_agentic_substrate plus write_flow: persist the agentic.flow node and its substrate via scoped write_fields on the agentic layer, stamping last_synced_at, never a store-global rebuild_layer. Above the spine, one optional side input, clearly marked may, feeds only stage four: a model MAY supply short member descriptions; v1 never requires it and the default is headless. Below the spine, drawn ghosted and dashed and labelled NOT WIRED IN v1, is the designed-future lane: an LLM judging which seeds group into one functionality umbrella. It is not connected to the spine; the deterministic skeleton supplies grouping today. The takeaway: in v1 the engine groups by reachability and the only model seam supplies descriptions, not flow membership.">
+      <defs>
+        <marker id="hy-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="hy-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+        <marker id="hy-olive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+        <marker id="hy-ghost" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#aaa492"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui">
+
+        <!-- ============ LANE LABELS (left rail) ============ -->
+        <g font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759" text-anchor="start">
+          <text x="14" y="92">OPTIONAL</text><text x="14" y="104">MODEL SEAM</text>
+          <text x="14" y="232">ENGINE SPINE</text><text x="14" y="244" fill="#6c7a3b">deterministic · headless</text>
+          <text x="14" y="404">DESIGNED-FUTURE</text><text x="14" y="416" fill="#aaa492">not in v1</text>
+        </g>
+
+        <!-- ============ OPTIONAL MODEL SEAM (top, side input) ============ -->
+        <rect x="470" y="64" width="380" height="78" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="2 0"/>
+        <text x="660" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#20242b">describe seam — model MAY supply text</text>
+        <text x="660" y="110" text-anchor="middle" font-size="10.5" fill="#2c3038">short member <b>descriptions</b> only · v1 default is headless</text>
+        <text x="660" y="128" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">SKILL.md: "you MAY supply descriptions … v1 never requires it"</text>
+        <!-- the seam feeds ONLY stage 4 -->
+        <path d="M660 142 L660 196" fill="none" stroke="#6c7a3b" stroke-width="1.6" marker-end="url(#hy-olive)"/>
+        <text x="672" y="172" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233" text-anchor="start">feeds ONLY descriptions →</text>
+
+        <!-- ============ ENGINE SPINE (middle, 5 deterministic stages) ============ -->
+        <!-- spine baseline -->
+        <line x1="40" y1="262" x2="1280" y2="262" stroke="#6c6759" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- stage 1 -->
+        <circle cx="58" cy="186" r="11" fill="#2c3038"/><text x="58" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
+        <rect x="40" y="200" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="156" y="224" text-anchor="middle" font-size="12.5" font-weight="700">detect_code_umbrellas</text>
+        <text x="156" y="244" text-anchor="middle" font-size="10.5" fill="#2c3038">build_skeleton_flows → keep any</text>
+        <text x="156" y="259" text-anchor="middle" font-size="10.5" fill="#2c3038">flow touching a changed file</text>
+        <text x="156" y="282" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c7a3b">grouping = REACHABILITY</text>
+        <text x="156" y="296" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c7a3b">one entrypoint + its subgraph</text>
+        <text x="156" y="313" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">no agent · no LLM</text>
+
+        <!-- stage 2 -->
+        <circle cx="318" cy="186" r="11" fill="#2c3038"/><text x="318" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <rect x="300" y="200" width="200" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="400" y="224" text-anchor="middle" font-size="12.5" font-weight="700">induce_members</text>
+        <text x="400" y="246" text-anchor="middle" font-size="10.5" fill="#2c3038">re-derive members from</text>
+        <text x="400" y="261" text-anchor="middle" font-size="10.5" fill="#2c3038">seeds by reachability</text>
+        <text x="400" y="284" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">+ bridge endpoints</text>
+        <text x="400" y="300" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">no stored leaf set</text>
+        <line x1="272" y1="262" x2="298" y2="262" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
+
+        <!-- stage 3 -->
+        <circle cx="546" cy="186" r="11" fill="#2c3038"/><text x="546" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
+        <rect x="528" y="200" width="232" height="124" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="644" y="224" text-anchor="middle" font-size="12" font-weight="700">build_bridge_edges</text>
+        <text x="644" y="241" text-anchor="middle" font-size="10.5" fill="#2c3038">deterministic heuristics infer</text>
+        <text x="644" y="256" text-anchor="middle" font-size="10.5" fill="#2c3038">cross-graph + sub-agent links</text>
+        <text x="644" y="279" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5 · dashed</text>
+        <text x="644" y="295" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">detect_meta_json_sub_agent_bridges</text>
+        <text x="644" y="311" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">heuristic, not a model</text>
+        <line x1="500" y1="262" x2="526" y2="262" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
+
+        <!-- stage 4 -->
+        <circle cx="806" cy="186" r="11" fill="#2c3038"/><text x="806" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
+        <rect x="788" y="200" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="904" y="224" text-anchor="middle" font-size="12.5" font-weight="700">plan_descriptions</text>
+        <text x="904" y="244" text-anchor="middle" font-size="10.5" fill="#2c3038">deterministic-first ladder</text>
+        <text x="904" y="268" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">cache → docstring →</text>
+        <text x="904" y="282" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">LLM ≤200 → placeholder</text>
+        <text x="904" y="305" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">↑ only stage the seam touches</text>
+        <line x1="760" y1="262" x2="786" y2="262" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
+
+        <!-- stage 5 -->
+        <circle cx="1066" cy="186" r="11" fill="#2c3038"/><text x="1066" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">5</text>
+        <rect x="1048" y="200" width="232" height="124" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="1164" y="224" text-anchor="middle" font-size="11.5" font-weight="700">write_agentic_substrate</text>
+        <text x="1164" y="240" text-anchor="middle" font-size="11.5" font-weight="700">+ write_flow</text>
+        <text x="1164" y="262" text-anchor="middle" font-size="10" fill="#2c3038">persist agentic.flow node</text>
+        <text x="1164" y="284" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">scoped write_fields('agentic')</text>
+        <text x="1164" y="299" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">stamp last_synced_at</text>
+        <text x="1164" y="314" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">NEVER rebuild_layer</text>
+        <line x1="1020" y1="262" x2="1046" y2="262" stroke="#b5683e" stroke-width="1.6" marker-end="url(#hy-clay)"/>
+
+        <!-- ============ DESIGNED-FUTURE LANE (bottom, ghosted, NOT WIRED) ============ -->
+        <rect x="470" y="346" width="380" height="86" rx="11" fill="#f4f2ec" stroke="#aaa492" stroke-width="1.5" stroke-dasharray="7 5"/>
+        <text x="660" y="372" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a766a">LLM umbrella judgement</text>
+        <text x="660" y="391" text-anchor="middle" font-size="10.5" fill="#7a766a">"group the seeds into a functionality umbrella"</text>
+        <text x="660" y="409" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9a9484">derive_candidate_seeds exists, but is not called by the v1 path</text>
+        <text x="660" y="425" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="700" fill="#9e3b2e">— NOT WIRED IN v1 —</text>
+        <!-- ghosted, disconnected link up to the spine (deliberately dashed + arrowless to read as "would attach here") -->
+        <path d="M660 346 L660 326" fill="none" stroke="#aaa492" stroke-width="1.4" stroke-dasharray="3 4"/>
+        <circle cx="660" cy="324" r="3.5" fill="none" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="676" y="340" font-family="ui-monospace,monospace" font-size="8.5" fill="#9a9484" text-anchor="start">would replace stage 1's reachability grouping</text>
+
+      </g>
+    </svg>
+  </div>
+  <div class="legend">
+    <span class="sw"><i class="engine"></i> deterministic · runs in v1</span>
+    <span class="sw"><i class="agentic"></i> optional model seam (descriptions)</span>
+    <span class="sw"><i class="hook"></i> agentic-lane store write</span>
+    <span class="sw"><i style="background:#f4f2ec;border:1px dashed var(--g4);"></i> designed-future · not wired</span>
+  </div>
+  <div class="refs">
+    <div class="r"><span class="n">1</span><div><b>Grouping is reachability — no agent.</b> <code>detect_code_umbrellas</code> runs <code>build_skeleton_flows(graph)</code> and keeps any flow whose induced members intersect a changed file. A flow is one entrypoint + its reachable subgraph; nothing browses the repo. <code>drift/reconcile/reconcile.ts</code></div></div>
+    <div class="r"><span class="n">2</span><div><b>Induce.</b> <code>induce_members</code> re-derives the member set by forward reachability from the umbrella's seeds, plus any deterministic bridge endpoints — never a stored leaf set. <code>core/model/flow.ts</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Bridges = heuristics.</b> <code>build_bridge_edges</code> and <code>detect_meta_json_sub_agent_bridges</code> infer cross-graph and skill sub-agent links as <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> (dashed render). Deterministic detectors, not a model. A pure code flow writes <code>bridges: []</code>. <code>core/agentic/bridge.ts · registry_detector.ts</code></div></div>
+    <div class="r"><span class="n">4</span><div><b>Descriptions — the only model seam.</b> <code>plan_descriptions</code> is deterministic-first: cache → docstring → optional batched LLM ≤ <code>DEFAULT_DESCRIBE_CAP = 200</code> → name placeholder. A flow hydrates headlessly with no model call; the seam supplies text only. <code>core/agentic/describe_policy.ts</code></div></div>
+    <div class="r"><span class="n">5</span><div><b>Persist.</b> <code>write_agentic_substrate</code> + <code>write_flow</code> write the <code>agentic.flow</code> node and substrate row-by-row through scoped <code>write_fields('agentic')</code>, stamping <code>last_synced_at</code>, never <code>rebuild_layer</code>. <code>drift/reconcile/hydrate.ts · flow_store.ts</code></div></div>
+  </div>
+  <p class="cap"><b>"Agentic" is the storage lane, not a runtime AI.</b> The drift-reconciler sub-agent only shells the bundled script into the headless <code>drift-reconcile</code> bin. Real LLM umbrella judgement (<code>derive_candidate_seeds</code> → an agent picking boundaries) is designed-future and unwired; today grouping is the deterministic skeleton. <b>core/agentic/gap_detection.ts · drift/reconcile/reconcile.ts</b></p>
+  <div class="callout">
+    <span class="k">Does an agent group entrypoints? — No, in v1</span>
+    The drift-sync skill's prose says "group the deterministic seeds into a functionality umbrella," but the work runs in the headless <code>drift-reconcile</code> bin: the umbrella <em>is</em> a skeleton flow (one entrypoint + its reachable subgraph), <code>build_bridge_edges</code> is a heuristic, and the <em>only</em> optional model call supplies member <b>descriptions</b>. No LLM decides flow membership at runtime.
+  </div>
+  <div class="callout invert">
+    <span class="k">The single most load-bearing write rule</span>
+    Persisting a flow must <b>never</b> call <code>rebuild_layer('agentic')</code> — that call is store-global and would delete every <em>other</em> flow's agentic content, defeating lazy per-flow hydration. Field writes go through <code>write_fields(..., 'agentic')</code>, so a user-promoted (renamed/pinned) flow node survives untouched.
+  </div>
+
+  <!-- ============================ 4 · SKELETON ↔ HYDRATED RECONCILIATION ============================ -->
+  <h2 id="reconcile">Skeleton ↔ hydrated reconciliation</h2>
+  <p class="thesis">The selector merges two populations: persisted hydrated flows take precedence, and the deterministic skeleton fills the rest. Membership re-induces from rename-stable seeds; when a re-detection moves a flow's id, a ≥50% member overlap carries the user's label across the change.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1320 400" role="img"
+      aria-label="Three reconciliation mechanisms in parallel panels. Panel one, order_flows: hydrated flows ranked by last_synced_at most recent first with nulls last, then the deterministic skeleton in its own order; a skeleton flow whose id is already hydrated is dropped, so the hydrated entry supersedes the stub. Panel two, reconstruct_flow_membership: a persisted flow stores its seeds and bridges as symbol_path strings; build_symbol_path_index maps each back to a live SymbolId; a candidate that resolves to a SymbolId is a call-graph seed, one that does not is a linked doc; then induce_members re-derives the member set from the live graph. Panel three, the Jaccard identity remap: when a freshly detected flow's id differs from a persisted one but their member sets overlap by at least 0.5, it is the same flow under a new id, so match_existing_flow carries the user-owned label across and strands the superseded flow into the re-attachment bin; weaker overlap is a genuine split or merge and is never silently dropped.">
+      <defs>
+        <marker id="rc-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="rc-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui">
+        <!-- PANEL 1: order_flows -->
+        <rect x="24" y="24" width="404" height="356" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="44" y="52" font-size="13.5" font-weight="700" fill="#20242b">1 · order_flows(hydrated, skeleton)</text>
+        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">read_hydrated_flows ⊕ build_skeleton_flows</text>
+        <!-- hydrated stack -->
+        <rect x="44" y="92" width="364" height="40" rx="7" fill="#eef0e3" stroke="#6c7a3b"/>
+        <text x="60" y="110" font-size="11.5" font-weight="600" fill="#20242b">hydrated — by last_synced_at ↓</text>
+        <text x="60" y="125" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">most recent first · nulls last · id tiebreak</text>
+        <rect x="44" y="142" width="364" height="40" rx="7" fill="#ece5d6" stroke="#aaa492"/>
+        <text x="60" y="160" font-size="11.5" font-weight="600" fill="#20242b">skeleton — fills the rest</text>
+        <text x="60" y="175" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">in build_skeleton_flows order</text>
+        <line x1="226" y1="132" x2="226" y2="140" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rc-g)"/>
+        <!-- supersede note -->
+        <rect x="44" y="208" width="364" height="78" rx="8" fill="#f3ece2" stroke="#b5683e"/>
+        <text x="60" y="232" font-size="12" font-weight="600" fill="#20242b">a skeleton flow whose id is hydrated</text>
+        <text x="60" y="250" font-size="12" fill="#2c3038">is dropped — the hydrated entry supersedes it.</text>
+        <text x="60" y="272" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">the skeleton is the substrate the agent upgraded</text>
+        <text x="44" y="320" font-size="11" fill="#2c3038">Result: one ordered selector list,</text>
+        <text x="44" y="338" font-size="11" fill="#2c3038">no duplicate ids, hydrated on top.</text>
+        <text x="44" y="366" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">core/model/flow.ts</text>
+
+        <!-- PANEL 2: reconstruct_flow_membership -->
+        <rect x="452" y="24" width="404" height="356" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="472" y="52" font-size="13.5" font-weight="700" fill="#20242b">2 · reconstruct_flow_membership</text>
+        <text x="472" y="70" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">stored symbol_path → live SymbolId</text>
+        <!-- stored row -->
+        <rect x="472" y="92" width="364" height="46" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
+        <text x="488" y="113" font-size="11.5" font-weight="600" fill="#20242b">persisted flow node</text>
+        <text x="488" y="129" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">entry_points[] + agentic.flow_member edges (symbol_path)</text>
+        <!-- index -->
+        <rect x="472" y="152" width="364" height="40" rx="8" fill="#fbfaf5" stroke="#6c6759"/>
+        <text x="488" y="170" font-size="11.5" font-weight="600" fill="#20242b">build_symbol_path_index(graph)</text>
+        <text x="488" y="185" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">symbol_path → SymbolId · first-wins, sorted</text>
+        <line x1="654" y1="138" x2="654" y2="150" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rc-g)"/>
+        <!-- split: seed vs doc -->
+        <rect x="472" y="208" width="176" height="56" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
+        <text x="560" y="230" text-anchor="middle" font-size="11.5" font-weight="600">resolves → seed</text>
+        <text x="560" y="248" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">a call-graph target</text>
+        <rect x="660" y="208" width="176" height="56" rx="8" fill="#ece5d6" stroke="#aaa492"/>
+        <text x="748" y="230" text-anchor="middle" font-size="11.5" font-weight="600">no resolve → doc</text>
+        <text x="748" y="248" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">docs aren't in the graph</text>
+        <line x1="560" y1="192" x2="560" y2="206" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rc-g)"/>
+        <line x1="748" y1="192" x2="748" y2="206" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rc-g)"/>
+        <!-- induce -->
+        <rect x="472" y="288" width="364" height="44" rx="8" fill="#f3ece2" stroke="#b5683e"/>
+        <text x="488" y="310" font-size="11.5" font-weight="600" fill="#20242b">induce_members → live member set</text>
+        <text x="488" y="326" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">re-derived from seeds + bridges + docs · no stored leaf set</text>
+        <line x1="560" y1="264" x2="560" y2="286" stroke="#b5683e" stroke-width="1.4" marker-end="url(#rc-clay)"/>
+        <line x1="748" y1="264" x2="748" y2="286" stroke="#b5683e" stroke-width="1.4" marker-end="url(#rc-clay)"/>
+        <text x="472" y="366" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">core/model/flow.ts</text>
+
+        <!-- PANEL 3: Jaccard remap -->
+        <rect x="880" y="24" width="416" height="356" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="900" y="52" font-size="13.5" font-weight="700" fill="#20242b">3 · Jaccard ≥ 0.5 identity remap</text>
+        <text x="900" y="70" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">match_existing_flow · a moved dominant seed</text>
+        <!-- two flows -->
+        <rect x="900" y="92" width="180" height="52" rx="8" fill="#ece5d6" stroke="#aaa492"/>
+        <text x="990" y="113" text-anchor="middle" font-size="11.5" font-weight="600">persisted flow</text>
+        <text x="990" y="130" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">old id · user label</text>
+        <rect x="1096" y="92" width="180" height="52" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
+        <text x="1186" y="113" text-anchor="middle" font-size="11.5" font-weight="600">freshly detected</text>
+        <text x="1186" y="130" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">new id (seed renamed)</text>
+        <!-- overlap test -->
+        <polygon points="1088,178 1140,154 1192,178 1140,202" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="1140" y="176" text-anchor="middle" font-size="10.5" font-weight="600">overlap</text>
+        <text x="1140" y="191" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">≥ 0.5 ?</text>
+        <line x1="990" y1="144" x2="1100" y2="172" stroke="#6c6759" stroke-width="1.3" marker-end="url(#rc-g)"/>
+        <line x1="1186" y1="144" x2="1180" y2="172" stroke="#6c6759" stroke-width="1.3" marker-end="url(#rc-g)"/>
+        <!-- YES carry -->
+        <rect x="900" y="226" width="396" height="64" rx="8" fill="#f3ece2" stroke="#b5683e"/>
+        <text x="916" y="248" font-size="11.5" font-weight="600" fill="#20242b"><tspan font-family="ui-monospace,monospace" fill="#6c7a3b">YES</tspan> — same flow, new id</text>
+        <text x="916" y="266" font-size="11" fill="#2c3038">carry the user-owned label across · soft-delete old node</text>
+        <text x="916" y="282" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">restamp label as user-owned · stranded flow → re-attachment bin</text>
+        <line x1="1110" y1="202" x2="1060" y2="224" stroke="#b5683e" stroke-width="1.4" marker-end="url(#rc-clay)"/>
+        <text x="1052" y="220" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#6c7a3b">≥0.5</text>
+        <!-- NO split -->
+        <rect x="900" y="306" width="396" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e"/>
+        <text x="916" y="328" font-size="11.5" font-weight="600" fill="#7a2c22"><tspan font-family="ui-monospace,monospace">NO</tspan> — genuine split / merge</text>
+        <text x="916" y="345" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">a new flow · stranded flow surfaced, never silently dropped</text>
+        <line x1="1170" y1="202" x2="1180" y2="304" stroke="#9e3b2e" stroke-width="1.4" marker-end="url(#rc-g)"/>
+        <text x="1196" y="250" text-anchor="start" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">&lt;0.5</text>
+        <text x="900" y="372" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">drift/reconcile/flow_identity.ts</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Re-sync re-induces a flow from its stored seeds with the identity remap disabled — the id is unchanged by construction; only a genuine first-hydrate (a new id) runs the ≥0.5 overlap carry. <b>drift/reconcile/hydrate.ts · flow_identity.ts</b></p>
+
+  <!-- ============================ 5 · LEDGER ============================ -->
+  <h2 id="ledger">The flow-truth ledger</h2>
+  <p class="thesis"><code>packages/core/src/model/flow.ts</code> is the single source of flow truth — pure, host-agnostic, derived from an in-memory call graph. These are its load-bearing exports.</p>
+  <table class="ledger">
+    <thead><tr><th>Export</th><th>Role</th><th>File</th></tr></thead>
+    <tbody>
+      <tr><td><code>build_skeleton_flows</code></td><td><b>The deterministic path.</b> One flow per top-level entrypoint, ranked by reachable size, plus the <code>unattributed</code> bucket — byte-stable, what F5 renders on a cold repo.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>reachable_from</code></td><td>Forward traversal of resolved call edges from a seed; sorted, cycle-guarded, externals skipped — fills a flow's interior for free.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>flow_id_of</code></td><td>Dominant seed's enclosing-free <code>symbol_path</code> → the flow id. Body-independent: <code>content_hash</code> is excluded so a body edit never re-keys.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>induce_members</code></td><td>Re-induce the member node set: union of every seed's, every bridge endpoint's reachable subgraph, plus linked docs. No stored leaf set.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>paths_of</code></td><td>Map a <code>SymbolId</code> set to sorted, deduped flow-layer <code>symbol_path</code>s — the one place the <code>anchor_set</code> is derived.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>UNATTRIBUTED_FLOW_ID</code></td><td>Sentinel id (<code>agentic.flow:unattributed</code>) + <code>_LABEL</code> for code reachable from no entrypoint — the render catch-all.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>skeleton_to_summary</code></td><td>Project a <code>SkeletonFlow</code> to the never-hydrated <code>FlowSummary</code> the selector renders (<code>is_hydrated:false</code>).</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>order_flows</code></td><td>The ordered selector list: hydrated by <code>last_synced_at</code> first, skeleton fills the rest; a hydrated id drops the matching skeleton stub.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>read_hydrated_flows</code></td><td>Read persisted <code>agentic.flow</code> nodes (live, not soft-deleted) into <code>FlowSummary</code>.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>reconstruct_flow_membership</code></td><td>Rebuild an induce-able <code>FlowMembership</code> from a persisted flow's rows, mapping stored <code>symbol_path</code>s back to live <code>SymbolId</code>s.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>collect_persisted_flow</code></td><td>Gather one persisted flow's <code>agentic.flow</code> node + its member and incident bridge edges from plain row arrays.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>build_flow_node</code></td><td>The <code>agentic.flow</code> <code>NodeRow</code> a hydrated flow persists as: open kind, <code>layer='agentic'</code>, seeds on <code>entry_points</code>.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>build_flow_member_edges</code></td><td>The <code>agentic.flow_member</code> edges from a flow to its seed roots + linked docs, with deterministic keys.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>build_symbol_path_index</code></td><td>The <code>symbol_path → SymbolId</code> index (inverse of <code>flow_id_of</code>), first-wins in sorted order — bridges the two id spaces.</td><td><code>model/flow.ts</code></td></tr>
+      <tr><td><code>detect_gaps · derive_candidate_seeds</code></td><td>Deterministic candidate boundaries: orphan entrypoints + disconnected components → seeds; unresolved shapes → bridge feed.</td><td><code>agentic/gap_detection.ts</code></td></tr>
+      <tr><td><code>build_bridge_edges</code></td><td>Candidates → <code>agentic.bridge</code> edges at confidence <code>0.5</code>, each with an <code>inference_rationale</code> + justifying span.</td><td><code>agentic/bridge.ts</code></td></tr>
+      <tr><td><code>plan_descriptions</code></td><td>The deterministic-first ladder: cache → docstring → LLM ≤ 200 → placeholder. No model call required.</td><td><code>agentic/describe_policy.ts</code></td></tr>
+      <tr><td><code>match_existing_flow · anchor_set_hash</code></td><td>The ≥0.5 Jaccard identity remap that carries a user label across an id change; weak overlap → re-attachment bin.</td><td><code>drift/reconcile/flow_identity.ts</code></td></tr>
+    </tbody>
+  </table>
+  <p class="cap">Constants pin the substrate vocabulary: <code>FLOW_NODE_KIND='agentic.flow'</code>, <code>FLOW_MEMBER_EDGE_KIND='agentic.flow_member'</code>, <code>BRIDGE_EDGE_KIND='agentic.bridge'</code>. <b>core/model/flow.ts</b></p>
+
+  <footer>
+    Generated comprehension doc for the Code Charter repo · 05 · Flow Construction.<br>
+    Describes the system as it is. Source paths are real — jump to them in <code>packages/core/src/model/flow.ts</code>, <code>packages/core/src/agentic/</code>, and <code>packages/drift/src/reconcile/</code>.
+  </footer>
+</main>
+</body>
+</html>

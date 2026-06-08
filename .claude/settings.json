@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node packages/drift/dist/bin/drift_stop_hook.js"
+            "command": "node \"$CLAUDE_PROJECT_DIR/packages/drift/dist/bin/drift_stop_hook.js\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node packages/drift/dist/bin/drift_session_start.js"
+            "command": "node \"$CLAUDE_PROJECT_DIR/packages/drift/dist/bin/drift_session_start.js\""
           }
         ],
         "matcher": "startup"

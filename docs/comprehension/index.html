@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension doc: "Code Charter — Overview & Map". Index of the set; diagram-led map of the whole system. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Code Charter — Overview &amp; Map</title>
+<style>
+  :root{
+    --ivory:#f7f4ec; --oat:#ece5d6; --slate:#2c3038; --ink:#20242b;
+    --clay:#b5683e; --olive:#6c7a3b; --rust:#9e3b2e;
+    --g1:#fbfaf5; --g2:#efeadd; --g3:#d9d2c1; --g4:#aaa492; --g5:#6c6759;
+    --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --r:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;}
+
+  /* ===== FULL-WIDTH STICKY TOP NAV (no sidebar) ===== */
+  .topnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:2px;flex-wrap:wrap;
+    background:var(--slate);padding:0 3%;border-bottom:3px solid var(--clay);}
+  .topnav .brand{display:flex;flex-direction:column;margin-right:22px;padding:11px 0;}
+  .topnav .brand b{color:var(--ivory);font-size:14px;font-weight:600;letter-spacing:.01em;line-height:1.1;}
+  .topnav .brand span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--g4);}
+  .topnav a{text-decoration:none;color:var(--g3);font-size:13px;padding:14px 13px;border-bottom:3px solid transparent;margin-bottom:-3px;white-space:nowrap;}
+  .topnav a:hover{color:#fff;background:#363b45;}
+  .topnav a.active{color:#fff;border-bottom-color:var(--clay);background:rgba(181,104,62,.18);font-weight:600;}
+  .topnav a .n{font-family:var(--mono);font-size:10px;color:var(--g4);margin-right:5px;}
+  .topnav a.active .n{color:#e7c3a6;}
+
+  /* ===== FULL-WIDTH BODY: ~3% gutter, no max-width ===== */
+  main{max-width:none;margin:0;padding:30px 3% 96px;}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--g5);margin:0 0 9px;}
+  h1{font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.12;margin:0 0 8px;color:var(--ink);}
+  .deck{font-size:15.5px;color:var(--g5);margin:0 0 6px;max-width:90ch;}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 0;font-family:var(--mono);font-size:11px;}
+  .pill{background:var(--oat);border:1px solid var(--g3);border-radius:999px;padding:3px 11px;color:var(--g5);}
+  .pill b{color:var(--slate);font-weight:600;}
+  .pill.done{background:var(--olive);color:#fff;border-color:var(--olive);}
+  .pill.done b{color:#fff;}
+
+  h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:48px 0 4px;color:var(--ink);scroll-margin-top:64px;}
+  .thesis{font-size:15.5px;color:var(--ink);font-weight:500;margin:0 0 14px;max-width:96ch;}
+  .cap{font-size:12.5px;color:var(--g5);margin:10px 0 0;font-family:var(--mono);line-height:1.5;}
+  .cap b{color:var(--clay);font-weight:600;}
+
+  /* ===== DIAGRAM FRAME (diagrams may bleed to full content width) ===== */
+  .fig{width:100%;margin:14px 0 0;border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:8px;}
+  .fig svg{display:block;width:100%;height:auto;}
+
+  /* ===== REUSABLE LEGEND / CHIP ROW ===== */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-family:var(--mono);font-size:10.5px;color:var(--g5);padding:8px 4px 2px;}
+  .legend .sw{display:inline-flex;align-items:center;gap:6px;}
+  .legend .sw i{width:14px;height:12px;border-radius:3px;border:1px solid var(--g4);display:inline-block;}
+  .legend .sw .raw{background:var(--oat);border-color:var(--g4);}
+  .legend .sw .agentic{background:#eef0e3;border-color:var(--olive);}
+  .legend .sw .engine{background:var(--g1);border-color:var(--g5);}
+  .legend .sw .hook{background:#f3ece2;border-color:var(--clay);}
+  .legend .sw .miss{background:#f4e6e2;border-color:var(--rust);}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 6px;color:var(--ink);white-space:nowrap;}
+  .chip.clay{color:var(--clay);background:#f3ece2;border-color:#e0c2bb;}
+
+  /* ===== NUMBERED REFS STRIP (details tier keyed to SVG badges) ===== */
+  .refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 20px;margin:14px 0 0;}
+  .refs .r{display:grid;grid-template-columns:22px 1fr;gap:9px;align-items:baseline;font-size:13px;}
+  .refs .n{width:20px;height:20px;border-radius:50%;background:var(--slate);color:var(--g1);
+    font:700 11px var(--mono);display:flex;align-items:center;justify-content:center;}
+  .refs .r b{font-weight:600;color:var(--ink);}
+  .refs .r code{font-family:var(--mono);font-size:11px;color:var(--clay);background:none;border:none;padding:0;}
+
+  /* ===== TIGHT LEDGER TABLE (verb | detail | file) ===== */
+  table.ledger{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px;}
+  table.ledger th,table.ledger td{text-align:left;padding:7px 11px;border-bottom:1px solid var(--g2);vertical-align:top;}
+  table.ledger th{font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;font-size:10px;color:var(--g5);border-bottom:1px solid var(--g3);}
+  table.ledger td b{font-weight:600;color:var(--ink);}
+  table.ledger td code{font-family:var(--mono);font-size:11.5px;color:var(--clay);background:none;border:none;padding:0;}
+  table.ledger tr:last-child td{border-bottom:none;}
+
+  /* ===== INLINE CODE ===== */
+  code{font-family:var(--mono);}
+  p code,li code,.thesis code,.cap code{font-family:var(--mono);font-size:12px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 5px;color:var(--ink);}
+
+  /* ===== CALLOUT / INVARIANT (rationed; one per section max) ===== */
+  .callout{margin:14px 0 0;border-left:4px solid var(--clay);background:#f3ece2;border-radius:8px;padding:11px 16px;font-size:13.5px;line-height:1.5;}
+  .callout.olive{border-left-color:var(--olive);background:#eef0e3;}
+  .callout .k{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--g5);display:block;margin-bottom:5px;}
+  .callout code{font-family:var(--mono);color:#8a3528;}
+  .callout.invert{background:var(--slate);color:var(--ivory);border-left-color:var(--clay);}
+  .callout.invert .k{color:var(--g4);}
+  .callout.invert code{color:#e7c3a6;}
+
+  footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--g3);font-family:var(--mono);font-size:11px;color:var(--g4);}
+
+  @media (max-width:760px){
+    main{padding:22px 4% 70px;}
+    h1{font-size:26px;}
+    .topnav{gap:0;}
+    .topnav a{padding:11px 9px;font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <span class="brand"><b>Code Charter</b><span>comprehension</span></span>
+  <a href="index.html" class="active" aria-current="page"><span class="n">00</span>Overview &amp; Map</a>
+  <a href="architecture.html"><span class="n">01</span>Architecture &amp; Data Model</a>
+  <a href="core-engine.html"><span class="n">02</span>Core Engine</a>
+  <a href="drift-sync.html"><span class="n">03</span>Drift Sync</a>
+  <a href="ui-and-extension.html"><span class="n">04</span>UI &amp; Extension</a>
+  <a href="flow-construction.html"><span class="n">05</span>Flow Construction</a>
+</nav>
+
+<main>
+  <header>
+    <p class="eyebrow">Comprehension docs · 00 · overview &amp; map</p>
+    <h1>Code Charter — Overview &amp; Map</h1>
+    <p class="deck">A VSCode tool whose flow diagrams sit <em>above</em> the code as authored artifacts that survive every edit; this page is the map of the whole system.</p>
+    <div class="meta">
+      <span class="pill">surface <b>VSCode webview</b></span>
+      <span class="pill">capability <b>Diagram-Driven Development</b></span>
+      <span class="pill">packages <b>5</b></span>
+      <span class="pill done">code→diagram <b>shipping</b></span>
+      <span class="pill">diagram→code <b>planned</b></span>
+    </div>
+  </header>
+
+  <!-- ============================ 1 · WHAT CODE CHARTER IS ============================ -->
+  <h2 id="thesis">What Code Charter is</h2>
+  <p class="thesis">The diagram is a peer artifact above the code — authored, not regenerated: the code is the <em>how</em>, the diagram is the <em>what</em> and <em>why</em>, and it survives every code change.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1240 360" role="img"
+      aria-label="Two altitudes. The top lane is the flow diagram, the what and why, an agentic umbrella node carrying an authorable surface of name, description, pin and layout chips. The bottom lane is the code, the how, raw boxes for dot-ts, dot-py and dot-rs files. A clay arrow labelled survives code change bridges code up to the diagram. An inset note defines a flow as the subgraph induced by seed roots plus agent bridges plus linked docs, with identity equal to the dominant seed symbol path and content hash excluded.">
+      <defs>
+        <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <!-- TOP LANE: diagram -->
+        <text x="34" y="44" font-family="ui-monospace,monospace" font-size="11" fill="#6c7a3b" text-anchor="start">TOP ALTITUDE · the WHAT / WHY</text>
+        <rect x="20" y="56" width="700" height="118" rx="12" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <rect x="250" y="74" width="240" height="48" rx="10" fill="#6c7a3b" stroke="#5b6233"/>
+        <text x="370" y="95" font-weight="600" fill="#f7f4ec">flow diagram</text>
+        <text x="370" y="112" font-family="ui-monospace,monospace" font-size="9.5" fill="#dce0cb">agentic functionality umbrella</text>
+        <text x="370" y="146" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">authorable surface</text>
+        <g font-family="ui-monospace,monospace" font-size="11" fill="#20242b" text-anchor="middle">
+          <rect x="58" y="152" width="78" height="18" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="97" y="165">name</text>
+          <rect x="150" y="152" width="118" height="18" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="209" y="165">description</text>
+          <rect x="282" y="152" width="66" height="18" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="315" y="165">pin</text>
+          <rect x="362" y="152" width="84" height="18" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="404" y="165">layout</text>
+        </g>
+
+        <!-- BOTTOM LANE: code -->
+        <text x="34" y="252" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">BOTTOM ALTITUDE · the HOW</text>
+        <rect x="20" y="262" width="700" height="80" rx="12" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <g font-family="ui-monospace,monospace" font-size="12" fill="#20242b">
+          <rect x="80" y="284" width="120" height="38" rx="9" fill="#fbfaf5" stroke="#aaa492"/><text x="140" y="308">.ts</text>
+          <rect x="240" y="284" width="120" height="38" rx="9" fill="#fbfaf5" stroke="#aaa492"/><text x="300" y="308">.py</text>
+          <rect x="400" y="284" width="120" height="38" rx="9" fill="#fbfaf5" stroke="#aaa492"/><text x="460" y="308">.rs</text>
+          <text x="600" y="308" font-size="10" fill="#6c6759">call / import graph</text>
+        </g>
+
+        <!-- bridge arrow -->
+        <path d="M370 262 L370 176" fill="none" stroke="#b5683e" stroke-width="2.4" marker-end="url(#clay)"/>
+        <text x="384" y="222" font-family="ui-monospace,monospace" font-size="10.5" fill="#b5683e" text-anchor="start">survives code change</text>
+
+        <!-- inset note -->
+        <rect x="760" y="56" width="460" height="286" rx="12" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="784" y="86" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">DEFINITION · a flow</text>
+        <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#20242b" text-anchor="start">
+          <text x="784" y="118">= subgraph <tspan font-style="italic">induced</tspan> by</text>
+          <text x="804" y="146" font-family="ui-monospace,monospace" font-size="12" fill="#6c7a3b">{seed roots}</text>
+          <text x="804" y="170" font-family="ui-monospace,monospace" font-size="12" fill="#6c7a3b">+ {agent bridges}</text>
+          <text x="804" y="194" font-family="ui-monospace,monospace" font-size="12" fill="#6c7a3b">+ {linked docs}</text>
+          <text x="784" y="222">call graph fills each interior for free</text>
+          <line x1="784" y1="240" x2="1196" y2="240" stroke="#d9d2c1"/>
+          <text x="784" y="266" font-weight="600">identity = dominant seed</text>
+          <text x="784" y="290" font-family="ui-monospace,monospace" font-size="12" fill="#b5683e">symbol_path</text>
+          <text x="784" y="318" font-family="ui-monospace,monospace" font-size="11" fill="#9e3b2e">content_hash excluded — editing a body never re-keys</text>
+        </g>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="sw"><i class="agentic"></i>agentic / diagram</span>
+      <span class="sw"><i class="raw"></i>raw / code</span>
+      <span class="sw"><i class="engine"></i>deterministic engine</span>
+      <span class="sw"><i class="hook"></i>hook · store write</span>
+      <span class="sw">→ grey = flow &nbsp; → clay = preserved bridge &nbsp; dashed = inferred / staged</span>
+    </div>
+  </div>
+  <p class="cap">A flow's membership is re-induced on demand, never a stored leaf set — so a shared leaf legitimately belongs to many flows. <b>core/flow</b></p>
+
+  <!-- ============================ 2 · INTENTION TREE ============================ -->
+  <h2 id="ddd">Diagram-Driven Development: the intention tree</h2>
+  <p class="thesis">One shared graph model, two directions over it — both children stand on <code>task-27.0</code>; code→diagram ships today, diagram→code is planned.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1240 340" role="img"
+      aria-label="The task-27 intention tree. The slate apex task-27 is the DDD master plan, one shared model plus two directions. Below it the olive task-27.0 is the shared custom graph model with three tiers, a watermark ladder and one resolver. Standing on 27.0 are two children: the clay task-27.1 code to diagram, shipping, driven by Stop hook then sub-agent then drift-sync then reconcile; and the dashed task-27.2 diagram to code, planned, with pending edit, stale guard and authority pin. Three binding invariants: shared mechanism lives only in 27.0; one home per capability; 27.2 is additive with no migration.">
+      <defs>
+        <marker id="t-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <rect x="460" y="14" width="320" height="56" rx="11" fill="#2c3038" stroke="#20242b"/>
+        <text x="620" y="38" font-weight="600" fill="#f7f4ec">task-27 · DDD master plan</text>
+        <text x="620" y="57" font-family="ui-monospace,monospace" font-size="10.5" fill="#aaa492">one shared model + two directions</text>
+
+        <rect x="455" y="118" width="330" height="74" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="620" y="143" font-weight="600">task-27.0 · shared graph model</text>
+        <text x="620" y="166" font-size="12">the single foundation both directions stand on</text>
+        <text x="620" y="184" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">3 tiers · watermark ladder · resolver</text>
+        <line x1="620" y1="70" x2="620" y2="116" stroke="#6c6759" stroke-width="1.6" marker-end="url(#t-g)"/>
+
+        <rect x="80" y="250" width="500" height="78" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="330" y="276" font-weight="600">task-27.1 · code → diagram &nbsp;(SHIPPING)</text>
+        <text x="330" y="297" font-size="12">comprehension map + pure drift auto-sync</text>
+        <text x="330" y="316" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">Stop hook → sub-agent → drift-sync → reconcile</text>
+        <path d="M520 192 L400 248" fill="none" stroke="#6c7a3b" stroke-width="1.9" marker-end="url(#t-g)"/>
+
+        <rect x="660" y="250" width="500" height="78" rx="11" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <text x="910" y="276" font-weight="600">task-27.2 · diagram → code &nbsp;(PLANNED)</text>
+        <text x="910" y="297" font-size="12">describe-first authoring + apply</text>
+        <text x="910" y="316" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">pending_edit · stale guard · authority/pin</text>
+        <path d="M720 192 L840 248" fill="none" stroke="#6c7a3b" stroke-width="1.9" stroke-dasharray="6 4" marker-end="url(#t-g)"/>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="chip">shared mechanism only in 27.0</span>
+      <span class="chip">one home per capability</span>
+      <span class="chip clay">27.2 additive — no migration</span>
+    </div>
+  </div>
+  <p class="cap">27.0 reserves the open shapes up front, so 27.2 adds with no schema migration, render-signature change, or 27.1 refactor. <b>v1 ships at 27.1.6</b></p>
+
+  <div class="callout olive">
+    <span class="k">27.0 decomposes</span>
+    27.0.1 SQLite <code>GraphStore</code> schema · 27.0.2 watermark ladder + tiered rebuild · 27.0.3 anchoring (<code>symbol_path + content_hash</code>) + resolver · 27.0.4 in-memory graphology model + render layers.
+  </div>
+
+  <!-- ============================ 3 · L0/L1 SEAM ============================ -->
+  <h2 id="seam">The cost-of-regeneration seam (L0/L1)</h2>
+  <p class="thesis">One line splits cheap-deterministic-rebuild from expensive-non-deterministic-regenerate, and that line dictates rebuild-vs-preserve everywhere.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1240 360" role="img"
+      aria-label="A contrast diptych split by a clay seam line down the middle. The left region is L0 raw disposable: Ariadne call and import edges, the function to file to directory scaffold, literal doc edges, and entrypoint roots — tagged nuked and rebuilt on every re-parse. The right region is L1-plus agentic and user preserved, drawn as two stacked bands: flow boundaries and labels, agentic dot bridge edges, LLM descriptions, and hand edits of names, pins and positions — tagged preserved. The seam is realized as one layer column with raw, agentic and user as ranks zero, one and two, governed by a field-level watermark ladder where user outranks agentic outranks raw.">
+      <defs>
+        <marker id="s-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038">
+        <!-- LEFT: L0 raw -->
+        <rect x="20" y="40" width="560" height="290" rx="12" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="44" y="72" font-family="ui-monospace,monospace" font-size="12" fill="#6c6759">L0 · RAW · DISPOSABLE</text>
+        <rect x="44" y="86" width="160" height="22" rx="6" fill="#fbfaf5" stroke="#9e3b2e"/>
+        <text x="124" y="102" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#9e3b2e">nuked &amp; rebuilt</text>
+        <g font-size="13.5" fill="#20242b">
+          <text x="44" y="148">• Ariadne call / import edges</text>
+          <text x="44" y="182">• function → file → directory scaffold</text>
+          <text x="44" y="216">• literal doc edges (md links, skill bundles)</text>
+          <text x="44" y="250">• entrypoint roots</text>
+        </g>
+        <text x="44" y="300" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">free to recompute · ranks 0</text>
+
+        <!-- SEAM line -->
+        <line x1="620" y1="24" x2="620" y2="346" stroke="#b5683e" stroke-width="3"/>
+        <text x="620" y="18" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#b5683e">THE SEAM</text>
+
+        <!-- RIGHT: L1+ agentic/user -->
+        <rect x="660" y="40" width="560" height="290" rx="12" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="684" y="72" font-family="ui-monospace,monospace" font-size="12" fill="#5b6233">L1+ · AGENTIC / USER · PRESERVED</text>
+        <rect x="684" y="86" width="120" height="22" rx="6" fill="#fbfaf5" stroke="#6c7a3b"/>
+        <text x="744" y="102" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">preserved</text>
+        <!-- band: user (rank 2) -->
+        <rect x="684" y="124" width="512" height="86" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="700" y="148" font-family="ui-monospace,monospace" font-size="11" fill="#92522f">user · rank 2</text>
+        <text x="700" y="174" font-size="13.5" fill="#20242b">• hand edits: names, pins, positions</text>
+        <text x="700" y="198" font-size="13.5" fill="#20242b">• flow boundaries &amp; labels</text>
+        <!-- band: agentic (rank 1) -->
+        <rect x="684" y="222" width="512" height="86" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
+        <text x="700" y="246" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">agentic · rank 1</text>
+        <text x="700" y="272" font-size="13.5" fill="#20242b">• agentic.bridge edges (0.5-confidence)</text>
+        <text x="700" y="296" font-size="13.5" fill="#20242b">• LLM descriptions</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="sw"><i class="raw"></i>raw / disposable</span>
+      <span class="sw"><i class="agentic"></i>agentic / preserved</span>
+      <span class="sw"><i class="hook"></i>user / preserved</span>
+      <span class="chip clay">one layer column · ranks 0/1/2 — not separate tables</span>
+      <span class="chip">watermark: user &gt; agentic &gt; raw</span>
+    </div>
+  </div>
+  <p class="cap">Agentic content is preserved because regenerating burns tokens and yields a <em>different</em> map — the trust floor. A landed user write promotes the row's layer to <code>user</code>, so no rebuild can destroy it. <b>core/storage</b></p>
+
+  <!-- ============================ 4 · PACKAGE MAP ============================ -->
+  <h2 id="packages">The package map</h2>
+  <p class="thesis">Five packages, one strict one-way dependency graph: <code>types</code> is the zero-runtime contract, <code>core</code> implements it, and <code>drift</code>/<code>ui</code>/<code>vscode</code> consume it.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1240 250" role="img"
+      aria-label="Dependency graph. types depends only on Ariadne upstream types. core depends on types. drift, ui and vscode each depend on types; drift and vscode also depend on core; vscode additionally depends on ui. Ariadne is the dashed clay upstream feeding both types and core.">
+      <defs>
+        <marker id="d-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#aaa492"/></marker>
+        <marker id="d-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-monospace,monospace" font-size="13" fill="#2c3038" text-anchor="middle">
+        <rect x="980" y="18" width="200" height="40" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4" stroke-dasharray="6 4"/>
+        <text x="1080" y="43" font-weight="700" fill="#92522f">Ariadne (upstream)</text>
+
+        <rect x="510" y="18" width="200" height="44" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="610" y="45" font-weight="700">types</text>
+
+        <rect x="510" y="108" width="200" height="44" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="610" y="135" font-weight="700">core</text>
+        <line x1="610" y1="108" x2="610" y2="64" stroke="#aaa492" stroke-width="1.5" marker-end="url(#d-g)"/>
+
+        <rect x="90" y="196" width="200" height="44" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="190" y="223" font-weight="700">drift</text>
+        <rect x="510" y="196" width="200" height="44" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="610" y="223" font-weight="700">ui</text>
+        <rect x="930" y="196" width="200" height="44" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="1030" y="223" font-weight="700">vscode</text>
+
+        <line x1="200" y1="196" x2="540" y2="154" stroke="#aaa492" stroke-width="1.4" marker-end="url(#d-g)"/>
+        <line x1="610" y1="196" x2="610" y2="156" stroke="#aaa492" stroke-width="1.4" marker-end="url(#d-g)"/>
+        <line x1="1020" y1="196" x2="680" y2="154" stroke="#aaa492" stroke-width="1.4" marker-end="url(#d-g)"/>
+        <line x1="990" y1="196" x2="700" y2="222" stroke="#aaa492" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#d-g)"/>
+        <text x="850" y="188" font-size="10" fill="#6c6759">vscode→ui</text>
+        <line x1="980" y1="40" x2="712" y2="40" stroke="#b5683e" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#d-clay)"/>
+        <path d="M1000 58 C 800 130, 720 120, 712 130" fill="none" stroke="#b5683e" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#d-clay)"/>
+      </g>
+    </svg>
+  </div>
+
+  <table class="ledger">
+    <thead><tr><th>Package</th><th>What it is</th><th>Depends on</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>@code-charter/types</code></td>
+        <td>Shared type vocabulary: three-tier <code>GraphStore</code> contract and row shapes (<code>NodeRow</code>/<code>EdgeRow</code>/<code>ProvenanceRow</code>), <code>Anchor</code>/<code>CodeState</code>/<code>ResolveResult</code> resolver types, flow-keyed surface, <code>CodeCharterBackend</code> interface, call-graph wire (de)serialization. <code>graph_store.ts</code> is pure TS with <b>zero</b> imports.</td>
+        <td><code>@ariadnejs/types</code></td>
+      </tr>
+      <tr>
+        <td><code>@code-charter/core</code></td>
+        <td>The engine: the only concrete <code>GraphStore</code> (<code>SqliteGraphStore</code> over <code>node:sqlite</code>), field-precedence ladder, in-memory graphology model + <code>render()</code> fold, the flow entity, pure anchoring resolver, re-extraction funnel + symbol delta, literal extractors, agentic substrate. Makes <b>no</b> model calls — the LLM is an injected seam.</td>
+        <td><code>types · @ariadnejs/types · graphology</code></td>
+      </tr>
+      <tr>
+        <td><code>@code-charter/drift</code></td>
+        <td>Code→diagram drift subsystem (27.1): reconcile pipeline (hydrate vs re-sync per flow), headless Ariadne adapter, Claude Code <code>Stop</code>/<code>SessionStart</code> hooks + transcript watermark, drift <code>MCP</code> server, portable <code>.claude</code> skill/sub-agent/command bundle, idempotent installer.</td>
+        <td><code>core · types · @ariadnejs/core · @modelcontextprotocol/sdk · zod</code></td>
+      </tr>
+      <tr>
+        <td><code>@code-charter/ui</code></td>
+        <td>React + <code>@xyflow/react</code> webview: projects a flow's backend-rendered rows into a hierarchical, themed, navigable diagram (functions nested in file-module groups, ELK compound layout, zoom-aware detail, search, keyboard nav, minimap, provenance panel, position persistence). Decoupled via <code>CodeCharterBackend</code>.</td>
+        <td><code>types · @xyflow/react · elkjs · react</code></td>
+      </tr>
+      <tr>
+        <td><code>@code-charter/vscode</code></td>
+        <td>VSCode extension host: registers <code>generateDiagram</code>, creates the webview loading the UI bundle, wraps <code>@ariadnejs/core</code> in <code>AriadneProjectManager</code> for a repo-relative call graph, merges deterministic skeleton flows with persisted hydrated flows from <code>.code-charter/graph.db</code>, routes node clicks to source. Per-request snapshot, no live push.</td>
+        <td><code>core · types · ui · @ariadnejs/core · @vscode/python-extension</code></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="cap"><code>graph_store.ts</code> has zero imports, so the webview imports row shapes without dragging in the SQLite engine. <b>types/graph_store.ts</b></p>
+
+  <!-- ============================ 5 · SOURCE TO DIAGRAM ============================ -->
+  <h2 id="bigpicture">Source code to rendered diagram</h2>
+  <p class="thesis">Source becomes a navigable diagram through a fixed pipeline, with a drift loop writing back scoped after every code-editing turn.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1240 360" role="img"
+      aria-label="The pipeline runs in five numbered stages. One, source code, dot-ts dot-py dot-rs. Two, Ariadne CallGraph, SymbolId to CallableNode. Three, the SQLite store with raw, agentic and user tiers, at dot-code-charter slash graph dot db. Four, flow projection that induces and renders into RenderedRows. Five, the React-Flow webview diagram with ELK, zoom and search. Beneath, a clay drift loop runs after every code-editing turn: the Stop hook learns the worked-on files, reconcile does HYDRATE or RE-SYNC, then writes back scoped into the store.">
+      <defs>
+        <marker id="p-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="p-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <!-- main pipeline -->
+        <rect x="20" y="70" width="200" height="74" rx="11" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <circle cx="40" cy="90" r="13" fill="#2c3038"/><text x="40" y="94" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
+        <text x="124" y="104" font-weight="600">source code</text>
+        <text x="124" y="124" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">.ts .py .rs …</text>
+
+        <rect x="260" y="70" width="200" height="74" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <circle cx="280" cy="90" r="13" fill="#2c3038"/><text x="280" y="94" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <text x="364" y="100" font-weight="600">Ariadne CallGraph</text>
+        <text x="364" y="124" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">SymbolId → CallableNode</text>
+        <line x1="220" y1="107" x2="258" y2="107" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+
+        <rect x="500" y="70" width="200" height="74" rx="11" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <circle cx="520" cy="90" r="13" fill="#2c3038"/><text x="520" y="94" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
+        <text x="604" y="100" font-weight="600">SQLite store</text>
+        <text x="604" y="118" font-size="11">raw / agentic / user</text>
+        <text x="604" y="134" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">.code-charter/graph.db</text>
+        <line x1="460" y1="107" x2="498" y2="107" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+
+        <rect x="740" y="70" width="200" height="74" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <circle cx="760" cy="90" r="13" fill="#2c3038"/><text x="760" y="94" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
+        <text x="844" y="100" font-weight="600">flow projection</text>
+        <text x="844" y="118" font-size="11">induce + render</text>
+        <text x="844" y="134" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">RenderedRows</text>
+        <line x1="700" y1="107" x2="738" y2="107" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+
+        <rect x="980" y="70" width="200" height="74" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <circle cx="1000" cy="90" r="13" fill="#2c3038"/><text x="1000" y="94" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">5</text>
+        <text x="1084" y="100" font-weight="600">React-Flow webview</text>
+        <text x="1084" y="124" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">ELK · zoom · search</text>
+        <line x1="940" y1="107" x2="978" y2="107" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+
+        <!-- drift loop -->
+        <text x="20" y="226" font-family="ui-monospace,monospace" font-size="11" fill="#b5683e" text-anchor="start">DRIFT LOOP · after every turn that edits code</text>
+        <rect x="260" y="248" width="200" height="68" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="360" y="276" font-weight="600">Stop hook</text>
+        <text x="360" y="298" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">files worked this turn</text>
+
+        <rect x="500" y="248" width="200" height="68" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="600" y="276" font-weight="600">reconcile</text>
+        <text x="600" y="298" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">HYDRATE / RE-SYNC</text>
+        <line x1="460" y1="282" x2="498" y2="282" stroke="#b5683e" stroke-width="1.7" marker-end="url(#p-clay)"/>
+
+        <path d="M360 248 L360 146" fill="none" stroke="#b5683e" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="368" y="200" font-family="ui-monospace,monospace" font-size="9.5" fill="#b5683e" text-anchor="start">turn edits code</text>
+        <path d="M600 248 L600 146" fill="none" stroke="#b5683e" stroke-width="2.1" marker-end="url(#p-clay)"/>
+        <text x="612" y="200" font-family="ui-monospace,monospace" font-size="9.5" fill="#b5683e" text-anchor="start">scoped write-back → store</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="refs">
+    <div class="r"><span class="n">1</span><div><b>Source code.</b> The repo's <code>.ts</code>/<code>.py</code>/<code>.rs</code> files.</div></div>
+    <div class="r"><span class="n">2</span><div><b>Ariadne CallGraph</b> over repo-relative paths. <code>AriadneProjectManager</code> / <code>HeadlessProject</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Three-tier store</b> persists raw rows beside agentic + user tiers. <code>upsert_node</code> / <code>write_fields</code></div></div>
+    <div class="r"><span class="n">4</span><div><b>Induce + project.</b> Skeleton on cold repo; re-induce members, bound to budget. <code>build_skeleton_flows</code> / <code>project_flow</code></div></div>
+    <div class="r"><span class="n">5</span><div><b>Map to React Flow</b> (<code>agentic.contains</code> → <code>parentId</code>), ELK layout. <code>custom_graph_to_react_flow</code></div></div>
+    <div class="r"><span class="n">↺</span><div><b>Drift loop.</b> Hook learns worked files; reconcile hydrates/re-syncs; scoped write-back. <code>Stop hook</code></div></div>
+  </div>
+  <p class="cap">The loop preserves everything you authored, so the next render is honest. <b>drift/reconcile</b></p>
+
+  <footer>
+    Generated comprehension docs for the Code Charter repo · 00 · overview &amp; map · describes the system as it is.
+  </footer>
+</main>
+</body>
+</html>

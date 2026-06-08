@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Comprehension doc: "Core Engine" — diagram-led tour of @code-charter/core, the only place a diagram becomes durable. One of five generated comprehension docs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Core Engine — @code-charter/core module by module</title>
+<style>
+  :root{
+    --ivory:#f7f4ec; --oat:#ece5d6; --slate:#2c3038; --ink:#20242b;
+    --clay:#b5683e; --olive:#6c7a3b; --rust:#9e3b2e;
+    --g1:#fbfaf5; --g2:#efeadd; --g3:#d9d2c1; --g4:#aaa492; --g5:#6c6759;
+    --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --r:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;}
+
+  /* ===== FULL-WIDTH STICKY TOP NAV (no sidebar) ===== */
+  .topnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:2px;flex-wrap:wrap;
+    background:var(--slate);padding:0 3%;border-bottom:3px solid var(--clay);}
+  .topnav .brand{display:flex;flex-direction:column;margin-right:22px;padding:11px 0;}
+  .topnav .brand b{color:var(--ivory);font-size:14px;font-weight:600;letter-spacing:.01em;line-height:1.1;}
+  .topnav .brand span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--g4);}
+  .topnav a{text-decoration:none;color:var(--g3);font-size:13px;padding:14px 13px;border-bottom:3px solid transparent;margin-bottom:-3px;white-space:nowrap;}
+  .topnav a:hover{color:#fff;background:#363b45;}
+  .topnav a.active{color:#fff;border-bottom-color:var(--clay);background:rgba(181,104,62,.18);font-weight:600;}
+  .topnav a .n{font-family:var(--mono);font-size:10px;color:var(--g4);margin-right:5px;}
+  .topnav a.active .n{color:#e7c3a6;}
+
+  /* ===== FULL-WIDTH BODY: ~3% gutter, no max-width ===== */
+  main{max-width:none;margin:0;padding:30px 3% 96px;}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--g5);margin:0 0 9px;}
+  h1{font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.12;margin:0 0 8px;color:var(--ink);}
+  .deck{font-size:15.5px;color:var(--g5);margin:0 0 6px;max-width:90ch;}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 0;font-family:var(--mono);font-size:11px;}
+  .pill{background:var(--oat);border:1px solid var(--g3);border-radius:999px;padding:3px 11px;color:var(--g5);}
+  .pill b{color:var(--slate);font-weight:600;}
+  .pill.done{background:var(--olive);color:#fff;border-color:var(--olive);}
+  .pill.done b{color:#fff;}
+
+  h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:48px 0 4px;color:var(--ink);scroll-margin-top:64px;}
+  .thesis{font-size:15.5px;color:var(--ink);font-weight:500;margin:0 0 14px;max-width:96ch;}
+  .cap{font-size:12.5px;color:var(--g5);margin:10px 0 0;font-family:var(--mono);line-height:1.5;}
+  .cap b{color:var(--clay);font-weight:600;}
+
+  /* ===== DIAGRAM FRAME (diagrams may bleed to full content width) ===== */
+  .fig{width:100%;margin:14px 0 0;border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:8px;}
+  .fig svg{display:block;width:100%;height:auto;}
+
+  /* ===== REUSABLE LEGEND / CHIP ROW ===== */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-family:var(--mono);font-size:10.5px;color:var(--g5);padding:8px 4px 2px;}
+  .legend .sw{display:inline-flex;align-items:center;gap:6px;}
+  .legend .sw i{width:14px;height:12px;border-radius:3px;border:1px solid var(--g4);display:inline-block;}
+  .legend .sw .raw{background:var(--oat);border-color:var(--g4);}
+  .legend .sw .agentic{background:#eef0e3;border-color:var(--olive);}
+  .legend .sw .engine{background:var(--g1);border-color:var(--g5);}
+  .legend .sw .hook{background:#f3ece2;border-color:var(--clay);}
+  .legend .sw .miss{background:#f4e6e2;border-color:var(--rust);}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 6px;color:var(--ink);white-space:nowrap;}
+  .chip.clay{color:var(--clay);background:#f3ece2;border-color:#e0c2bb;}
+
+  /* ===== NUMBERED REFS STRIP ===== */
+  .refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 20px;margin:14px 0 0;}
+  .refs .r{display:grid;grid-template-columns:22px 1fr;gap:9px;align-items:baseline;font-size:13px;}
+  .refs .n{width:20px;height:20px;border-radius:50%;background:var(--slate);color:var(--g1);
+    font:700 11px var(--mono);display:flex;align-items:center;justify-content:center;}
+  .refs .r b{font-weight:600;color:var(--ink);}
+  .refs .r code{font-family:var(--mono);font-size:11px;color:var(--clay);background:none;border:none;padding:0;}
+
+  /* ===== TIGHT LEDGER TABLE ===== */
+  table.ledger{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px;}
+  table.ledger th,table.ledger td{text-align:left;padding:7px 11px;border-bottom:1px solid var(--g2);vertical-align:top;}
+  table.ledger th{font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;font-size:10px;color:var(--g5);border-bottom:1px solid var(--g3);}
+  table.ledger td b{font-weight:600;color:var(--ink);}
+  table.ledger td code{font-family:var(--mono);font-size:11.5px;color:var(--clay);background:none;border:none;padding:0;}
+  table.ledger tr:last-child td{border-bottom:none;}
+
+  /* ===== INLINE CODE ===== */
+  code{font-family:var(--mono);}
+  p code,li code,.thesis code,.cap code{font-family:var(--mono);font-size:12px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 5px;color:var(--ink);}
+
+  /* ===== CALLOUT / INVARIANT ===== */
+  .callout{margin:14px 0 0;border-left:4px solid var(--clay);background:#f3ece2;border-radius:8px;padding:11px 16px;font-size:13.5px;line-height:1.5;}
+  .callout.olive{border-left-color:var(--olive);background:#eef0e3;}
+  .callout .k{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--g5);display:block;margin-bottom:5px;}
+  .callout code{font-family:var(--mono);color:#8a3528;}
+  .callout.invert{background:var(--slate);color:var(--ivory);border-left-color:var(--clay);}
+  .callout.invert .k{color:var(--g4);}
+  .callout.invert code{color:#e7c3a6;}
+
+  footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--g3);font-family:var(--mono);font-size:11px;color:var(--g4);}
+
+  @media (max-width:760px){
+    main{padding:22px 4% 70px;}
+    h1{font-size:26px;}
+    .topnav{gap:0;}
+    .topnav a{padding:11px 9px;font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <span class="brand"><b>Code Charter</b><span>comprehension</span></span>
+  <a href="index.html"><span class="n">00</span>Overview &amp; Map</a>
+  <a href="architecture.html"><span class="n">01</span>Architecture &amp; Data Model</a>
+  <a href="core-engine.html" class="active" aria-current="page"><span class="n">02</span>Core Engine</a>
+  <a href="drift-sync.html"><span class="n">03</span>Drift Sync</a>
+  <a href="ui-and-extension.html"><span class="n">04</span>UI &amp; Extension</a>
+  <a href="flow-construction.html"><span class="n">05</span>Flow Construction</a>
+</nav>
+
+<main>
+  <header>
+    <p class="eyebrow">comprehension · code charter · the engine</p>
+    <h1>Core Engine</h1>
+    <p class="deck"><code>@code-charter/core</code> module by module: the only place a diagram becomes durable — storage, model + flows, resolver, extractors, reextract, agentic — making no model calls.</p>
+    <div class="meta">
+      <span class="pill">package <b>@code-charter/core</b></span>
+      <span class="pill">deps <b>types · @ariadnejs/types · graphology</b></span>
+      <span class="pill">submodules <b>6</b></span>
+      <span class="pill done">LLM <b>injected, never called here</b></span>
+    </div>
+  </header>
+
+  <h2 id="pipeline">How the submodules compose</h2>
+  <p class="thesis">Six submodules form one pipeline from Ariadne's call graph to preserved, renderable rows; the field ladder is the trust floor under all of it.</p>
+  <div class="legend" style="margin-top:0;">
+    <span class="sw"><i class="raw"></i> raw / disposable substrate</span>
+    <span class="sw"><i class="agentic"></i> agentic / LLM lane</span>
+    <span class="sw"><i class="engine"></i> deterministic engine</span>
+    <span class="sw"><i class="hook"></i> store-mutating write</span>
+    <span class="sw"><i class="miss"></i> loss / miss state</span>
+    <span class="sw">olive&rarr; = writes store · clay&rarr; = reads/derives identity · grey&rarr; = data hand-off · dashed = inferred</span>
+  </div>
+  <div class="fig">
+    <svg viewBox="0 0 1300 400" role="img"
+      aria-label="Pipeline. Ariadne CallGraph and skill bundles feed extractors and the reextract funnel. The resolver derives identity via the anchor verdict cascade. All write into the storage SqliteGraphStore which holds raw, agentic and user rows over a field ladder trust floor. The agentic substrate proposes gaps, bridges and descriptions onto the agentic tier. The model folds tiers via render and induces flows, emitting RenderedRows to the UI adapter. The LLM is an injected seam; core makes no model calls. Three role tiers: raw rank 0 disposable, agentic rank 1 preserved, user rank 2 irreplaceable.">
+      <defs>
+        <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="ar-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+        <marker id="ar-olive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="14" fill="#2c3038" text-anchor="middle">
+        <!-- sources -->
+        <rect x="20" y="60" width="180" height="56" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="110" y="86" font-weight="600">Ariadne CallGraph</text>
+        <text x="110" y="106" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">SymbolId &rarr; CallableNode</text>
+        <rect x="20" y="150" width="180" height="56" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="110" y="176" font-weight="600">Skill bundles</text>
+        <text x="110" y="196" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">SKILL.md · meta.json</text>
+
+        <!-- extractors / reextract -->
+        <rect x="285" y="56" width="190" height="58" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="380" y="82" font-weight="600">reextract</text>
+        <text x="380" y="102" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">re_extract · SymbolDelta</text>
+        <rect x="285" y="148" width="190" height="58" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="380" y="174" font-weight="600">extractors</text>
+        <text x="380" y="194" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">ingest_skill · doc edges</text>
+        <path d="M200 85 L283 85" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#ar-g)"/>
+        <path d="M200 177 L283 177" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#ar-g)"/>
+
+        <!-- resolver -->
+        <rect x="285" y="240" width="190" height="56" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="380" y="266" font-weight="600">resolver</text>
+        <text x="380" y="285" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">anchor &rarr; verdict cascade</text>
+        <text x="380" y="228" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">derives identity</text>
+        <path d="M380 240 L380 215" fill="none" stroke="#b5683e" stroke-width="1.4" marker-end="url(#ar-clay)"/>
+
+        <!-- storage -->
+        <rect x="560" y="96" width="230" height="120" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.7"/>
+        <text x="675" y="124" font-weight="600" font-size="15">storage</text>
+        <text x="675" y="146" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">SqliteGraphStore</text>
+        <text x="675" y="168" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">raw · agentic · user</text>
+        <text x="675" y="200" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">field ladder = trust floor</text>
+        <path d="M475 85 L558 120" fill="none" stroke="#6c7a3b" stroke-width="1.4" marker-end="url(#ar-olive)"/>
+        <path d="M475 177 L558 160" fill="none" stroke="#6c7a3b" stroke-width="1.4" marker-end="url(#ar-olive)"/>
+        <path d="M475 268 L558 200" fill="none" stroke="#6c7a3b" stroke-width="1.4" marker-end="url(#ar-olive)"/>
+
+        <!-- agentic -->
+        <rect x="560" y="260" width="230" height="60" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="675" y="286" font-weight="600">agentic</text>
+        <text x="675" y="306" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">gaps · bridges · describe</text>
+        <path d="M675 216 L675 258" fill="none" stroke="#b5683e" stroke-width="1.4" marker-end="url(#ar-clay)"/>
+        <path d="M695 260 L695 218" fill="none" stroke="#b5683e" stroke-width="1.2" stroke-dasharray="5 4"/>
+
+        <!-- model -->
+        <rect x="875" y="100" width="210" height="76" rx="11" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.7"/>
+        <text x="980" y="128" font-weight="600" font-size="15">model</text>
+        <text x="980" y="150" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">render() fold</text>
+        <text x="980" y="168" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">flow induction</text>
+        <path d="M790 140 L873 140" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#ar-g)"/>
+
+        <rect x="875" y="228" width="210" height="58" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="980" y="254" font-weight="600">RenderedRows</text>
+        <text x="980" y="274" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">&rarr; UI adapter</text>
+        <path d="M980 176 L980 226" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#ar-g)"/>
+
+        <!-- tier chips -->
+        <g font-family="ui-monospace,monospace" font-size="11" text-anchor="start">
+          <rect x="1130" y="96" width="150" height="34" rx="6" fill="#ece5d6" stroke="#aaa492"/>
+          <text x="1142" y="111" font-weight="700" fill="#2c3038">raw · rank 0</text>
+          <text x="1142" y="124" fill="#6c6759">disposable</text>
+          <rect x="1130" y="140" width="150" height="34" rx="6" fill="#eef0e3" stroke="#6c7a3b"/>
+          <text x="1142" y="155" font-weight="700" fill="#2c3038">agentic · rank 1</text>
+          <text x="1142" y="168" fill="#5b6233">preserved</text>
+          <rect x="1130" y="184" width="150" height="34" rx="6" fill="#f3ece2" stroke="#b5683e"/>
+          <text x="1142" y="199" font-weight="700" fill="#2c3038">user · rank 2</text>
+          <text x="1142" y="212" fill="#92522f">irreplaceable</text>
+        </g>
+        <text x="1205" y="86" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">cost-of-regeneration tiers</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap"><b>The LLM is an injected seam — core itself makes no model calls.</b> Tiers split by cost of regeneration: only raw is nuked and rebuilt; agentic and user are carried across edits.</p>
+
+  <h2 id="storage">storage — the SQLite GraphStore</h2>
+  <p class="thesis">The single concrete persistence engine behind the engine-agnostic <code>GraphStore</code> contract; the three tiers are one <code>layer</code> column, and only <code>anchor_resolution</code> is disposable.</p>
+  <table class="ledger">
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>storage/sqlite_graph_store.ts</code></td><td>Only file importing <code>node:sqlite</code>. Schema lifecycle, node/edge/provenance CRUD, soft-delete, <b><code>write_fields</code></b> (ladder + layer promotion), file-incidence reads, <code>rebuild_layer</code>.</td></tr>
+    <tr><td><code>storage/schema.ts</code></td><td>DDL as SQL strings, <code>CURRENT_SCHEMA_VERSION</code>, <code>TABLE_REGISTRY_SEED</code> — per-table disposable/preserved disposition read as data.</td></tr>
+    <tr><td><code>storage/field_ladder.ts</code></td><td><b><code>apply_field_ladder</code></b>: single source of the per-field precedence ladder (user &gt; agentic &gt; raw); shared by store and model for identical accept/skip.</td></tr>
+    <tr><td><code>storage/null_graph_store.ts</code></td><td><code>NullGraphStore</code> — null-object degraded store for hosts below Node 22.13.0; reads empty, writes no-op.</td></tr>
+    <tr><td><code>index.ts</code></td><td><code>open_graph_store(db_path)</code> — gates on host support, lazily <code>require()</code>s the engine only when supported.</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 1300 300" role="img"
+      aria-label="Storage layer column and seams. Left: one structural layer column with three tiers stacked — user rank 2 at top, agentic rank 1, raw rank 0 at bottom — plus a separate disposable anchor_resolution cache. The watermark ladder rule: a write at tier T lands for a field iff the current owner ranks less than or equal to T. A user write promotes the row's structural layer to user, so rebuild_layer cannot reach it. Right: the read-then-invalidate drift seam — edges_for_files captures prior state before invalidate_for_files hard-deletes raw rows; drift is derived, never stored as a flag.">
+      <defs>
+        <marker id="st-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="st-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <!-- layer column -->
+        <text x="170" y="30" font-weight="600" font-size="14">one layer column (nodes / edges)</text>
+        <rect x="60" y="50" width="220" height="46" rx="7" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <text x="170" y="70" font-weight="600">user · rank 2</text>
+        <text x="170" y="87" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">labels · pins · hand desc</text>
+        <rect x="60" y="102" width="220" height="46" rx="7" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="170" y="122" font-weight="600">agentic · rank 1</text>
+        <text x="170" y="139" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">flows · bridges · descriptions</text>
+        <rect x="60" y="154" width="220" height="46" rx="7" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="170" y="174" font-weight="600">raw · rank 0</text>
+        <text x="170" y="191" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">Ariadne edges · scaffold · doc edges</text>
+        <text x="170" y="223" font-family="ui-monospace,monospace" font-size="10.5" fill="#9e3b2e">rebuild_layer('raw'|'agentic') deletes only that tier's live rows</text>
+
+        <!-- disposable cache -->
+        <rect x="60" y="244" width="220" height="40" rx="7" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="170" y="263" font-weight="600">anchor_resolution</text>
+        <text x="170" y="279" font-family="ui-monospace,monospace" font-size="10" fill="#8a3528">only disposable table</text>
+
+        <!-- watermark rule -->
+        <rect x="370" y="64" width="430" height="120" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="585" y="92" font-weight="600" font-size="14">watermark ladder rule</text>
+        <text x="585" y="120" font-family="ui-monospace,monospace" font-size="12" fill="#2c3038">write at tier T lands iff</text>
+        <text x="585" y="142" font-family="ui-monospace,monospace" font-size="12" fill="#b5683e">TIER_RANK[owner] &le; TIER_RANK[T]</text>
+        <text x="585" y="168" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">unstamped field defaults to raw &rarr; first write always lands</text>
+
+        <!-- promotion arrow -->
+        <path d="M370 124 L285 124" fill="none" stroke="#b5683e" stroke-width="1.5" marker-end="url(#st-clay)"/>
+        <rect x="370" y="200" width="430" height="60" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="585" y="224" font-weight="600">structural-layer promotion</text>
+        <text x="585" y="246" font-family="ui-monospace,monospace" font-size="11" fill="#92522f">user write &rarr; row.layer = 'user' (one-way) &rArr; rebuild_layer can't reach it</text>
+
+        <!-- read-then-invalidate seam -->
+        <rect x="880" y="64" width="380" height="196" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <text x="1070" y="92" font-weight="600" font-size="14">read-then-invalidate drift seam</text>
+        <rect x="910" y="110" width="320" height="42" rx="7" fill="#fff" stroke="#aaa492"/>
+        <text x="1070" y="130" font-weight="600">1 · capture prior state</text>
+        <text x="1070" y="146" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">edges_for_files(paths)</text>
+        <rect x="910" y="186" width="320" height="42" rx="7" fill="#f4e6e2" stroke="#9e3b2e"/>
+        <text x="1070" y="206" font-weight="600">2 · hard-delete raw rows</text>
+        <text x="1070" y="222" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">invalidate_*_for_files</text>
+        <path d="M1070 152 L1070 184" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#st-g)"/>
+        <text x="1070" y="248" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">drift is derived, never a stored flag</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Write at tier T lands iff owner ranks &le; T; a user write promotes <code>row.layer-&gt;user</code> so <b><code>rebuild_layer</code></b> can't reach it. Schema mismatch DROPs only disposable tables, re-runs idempotent DDL. Implements <code>GraphStore</code> from <code>packages/types/src/graph_store.ts</code>.</p>
+
+  <h2 id="model">model — graph model, flows &amp; projection</h2>
+  <p class="thesis"><code>CustomGraphModel</code> is the single live, mutating surface over the store; flows induce members on demand and project to adapter-ready rows.</p>
+  <table class="ledger">
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>model/custom_graph_model.ts</code></td><td>hydrate / mutate / flush over the store; the read-side <b><code>render()</code></b> fold of <code>LayerSpec[]</code> into a fresh graph; <code>graph_to_rows</code> for the UI boundary.</td></tr>
+    <tr><td><code>model/flow.ts</code></td><td>Flow entity: <code>build_skeleton_flows</code>, <code>reachable_from</code>/<code>induce_members</code>, identity <code>flow_id_of</code>, <code>order_flows</code>, persisted reconstruction, <code>paths_of</code>, <code>agentic.flow</code>/<code>agentic.flow_member</code> builders.</td></tr>
+    <tr><td><code>model/flow_projection.ts</code></td><td><code>project_flow</code>/<code>project_hydrated_flow</code>: induce members, synthesize render-only <code>code.function</code> nodes + <code>code.calls</code> edges, fold in scaffold, bounded by budget.</td></tr>
+    <tr><td><code>model/module_scaffold.ts</code></td><td><code>build_module_scaffold</code>: one <code>agentic.group</code> per defining file via a pluggable <code>ModuleResolver</code>, linked by <code>agentic.contains</code> edges.</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 1300 270" role="img"
+      aria-label="Two precedence mechanisms, side by side in one frame. Left, the write-side ladder: apply_field_ladder governs what write_fields persists per field and stamps field_ownership. Right, the read-side fold: render() composes a LayerSpec array by list order alone, later wins per key, structural columns taken whole from the later layer, never consults or stamps ownership, and the resulting view carries field_ownership empty. Do not conflate them.">
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <text x="650" y="28" font-weight="600" font-size="15">two precedence mechanisms — do not conflate</text>
+        <!-- write-side -->
+        <rect x="40" y="56" width="580" height="180" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="330" y="86" font-weight="600" font-size="14">WRITE-SIDE ladder</text>
+        <text x="330" y="108" font-family="ui-monospace,monospace" font-size="11" fill="#92522f">apply_field_ladder · write_fields</text>
+        <rect x="80" y="126" width="500" height="40" rx="7" fill="#fff" stroke="#aaa492"/>
+        <text x="330" y="151" font-size="12.5">governs what persists per field</text>
+        <rect x="80" y="178" width="500" height="40" rx="7" fill="#fff" stroke="#b5683e"/>
+        <text x="330" y="203" font-size="12.5" fill="#92522f">stamps <tspan font-family="ui-monospace,monospace">field_ownership</tspan></text>
+
+        <!-- read-side -->
+        <rect x="680" y="56" width="580" height="180" rx="11" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="970" y="86" font-weight="600" font-size="14">READ-SIDE fold</text>
+        <text x="970" y="108" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">render() composes LayerSpec[]</text>
+        <rect x="720" y="126" width="500" height="40" rx="7" fill="#fff" stroke="#aaa492"/>
+        <text x="970" y="146" font-size="12">by list order alone · later wins per key</text>
+        <text x="970" y="161" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">structural columns taken whole from later layer</text>
+        <rect x="720" y="178" width="500" height="40" rx="7" fill="#fff" stroke="#6c6759"/>
+        <text x="970" y="198" font-size="12">never consults / stamps ownership</text>
+        <text x="970" y="213" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">view carries field_ownership:{}</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Flow identity is the dominant seed's <code>symbol_path</code> via <code>flow_id_of</code> — <b><code>content_hash</code> excluded</b> so a body edit never re-keys the flow. Membership is re-derived by <code>induce_members</code>, never stored; a shared leaf belongs to multiple flows.</p>
+  <div class="callout olive">
+    <span class="k">Render budget</span>
+    <code>DEFAULT_FLOW_BUDGET = {max_nodes:200, max_edges:400}</code>. Under budget, leaves render nested in file-module groups; over budget the flow collapses to module granularity (<code>lift_edges_to_modules</code>), keeping whole-flow coverage at lower resolution rather than truncating.
+  </div>
+
+  <h2 id="resolver">resolver — anchoring</h2>
+  <p class="thesis">The single, pure, sqlite-free place a stored anchor becomes current code state; both diagram&harr;code directions share exactly this mechanism.</p>
+  <table class="ledger">
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>resolver/resolve_anchor.ts</code></td><td>Front door: <b><code>resolve_anchor(anchor, index)</code></b> runs the 4-arm cascade, returns a <code>ResolveResult</code>. Pure.</td></tr>
+    <tr><td><code>resolver/code_state.ts</code></td><td><code>build_symbol_path</code>, <code>compute_content_hash</code> (rename-stable), <code>compute_span_hash</code>, <code>derive_code_state</code>.</td></tr>
+    <tr><td><code>resolver/resolver_index.ts</code></td><td><code>build_resolver_index</code>: one <code>CodeState</code> per symbol, indexed <code>by_symbol_path</code> &amp; <code>by_content_hash</code>; <b>throws on duplicate symbol_path</b>.</td></tr>
+    <tr><td><code>resolver/from_ariadne.ts</code></td><td>Ariadne seam: walks per-file defs, slices bodies from <code>body_scope_id</code>, bridges SymbolId&harr;symbol_path. Skips the <code>&lt;anonymous&gt;</code> sentinel.</td></tr>
+    <tr><td><code>resolver/anchor_string.ts</code></td><td><code>format_anchor</code>/<code>parse_anchor</code> round-trip <code>symbol_path:content_hash</code>, splitting on the last colon (hash is 64 hex chars).</td></tr>
+    <tr><td><code>resolver/rank_candidates.ts</code></td><td><code>rank_candidates</code>: scores live anchors as re-attachment targets (content +100, same file +10, name+kind +5). Pure.</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 1300 240" role="img"
+      aria-label="The resolver verdict cascade from a stored anchor of path colon hash. Same path and hash gives a hit. Same path but different hash gives downgrade body-changed. The hash found at a different path gives downgrade relocated. Otherwise a miss, meaning renamed and re-bodied. Order is load-bearing: body-changed is checked before relocated, so a body still at its own path is never reported relocated.">
+      <defs>
+        <marker id="rs-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="rs-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13.5" fill="#2c3038" text-anchor="middle">
+        <rect x="30" y="86" width="180" height="64" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="120" y="114" font-weight="600">stored anchor</text>
+        <text x="120" y="134" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">path : hash</text>
+
+        <rect x="320" y="24" width="280" height="50" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="460" y="46" font-weight="600">hit</text>
+        <text x="460" y="64" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">① path + hash match</text>
+
+        <rect x="320" y="92" width="280" height="50" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <text x="460" y="114" font-weight="600">downgrade · body-changed</text>
+        <text x="460" y="132" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">② same path, hash differs</text>
+
+        <rect x="320" y="160" width="280" height="50" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <text x="460" y="182" font-weight="600">downgrade · relocated</text>
+        <text x="460" y="200" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">③ hash at a different path</text>
+
+        <rect x="700" y="92" width="220" height="50" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+        <text x="810" y="114" font-weight="600">miss</text>
+        <text x="810" y="132" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">④ renamed AND re-bodied</text>
+
+        <path d="M210 108 L318 50" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rs-g)"/>
+        <path d="M210 117 L318 117" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rs-g)"/>
+        <path d="M210 126 L318 184" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rs-g)"/>
+        <path d="M600 185 L698 128" fill="none" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#rs-r)"/>
+
+        <g font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">
+          <text x="980" y="100" font-weight="700" fill="#b5683e">order is load-bearing</text>
+          <text x="980" y="122">body-changed checked BEFORE relocated:</text>
+          <text x="980" y="140">a body still at its own path is</text>
+          <text x="980" y="158">never reported relocated.</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+  <p class="cap"><b><code>build_resolver_index</code> throws on a duplicate <code>symbol_path</code></b>; <code>from_ariadne</code> skips the <code>&lt;anonymous&gt;</code> sentinel — both protect hit/body-changed from input-order dependence. <code>symbol_path</code> = <code>file#enclosing.name:kind</code>; <code>content_hash</code> strips the symbol's own identifier so a rename stays hash-stable. Consumes contracts from <code>packages/types/src/graph_store.ts</code>.</p>
+
+  <h2 id="extractors">extractors — literal structure</h2>
+  <p class="thesis">Hand-rolled, dependency-free parsers turn skill bundles into raw-tier doc nodes and literal doc edges with click-through provenance — no inference, no LLM.</p>
+  <table class="ledger">
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>extractors/skill_ingest.ts</code></td><td>Orchestrator: <b><code>ingest_skill(store, skill_dir, deps)</code></b> walks a bundle, dedupes nodes/edges, does a scoped invalidate+upsert. Injects file IO via <code>SkillIngestDeps</code> so core imports no <code>fs</code>.</td></tr>
+    <tr><td><code>extractors/markdown_links.ts</code></td><td><code>parse_markdown_links</code>: inline <code>[text](target)</code> links, excluding fenced blocks &amp; inline-code, with absolute source ranges.</td></tr>
+    <tr><td><code>extractors/frontmatter.ts</code></td><td><code>parse_frontmatter</code>: tolerant hand-rolled YAML for the leading <code>---</code> block; surfaced only as node attributes.</td></tr>
+    <tr><td><code>extractors/meta_json.ts</code></td><td><code>read_sub_agents</code>: reads <code>sub_agents[]</code>, locating each name literal's span. Shared with the agentic registry detector.</td></tr>
+    <tr><td><code>extractors/extractor_ids.ts</code></td><td>Catalog: <code>literal.markdown</code>/<code>literal.frontmatter</code>/<code>literal.meta_json</code> ids and kind constants (<code>code.doc</code>, <code>code.literal-doc</code>).</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 1300 230" role="img"
+      aria-label="A skill bundle of SKILL.md, references, scripts and meta.json flows into dependency-free parsers, which emit raw-tier code.doc nodes and reciprocal code.literal-doc edges into the store. The unit of invalidation is the whole skill directory: a scoped invalidate plus upsert, never a store-global rebuild_layer, so ingesting one skill never nukes another's raw rows. File IO is injected.">
+      <defs>
+        <marker id="ex-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="ex-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <!-- bundle -->
+        <rect x="30" y="44" width="250" height="148" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="155" y="70" font-weight="600" font-size="14">skill bundle</text>
+        <text x="155" y="92" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">whole directory = unit of invalidation</text>
+        <rect x="55" y="106" width="90" height="32" rx="6" fill="#fff" stroke="#aaa492"/><text x="100" y="126" font-size="11">SKILL.md</text>
+        <rect x="165" y="106" width="90" height="32" rx="6" fill="#fff" stroke="#aaa492"/><text x="210" y="126" font-size="11">references</text>
+        <rect x="55" y="146" width="90" height="32" rx="6" fill="#fff" stroke="#aaa492"/><text x="100" y="166" font-size="11">scripts</text>
+        <rect x="165" y="146" width="90" height="32" rx="6" fill="#fff" stroke="#aaa492"/><text x="210" y="166" font-size="11">meta.json</text>
+
+        <!-- parsers -->
+        <rect x="400" y="64" width="260" height="108" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="530" y="92" font-weight="600">dependency-free parsers</text>
+        <text x="530" y="116" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">markdown_links · frontmatter</text>
+        <text x="530" y="134" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">meta_json</text>
+        <text x="530" y="156" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">no inference · no LLM</text>
+        <path d="M280 118 L398 118" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ex-g)"/>
+        <text x="340" y="108" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">injected file IO</text>
+
+        <!-- outputs -->
+        <rect x="780" y="50" width="260" height="58" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="910" y="74" font-weight="600">raw-tier code.doc nodes</text>
+        <text x="910" y="94" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">+ provenance spans</text>
+        <rect x="780" y="128" width="260" height="58" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="910" y="152" font-weight="600">reciprocal code.literal-doc edges</text>
+        <text x="910" y="172" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">click-through, gap-detection reads</text>
+        <path d="M660 100 L778 79" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ex-g)"/>
+        <path d="M660 136 L778 157" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ex-g)"/>
+
+        <!-- store -->
+        <rect x="1140" y="80" width="130" height="76" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="1205" y="110" font-weight="600">store</text>
+        <text x="1205" y="130" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">scoped invalidate</text>
+        <text x="1205" y="144" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">+ upsert</text>
+        <path d="M1040 79 L1138 105" fill="none" stroke="#b5683e" stroke-width="1.5" marker-end="url(#ex-clay)"/>
+        <path d="M1040 157 L1138 132" fill="none" stroke="#b5683e" stroke-width="1.5" marker-end="url(#ex-clay)"/>
+      </g>
+    </svg>
+  </div>
+  <p class="cap"><b>Scoped invalidate+upsert per bundle</b>, never the store-global <code>rebuild_layer</code> — so ingesting one skill never nukes another's raw rows; file IO is injected. The drift package's <code>skill_dir.ts</code> wraps <code>ingest_skill</code> with <code>node:fs</code>.</p>
+
+  <h2 id="reextract">reextract — symbol-level change detection</h2>
+  <p class="thesis">The funnel that turns a turn's file edits into a precise symbol-granular <code>SymbolDelta</code>, so drift follows the code change, not the file save.</p>
+  <table class="ledger">
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>reextract/re_extract.ts</code></td><td>Single entry point <b><code>re_extract(file_set, origin, deps)</code></b>: invalidate+re-extract raw, rebuild file-module scaffold, reconcile each preserved anchored node (stage drift / bin a miss), accumulate baseline, return <code>SymbolDelta</code>. Host supplies <code>extract_raw</code>/<code>build_index</code>.</td></tr>
+    <tr><td><code>reextract/symbol_delta.ts</code></td><td><code>compute_symbol_delta(baseline, index)</code>: diffs fresh index vs persisted-anchor baseline into <code>{added, removed, modified, relocated}</code> by symbol_path. Pure.</td></tr>
+    <tr><td><code>reextract/drift_observation.ts</code></td><td>Reserved <code>drift_*</code> staging keys + <code>outstanding_drift(store, scope?)</code> — extractor-free read of staged relocations for the banner and resolve handler.</td></tr>
+    <tr><td><code>reextract/reanchor.ts</code></td><td><code>reanchor_node(store, node, target)</code>: rewrites only the anchor column and strips <code>drift_*</code> staging, leaving every authored field byte-for-byte intact.</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 1300 290" role="img"
+      aria-label="Per preserved anchored node, reconcile_node runs the resolver cascade against the fresh index. A relocated verdict is staged as drift attributes for explicit accept. A miss soft-deletes the node into the re-attachment bin. A hit or body-changed produces no drift. The same loop accumulates the persisted-anchor baseline, which compute_symbol_delta diffs into added, removed, modified and relocated. The delta scopes which flows re-sync and which symbols re-describe.">
+      <defs>
+        <marker id="re-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="re-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <rect x="20" y="100" width="200" height="64" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="120" y="128" font-weight="600">preserved anchored node</text>
+        <text x="120" y="148" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">layer≠raw · in file set</text>
+
+        <rect x="300" y="100" width="180" height="64" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="390" y="128" font-weight="600">reconcile_node</text>
+        <text x="390" y="148" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">runs resolver cascade</text>
+        <path d="M220 132 L298 132" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#re-g)"/>
+
+        <!-- branches -->
+        <rect x="560" y="20" width="230" height="48" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="675" y="40" font-weight="600">relocated &rarr; staged drift_*</text>
+        <text x="675" y="58" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">explicit accept; never re-described</text>
+        <rect x="560" y="108" width="230" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4"/>
+        <text x="675" y="128" font-weight="600">miss &rarr; soft-delete to bin</text>
+        <text x="675" y="146" font-family="ui-monospace,monospace" font-size="10" fill="#8a3528">re-attachment bin</text>
+        <rect x="560" y="196" width="230" height="48" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
+        <text x="675" y="216" font-weight="600">hit / body-changed</text>
+        <text x="675" y="234" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">no drift</text>
+        <path d="M480 120 L558 50" fill="none" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#re-r)"/>
+        <path d="M480 132 L558 132" fill="none" stroke="#9e3b2e" stroke-width="1.4" marker-end="url(#re-r)"/>
+        <path d="M480 144 L558 214" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#re-g)"/>
+
+        <!-- delta -->
+        <rect x="880" y="84" width="180" height="96" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="970" y="110" font-weight="600">compute_symbol_delta</text>
+        <text x="970" y="132" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">accumulated baseline</text>
+        <text x="970" y="150" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">vs fresh index</text>
+        <path d="M790 132 L878 132" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#re-g)"/>
+        <text x="835" y="122" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">loop feeds baseline</text>
+
+        <rect x="1120" y="50" width="160" height="74" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="1200" y="74" font-weight="600">SymbolDelta</text>
+        <text x="1200" y="94" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">added · removed</text>
+        <text x="1200" y="110" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">modified · relocated</text>
+        <rect x="1120" y="138" width="160" height="60" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="1200" y="162" font-weight="600">scopes</text>
+        <text x="1200" y="180" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">which flows re-sync</text>
+        <text x="1200" y="194" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">which symbols re-describe</text>
+        <path d="M1060 116 L1118 92" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#re-g)"/>
+        <path d="M1200 124 L1200 136" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#re-g)"/>
+      </g>
+    </svg>
+  </div>
+  <p class="cap"><b><code>added</code> is relative to anchored knowledge</b> and correct only when <code>build_index</code> is scoped to changed files alone; a whole-repo index would flood it. A relocated symbol is never re-described — the description carries across via the staged re-anchor. Consumed by the drift package's <code>reconcile.ts</code> and <code>affected_flows.ts</code>.</p>
+
+  <h2 id="agentic">agentic — descriptions, gaps &amp; bridges</h2>
+  <p class="thesis">The agentic substrate deterministically proposes what static extraction cannot, then persists it on the agentic lane — making no model calls.</p>
+  <table class="ledger">
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>detect_gaps</code> + <code>derive_candidate_seeds</code>: orphan entrypoints, unresolved/dynamic-dispatch shapes, disconnected components &rarr; candidate flow seeds.</td></tr>
+    <tr><td><code>agentic/describe_policy.ts</code></td><td><b><code>plan_descriptions</code></b>: partitions members into cached / from_docstring / needs_llm / placeholder; defines injected <code>DescribeBatchExecutor</code> + <code>null_describe_executor</code>.</td></tr>
+    <tr><td><code>agentic/bridge.ts</code></td><td><code>build_bridge_edges</code>: collapses candidates into <code>agentic.bridge</code> EdgeRows (layer agentic, confidence 0.5, dashed render) with justifying provenance.</td></tr>
+    <tr><td><code>agentic/registry_detector.ts</code></td><td><code>detect_meta_json_sub_agent_bridges</code>: reads <code>meta.json</code> <code>sub_agents[]</code>, emits <code>BridgeCandidate</code>s via an injected <code>resolve_target</code> seam.</td></tr>
+    <tr><td><code>agentic/write_descriptions.ts</code></td><td>Persists descriptions as <code>agentic.description</code> side-nodes (one per symbol) via <code>write_fields(...,'agentic')</code>, honoring the ladder.</td></tr>
+    <tr><td><code>agentic/agentic_writer.ts</code></td><td><code>write_agentic_substrate</code>: takes a <code>SubstrateProposal</code> (bridges + descriptions), persists both scoped, with count caps and a coarse deadline gate.</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 1300 300" role="img"
+      aria-label="The substrate-versus-agent seam. On the left core proposes deterministically: gaps become seeds, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then LLM up to 200, then placeholder. On the right are the injected seams: DescribeBatchExecutor and resolve_target, filled by the drift sub-agent which assembles a SubstrateProposal. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
+      <defs>
+        <marker id="ag-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="ag-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <!-- core proposes (deterministic) -->
+        <rect x="30" y="30" width="560" height="240" rx="11" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="310" y="56" font-weight="600" font-size="14">core proposes — deterministic</text>
+        <rect x="60" y="72" width="240" height="50" rx="8" fill="#ece5d6" stroke="#aaa492"/>
+        <text x="180" y="92" font-weight="600">gaps &rarr; seeds</text>
+        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">detect_gaps</text>
+        <rect x="320" y="72" width="240" height="50" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-dasharray="5 4"/>
+        <text x="440" y="92" font-weight="600">bridges @ conf 0.5</text>
+        <text x="440" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">dashed render</text>
+        <rect x="60" y="140" width="500" height="106" rx="8" fill="#fff" stroke="#6c6759"/>
+        <text x="310" y="162" font-weight="600">plan_descriptions ladder</text>
+        <text x="310" y="186" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">1 cache &rarr; 2 docstring &rarr; 3 LLM(&le;200) &rarr; 4 placeholder</text>
+        <text x="310" y="210" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">DEFAULT_DESCRIBE_CAP = 200</text>
+        <text x="310" y="232" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">steps 1, 2, 4 make no model call</text>
+
+        <!-- injected seams -->
+        <rect x="690" y="40" width="300" height="120" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <text x="840" y="66" font-weight="600" font-size="14">injected seams</text>
+        <text x="840" y="92" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">DescribeBatchExecutor</text>
+        <text x="840" y="114" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">resolve_target</text>
+        <text x="840" y="140" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">filled by drift sub-agent (LLM)</text>
+        <path d="M690 100 L592 130" fill="none" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ag-o)"/>
+        <text x="640" y="112" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">SubstrateProposal</text>
+
+        <!-- writes -->
+        <rect x="690" y="190" width="300" height="80" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="840" y="216" font-weight="600">scoped write_fields('agentic')</text>
+        <text x="840" y="240" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">never rebuild_layer('agentic')</text>
+        <text x="840" y="258" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">descriptions = agentic.description side-nodes</text>
+        <path d="M310 246 L310 270 L688 270 L688 230" fill="none" stroke="#6c7a3b" stroke-width="1.4" marker-end="url(#ag-o)"/>
+
+        <rect x="1080" y="190" width="190" height="80" rx="11" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="1175" y="222" font-weight="600">store</text>
+        <text x="1175" y="244" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">reads include_deleted</text>
+        <path d="M990 230 L1078 230" fill="none" stroke="#6c7a3b" stroke-width="1.5" marker-end="url(#ag-o)"/>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Descriptions are <code>agentic.description</code> side-nodes (anchored to <code>symbol_path:content_hash</code>) so a raw re-parse leaves them to re-anchor through <code>re_extract</code>; reads use <b><code>include_deleted:true</code></b> to avoid resurrecting binned rows. Sole real consumer is the drift hydration sub-agent, which fills the seams.</p>
+
+  <footer>
+    Generated comprehension doc for the Code Charter repo · "Core Engine" · one of five in the set.<br>
+    Describes <code>@code-charter/core</code> as it is. Source paths live under <code>packages/core/src/</code>.
+  </footer>
+</main>
+</body>
+</html>

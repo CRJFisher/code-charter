@@ -22,8 +22,6 @@ import type { StopHookInput } from "./hook_payloads";
 
 /** The registered custom sub-agent that performs reconciliation. */
 export const RECONCILER_AGENT_NAME = "drift-reconciler";
-/** The skill the sub-agent invokes to mutate the store. */
-export const DRIFT_SYNC_SKILL_NAME = "drift-sync";
 
 /** A no-op, or a block carrying the instruction + a short user-facing note. */
 export type StopDecision =
@@ -32,15 +30,7 @@ export type StopDecision =
 
 /** The instruction fed back to the main agent (the `Stop` output `reason`). */
 export function build_reconcile_instruction(worked_on: readonly string[]): string {
-  const list = worked_on.map((file_path) => `- ${file_path}`).join("\n");
-  return [
-    "Code Charter drift detected. Files were edited this turn and their flow diagrams may be stale.",
-    `Before ending the turn, launch the \`${RECONCILER_AGENT_NAME}\` sub-agent (via the Task/Agent tool) ` +
-      "to reconcile exactly these files, and nothing else:",
-    list,
-    `The sub-agent invokes the \`${DRIFT_SYNC_SKILL_NAME}\` skill and returns only a brief ` +
-      `acknowledgement. Do not reconcile inline yourself; delegate to \`${RECONCILER_AGENT_NAME}\`.`,
-  ].join("\n");
+  return `Launch the \`${RECONCILER_AGENT_NAME}\` sub-agent to reconcile: ${worked_on.join(", ")}`;
 }
 
 /** The short user-facing note (the `Stop` output `systemMessage`). */

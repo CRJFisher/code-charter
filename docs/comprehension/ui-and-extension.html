@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Purpose: comprehension doc for @code-charter/ui (React Flow webview) and @code-charter/vscode (extension host) — how rendered flow rows become an interactive diagram and how the host produces a preserved snapshot from Ariadne. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UI &amp; VSCode Extension — Code Charter comprehension</title>
+<style>
+  :root{
+    --ivory:#f7f4ec; --oat:#ece5d6; --slate:#2c3038; --ink:#20242b;
+    --clay:#b5683e; --olive:#6c7a3b; --rust:#9e3b2e;
+    --g1:#fbfaf5; --g2:#efeadd; --g3:#d9d2c1; --g4:#aaa492; --g5:#6c6759;
+    --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --r:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;}
+
+  /* ===== FULL-WIDTH STICKY TOP NAV (no sidebar) ===== */
+  .topnav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:2px;flex-wrap:wrap;
+    background:var(--slate);padding:0 3%;border-bottom:3px solid var(--clay);}
+  .topnav .brand{display:flex;flex-direction:column;margin-right:22px;padding:11px 0;}
+  .topnav .brand b{color:var(--ivory);font-size:14px;font-weight:600;letter-spacing:.01em;line-height:1.1;}
+  .topnav .brand span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--g4);}
+  .topnav a{text-decoration:none;color:var(--g3);font-size:13px;padding:14px 13px;border-bottom:3px solid transparent;margin-bottom:-3px;white-space:nowrap;}
+  .topnav a:hover{color:#fff;background:#363b45;}
+  .topnav a.active{color:#fff;border-bottom-color:var(--clay);background:rgba(181,104,62,.18);font-weight:600;}
+  .topnav a .n{font-family:var(--mono);font-size:10px;color:var(--g4);margin-right:5px;}
+  .topnav a.active .n{color:#e7c3a6;}
+
+  /* ===== FULL-WIDTH BODY: ~3% gutter, no max-width ===== */
+  main{max-width:none;margin:0;padding:30px 3% 96px;}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--g5);margin:0 0 9px;}
+  h1{font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.12;margin:0 0 8px;color:var(--ink);}
+  .deck{font-size:15.5px;color:var(--g5);margin:0 0 6px;max-width:90ch;}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 0;font-family:var(--mono);font-size:11px;}
+  .pill{background:var(--oat);border:1px solid var(--g3);border-radius:999px;padding:3px 11px;color:var(--g5);}
+  .pill b{color:var(--slate);font-weight:600;}
+  .pill.done{background:var(--olive);color:#fff;border-color:var(--olive);}
+  .pill.done b{color:#fff;}
+
+  h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:48px 0 4px;color:var(--ink);scroll-margin-top:64px;}
+  .thesis{font-size:15.5px;color:var(--ink);font-weight:500;margin:0 0 14px;max-width:96ch;}
+  .cap{font-size:12.5px;color:var(--g5);margin:10px 0 0;font-family:var(--mono);line-height:1.5;}
+  .cap b{color:var(--clay);font-weight:600;}
+
+  /* ===== DIAGRAM FRAME (diagrams may bleed to full content width) ===== */
+  .fig{width:100%;margin:14px 0 0;border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:8px;}
+  .fig svg{display:block;width:100%;height:auto;}
+
+  /* ===== REUSABLE LEGEND / CHIP ROW ===== */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-family:var(--mono);font-size:10.5px;color:var(--g5);padding:8px 4px 2px;}
+  .legend .sw{display:inline-flex;align-items:center;gap:6px;}
+  .legend .sw i{width:14px;height:12px;border-radius:3px;border:1px solid var(--g4);display:inline-block;}
+  .legend .sw .raw{background:var(--oat);border-color:var(--g4);}
+  .legend .sw .agentic{background:#eef0e3;border-color:var(--olive);}
+  .legend .sw .engine{background:var(--g1);border-color:var(--g5);}
+  .legend .sw .hook{background:#f3ece2;border-color:var(--clay);}
+  .legend .sw .miss{background:#f4e6e2;border-color:var(--rust);}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 6px;color:var(--ink);white-space:nowrap;}
+  .chip.clay{color:var(--clay);background:#f3ece2;border-color:#e0c2bb;}
+
+  /* ===== NUMBERED REFS STRIP (details tier keyed to SVG badges) ===== */
+  .refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 20px;margin:14px 0 0;}
+  .refs .r{display:grid;grid-template-columns:22px 1fr;gap:9px;align-items:baseline;font-size:13px;}
+  .refs .n{width:20px;height:20px;border-radius:50%;background:var(--slate);color:var(--g1);
+    font:700 11px var(--mono);display:flex;align-items:center;justify-content:center;}
+  .refs .r b{font-weight:600;color:var(--ink);}
+  .refs .r code{font-family:var(--mono);font-size:11px;color:var(--clay);background:none;border:none;padding:0;}
+
+  /* ===== TIGHT LEDGER TABLE (verb | detail | file) ===== */
+  table.ledger{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px;}
+  table.ledger th,table.ledger td{text-align:left;padding:7px 11px;border-bottom:1px solid var(--g2);vertical-align:top;}
+  table.ledger th{font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;font-size:10px;color:var(--g5);border-bottom:1px solid var(--g3);}
+  table.ledger td b{font-weight:600;color:var(--ink);}
+  table.ledger td code{font-family:var(--mono);font-size:11.5px;color:var(--clay);background:none;border:none;padding:0;}
+  table.ledger tr:last-child td{border-bottom:none;}
+
+  /* ===== INLINE CODE ===== */
+  code{font-family:var(--mono);}
+  p code,li code,.thesis code,.cap code{font-family:var(--mono);font-size:12px;background:var(--oat);border:1px solid var(--g3);border-radius:5px;padding:1px 5px;color:var(--ink);}
+
+  /* ===== CALLOUT / INVARIANT (rationed; one per section max) ===== */
+  .callout{margin:14px 0 0;border-left:4px solid var(--clay);background:#f3ece2;border-radius:8px;padding:11px 16px;font-size:13.5px;line-height:1.5;}
+  .callout.olive{border-left-color:var(--olive);background:#eef0e3;}
+  .callout .k{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--g5);display:block;margin-bottom:5px;}
+  .callout code{font-family:var(--mono);color:#8a3528;}
+  .callout.invert{background:var(--slate);color:var(--ivory);border-left-color:var(--clay);}
+  .callout.invert .k{color:var(--g4);}
+  .callout.invert code{color:#e7c3a6;}
+
+  footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--g3);font-family:var(--mono);font-size:11px;color:var(--g4);}
+
+  @media (max-width:760px){
+    main{padding:22px 4% 70px;}
+    h1{font-size:26px;}
+    .topnav{gap:0;}
+    .topnav a{padding:11px 9px;font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <span class="brand"><b>Code Charter</b><span>comprehension</span></span>
+  <a href="index.html"><span class="n">00</span>Overview &amp; Map</a>
+  <a href="architecture.html"><span class="n">01</span>Architecture &amp; Data Model</a>
+  <a href="core-engine.html"><span class="n">02</span>Core Engine</a>
+  <a href="drift-sync.html"><span class="n">03</span>Drift Sync</a>
+  <a href="ui-and-extension.html" class="active" aria-current="page"><span class="n">04</span>UI &amp; Extension</a>
+  <a href="flow-construction.html"><span class="n">05</span>Flow Construction</a>
+</nav>
+
+<main>
+  <p class="eyebrow">comprehension · presentation layer · packages/ui + packages/vscode</p>
+  <h1>UI &amp; VSCode Extension</h1>
+  <p class="deck">How a flow's rendered rows become an interactive React-Flow diagram, and how the VSCode host produces them from Ariadne and serves a preserved snapshot.</p>
+  <div class="meta">
+    <span class="pill">package <b>@code-charter/ui</b></span>
+    <span class="pill">package <b>@code-charter/vscode</b></span>
+    <span class="pill">render <b>@xyflow/react + elkjs</b></span>
+    <span class="pill">contract <b>CodeCharterBackend</b></span>
+    <span class="pill">model <b>per-request snapshot</b></span>
+  </div>
+
+  <div class="legend">
+    <span class="sw"><i class="raw"></i>raw / disposable substrate</span>
+    <span class="sw"><i class="engine"></i>deterministic engine</span>
+    <span class="sw"><i class="agentic"></i>agentic / LLM-authored</span>
+    <span class="sw"><i class="hook"></i>control boundary / store write</span>
+    <span class="sw"><i class="miss"></i>miss / empty state</span>
+    <span class="sw">&#8594; data flow&nbsp;&nbsp;&#8594; <b style="color:var(--clay)">store write</b>&nbsp;&nbsp;- - - inferred / not-pushed</span>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2 id="backend">The one decoupling: CodeCharterBackend</h2>
+  <p class="thesis">Both worlds satisfy one four-method interface; the UI depends only on the interface and never produces data nor knows where it runs.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 250" role="img"
+      aria-label="CodeCharterBackend is the apex interface with four methods get_call_graph, list_flows, render_flow, navigate_to_doc. It is implemented (dashed) by VSCodeBackend, which uses postMessage with id correlation and a 30 second watchdog, and by MockBackend, an in-process deterministic demo. The UI never produces data and never knows whether it runs inside VSCode or standalone; the render pipeline, theming and node registry are identical in both.">
+      <defs>
+        <marker id="b-imp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="15" fill="#2c3038" text-anchor="middle">
+        <rect x="400" y="20" width="400" height="74" rx="11" fill="#2c3038"/>
+        <text x="600" y="46" font-weight="600" fill="#f7f4ec" font-size="16">CodeCharterBackend</text>
+        <text x="600" y="67" font-family="ui-monospace,monospace" font-size="11.5" fill="#aaa492">get_call_graph · list_flows</text>
+        <text x="600" y="84" font-family="ui-monospace,monospace" font-size="11.5" fill="#aaa492">render_flow · navigate_to_doc</text>
+        <text x="600" y="113" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">packages/types/src/backend.ts</text>
+
+        <rect x="120" y="160" width="380" height="76" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="310" y="186" font-weight="600">VSCodeBackend</text>
+        <text x="310" y="207" font-family="ui-monospace,monospace" font-size="11" fill="#92522f">postMessage · id correlation</text>
+        <text x="310" y="223" font-family="ui-monospace,monospace" font-size="11" fill="#92522f">30s watchdog · vscode_backend.ts</text>
+
+        <rect x="700" y="160" width="380" height="76" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="890" y="186" font-weight="600">MockBackend</text>
+        <text x="890" y="207" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">in-process deterministic demo</text>
+        <text x="890" y="223" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">main → processData + fetch_data</text>
+
+        <path d="M520 96 L340 158" fill="none" stroke="#6c6759" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#b-imp)"/>
+        <path d="M680 96 L860 158" fill="none" stroke="#6c6759" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#b-imp)"/>
+        <text x="392" y="132" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">implements</text>
+        <text x="808" y="132" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">implements</text>
+
+        <rect x="430" y="160" width="340" height="76" rx="11" fill="none" stroke="#d9d2c1" stroke-width="1.3" stroke-dasharray="3 3"/>
+        <text x="600" y="190" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">identical in both:</text>
+        <text x="600" y="210" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">render pipeline · theming</text>
+        <text x="600" y="226" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">node registry</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap"><code>create_backend()</code> in <code>backend_provider.ts</code> picks VSCode when <code>acquireVsCodeApi</code> exists, else MOCK. The host implements the interface over postMessage; <b>MockBackend implements it in-process — render pipeline identical.</b></p>
+
+  <!-- ============================================================= -->
+  <h2 id="pipeline">@code-charter/ui render pipeline</h2>
+  <p class="thesis">Three pure stages turn plain serializable rows into a laid-out diagram; the UI imports no SQLite, graphology, or Ariadne runtime.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 200" role="img"
+      aria-label="The render pipeline in four numbered stages. Stage 1 backend.render_flow returns RenderedRows. Stage 2 custom_graph_to_react_flow maps kind to type via an open registry, folds agentic.contains into parentId, drops dangling edges, and carries the source row on data.row. Stage 3 apply_hierarchical_layout runs a compound ELK layout with an LRU cache of max 50 keyed on topology plus dimensions plus pinned ids, falling back to a grid. Stage 4 ReactFlow culls, zooms and selects. The render effect depends only on selected_flow_id with a cancelled-flag guard, and a saved localStorage layout skips the layout stage.">
+      <defs>
+        <marker id="p-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="14" fill="#2c3038" text-anchor="middle">
+        <rect x="20" y="50" width="250" height="80" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <circle cx="40" cy="70" r="13" fill="#2c3038"/><text x="40" y="74" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="12" font-weight="700">1</text>
+        <text x="148" y="86" font-weight="600">backend.render_flow</text>
+        <text x="148" y="108" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">→ RenderedRows (plain data)</text>
+
+        <rect x="312" y="50" width="280" height="80" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <circle cx="332" cy="70" r="13" fill="#2c3038"/><text x="332" y="74" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="12" font-weight="700">2</text>
+        <text x="452" y="82" font-weight="600">custom_graph_to_react_flow</text>
+        <text x="452" y="102" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">kind→type · contains→parentId</text>
+        <text x="452" y="117" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">drop dangling · carry data.row</text>
+
+        <rect x="634" y="50" width="280" height="80" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <circle cx="654" cy="70" r="13" fill="#2c3038"/><text x="654" y="74" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="12" font-weight="700">3</text>
+        <text x="774" y="82" font-weight="600">apply_hierarchical_layout</text>
+        <text x="774" y="102" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">compound ELK · LRU max 50</text>
+        <text x="774" y="117" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">grid fallback</text>
+
+        <rect x="956" y="50" width="224" height="80" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <circle cx="976" cy="70" r="13" fill="#2c3038"/><text x="976" y="74" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="12" font-weight="700">4</text>
+        <text x="1068" y="86" font-weight="600">ReactFlow</text>
+        <text x="1068" y="108" font-family="ui-monospace,monospace" font-size="11" fill="#92522f">cull · zoom · select</text>
+
+        <line x1="270" y1="90" x2="310" y2="90" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+        <line x1="592" y1="90" x2="632" y2="90" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+        <line x1="914" y1="90" x2="954" y2="90" stroke="#6c6759" stroke-width="1.6" marker-end="url(#p-g)"/>
+
+        <text x="600" y="165" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="middle">render effect depends ONLY on selected_flow_id (cancelled-flag guard) · saved localStorage layout → skip stage 3</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="refs">
+    <div class="r"><span class="n">1</span><div><b>render_flow → RenderedRows.</b> <code>NodeRow</code>/<code>EdgeRow</code> from <code>@code-charter/types</code>; the UI's only data source. Orchestrated by <code>code_chart_area.tsx</code>.</div></div>
+    <div class="r"><span class="n">2</span><div><b>Adapter.</b> Pure boundary to React Flow shapes. <code>custom_graph_to_react_flow.ts</code>.</div></div>
+    <div class="r"><span class="n">3</span><div><b>Layout.</b> Compound ELK + LRU cache (positions excluded from key — they are outputs). <code>graph_layout.ts</code> · <code>layout_cache.ts</code>.</div></div>
+    <div class="r"><span class="n">4</span><div><b>ReactFlow.</b> <code>@xyflow/react</code> render surface. <code>code_chart_area/code_chart_area.tsx</code> · <code>app.tsx</code>.</div></div>
+  </div>
+  <p class="cap">Everything drawn arrives as data through the backend; <b>positions are excluded from the layout cache key because they are outputs</b>. <code>render_flow</code> is rebound each render, so the effect depends on the id, not the bound method.</p>
+
+  <!-- ============================================================= -->
+  <h2 id="adapter">Adapter, layout, virtualization &amp; node types</h2>
+  <p class="thesis">The pure adapter is the boundary between the backend data model and React Flow's render model, doing four things and nothing else.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 250" role="img"
+      aria-label="The adapter does four jobs: resolve the React Flow type via the open node-kind registry; fold agentic.contains into parentId only if the parent module was emitted; drop dangling edges whose endpoints were skipped; carry the source row on data.row. A zoom-aware rule governs rendering: ZoomAwareNode shows detail when zoomed in and a simplified box when zoomed out, ModuleGroupNode renders only when zoomed out, and the two are mutually exclusive by one zoom threshold. use_virtual_nodes culls to the viewport plus a one-hop buffer.">
+      <g font-family="ui-sans-serif,system-ui" font-size="13.5" fill="#2c3038" text-anchor="middle">
+        <text x="305" y="30" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">ADAPTER — four jobs (custom_graph_to_react_flow.ts)</text>
+        <rect x="20" y="44" width="270" height="58" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="155" y="68" font-weight="600">resolve type</text>
+        <text x="155" y="88" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">kind→type via open registry</text>
+        <rect x="320" y="44" width="270" height="58" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="455" y="68" font-weight="600">fold contains→parentId</text>
+        <text x="455" y="88" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">only if parent emitted</text>
+        <rect x="20" y="116" width="270" height="58" rx="9" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+        <text x="155" y="140" font-weight="600">drop dangling edges</text>
+        <text x="155" y="160" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">endpoint skipped</text>
+        <rect x="320" y="116" width="270" height="58" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="455" y="140" font-weight="600">carry source row</text>
+        <text x="455" y="160" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">data.row (lossless)</text>
+
+        <line x1="630" y1="110" x2="630" y2="110" stroke="#d9d2c1"/>
+        <text x="900" y="30" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">ZOOM-AWARE RENDER — one threshold, mutually exclusive</text>
+        <rect x="660" y="60" width="240" height="100" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="780" y="100" font-weight="600">zoomed OUT</text>
+        <text x="780" y="122" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">ModuleGroupNode only</text>
+        <text x="780" y="138" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">ZoomAwareNode → box</text>
+        <rect x="930" y="60" width="250" height="100" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="1055" y="100" font-weight="600">zoomed IN</text>
+        <text x="1055" y="122" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">full CodeFunctionNode</text>
+        <text x="1055" y="138" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">modules render null</text>
+
+        <text x="900" y="200" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">use_virtual_nodes → get_visible_nodes: cull to viewport + one-hop buffer</text>
+        <text x="305" y="200" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">open registry: register_node_kind(kind,{type,component}) → build_node_types()</text>
+        <text x="305" y="218" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">code.function→code_function · agentic.group→module_group (chart_node_types.tsx)</text>
+      </g>
+    </svg>
+  </div>
+
+  <table class="ledger">
+    <tr><th>Surface</th><th>What it does</th><th>File</th></tr>
+    <tr><td><b>code_function node</b></td><td>Leaf node: name, description, line number, edge handles — the visual unit of a flow.</td><td><code>chart_node_types.tsx</code></td></tr>
+    <tr><td><b>provenance panel</b></td><td>Selection-driven aside: kind / layer / origin / anchor / description (node) or kind / confidence / extractor (edge) + Open-in-editor. Driven by <code>onSelectionChange</code>.</td><td><code>provenance_panel.tsx</code></td></tr>
+    <tr><td><b>search panel</b></td><td>Overlay opened with <code>/</code>; fuzzy/exact/prefix/substring scoring; centers + selects. Reads <code>get_nodes()</code> imperatively.</td><td><code>search_panel.tsx</code></td></tr>
+    <tr><td><b>keyboard navigation</b></td><td>Arrows follow edges, Ctrl/Cmd+F fit, Esc deselect, Shift+? help, <code>SkipToGraph</code> a11y link.</td><td><code>keyboard_navigation.tsx</code></td></tr>
+    <tr><td><b>parent resize</b></td><td>After a drag, shrink-fit the module group to children's bbox, shifting parent + children inversely. Needs the full node array, not the virtualized subset.</td><td><code>parent_resize.ts</code></td></tr>
+  </table>
+  <p class="cap">React Flow type strings are decoupled from <code>kind</code> so guards/minimap/drag key off a stable string. <b>Selecting a node opens provenance; clicking it navigates — deliberately distinct</b>, never one overloaded <code>onClick</code>.</p>
+
+  <!-- ============================================================= -->
+  <h2 id="theming">Theming &amp; position persistence</h2>
+  <p class="thesis">One theme source feeds the whole render surface; layout state persists per <code>entry_point</code> in a single localStorage slot.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 240" role="img"
+      aria-label="Two regions. Left, theming: ThemeProviderComponent picks VSCodeThemeProvider, which reads live --vscode-* CSS variables and observes changes with a MutationObserver while tracking the active theme, or StandaloneThemeProvider. Either way use_flow_theme_styles maps a Theme to colour tokens and style helpers that every component consumes. Right, position persistence: state_persistence.ts saves GraphState of nodes, edges and viewport to one localStorage slot keyed by entry_point with a 24-hour TTL plus export and import; opening another flow overwrites the slot, and saved state is ignored on entry_point mismatch or staleness. CallGraph needs serialize and deserialize because Maps do not survive JSON.stringify, but RenderedRows and FlowSummary are plain data.">
+      <defs>
+        <marker id="t-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <line x1="600" y1="20" x2="600" y2="220" stroke="#d9d2c1" stroke-width="1"/>
+      <g font-family="ui-sans-serif,system-ui" font-size="13.5" fill="#2c3038" text-anchor="middle">
+        <text x="300" y="30" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">THEMING (theme/theme_context.tsx)</text>
+        <rect x="40" y="44" width="240" height="56" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <text x="160" y="68" font-weight="600">ThemeProviderComponent</text>
+        <text x="160" y="88" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">picks one at runtime</text>
+        <rect x="20" y="124" width="270" height="58" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="155" y="148" font-weight="600">VSCodeThemeProvider</text>
+        <text x="155" y="167" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">live --vscode-* · MutationObserver</text>
+        <rect x="320" y="124" width="240" height="58" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="440" y="148" font-weight="600">StandaloneThemeProvider</text>
+        <text x="440" y="167" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">self-contained palette</text>
+        <text x="300" y="212" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">use_flow_theme_styles: Theme → tokens + helpers (every component)</text>
+        <line x1="160" y1="100" x2="155" y2="122" stroke="#6c6759" stroke-width="1.4" marker-end="url(#t-g)"/>
+        <line x1="200" y1="100" x2="430" y2="122" stroke="#6c6759" stroke-width="1.4" marker-end="url(#t-g)"/>
+
+        <text x="900" y="30" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">POSITION PERSISTENCE (state_persistence.ts)</text>
+        <rect x="700" y="50" width="400" height="64" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <text x="900" y="76" font-weight="600">GraphState → ONE localStorage slot</text>
+        <text x="900" y="98" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">nodes + edges + viewport · keyed by entry_point</text>
+        <rect x="700" y="132" width="190" height="50" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="795" y="153" font-weight="600">24h TTL · export/import</text>
+        <text x="795" y="171" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">debounced autosave</text>
+        <rect x="910" y="132" width="190" height="50" rx="9" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+        <text x="1005" y="153" font-weight="600">ignored if</text>
+        <text x="1005" y="171" font-family="ui-monospace,monospace" font-size="10" fill="#8a3528">mismatch / stale · overwrite</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="callout olive">
+    <span class="k">Wire format</span>
+    A <code>CallGraph</code> is built from <code>Map</code>s, which do not survive <code>JSON.stringify</code> — it always crosses postMessage via <code>serialize_call_graph</code>/<code>deserialize_call_graph</code> (<code>packages/types/src/call_graph_serialization.ts</code>). <code>RenderedRows</code> and <code>FlowSummary</code> are plain data and cross untouched.
+  </div>
+  <p class="cap"><b>Per-flow persistence is out of scope for v1</b> — opening another flow overwrites the single slot.</p>
+
+  <!-- ============================================================= -->
+  <h2 id="vscode">@code-charter/vscode — the extension host</h2>
+  <p class="thesis">The host registers a command, opens a webview, and brokers every message between it and the core flow model.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 290" role="img"
+      aria-label="Activation and the command router. activate registers the generateDiagram command, which ensures the .code-charter directory exists and is gitignored, then opens a webview with a CSP nonce and localResourceRoots covering ../ui/dist. onDidReceiveMessage dispatches on command through a handler map that is exactly the four backend methods, replying command_response or an error. The handler branches into AriadneProjectManager, which wraps the Ariadne Project and feeds repo-relative forward-slash paths as the load-bearing id space, and the graph.db open and close. Watchers exist with a 500ms debounce and an on_call_graph_changed emitter, but the webview is not pushed: flow data is a per-request snapshot and live re-sync is the Stop-hook path.">
+      <defs>
+        <marker id="v-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13.5" fill="#2c3038" text-anchor="middle">
+        <rect x="20" y="40" width="220" height="64" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="130" y="66" font-weight="600">activate</text>
+        <text x="130" y="87" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">registers generateDiagram</text>
+
+        <rect x="280" y="40" width="240" height="64" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="400" y="62" font-weight="600">ensure .code-charter</text>
+        <text x="400" y="82" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">+ .gitignore (files.ts)</text>
+
+        <rect x="560" y="40" width="240" height="64" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="680" y="62" font-weight="600">open webview</text>
+        <text x="680" y="82" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">CSP nonce · ../ui/dist</text>
+
+        <rect x="840" y="40" width="340" height="64" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="1010" y="62" font-weight="600">onDidReceiveMessage</text>
+        <text x="1010" y="82" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">dispatch on command → ${cmd}_response / error</text>
+
+        <line x1="240" y1="72" x2="278" y2="72" stroke="#6c6759" stroke-width="1.6" marker-end="url(#v-g)"/>
+        <line x1="520" y1="72" x2="558" y2="72" stroke="#6c6759" stroke-width="1.6" marker-end="url(#v-g)"/>
+        <line x1="800" y1="72" x2="838" y2="72" stroke="#6c6759" stroke-width="1.6" marker-end="url(#v-g)"/>
+
+        <text x="1010" y="128" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">handler map = exactly the 4 backend methods</text>
+
+        <rect x="560" y="160" width="320" height="64" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="720" y="186" font-weight="600">AriadneProjectManager</text>
+        <text x="720" y="207" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">wraps @ariadnejs/core Project</text>
+
+        <rect x="900" y="160" width="280" height="64" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.6"/>
+        <text x="1040" y="186" font-weight="600">graph.db open / close</text>
+        <text x="1040" y="207" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">open_graph_store · finally</text>
+
+        <line x1="980" y1="104" x2="760" y2="158" stroke="#6c6759" stroke-width="1.5" marker-end="url(#v-g)"/>
+        <line x1="1040" y1="104" x2="1040" y2="158" stroke="#6c6759" stroke-width="1.5" marker-end="url(#v-g)"/>
+
+        <rect x="20" y="160" width="500" height="100" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="4 3"/>
+        <text x="270" y="186" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">repo-relative forward-slash paths (to_repo_relative)</text>
+        <text x="270" y="208" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">= load-bearing id space</text>
+        <text x="270" y="234" font-family="ui-monospace,monospace" font-size="11" fill="#8a3528">absolute paths ⇒ hydrated flows render empty</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="callout">
+    <span class="k">Watchers exist but the webview is not pushed</span>
+    <code>FileSystemWatcher</code> + a 500ms debounce + an <code>on_call_graph_changed</code> emitter exist, but <code>extension.ts</code> never subscribes. Flow data is a <b>per-request snapshot</b>; a code edit shows on the next request, not pushed. Live re-sync is the Stop-hook path (see <code>drift-sync.html</code>).
+  </div>
+  <p class="cap">Repo-relative paths are the same portable id space the store and drift engine use, so <b>hydrated flow ids match the live graph</b>. The webview is built by <code>get_webview_content</code> loading <code>standalone.global.js</code> + <code>standalone.css</code>; <code>UIDevWatcher</code> hot-reloads in dev mode.</p>
+
+  <!-- ============================================================= -->
+  <h2 id="merge">Skeleton + hydrated flow merge</h2>
+  <p class="thesis"><code>list_flows</code> serves and merges two altitudes; <code>render_flow</code> dispatches on the id's origin.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 260" role="img"
+      aria-label="A two-altitude merge. The skeleton altitude is deterministic, derived by build_skeleton_flows plus skeleton_to_summary from the live CallGraph, present even on a cold repo; a skeleton id short-circuits render_flow to project_flow. The hydrated altitude is an agentic.flow node in graph.db written by the drift sub-agent, read via read_hydrated_flows and collect_persisted_flow, sorted ahead by order_flows and rendered via project_hydrated_flow. Both merge into list_flows. A hydrated flow inherits seed_location and member_count from its skeleton twin by id; a non-skeleton id reaching render_hydrated_flow returns null, shown as Unknown flow. Two content hashes: compute_content_hash is semantic, compute_source_hash is a fast staleness check.">
+      <defs>
+        <marker id="m-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="m-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="13.5" fill="#2c3038" text-anchor="middle">
+        <rect x="20" y="40" width="380" height="74" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="210" y="56" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">SKELETON — deterministic, always present</text>
+        <text x="210" y="80" font-weight="600">build_skeleton_flows + skeleton_to_summary</text>
+        <text x="210" y="101" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">skeleton id short-circuits render_flow → project_flow</text>
+
+        <rect x="20" y="146" width="380" height="74" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="210" y="162" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">HYDRATED — agentic.flow in graph.db (drift sub-agent)</text>
+        <text x="210" y="186" font-weight="600">read_hydrated_flows · collect_persisted_flow</text>
+        <text x="210" y="207" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">order_flows (sorts ahead) · project_hydrated_flow</text>
+
+        <rect x="520" y="93" width="220" height="74" rx="10" fill="#2c3038"/>
+        <text x="630" y="125" font-weight="600" fill="#f7f4ec">list_flows</text>
+        <text x="630" y="147" font-family="ui-monospace,monospace" font-size="10.5" fill="#aaa492">merged + ordered</text>
+
+        <path d="M400 77 L518 110" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#m-g)"/>
+        <path d="M400 183 L518 150" fill="none" stroke="#6c7a3b" stroke-width="1.6" marker-end="url(#m-g)"/>
+
+        <rect x="820" y="40" width="360" height="62" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+        <text x="1000" y="64" font-weight="600">non-skeleton id → render_hydrated_flow</text>
+        <text x="1000" y="86" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">not a live persisted flow → null → "Unknown flow"</text>
+
+        <rect x="820" y="118" width="360" height="44" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="1000" y="146" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">hydrated inherits seed_location + member_count from skeleton twin (by id)</text>
+
+        <rect x="820" y="178" width="175" height="58" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="907" y="200" font-weight="600">compute_content_hash</text>
+        <text x="907" y="220" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">semantic staleness</text>
+        <rect x="1005" y="178" width="175" height="58" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="1092" y="200" font-weight="600">compute_source_hash</text>
+        <text x="1092" y="220" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">fast staleness</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap"><code>graph.db</code> is opened via <code>open_graph_store</code> and closed in <code>finally</code>; a missing file makes <code>read_store_rows</code> return null, so <b>the surface is pure skeleton</b>. Both hashes truncate sha256 to 16 hex.</p>
+
+  <!-- ============================================================= -->
+  <h2 id="dataflow">Webview &#8596; host &#8596; Ariadne data flow</h2>
+  <p class="thesis">One round-trip per backend call; the webview never touches Ariadne or the store — it asks the host.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1200 380" role="img"
+      aria-label="Three lanes: webview, extension host, and Ariadne plus graph.db, with six numbered steps. Step 1 VSCodeBackend posts render_flow with a correlation id. Step 2 onDidReceiveMessage dispatches. Step 3 ensure_call_graph lazily builds and caches an Ariadne repo-relative CallGraph. Step 4 the handler reads graph.db agentic.flow nodes and merges and projects skeleton plus hydrated into RenderedRows. Step 5 render_flow_response returns plain data, dashed. Step 6 the webview runs adapter then ELK then ReactFlow. A node click posts navigate_to_doc, opening source in the opposite column with a 1-based to 0-based line conversion. Everything authored lives in graph.db, written only by the drift path; the host is a pure read-and-project broker serving a snapshot.">
+      <defs>
+        <marker id="d-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="d-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-monospace,monospace" font-size="12" fill="#6c6759" text-anchor="middle">
+        <text x="160" y="26">WEBVIEW (ui)</text>
+        <text x="600" y="26">EXTENSION HOST (vscode)</text>
+        <text x="1020" y="26">ARIADNE + graph.db</text>
+      </g>
+      <line x1="320" y1="38" x2="320" y2="360" stroke="#d9d2c1" stroke-width="1"/>
+      <line x1="880" y1="38" x2="880" y2="360" stroke="#d9d2c1" stroke-width="1"/>
+
+      <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
+        <rect x="30" y="56" width="260" height="56" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <circle cx="50" cy="76" r="12" fill="#2c3038"/><text x="50" y="80" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="11" font-weight="700">1</text>
+        <text x="170" y="80" font-weight="600">VSCodeBackend</text>
+        <text x="170" y="99" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">render_flow(id) + correlation id</text>
+
+        <rect x="30" y="300" width="260" height="56" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+        <circle cx="50" cy="320" r="12" fill="#2c3038"/><text x="50" y="324" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="11" font-weight="700">6</text>
+        <text x="170" y="324" font-weight="600">render pipeline</text>
+        <text x="170" y="343" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">adapter → ELK → ReactFlow</text>
+
+        <rect x="360" y="56" width="480" height="56" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <circle cx="380" cy="76" r="12" fill="#2c3038"/><text x="380" y="80" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="11" font-weight="700">2</text>
+        <text x="600" y="80" font-weight="600">onDidReceiveMessage — dispatch on command</text>
+
+        <rect x="360" y="150" width="480" height="56" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <circle cx="380" cy="170" r="12" fill="#2c3038"/><text x="380" y="174" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="11" font-weight="700">3</text>
+        <text x="600" y="174" font-weight="600">ensure_call_graph (lazy, cached)</text>
+        <text x="600" y="193" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">AriadneProjectManager.get_call_graph()</text>
+
+        <rect x="360" y="244" width="480" height="56" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <circle cx="380" cy="264" r="12" fill="#2c3038"/><text x="380" y="268" fill="#fbfaf5" font-family="ui-monospace,monospace" font-size="11" font-weight="700">4</text>
+        <text x="600" y="268" font-weight="600">read graph.db + merge + project</text>
+        <text x="600" y="287" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">skeleton ⊕ hydrated → RenderedRows</text>
+
+        <rect x="920" y="150" width="250" height="56" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="1045" y="174" font-weight="600">Ariadne Project</text>
+        <text x="1045" y="193" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">repo-relative CallGraph</text>
+
+        <rect x="920" y="244" width="250" height="56" rx="9" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
+        <text x="1045" y="268" font-weight="600">graph.db</text>
+        <text x="1045" y="287" font-family="ui-monospace,monospace" font-size="10" fill="#8a3528">agentic.flow nodes</text>
+      </g>
+
+      <g>
+        <path d="M290 84 L358 84" fill="none" stroke="#b5683e" stroke-width="1.7" marker-end="url(#d-clay)"/>
+        <path d="M600 112 L600 148" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#d-g)"/>
+        <path d="M840 178 L918 178" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#d-g)"/>
+        <path d="M600 206 L600 242" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#d-g)"/>
+        <path d="M918 272 L842 272" fill="none" stroke="#9e3b2e" stroke-width="1.6" marker-end="url(#d-g)"/>
+        <path d="M360 290 L170 290 L170 298" fill="none" stroke="#6c6759" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#d-g)"/>
+      </g>
+      <g font-family="ui-monospace,monospace" font-size="10" fill="#6c6759" text-anchor="middle">
+        <text x="324" y="76" fill="#b5683e">request</text>
+        <circle cx="262" cy="284" r="11" fill="#2c3038"/><text x="262" y="288" fill="#fbfaf5" font-weight="700">5</text>
+        <text x="240" y="306">render_flow_response (plain data, dashed)</text>
+        <text x="600" y="334" fill="#b5683e">node click → navigate_to_doc → opposite column (1-based line → 0-based)</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="callout invert">
+    <span class="k">The honest seam</span>
+    Everything authored — labels, pins, layout, hand descriptions — lives in <code>graph.db</code>, written only by the drift path; the host is a pure read-and-project broker serving a snapshot. <b>That is why the same diagram survives a code edit — the presentation layer reads preserved state, it does not regenerate it.</b>
+  </div>
+  <p class="cap">UI-side: <code>editor_navigation.navigate_to_file</code> posts <code>navigate_to_doc</code> in-context, else opens a <code>vscode://file</code> URL. Package graph: <code>types → core → { drift, ui, vscode }</code>.</p>
+
+  <footer>
+    Generated comprehension doc · Code Charter repo · presentation layer (packages/ui + packages/vscode).<br>
+    One of five generated comprehension docs. Describes the system as it is; file paths point at source for jump-through.
+  </footer>
+</main>
+</body>
+</html>
