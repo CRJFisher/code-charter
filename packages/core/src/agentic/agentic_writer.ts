@@ -17,10 +17,11 @@
  *     `proposal.descriptions`. (The combine step and the executor are 27.1.6's; this task ships the
  *     deterministic policy and the writer.)
  *
- * Preservation: descriptions go through the ladder (a user-owned description is skipped); a bridge
- * whose edge is user-owned (`layer='user'` or a user `adjudication`) or soft-deleted into the
- * re-attachment bin is never re-clobbered or resurrected. Cost ceiling: the bridge and description
- * COUNTS are the hard cost bound; `deadline_ms` is a coarse wall-clock guard that gates whether the
+ * Preservation: descriptions are agent-generated and written unconditionally at the agentic tier
+ * (resurrecting/overwriting; see `write_descriptions`); a bridge whose edge is user-owned
+ * (`layer='user'` or a user `adjudication`) or soft-deleted is never re-clobbered or resurrected. Cost
+ * ceiling: the bridge and description COUNTS are the hard cost bound; `deadline_ms` is a coarse
+ * wall-clock guard that gates whether the
  * (already-resolved) description rows are written — the expensive model-time budget lives in 27.1.6's
  * executor, not here. Every truncation is logged and reported (no silent cap).
  */
@@ -55,7 +56,7 @@ export const DEFAULT_AGENTIC_WRITER_LIMITS: AgenticWriterLimits = {
 export interface AgenticWriteReport {
   bridges_written: number;
   descriptions_written: number;
-  /** Bridge keys / description symbol_paths preserved because they are user-owned or binned. */
+  /** Bridge keys preserved because they are user-owned, adjudicated, or soft-deleted. */
   preserved: string[];
   /** One entry per capped collection. */
   truncated: Array<{ kind: "bridges" | "descriptions"; requested: number; written: number }>;
@@ -131,7 +132,6 @@ export function write_agentic_substrate(
   }
   const desc_result = write_descriptions(store, descriptions);
   report.descriptions_written = desc_result.written.length;
-  report.preserved.push(...desc_result.skipped);
 
   return report;
 }

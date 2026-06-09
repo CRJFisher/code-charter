@@ -6,14 +6,12 @@
 
 // MCP surface
 export { build_drift_server } from "./mcp/build_drift_server";
-export { drift_list, drift_next, drift_resolve } from "./mcp/drift_tool";
+export { drift_resolve } from "./mcp/drift_tool";
 export type { DriftResolution, DriftResolveResult, DriftTargetKind, DriftToolContext } from "./mcp/drift_tool";
-export { re_attachment_bin, re_attachment_bin_size } from "./mcp/re_attachment_bin";
-export type { DriftBinEntry, DriftCandidate } from "./mcp/re_attachment_bin";
 export { make_append_logger, now_iso } from "./mcp/call_log";
 export type { DriftCallLogEntry, LogCall } from "./mcp/call_log";
 export { resolve_db_path } from "./mcp/resolve_db_path";
-export { DRIFT_SERVER_NAME, TOOL_DRIFT_LIST, TOOL_DRIFT_NEXT, TOOL_DRIFT_RESOLVE } from "./mcp/tool_names";
+export { DRIFT_SERVER_NAME, TOOL_DRIFT_RESOLVE } from "./mcp/tool_names";
 
 // Hooks
 export { decide_stop_action, build_reconcile_instruction, RECONCILER_AGENT_NAME } from "./hooks/stop_decision";

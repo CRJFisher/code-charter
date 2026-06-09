@@ -75,48 +75,42 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     );
   });
 
-  it("preserves a user-edited description across re-sync (AC#6)", async () => {
+  it("does not regenerate an unchanged member's description on an unrelated re-sync (content-hash cost guard, AC#6)", async () => {
     await run(["main.ts"]);
     const helper_desc_id = `${DESCRIPTION_NODE_KIND}:main.ts#helper:function`;
-    // The user renames the meaning of helper's description (promotes the field to the user tier).
-    store.write_fields({ kind: "node", id: helper_desc_id }, { description: "MY HAND-WRITTEN NOTE" }, "user");
+    const before = store.node(helper_desc_id)!;
+    expect(before.attributes.description_hash).toBeDefined();
 
-    // Re-sync after an unrelated body edit to main.
+    // Re-sync after an unrelated body edit to main; helper's body is unchanged, so the content-hash
+    // guard skips re-describing it and its description node is left untouched.
     write("main.ts", MAIN_SRC.replace("+ 2", "+ 3"));
     await run(["main.ts"]);
 
-    const desc = store.node(helper_desc_id);
-    expect(desc?.attributes.description).toBe("MY HAND-WRITTEN NOTE");
-    expect(desc?.field_ownership.description).toBe("user");
+    const after = store.node(helper_desc_id)!;
+    expect(after.attributes.description).toBe(before.attributes.description);
+    expect(after.attributes.description_hash).toBe(before.attributes.description_hash);
   });
 
-  it("carries a user label across an id change and strands the old flow into the bin (AC#9 remap)", async () => {
-    // entry + two helpers: a later rename of the entrypoint shares 2/4 members → 0.5 overlap (remap fires).
+  it("retires a superseded flow when its entrypoint is renamed, re-hydrating a fresh flow under the new id", async () => {
     const v1 = "export function entry() { return h1() + h2(); }\n\nfunction h1() { return 1; }\n\nfunction h2() { return 2; }\n";
     write("main.ts", v1);
     await run(["main.ts"]);
     const old_id = read_persisted_flows(store)[0].node.id;
     expect(old_id).toContain("entry:function");
-    // The user renames the flow.
-    store.write_fields({ kind: "node", id: old_id }, { label: "My Important Flow" }, "user");
 
-    // Rename the entrypoint: flow id changes, but h1/h2 carry over → >=50% overlap → remap.
+    // Rename the entrypoint: the flow id changes, so the old flow is retired and a fresh flow hydrates.
     write("main.ts", v1.replace(/entry/g, "entry_renamed"));
     await run(["main.ts"]);
 
     const live = read_persisted_flows(store);
     expect(live).toHaveLength(1); // old id superseded, new id is the only live flow
-    const remapped = live[0];
-    expect(remapped.node.id).toContain("entry_renamed:function");
-    // The user label carried across AND is user-owned, so a future agentic pass cannot overwrite it.
-    expect(remapped.node.attributes.label).toBe("My Important Flow");
-    expect(remapped.node.field_ownership.label).toBe("user");
-    // The old flow is stranded in the re-attachment bin (recoverable), not silently dropped.
+    expect(live[0].node.id).toContain("entry_renamed:function");
+    // The old flow is retired (soft-deleted), not left live and stale.
     const old = store.all_nodes({ include_deleted: true }).find((n) => n.id === old_id);
     expect(old?.deleted_at).not.toBeNull();
   });
 
-  it("re-syncs in place and advances last_synced_at without duplicating the flow (AC#1/#9)", async () => {
+  it("re-syncs in place and advances last_synced_at without duplicating the flow (AC#1)", async () => {
     await run(["main.ts"]);
     const flow_id = read_persisted_flows(store)[0].node.id;
     const first = read_persisted_flow(store, flow_id)!.node.attributes.last_synced_at as string;
@@ -128,6 +122,6 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     expect(flows).toHaveLength(1);
     const second = flows[0].node.attributes.last_synced_at as string;
     expect(second > first).toBe(true);
-    expect(flows[0].node.attributes.anchor_set_hash).toBeDefined();
+    expect(flows[0].node.attributes.anchor_set).toBeDefined();
   });
 });

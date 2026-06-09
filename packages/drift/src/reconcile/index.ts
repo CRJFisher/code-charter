@@ -13,8 +13,6 @@ export type { FlowRelevancePartition } from "./flow_relevance";
 export { affected_persisted_flows } from "./affected_flows";
 export { read_persisted_flow, read_persisted_flows, write_flow } from "./flow_store";
 export type { PersistedFlow, WriteFlowArgs } from "./flow_store";
-export { anchor_set_hash, match_existing_flow, REMAP_OVERLAP_THRESHOLD } from "./flow_identity";
-export type { FlowMatch } from "./flow_identity";
 export { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
 export type { CodeUmbrella, SkillUmbrella, Umbrella } from "./hydrate";
 export { resolve_descriptions, null_describe_executor } from "./describe";

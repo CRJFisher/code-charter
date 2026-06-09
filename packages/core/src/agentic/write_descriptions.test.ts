@@ -53,37 +53,17 @@ describe("write_descriptions (AC#3)", () => {
     expect(node.field_ownership.description).toBe("agentic");
   });
 
-  it("preserves a user-owned description (user override wins)", () => {
-    const id = description_node_id(symbol_path_of(COMPUTE_V1));
-    store.upsert_node({
-      id,
-      kind: "agentic.description",
-      path: FILE,
-      anchor: anchor_string_of(COMPUTE_V1),
-      layer: "agentic",
-      attributes: {},
-      field_ownership: {},
-      origin: "test",
-      intent_source: "code-edit",
-      deleted_at: null,
-    });
-    store.write_fields({ kind: "node", id }, { description: "hand-written by the user" }, "user");
-
-    const result = write_descriptions(store, [description_for(COMPUTE_V1, "regenerated default")]);
-    expect(result.skipped).toContain(symbol_path_of(COMPUTE_V1));
-    const node = store.node(id)!;
-    expect(node.attributes.description).toBe("hand-written by the user");
-    expect(node.layer).toBe("user"); // not demoted by the agentic write
-  });
-
-  it("does not resurrect a soft-deleted (binned) description side-node", () => {
+  it("resurrects a soft-deleted side-node and overwrites its content (descriptions are agent-generated)", () => {
     write_descriptions(store, [description_for(COMPUTE_V1, "first")]);
     const id = description_node_id(symbol_path_of(COMPUTE_V1));
     store.soft_delete({ kind: "node", id });
 
     const result = write_descriptions(store, [description_for(COMPUTE_V1, "regenerated")]);
-    expect(result.skipped).toContain(symbol_path_of(COMPUTE_V1));
-    expect(store.node(id)).toBeUndefined(); // still binned, not re-created live
+    expect(result.written).toContain(symbol_path_of(COMPUTE_V1));
+    const node = store.node(id)!;
+    expect(node.deleted_at).toBeNull(); // resurrected live, not left binned
+    expect(node.layer).toBe("agentic");
+    expect(node.attributes.description).toBe("regenerated"); // overwritten with the fresh text
   });
 
   it("survives re-extraction of its file and re-anchors when the symbol is renamed", () => {

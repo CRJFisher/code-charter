@@ -47,16 +47,12 @@ export {
   derive_code_state,
   format_anchor,
   parse_anchor,
-  rank_candidates,
   resolve_anchor,
   resolver_symbols_from_ariadne,
 } from "./resolver";
 export type {
   AnchoredSymbol,
   AriadneFileInput,
-  CandidateReason,
-  RankCandidatesOptions,
-  RankedCandidate,
   ResolverIndex,
   ResolverSymbol,
 } from "./resolver";
