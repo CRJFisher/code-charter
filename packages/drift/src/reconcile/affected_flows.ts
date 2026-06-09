@@ -13,12 +13,12 @@
  * Together: re-sync iff the flow's body OR membership drifted this turn. A whitespace/comment edit that
  * changes no member body and no membership matches neither trigger → the flow is a no-op (AC#4).
  *
- * A flow with no live code seed is not a re-sync candidate here. This covers two cases uniformly: a skill
- * (doc) flow — its members are doc ids outside the call graph, re-synced via the touched-skill-root join
- * in `reconcile`; and a seed-gone code flow — whose lifecycle (a rename carries its content across via the
- * ≥50% overlap remap in the hydrate step, a deletion is left to that same path) is owned downstream, not
- * force-stranded here. Without this guard, `paths_of(∅)` ≠ the stored `anchor_set` would fire (b) on both
- * and pull them in spuriously.
+ * A flow with no live code seed never reaches the (a)/(b) triggers (`paths_of(∅)` ≠ the stored
+ * `anchor_set` would otherwise fire (b) spuriously); the two zero-seed shapes are split by whether the
+ * flow enumerates member edges. A skill (doc) flow enumerates its doc members as edges and is re-synced
+ * via the touched-skill-root join in `reconcile`, so it is left alone. A seed-gone code flow has no
+ * member edges (code members are induced from the seeds) and is superseded — it is surfaced so
+ * `resync_persisted_flow` retires it (soft-delete), a renamed seed re-hydrating as a fresh flow.
  */
 
 import type { CallGraph, SymbolId } from "@ariadnejs/types";
@@ -41,8 +41,14 @@ export function affected_persisted_flows(
       { flow_node: flow.node, member_edges: flow.member_edges, bridge_edges: flow.bridge_edges },
       graph,
     );
-    // No live code seed → not a re-sync candidate here (skill/doc flow, or seed-gone code flow).
-    if (membership.seeds.length === 0) return false;
+    // No live code seed: split the two zero-seed shapes. A skill/doc flow enumerates its members as
+    // edges and is re-synced via the touched-skill-root join in `reconcile`, so leave it alone. A
+    // seed-gone CODE flow has no member edges (code members are induced from the seeds, never
+    // enumerated) and is superseded — surface it so `resync_persisted_flow` retires it (soft-delete).
+    if (membership.seeds.length === 0) {
+      const is_seed_gone_code_flow = flow.member_edges.length === 0;
+      return is_seed_gone_code_flow;
+    }
 
     const members = induce_members(membership, graph);
 

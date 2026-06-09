@@ -123,7 +123,7 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   for (const [index, umbrella] of new_code.entries()) {
     const full = index < MAX_FULL_CODE_HYDRATIONS;
     outcomes.push(
-      await hydrate_code_flow(deps, umbrella, graph, { allow_remap: true, describe: full, relocated_targets }),
+      await hydrate_code_flow(deps, umbrella, graph, { describe: full, relocated_targets }),
     );
     handled.add(umbrella.id);
   }
@@ -146,11 +146,11 @@ async function resync_persisted_flow(
 ): Promise<FlowOutcome | undefined> {
   const seeds = stored_seed_symbol_ids(flow, graph);
   if (seeds.length === 0) {
-    // The seed entrypoint is gone (deleted/renamed away). Strand the flow into the re-attachment bin so
-    // it is recoverable (never silently left live and stale); a renamed seed re-hydrates as a new flow,
-    // and the ≥50% overlap remap carries the user's content across.
+    // The seed entrypoint is gone (deleted, or renamed away). The flow is superseded, so retire it
+    // (soft-delete) rather than leave it live and stale; a renamed seed re-hydrates as a fresh flow
+    // under its new id.
     deps.store.soft_delete({ kind: "node", id: flow.node.id });
-    deps.log(`stranded flow ${flow.node.id} (seed entrypoint gone) → re-attachment bin`);
+    deps.log(`retired flow ${flow.node.id} (seed entrypoint gone)`);
     return undefined;
   }
   const umbrella: CodeUmbrella = {
@@ -160,7 +160,7 @@ async function resync_persisted_flow(
     seeds,
   };
   return {
-    ...(await hydrate_code_flow(deps, umbrella, graph, { allow_remap: false, relocated_targets })),
+    ...(await hydrate_code_flow(deps, umbrella, graph, { relocated_targets })),
     action: "resync",
   };
 }

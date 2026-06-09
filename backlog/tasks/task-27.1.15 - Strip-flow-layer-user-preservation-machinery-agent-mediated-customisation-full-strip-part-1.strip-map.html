@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strip part 1 — flow-layer preservation machinery · removed vs kept</title>
+<style>
+  :root{
+    --ivory:#f7f3ec; --slate:#2b2a26; --clay:#b6603a; --olive:#6f7a3f;
+    --oat:#e7dfd0; --rust:#a23b24; --gray-100:#efeae1; --gray-300:#cfc7b8;
+    --gray-500:#8d8576; --gray-700:#534f46;
+    --serif: ui-serif,Georgia,"Times New Roman",serif;
+    --sans: ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --r:12px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);line-height:1.55;font-size:16px}
+  main{width:90%;max-width:1600px;margin-inline:auto;padding:0 0 6rem}
+  .prose{max-width:68ch}
+  h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.15;letter-spacing:-.01em}
+  h1{font-size:2.1rem;margin:.2rem 0 .4rem}
+  h2{font-size:1.5rem;margin:0 0 .2rem}
+  h3{font-size:1.12rem;margin:0 0 .4rem}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;color:var(--clay);font-weight:600}
+  a{color:var(--rust)}
+  code{font-family:var(--mono);font-size:.85em;background:var(--gray-100);padding:.08em .35em;border-radius:5px;border:1px solid var(--gray-300)}
+  section{scroll-margin-top:118px;padding-top:2.4rem}
+
+  /* sticky bars */
+  nav.outline{position:sticky;top:0;z-index:9;background:var(--oat);border-bottom:1px solid var(--gray-300);width:100%}
+  nav.outline .inner{width:90%;max-width:1600px;margin-inline:auto;display:flex;flex-wrap:wrap;gap:.4rem;padding:.55rem 0}
+  nav.outline a{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;text-decoration:none;color:var(--gray-700);
+    border:1px solid var(--gray-300);background:var(--ivory);padding:.3rem .6rem;border-radius:999px}
+  nav.outline a:hover,nav.outline a.active{background:var(--slate);color:var(--ivory);border-color:var(--slate)}
+
+  header.hero{padding:2.4rem 0 1.4rem}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem}
+  .chip{font-family:var(--mono);font-size:.72rem;background:var(--gray-100);border:1px solid var(--gray-300);border-radius:999px;padding:.28rem .6rem}
+  .chip strong{color:var(--clay)}
+
+  .callout{border-left:4px solid var(--clay);background:var(--gray-100);border-radius:0 var(--r) var(--r) 0;padding:1rem 1.2rem;margin:1.2rem 0}
+  .callout .k{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:.7rem;color:var(--clay);font-weight:700;display:block;margin-bottom:.3rem}
+  .callout.invert{background:var(--slate);color:var(--ivory);border-left-color:var(--olive)}
+  .callout.invert .k{color:var(--olive)}
+  .callout.invert code{background:#3c3a34;border-color:#4a473f;color:#e9e3d6}
+
+  .prompt{border:1px dashed var(--gray-300);border-radius:var(--r);padding:1rem 1.2rem;margin:1.4rem 0;background:#fcfaf5}
+  .prompt .label{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:.68rem;color:var(--gray-500);font-weight:700}
+  .prompt p{margin:.4rem 0 0;font-family:var(--serif);font-size:1.02rem;font-style:italic;color:var(--gray-700)}
+
+  /* removed/kept legend */
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin:.6rem 0 1.2rem;font-family:var(--mono);font-size:.74rem}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block;flex:none}
+  .dot.rm{background:var(--rust)}
+  .dot.keep{background:var(--olive)}
+  .dot.fix{background:var(--clay)}
+
+  /* the big two-column removed-vs-kept map */
+  .map{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;margin:1rem 0}
+  .map .col{border:1px solid var(--gray-300);border-radius:var(--r);overflow:hidden;background:#fff}
+  .map .col h3{margin:0;padding:.7rem 1rem;font-family:var(--mono);font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#fff}
+  .map .col.removed h3{background:var(--rust)}
+  .map .col.kept h3{background:var(--olive)}
+  .map .row{display:grid;grid-template-columns:14px 1fr;gap:.6rem;padding:.7rem 1rem;border-top:1px solid var(--gray-100);align-items:start}
+  .map .row:first-of-type{border-top:none}
+  .map .row .g{margin-top:.32rem}
+  .map .row .name{font-family:var(--mono);font-size:.82rem;font-weight:600}
+  .map .row .name.struck{text-decoration:line-through;text-decoration-color:var(--rust);text-decoration-thickness:2px}
+  .map .row .desc{font-size:.85rem;color:var(--gray-700);margin-top:.15rem}
+  .map .row .loc{font-family:var(--mono);font-size:.7rem;color:var(--gray-500);margin-top:.2rem}
+  .pairline{font-size:.85rem;color:var(--gray-700)}
+
+  /* paired contrast rows */
+  .pairs{display:grid;gap:.7rem;margin:1rem 0}
+  .pair{display:grid;grid-template-columns:1fr 30px 1fr;gap:.6rem;align-items:center;border:1px solid var(--gray-300);border-radius:var(--r);background:#fff;padding:.75rem 1rem}
+  .pair .side{display:flex;flex-direction:column;gap:.2rem}
+  .pair .tag{font-family:var(--mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em}
+  .pair .goes .tag{color:var(--rust)} .pair .stays .tag{color:var(--olive)}
+  .pair .v{font-family:var(--mono);font-size:.82rem;font-weight:600}
+  .pair .goes .v{text-decoration:line-through;text-decoration-color:var(--rust)}
+  .pair .arrow{font-family:var(--mono);color:var(--gray-500);text-align:center;font-size:1.1rem}
+  .pair .why{font-size:.8rem;color:var(--gray-700);grid-column:1 / -1;border-top:1px dashed var(--gray-300);padding-top:.45rem;margin-top:.2rem}
+
+  /* seam diagrams */
+  .diagram{width:100%;background:#fff;border:1px solid var(--gray-300);border-radius:var(--r);padding:1.1rem;margin:1rem 0}
+  .diagram svg{width:100%;height:auto;display:block}
+  .seam-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+  .seam{border:1px solid var(--gray-300);border-radius:var(--r);background:#fff;overflow:hidden}
+  .seam .head{padding:.6rem 1rem;font-family:var(--mono);font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:#fff;display:flex;justify-content:space-between}
+  .seam.before .head{background:var(--gray-700)}
+  .seam.after .head{background:var(--olive)}
+  .seam .body{padding:1rem}
+  .seam svg{width:100%;height:auto;display:block}
+
+  /* code panels */
+  .code{background:#262420;border-radius:var(--r);overflow:hidden;margin:1rem 0;border:1px solid #3a372f}
+  .code .file{font-family:var(--mono);font-size:.72rem;color:#b9b09c;background:#1d1b17;padding:.5rem .9rem;border-bottom:1px solid #3a372f;display:flex;justify-content:space-between}
+  .code .file .badge{color:#e0d8c6}
+  .code pre{margin:0;padding:.9rem 1rem;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.55;color:#e7dfce}
+  .kw{color:#d98a63} .str{color:#9aa86a} .cm{color:#7d776a;font-style:italic} .fn{color:#e3c07b} .hl{color:#fff;font-weight:600}
+  .add{display:inline-block;width:100%;background:rgba(111,122,63,.28)}
+  .del{display:inline-block;width:100%;background:rgba(162,59,36,.30);text-decoration:line-through;text-decoration-color:#c96a52}
+
+  footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--gray-300);font-family:var(--mono);font-size:.72rem;color:var(--gray-500)}
+
+  @media(max-width:820px){
+    .map,.seam-grid{grid-template-columns:1fr}
+    .pair{grid-template-columns:1fr}
+    .pair .arrow{transform:rotate(90deg)}
+  }
+</style>
+</head>
+<body>
+
+<nav class="outline" aria-label="Section outline">
+  <div class="inner">
+    <a href="#why">Why safe now</a>
+    <a href="#map">Removed vs kept</a>
+    <a href="#pairs">Adjacency pairs</a>
+    <a href="#seam-a">Seam A · flow identity</a>
+    <a href="#seam-b">Seam B · descriptions</a>
+    <a href="#boundary">Part 1 / Part 2</a>
+  </div>
+</nav>
+
+<main>
+  <header class="hero">
+    <div class="eyebrow">Task 27.1.15 · drift · simplification · shipped + reviewed</div>
+    <h1>Stripping the flow-layer preservation machinery</h1>
+    <p class="prose">Customisation is agent-mediated: the agent regenerates and re-applies descriptions and chart edits. No diagram layer holds direct human byte-edits that an agentic pass must avoid clobbering. The recovery apparatus built across task&nbsp;27.1 to protect those edits therefore guards a state that cannot occur. This is the case for deleting it, the exact removed-vs-kept boundary, and the two seams that change shape.</p>
+    <div class="meta">
+      <span class="chip"><strong>part 1 of 2</strong> · flow layer + recovery surface</span>
+      <span class="chip">package <strong>@code-charter/drift</strong> + one core writer</span>
+      <span class="chip">8 acceptance criteria · no shims</span>
+    </div>
+  </header>
+
+  <div class="prompt">
+    <span class="label">The premise being acted on</span>
+    <p>At the flow layer, node descriptions are agent-generated at flow creation; the layer has no user-customisable fields. Customisation at the higher flow-chart layer is agent-mediated too — so no layer holds direct human byte-edits an agentic pass must not overwrite.</p>
+  </div>
+
+  <!-- ============ WHY SAFE ============ -->
+  <section id="why">
+    <div class="eyebrow">1 · The argument</div>
+    <h2>Why this is safe to delete now</h2>
+    <p class="prose">Every removed piece exists to answer one question: <em>"a human edited this diagram by hand — how do we carry that edit across a code change without clobbering it?"</em> The machinery below traces that single intent through the flow layer.</p>
+
+    <div class="diagram" role="img" aria-label="The protected state cannot occur: agent-mediated customisation means no layer holds direct human byte-edits, so the preservation chain guards nothing.">
+      <svg viewBox="0 0 1080 270">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#534f46"/>
+          </marker>
+          <marker id="arx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#a23b24"/>
+          </marker>
+        </defs>
+        <!-- premise box -->
+        <rect x="20" y="95" width="250" height="80" rx="10" fill="#e7dfd0" stroke="#cfc7b8"/>
+        <text x="145" y="125" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="600" fill="#2b2a26">Agent-mediated</text>
+        <text x="145" y="145" text-anchor="middle" font-family="ui-sans-serif" font-size="14" font-weight="600" fill="#2b2a26">customisation</text>
+        <text x="145" y="163" text-anchor="middle" font-family="ui-monospace" font-size="10.5" fill="#8d8576">agent re-applies edits</text>
+
+        <line x1="270" y1="135" x2="330" y2="135" stroke="#534f46" stroke-width="2" marker-end="url(#ar)"/>
+
+        <!-- conclusion: no human edit on a layer -->
+        <rect x="332" y="95" width="270" height="80" rx="10" fill="#fff" stroke="#cfc7b8"/>
+        <text x="467" y="121" text-anchor="middle" font-family="ui-sans-serif" font-size="13.5" fill="#2b2a26">No layer holds a direct</text>
+        <text x="467" y="139" text-anchor="middle" font-family="ui-sans-serif" font-size="13.5" fill="#2b2a26">human byte-edit</text>
+        <text x="467" y="160" text-anchor="middle" font-family="ui-monospace" font-size="10.5" fill="#8d8576">the protected state</text>
+
+        <line x1="602" y1="135" x2="662" y2="135" stroke="#a23b24" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arx)"/>
+
+        <!-- machinery guarding nothing -->
+        <rect x="664" y="40" width="396" height="190" rx="10" fill="#f7f3ec" stroke="#a23b24" stroke-dasharray="5 4"/>
+        <text x="862" y="64" text-anchor="middle" font-family="ui-monospace" font-size="11" font-weight="700" fill="#a23b24" letter-spacing="1">GUARDS A STATE THAT CANNOT OCCUR → DELETED</text>
+        <g font-family="ui-monospace" font-size="11.5" fill="#534f46">
+          <text x="684" y="92">· flow-layer user-tier writes</text>
+          <text x="684" y="114">· ≥50% overlap identity remap</text>
+          <text x="684" y="136">· carried-label re-stamp</text>
+          <text x="684" y="158">· re-attachment bin</text>
+          <text x="684" y="180">· drift.list / drift.next + reattach/delete arms</text>
+          <text x="684" y="202">· SessionStart bin banner</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="callout">
+      <span class="k">The core claim</span>
+      The remap, the bin, and the user-tier writes are a chain whose only payload is <em>a hand-authored label or pin</em>. When the agent authors and re-applies that label, there is nothing to carry — the chain has no payload, so it is pure surplus. Removing it cannot lose a human edit, because no human edit lands on a flow layer.
+    </div>
+  </section>
+
+  <!-- ============ REMOVED VS KEPT MAP ============ -->
+  <section id="map">
+    <div class="eyebrow">2 · The boundary</div>
+    <h2>Removed vs kept — by symbol and module</h2>
+    <div class="legend">
+      <span><span class="dot rm"></span> removed entirely</span>
+      <span><span class="dot keep"></span> stays untouched</span>
+      <span><span class="dot fix"></span> changed (footgun fix)</span>
+    </div>
+
+    <div class="map">
+      <div class="col removed">
+        <h3>Removed</h3>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">flow_identity.ts</div>
+          <div class="desc">The whole module: <code>match_existing_flow</code>, <code>jaccard</code>, <code>REMAP_OVERLAP_THRESHOLD</code>, <code>FlowMatch</code>, <code>anchor_set_hash</code>.</div>
+          <div class="loc">packages/drift/src/reconcile/flow_identity.ts · deleted</div>
+        </div></div>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">apply_remap · restamp_carried_label · RemapResult.label</div>
+          <div class="desc">The carried-label half of hydrate; the <code>allow_remap</code> option on both hydrate entry points.</div>
+          <div class="loc">packages/drift/src/reconcile/hydrate.ts</div>
+        </div></div>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">write_flow user-promoted branch</div>
+          <div class="desc">The <code>existing.layer !== 'user'</code> ladder → an unconditional <code>upsert_node</code>; the <code>anchor_set_hash</code> field on the node.</div>
+          <div class="loc">flow_store.ts:79–97</div>
+        </div></div>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">re_attachment_bin.ts</div>
+          <div class="desc">The whole bin query — entries, candidate ranking, <code>re_attachment_bin_size</code>, <code>live_anchored_targets</code>.</div>
+          <div class="loc">packages/drift/src/mcp/re_attachment_bin.ts · deleted</div>
+        </div></div>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">drift_list · drift_next</div>
+          <div class="desc">Both MCP tools; the <code>reattach</code> and <code>delete</code> arms of <code>drift_resolve</code> + <code>reattach_onto_target</code>; their <code>build_drift_server</code> registrations &amp; <code>tool_names</code> entries.</div>
+          <div class="loc">drift_tool.ts · build_drift_server.ts · tool_names.ts</div>
+        </div></div>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">rank_candidates.ts</div>
+          <div class="desc">Dead once the bin is gone — its only caller was the bin's candidate ranking.</div>
+          <div class="loc">packages/core/src/resolver/rank_candidates.ts · deleted</div>
+        </div></div>
+        <div class="row"><span class="dot rm g"></span><div>
+          <div class="name struck">SessionStart bin banner</div>
+          <div class="desc">The bin half of the banner (the reanchor/outstanding-drift half stays in part 1).</div>
+          <div class="loc">hooks/session_start_banner.ts · bin/drift_session_start.ts</div>
+        </div></div>
+      </div>
+
+      <div class="col kept">
+        <h3>Kept untouched</h3>
+        <div class="row"><span class="dot keep g"></span><div>
+          <div class="name">anchor_set <span style="font-weight:400;color:var(--gray-500)">(the array)</span></div>
+          <div class="desc">The sorted member-set snapshot. Drives membership-drift re-sync in <code>affected_flows.ts</code>. Not user content — a structural fingerprint.</div>
+          <div class="loc">flow_store.ts · affected_flows.ts</div>
+        </div></div>
+        <div class="row"><span class="dot keep g"></span><div>
+          <div class="name">content-hash re-describe skip</div>
+          <div class="desc">A <strong>cost guard</strong> (skips an unchanged body's model call), not preservation. Stays.</div>
+          <div class="loc">describe pipeline</div>
+        </div></div>
+        <div class="row"><span class="dot keep g"></span><div>
+          <div class="name">seed-gone soft-delete</div>
+          <div class="desc"><code>resync_persisted_flow</code> still retires a flow whose dominant seed vanished — now plain retirement, no strand-into-bin. <code>affected_flows.ts</code> surfaces the seed-gone code flow that routes into it (see Seam A).</div>
+          <div class="loc">reconcile.ts:148–155 · affected_flows.ts</div>
+        </div></div>
+        <div class="row"><span class="dot keep g"></span><div>
+          <div class="name">drift_resolve {reanchor} arm</div>
+          <div class="desc">The relocation accept arm stays in part 1 (removed in part 2). <code>reanchor_node</code> / <code>outstanding_drift</code> live in core.</div>
+          <div class="loc">drift_tool.ts:144–156</div>
+        </div></div>
+        <div class="row"><span class="dot keep g"></span><div>
+          <div class="name">core user tier · field ladder · resolver · re_extract</div>
+          <div class="desc">The reconcile primitives in <code>@code-charter/core</code>. A part-2 + future-layer concern, not touched here.</div>
+          <div class="loc">packages/core</div>
+        </div></div>
+        <div class="row"><span class="dot fix g"></span><div>
+          <div class="name">write_descriptions</div>
+          <div class="desc"><strong>Changed:</strong> the binned-skip + <code>layer !== 'user'</code> branch collapses into a single <em>unconditional</em> <code>upsert_node({ … deleted_at: null })</code> — resurrect-and-overwrite in one step (see Seam B).</div>
+          <div class="loc">packages/core/src/agentic/write_descriptions.ts</div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADJACENCY PAIRS ============ -->
+  <section id="pairs">
+    <div class="eyebrow">3 · The trap to avoid</div>
+    <h2>Adjacent pairs — what goes, what its neighbour keeps</h2>
+    <p class="prose">Each removed piece sits beside a near-identical name that stays. These are the spots a careless strip would over-delete. Left side goes; right side stays.</p>
+
+    <div class="pairs">
+      <div class="pair">
+        <div class="side goes"><span class="tag">removed</span><span class="v">anchor_set_hash</span></div>
+        <div class="arrow">vs</div>
+        <div class="side stays"><span class="tag">kept</span><span class="v">anchor_set</span></div>
+        <div class="why">The <em>hash</em> is write-only — no reader (verify no webview/render consumer first). The <em>array</em> is read every turn by <code>affected_persisted_flows</code> to detect membership drift. Delete the hash field; keep the array.</div>
+      </div>
+      <div class="pair">
+        <div class="side goes"><span class="tag">removed from flow layer</span><span class="v">write_fields(…, 'user')</span></div>
+        <div class="arrow">vs</div>
+        <div class="side stays"><span class="tag">kept in core</span><span class="v">user tier · field ladder</span></div>
+        <div class="why">The flow layer makes <strong>zero</strong> user-tier writes after this (grep confirms). The core <code>user</code> tier and ladder primitives remain for part 2 and the future agent-mediated layer.</div>
+      </div>
+      <div class="pair">
+        <div class="side goes"><span class="tag">removed</span><span class="v">reattach · delete arms</span></div>
+        <div class="arrow">vs</div>
+        <div class="side stays"><span class="tag">kept (part 1)</span><span class="v">reanchor arm</span></div>
+        <div class="why"><code>drift_resolve</code> keeps only <code>reanchor</code>. The <code>reattach</code>/<code>delete</code> arms operated on bin entries — gone with the bin. (<code>reanchor</code> itself is removed in part 2.)</div>
+      </div>
+      <div class="pair">
+        <div class="side goes"><span class="tag">removed</span><span class="v">strand-into-bin</span></div>
+        <div class="arrow">vs</div>
+        <div class="side stays"><span class="tag">kept</span><span class="v">seed-gone soft-delete</span></div>
+        <div class="why">The soft-delete in <code>resync_persisted_flow</code> stays — but it is now plain retirement, no longer "strand into the re-attachment bin." A renamed entrypoint re-hydrates as a fresh flow.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SEAM A ============ -->
+  <section id="seam-a">
+    <div class="eyebrow">4a · Trickiest seam</div>
+    <h2>Flow identity on a renamed entrypoint</h2>
+    <p class="prose">The remap's sole job was to carry a user label across a flow-id change when the dominant seed got renamed. Without it, the question is: does the existing <strong>seed-gone soft-delete</strong> cover that case? It does — the renamed entrypoint simply re-hydrates as a fresh flow.</p>
+    <p class="prose">One reviewer-surfaced subtlety: for the seed-gone code flow to <em>reach</em> the soft-delete, it has to be surfaced as a re-sync candidate in the first place. <code>affected_persisted_flows</code> in <code>affected_flows.ts</code> now returns <code>flow.member_edges.length === 0</code> for a zero-seed flow — code flows induce their members from the seeds, so they carry no enumerated member edges (skill/doc flows do). That single predicate is what routes the superseded code flow into <code>resync_persisted_flow</code>, where it is retired.</p>
+
+    <div class="seam-grid">
+      <div class="seam before">
+        <div class="head"><span>Before · with remap</span><span>old</span></div>
+        <div class="body">
+          <svg viewBox="0 0 460 320" role="img" aria-label="Before: a renamed seed strands the old flow into the bin while the remap carries the user label across to the new flow.">
+            <defs>
+              <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#534f46"/></marker>
+              <marker id="a1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a23b24"/></marker>
+              <marker id="a1c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b6603a"/></marker>
+            </defs>
+            <rect x="20" y="20" width="180" height="50" rx="9" fill="#e7dfd0" stroke="#cfc7b8"/>
+            <text x="110" y="42" text-anchor="middle" font-family="ui-sans-serif" font-size="12.5" fill="#2b2a26">seed renamed</text>
+            <text x="110" y="59" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">flow id changes</text>
+
+            <line x1="110" y1="70" x2="110" y2="100" stroke="#534f46" stroke-width="1.8" marker-end="url(#a1)"/>
+            <path d="M110 105 a9 9 0 1 0 .1 0" fill="none" stroke="#534f46" stroke-width="1.8"/>
+            <text x="128" y="118" font-family="ui-sans-serif" font-size="11.5" fill="#2b2a26">match_existing_flow ≥50%?</text>
+
+            <line x1="110" y1="123" x2="110" y2="150" stroke="#534f46" stroke-width="1.8" marker-end="url(#a1)"/>
+            <rect x="20" y="152" width="200" height="60" rx="9" fill="#fff" stroke="#cfc7b8"/>
+            <text x="120" y="176" text-anchor="middle" font-family="ui-sans-serif" font-size="12" fill="#2b2a26">old flow → soft-delete</text>
+            <text x="120" y="194" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#a23b24">stranded into the BIN</text>
+
+            <line x1="220" y1="182" x2="300" y2="182" stroke="#a23b24" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#a1r)"/>
+            <rect x="302" y="152" width="138" height="60" rx="9" fill="#f7f3ec" stroke="#a23b24" stroke-dasharray="4 3"/>
+            <text x="371" y="178" text-anchor="middle" font-family="ui-monospace" font-size="10.5" fill="#a23b24">re-attachment</text>
+            <text x="371" y="194" text-anchor="middle" font-family="ui-monospace" font-size="10.5" fill="#a23b24">bin</text>
+
+            <line x1="120" y1="212" x2="120" y2="244" stroke="#b6603a" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#a1c)"/>
+            <rect x="20" y="246" width="280" height="58" rx="9" fill="#fff" stroke="#b6603a"/>
+            <text x="160" y="270" text-anchor="middle" font-family="ui-sans-serif" font-size="12" fill="#2b2a26">new flow + restamp user label</text>
+            <text x="160" y="288" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#b6603a">carried-label re-stamp ('user')</text>
+          </svg>
+          <p style="font-size:.8rem;color:var(--gray-700);margin:.6rem 0 0">Four moving parts to carry a label nobody hand-authored.</p>
+        </div>
+      </div>
+
+      <div class="seam after">
+        <div class="head"><span>After · plain retirement</span><span>new</span></div>
+        <div class="body">
+          <svg viewBox="0 0 460 360" role="img" aria-label="After: affected_flows surfaces the zero-member-edge code flow, the renamed seed soft-deletes the old flow as plain retirement, and the renamed entrypoint re-hydrates as a fresh flow with an agent-generated label.">
+            <defs>
+              <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#534f46"/></marker>
+              <marker id="a2o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6f7a3f"/></marker>
+            </defs>
+            <rect x="20" y="14" width="180" height="50" rx="9" fill="#e7dfd0" stroke="#cfc7b8"/>
+            <text x="110" y="36" text-anchor="middle" font-family="ui-sans-serif" font-size="12.5" fill="#2b2a26">seed renamed</text>
+            <text x="110" y="53" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">flow id changes</text>
+
+            <line x1="110" y1="64" x2="110" y2="92" stroke="#534f46" stroke-width="1.8" marker-end="url(#a2)"/>
+            <rect x="20" y="94" width="240" height="58" rx="9" fill="#fff" stroke="#6f7a3f"/>
+            <text x="140" y="118" text-anchor="middle" font-family="ui-sans-serif" font-size="12" fill="#2b2a26">affected_persisted_flows surfaces it</text>
+            <text x="140" y="136" text-anchor="middle" font-family="ui-monospace" font-size="9.5" fill="#6f7a3f">member_edges.length === 0 → code flow</text>
+
+            <line x1="110" y1="152" x2="110" y2="180" stroke="#534f46" stroke-width="1.8" marker-end="url(#a2)"/>
+            <rect x="20" y="182" width="240" height="58" rx="9" fill="#fff" stroke="#6f7a3f"/>
+            <text x="140" y="206" text-anchor="middle" font-family="ui-sans-serif" font-size="12" fill="#2b2a26">old flow → soft-delete</text>
+            <text x="140" y="224" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#6f7a3f">plain retirement · no bin · no restamp</text>
+
+            <line x1="110" y1="240" x2="110" y2="268" stroke="#6f7a3f" stroke-width="1.8" marker-end="url(#a2o)"/>
+            <rect x="20" y="270" width="280" height="62" rx="9" fill="#f3f5ea" stroke="#6f7a3f"/>
+            <text x="160" y="295" text-anchor="middle" font-family="ui-sans-serif" font-size="12" fill="#2b2a26">renamed entrypoint re-hydrates</text>
+            <text x="160" y="314" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#6f7a3f">fresh flow · agent-generated label</text>
+
+            <rect x="320" y="94" width="120" height="146" rx="9" fill="#f7f3ec" stroke="#cfc7b8" stroke-dasharray="4 3"/>
+            <text x="380" y="150" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">no human</text>
+            <text x="380" y="166" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">label to</text>
+            <text x="380" y="182" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">carry —</text>
+            <text x="380" y="198" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">agent</text>
+            <text x="380" y="214" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">re-applies</text>
+          </svg>
+          <p style="font-size:.8rem;color:var(--gray-700);margin:.6rem 0 0">affected_flows routes the zero-seed code flow in; the seed-gone path retires it without stranding.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="code">
+      <div class="file"><span>packages/drift/src/reconcile/affected_flows.ts · affected_persisted_flows</span><span class="badge">routes the seed-gone code flow</span></div>
+<pre><span class="cm">// No live code seed: split the two zero-seed shapes. A skill/doc flow enumerates its</span>
+<span class="cm">// members, so it is touched via the skill-root join and left alone. A seed-gone CODE</span>
+<span class="cm">// flow has no member edges (code members are induced from the seeds) and is superseded —</span>
+<span class="cm">// surface it so resync_persisted_flow retires it; a renamed seed re-hydrates fresh.</span>
+<span class="kw">if</span> (membership.seeds.length === <span class="hl">0</span>) {
+  <span class="kw">const</span> is_seed_gone_code_flow = flow.member_edges.length === <span class="hl">0</span>;
+  <span class="kw">return</span> is_seed_gone_code_flow;
+}</pre>
+    </div>
+
+    <div class="code">
+      <div class="file"><span>packages/drift/src/reconcile/reconcile.ts · resync_persisted_flow</span><span class="badge">diff</span></div>
+<pre><span class="kw">if</span> (seeds.length === <span class="hl">0</span>) {
+<span class="del">  // Strand the flow into the re-attachment bin so it is recoverable;</span>
+<span class="del">  // a renamed seed re-hydrates and the ≥50% overlap remap carries the user's content across.</span>
+<span class="add">  // The seed entrypoint is gone (deleted/renamed away). Plain retirement — a renamed seed</span>
+<span class="add">  // simply re-hydrates as a fresh flow on the next pass; no content to carry, the agent re-applies it.</span>
+  deps.store.<span class="fn">soft_delete</span>({ kind: <span class="str">"node"</span>, id: flow.node.id });
+<span class="del">  deps.log(`stranded flow ${flow.node.id} (seed entrypoint gone) → re-attachment bin`);</span>
+<span class="add">  deps.log(`retired flow ${flow.node.id} (seed entrypoint gone)`);</span>
+  <span class="kw">return</span> <span class="kw">undefined</span>;
+}</pre>
+    </div>
+    <div class="callout">
+      <span class="k">Coverage check (AC#2)</span>
+      The remap covered exactly one case the soft-delete does not already: <em>carrying a user label across the id change</em>. Since no user label exists on a flow, that case is empty. Every other remap case (old flow disappears, new flow appears) is the seed-gone soft-delete + fresh hydrate, which already runs — once <code>affected_flows.ts</code> surfaces the zero-member-edge code flow into it. The path covers what the remap covered.
+    </div>
+  </section>
+
+  <!-- ============ SEAM B ============ -->
+  <section id="seam-b">
+    <div class="eyebrow">4b · Trickiest seam</div>
+    <h2>write_descriptions on a soft-deleted side-node</h2>
+    <p class="prose">Previously, when an <code>agentic.description</code> side-node sat soft-deleted (binned), <code>write_descriptions</code> <strong>skipped</strong> it — "leave it for <code>drift.resolve</code>." With <code>drift.resolve</code>'s reattach arm and the bin both gone, that skip would strand an agentic description forever. The shipped fix is simpler than a conditional restore: every side-node is upserted <em>unconditionally</em> with <code>deleted_at: null</code>, which resurrects a soft-deleted node and overwrites any prior content in one step — no <code>existing</code> lookup, no separate <code>store.restore</code> call.</p>
+
+    <div class="seam-grid">
+      <div class="seam before">
+        <div class="head"><span>Before · skip</span><span>footgun</span></div>
+        <div class="body">
+          <svg viewBox="0 0 460 240" role="img" aria-label="Before: a soft-deleted side-node causes write_descriptions to skip and leave it for drift.resolve.">
+            <defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#534f46"/></marker>
+            <marker id="b1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a23b24"/></marker></defs>
+            <rect x="20" y="20" width="200" height="50" rx="9" fill="#e7dfd0" stroke="#cfc7b8"/>
+            <text x="120" y="42" text-anchor="middle" font-family="ui-sans-serif" font-size="12.5" fill="#2b2a26">describe resolves new text</text>
+            <text x="120" y="59" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">for symbol_path</text>
+            <line x1="120" y1="70" x2="120" y2="98" stroke="#534f46" stroke-width="1.8" marker-end="url(#b1)"/>
+            <path d="M120 102 l34 26 l-34 26 l-34 -26 z" fill="#fff" stroke="#cfc7b8"/>
+            <text x="120" y="133" text-anchor="middle" font-family="ui-sans-serif" font-size="11" fill="#2b2a26">deleted_at != null?</text>
+            <line x1="154" y1="138" x2="250" y2="138" stroke="#a23b24" stroke-width="1.8" marker-end="url(#b1r)"/>
+            <text x="200" y="130" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#a23b24">yes</text>
+            <rect x="252" y="112" width="190" height="52" rx="9" fill="#f7f3ec" stroke="#a23b24"/>
+            <text x="347" y="135" text-anchor="middle" font-family="ui-sans-serif" font-size="11.5" fill="#a23b24">skipped.push()</text>
+            <text x="347" y="153" text-anchor="middle" font-family="ui-monospace" font-size="9.5" fill="#a23b24">"leave for drift.resolve"</text>
+            <line x1="347" y1="164" x2="347" y2="196" stroke="#a23b24" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#b1r)"/>
+            <text x="347" y="216" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#a23b24">never resolves → lost</text>
+          </svg>
+        </div>
+      </div>
+      <div class="seam after">
+        <div class="head"><span>After · unconditional upsert</span><span>fixed</span></div>
+        <div class="body">
+          <svg viewBox="0 0 460 240" role="img" aria-label="After: there is no branch — every side-node is upserted with deleted_at null, which resurrects a soft-deleted node and overwrites it onto the live symbol in one step.">
+            <defs><marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#534f46"/></marker>
+            <marker id="b2o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6f7a3f"/></marker></defs>
+            <rect x="20" y="20" width="200" height="50" rx="9" fill="#e7dfd0" stroke="#cfc7b8"/>
+            <text x="120" y="42" text-anchor="middle" font-family="ui-sans-serif" font-size="12.5" fill="#2b2a26">describe resolves new text</text>
+            <text x="120" y="59" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#8d8576">for symbol_path</text>
+            <line x1="120" y1="70" x2="120" y2="100" stroke="#6f7a3f" stroke-width="1.8" marker-end="url(#b2o)"/>
+            <text x="245" y="92" text-anchor="middle" font-family="ui-monospace" font-size="9.5" fill="#8d8576">no branch · no lookup</text>
+            <rect x="20" y="102" width="420" height="58" rx="9" fill="#f3f5ea" stroke="#6f7a3f"/>
+            <text x="230" y="127" text-anchor="middle" font-family="ui-sans-serif" font-size="12" fill="#2b2a26">upsert_node({ … deleted_at: null }) onto the live symbol</text>
+            <text x="230" y="146" text-anchor="middle" font-family="ui-monospace" font-size="9.5" fill="#6f7a3f">resurrects soft-deleted + overwrites in one step</text>
+            <line x1="230" y1="160" x2="230" y2="194" stroke="#6f7a3f" stroke-width="1.8" marker-end="url(#b2o)"/>
+            <text x="230" y="214" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#6f7a3f">regenerated, never lost</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="code">
+      <div class="file"><span>packages/core/src/agentic/write_descriptions.ts</span><span class="badge">diff</span></div>
+<pre><span class="cm">for (const item of ordered) {</span>
+  <span class="kw">const</span> id = <span class="fn">description_node_id</span>(item.symbol_path);
+<span class="del">  const existing = existing_by_id.get(id);</span>
+<span class="del">  if (existing?.deleted_at != null) {</span>
+<span class="del">    skipped.push(item.symbol_path); // in the re-attachment bin — leave it for drift.resolve</span>
+<span class="del">    continue;</span>
+<span class="del">  }</span>
+<span class="del">  // Re-upsert only when agentic-owned; never demote a user-promoted node.</span>
+<span class="del">  if (!existing || existing.layer !== "user") {</span>
+<span class="del">    store.upsert_node({ id, kind: DESCRIPTION_NODE_KIND, /* …anchor onto live symbol… */ });</span>
+<span class="del">  }</span>
+<span class="add">  // Always (re)write the side-node live at the agentic tier: deleted_at: null resurrects a</span>
+<span class="add">  // soft-deleted node and overwrites any prior content, so a stranded description is regenerated.</span>
+<span class="add">  store.upsert_node({</span>
+<span class="add">    id, kind: DESCRIPTION_NODE_KIND, path: item.file_path,</span>
+<span class="add">    anchor: format_anchor({ symbol_path: item.symbol_path, content_hash: item.content_hash }),</span>
+<span class="add">    layer: "agentic", attributes: {}, field_ownership: {}, origin: "describe-policy",</span>
+<span class="add">    intent_source: "code-edit", deleted_at: null,</span>
+<span class="add">  });</span>
+  store.<span class="fn">write_fields</span>({ kind: <span class="str">"node"</span>, id }, { description: item.text, description_hash: item.content_hash, description_source: item.source }, <span class="str">"agentic"</span>);
+  written.push(item.symbol_path);
+}</pre>
+    </div>
+    <div class="callout invert">
+      <span class="k">Why both branches collapse</span>
+      The <code>existing.layer !== 'user'</code> guard protected a user-promoted description node from demotion, and the <code>deleted_at != null</code> skip parked binned nodes for <code>drift.resolve</code>. At this layer descriptions are agentic-only and there is no bin to park into, so neither branch has a job — both go. The loop body is now a single unconditional <code>upsert_node({ … deleted_at: null })</code> with no <code>existing</code> lookup and no <code>store.restore</code> call. The <code>skipped</code> field is gone too: <code>WriteDescriptionsResult</code> is now just <code>{ written }</code>.
+    </div>
+  </section>
+
+  <!-- ============ BOUNDARY ============ -->
+  <section id="boundary">
+    <div class="eyebrow">5 · Scope discipline</div>
+    <h2>The part 1 / part 2 boundary</h2>
+    <p class="prose">This task deliberately leaves the core relocation/<code>reanchor</code> accept-dance intact. It is isolated into part 2 (task-27.1.15.1) so each blast radius is reviewable on its own.</p>
+
+    <div class="map">
+      <div class="col removed">
+        <h3>Part 1 (this task) removes</h3>
+        <div class="row"><span class="dot rm g"></span><div><div class="name">flow-layer user-tier writes + remap</div><div class="desc">The flow layer's preservation surface.</div></div></div>
+        <div class="row"><span class="dot rm g"></span><div><div class="name">re-attachment bin + rank_candidates</div><div class="desc">The recovery-product substrate.</div></div></div>
+        <div class="row"><span class="dot rm g"></span><div><div class="name">drift.list / drift.next + reattach/delete arms</div><div class="desc">The recovery MCP surface (server stays for the reanchor arm).</div></div></div>
+        <div class="row"><span class="dot rm g"></span><div><div class="name">SessionStart bin banner half</div><div class="desc">The bin announcement (reanchor half stays).</div></div></div>
+      </div>
+      <div class="col kept">
+        <h3>Part 2 (task-27.1.15.1) — NOT touched here</h3>
+        <div class="row"><span class="dot keep g"></span><div><div class="name">re_extract relocated→stage-drift branch</div><div class="desc">re_extract.ts:147–159 + the <code>DRIFT_*</code> status keys.</div></div></div>
+        <div class="row"><span class="dot keep g"></span><div><div class="name">reanchor_node · outstanding_drift · drift.resolve {reanchor}</div><div class="desc">The relocation accept-dance — and the last <code>drift.resolve</code> arm.</div></div></div>
+        <div class="row"><span class="dot keep g"></span><div><div class="name">the whole drift MCP server + SessionStart hook</div><div class="desc">Removed entirely once the reanchor arm goes in part 2.</div></div></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="k">One loose end (AC#8)</span>
+      Rows already soft-deleted into the bin become unreachable once no query reads them. Either add a one-time hard-delete cleanup of soft-deleted non-raw rows, or document leaving them orphaned (harmless once nothing reads them). A decision to make, not a blocker.
+    </div>
+  </section>
+
+  <footer>
+    Generated for review of task-27.1.15 (shipped + reviewed) · sources: flow_identity.ts, hydrate.ts, flow_store.ts, reconcile.ts, affected_flows.ts, re_attachment_bin.ts, drift_tool.ts, build_drift_server.ts, tool_names.ts, session_start_banner.ts, write_descriptions.ts, rank_candidates.ts · self-contained, no external assets.
+  </footer>
+</main>
+
+<script>
+  // Progressive enhancement: highlight the outline chip for the section in view.
+  (function(){
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.outline a'));
+    var byId = {};
+    links.forEach(function(a){ byId[a.getAttribute('href').slice(1)] = a; });
+    if (!('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          links.forEach(function(l){ l.classList.remove('active'); });
+          var a = byId[e.target.id];
+          if (a) a.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-120px 0px -65% 0px', threshold: 0 });
+    document.querySelectorAll('section[id]').forEach(function(s){ io.observe(s); });
+  })();
+</script>
+</body>
+</html>

@@ -1,10 +1,9 @@
 /**
- * Persisting and reading a hydrated flow, scoped. Writes go row-by-row (`upsert` + `write_fields` +
- * stale-edge retirement), never `rebuild_layer('agentic')` — that is store-global and would destroy
- * every *other* flow's agentic content, defeating the lazy, per-flow hydration model (the same reason
- * `re_extract` rebuilds the scaffold with scoped upserts). The agentic layer is still honored: field
- * writes go through `write_fields(..., 'agentic')`, so a user-promoted flow node (a renamed/pinned flow)
- * is preserved by the ladder, never clobbered.
+ * Persisting and reading a hydrated flow, scoped. Writes go row-by-row (`upsert` + stale-edge
+ * retirement), never `rebuild_layer('agentic')` — that is store-global and would destroy every *other*
+ * flow's agentic content, defeating the lazy, per-flow hydration model (the same reason `re_extract`
+ * rebuilds the scaffold with scoped upserts). A flow node is agent-authored, so each sync upserts it
+ * wholesale.
  */
 
 import type { EdgeRow, GraphStore, NodeRow } from "@code-charter/core";
@@ -49,20 +48,17 @@ export interface WriteFlowArgs {
   /** Non-seed members (linked docs) — what `agentic.flow_member` edges point at. Empty for a pure code flow. */
   member_ids: readonly string[];
   rationale: string;
-  /** The sorted full induced member set — the stable-identity anchor used by the ≥50% overlap remap (AC#9). */
+  /** The sorted full induced member set — the membership snapshot that drives membership-drift re-sync. */
   anchor_set: readonly string[];
-  /** Hash of {@link anchor_set} — a fast equality check for an unchanged flow. */
-  anchor_set_hash: string;
   last_synced_at: string;
 }
 
 /**
  * Persist (or refresh) one flow: the `agentic.flow` node, its `agentic.flow_member` edges (stale ones
  * retired), and its bridges. Idempotent and deterministic — a re-run with identical input is a clean
- * REPLACE. A user-owned flow node is refreshed through the ladder, never re-upserted.
+ * REPLACE.
  */
 export function write_flow(store: GraphStore, args: WriteFlowArgs): void {
-  const existing = store.all_nodes({ include_deleted: true }).find((n) => n.id === args.id);
   const node = build_flow_node({
     id: args.id,
     label: args.label,
@@ -74,27 +70,8 @@ export function write_flow(store: GraphStore, args: WriteFlowArgs): void {
   const anchor_set = [...args.anchor_set].sort();
   node.attributes.member_count = anchor_set.length;
   node.attributes.anchor_set = anchor_set;
-  node.attributes.anchor_set_hash = args.anchor_set_hash;
 
-  // Establish/replace the node only when it is not user-promoted; a user-owned flow keeps its row and
-  // takes agentic refreshes through the ladder (which skips user-owned fields like a renamed label).
-  if (existing === undefined || existing.layer !== "user") {
-    store.upsert_node(node);
-  } else {
-    store.write_fields(
-      { kind: "node", id: args.id },
-      {
-        label: args.label,
-        entry_points: [...args.seed_paths],
-        rationale: args.rationale,
-        member_count: anchor_set.length,
-        anchor_set,
-        anchor_set_hash: args.anchor_set_hash,
-        last_synced_at: args.last_synced_at,
-      },
-      "agentic",
-    );
-  }
+  store.upsert_node(node);
 
   // Member edges: upsert the fresh set, retire any prior member edge no longer present.
   const fresh = build_flow_member_edges(args.id, args.member_ids);

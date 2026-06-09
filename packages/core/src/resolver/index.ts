@@ -16,5 +16,3 @@ export { resolve_anchor } from "./resolve_anchor";
 export { anchored_symbols_from_ariadne, resolver_symbols_from_ariadne } from "./from_ariadne";
 export type { AnchoredSymbol, AriadneFileInput } from "./from_ariadne";
 export type { ResolverSymbol } from "./resolver_symbol";
-export { rank_candidates } from "./rank_candidates";
-export type { CandidateReason, RankCandidatesOptions, RankedCandidate } from "./rank_candidates";

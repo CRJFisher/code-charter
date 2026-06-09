@@ -3,9 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { DESCRIPTION_NODE_KIND, open_graph_store, type GraphStore } from "@code-charter/core";
+import { open_graph_store, type GraphStore } from "@code-charter/core";
 
-import { re_attachment_bin } from "../mcp/re_attachment_bin";
 import { make_ariadne_adapter } from "./ariadne_adapter";
 import { HeadlessProject } from "./headless_project";
 import { read_persisted_flows } from "./flow_store";
@@ -78,34 +77,5 @@ describe("reconcile — membership resolution (AC#5)", () => {
     for (const flow of after) {
       expect((flow.node.attributes.last_synced_at as string) > before.get(flow.node.id)!).toBe(true);
     }
-  });
-});
-
-describe("reconcile — re-attachment bin (AC#7)", () => {
-  it("sends a user-owned description to the bin when its symbol is renamed and re-bodied (a miss)", async () => {
-    write(
-      "lib.ts",
-      "export function main() { return helper(1); }\n\nexport function helper(n: number) { return n + 1; }\n",
-    );
-    await run(["lib.ts"]);
-
-    const helper_desc = `${DESCRIPTION_NODE_KIND}:lib.ts#helper:function`;
-    store.write_fields({ kind: "node", id: helper_desc }, { description: "USER NOTE on helper" }, "user");
-    expect(re_attachment_bin(store)).toHaveLength(0);
-
-    // Rename helper → renamed AND change its body: the resolver can neither match the old symbol_path
-    // nor the old content_hash → a miss → the preserved description is soft-deleted into the bin.
-    write(
-      "lib.ts",
-      "export function main() { return renamed(1); }\n\nexport function renamed(n: number) { return n * 7 + 42; }\n",
-    );
-    await run(["lib.ts"]);
-
-    const bin = re_attachment_bin(store);
-    expect(bin.some((entry) => entry.id === helper_desc)).toBe(true);
-    // Never auto-pruned: the soft-deleted row is still present, recoverable via drift.resolve.
-    const binned = store.all_nodes({ include_deleted: true }).find((n) => n.id === helper_desc);
-    expect(binned?.deleted_at).not.toBeNull();
-    expect(binned?.attributes.description).toBe("USER NOTE on helper");
   });
 });

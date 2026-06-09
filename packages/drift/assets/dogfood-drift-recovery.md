@@ -1,101 +1,43 @@
 # Dogfooding the drift recovery loop
 
-A copy-paste walkthrough for driving the `drift.*` MCP recovery surface against a real stranding in a
-live Claude Code session. It exercises the path a user follows after a rename strands a hand-written
-description: the `SessionStart` banner points the way, `drift.list` shows what is recoverable, and
-`drift.resolve` puts it back.
+A copy-paste walkthrough for driving the `drift.resolve` MCP surface against a real relocation in a
+live Claude Code session. It exercises the path a user follows after a code rename re-syncs a flow's
+diagram: the `SessionStart` banner reports the staged re-anchor, and `drift.resolve {reanchor}`
+commits it onto the renamed symbol.
 
 ## Prerequisites
 
 - A project with the drift MCP server and the `Stop`/`SessionStart` hooks installed (run the drift
   installer; the store lives at `.code-charter/graph.db`).
-- At least one flow already hydrated for the code you are about to change, carrying a hand-written
-  description on a function (author one and let the `Stop`-hook auto-sync persist it).
+- At least one flow already hydrated for the code you are about to change (let the `Stop`-hook
+  auto-sync persist it).
 
-## Three strandings, three recoveries
+## Recovering a relocation
 
-The surface distinguishes how badly a symbol moved:
-
-- **Relocated** — you rename a function but leave its body unchanged. The description is *staged*, not
-  binned: it stays live and `SessionStart` reports it as outstanding drift. Recover with
-  `drift.resolve { kind: "node", id, resolution: "reanchor" }` — the description re-anchors onto the
-  renamed symbol.
-- **Miss, original symbol gone but you know the new one** — you rename *and* change the body, so the old
-  anchor resolves nowhere. The description is *binned* (soft-deleted) and appears in `drift.list`, each
-  entry carrying ranked `candidates[]` — plausible live symbols to re-home it on. Recover by re-pointing
-  it onto a chosen target: `drift.resolve { kind: "node", id, resolution: "reattach", target }`, where
-  `target` is a candidate's `symbol_path`. The hand-written description rides across onto the new symbol.
-- **Miss, no better home** — the symbol is gone and the right new symbol is unknown (or there is none).
-  Restore the description onto its *original* anchor with a bare `drift.resolve { kind: "node", id,
-  resolution: "reattach" }`, or `"delete"` to keep it removed.
-
-`kind` (`"node"` or `"edge"`) is required on every `drift.resolve` call — it says whether `id` is a node
-id or an edge key, so the tool never has to guess.
+When you rename a function but leave its body unchanged, the re-sync recognises the move (the body's
+content hash is unchanged) and stages a re-anchor: the diagram content stays live, and `SessionStart`
+reports it as outstanding drift. `drift.resolve {reanchor}` commits the move onto the renamed symbol.
 
 ## Walkthrough
 
-Both loops start the same way, then diverge on whether the symbol relocated or was missed. Open a new
-session after the edit and read the `SessionStart` banner — it tells you which loop you are in.
+1. **Stage a relocation.** Pick a function in a hydrated flow and rename it, leaving the body
+   unchanged (e.g. `compute` → `calculate`, body still `a + b`). End the turn so the `Stop`-hook
+   auto-sync re-extracts the file.
 
-### Common start
+2. **Open a new session and read the banner.** The `SessionStart` banner reports outstanding drift,
+   printing `from → to (relocated; node <id>)` for each staged re-anchor — note that `<id>`, it is the
+   argument to `reanchor`.
 
-1. **Strand a description.** Pick a function that carries a hand-written description and edit it so the
-   `Stop`-hook auto-sync re-extracts the file, then end the turn:
-   - For **Loop A (relocation)**: rename only, leaving the body unchanged (e.g. `compute` → `calculate`,
-     body still `a + b`).
-   - For **Loop B (miss)**: rename *and* change the body (e.g. `compute` returning `a + b` → `calculate`
-     returning `a * b - 1`).
-
-2. **Open a new session and read the banner.** The `SessionStart` banner reports outstanding drift. A
-   relocation prints `from → to (relocated; node <id>)` — note that `<id>`, it is the argument to
-   `reanchor`. A miss leaves nothing staged: the banner shows no relocation and the description sits in
-   the bin instead. Follow the matching loop below.
-
-### Loop A — recover a relocation (`reanchor`)
-
-3a. **Reanchor from the banner id.** A relocation is *staged*, not binned, so it does **not** appear in
-   `drift.list`. Call `mcp__drift__drift_resolve` with the node `id` from the banner:
-   `{ kind: "node", id: "<id from banner>", resolution: "reanchor" }`. The description moves onto the
+3. **Reanchor from the banner id.** Call `mcp__drift__drift_resolve` with the node `id` from the
+   banner: `{ kind: "node", id: "<id from banner>", resolution: "reanchor" }`. `kind` (`"node"` or
+   `"edge"`) is required — it says whether `id` is a node id or an edge key, so the tool never has to
+   guess; outstanding drift is a node-only surface, so use `"node"`. The diagram content moves onto the
    renamed symbol.
 
-### Loop B — recover a miss (`reattach` onto the original anchor, onto a new target, or `delete`)
-
-3b. **Survey or step the bin.** Either call `mcp__drift__drift_list` (no `scope`, or a path prefix to
-   narrow) to see the whole bin at once, or call `mcp__drift__drift_next` to pull just the next entry —
-   the oldest stranding first — and walk the bin one at a time. Each entry carries enough to choose with
-   confidence:
-   - `id` — the bin entry to resolve.
-   - `description` — the stranded authored text you are about to recover.
-   - `node_kind` (e.g. `user.description`), `user_authored` (true ⇒ hand-written, irreplaceable),
-     `intent_source`, `path`, `deleted_at`.
-   - `candidates[]` — ranked plausible new targets, strongest first: each is a live `symbol_path` (note
-     `id` is the bin entry's own opaque key, e.g. `user:description:calc`, while a candidate `symbol_path`
-     is a code symbol like `src/calc.ts#calculate:function` — they are different id-spaces) with a `reason`
-     (`content-match` = the same body is anchored there, `same-file`, or `name-match`) and a `score`. For a
-     rename-and-rewrite miss the renamed symbol typically shows up as a `same-file` candidate.
-
-4b. **Resolve.** Call `mcp__drift__drift_resolve` with `kind: "node"` and the entry `id`:
-   - `{ resolution: "reattach", target: "<candidate symbol_path>" }` re-points the stranded description
-     onto the chosen live symbol, carrying the hand-written text across. Pick `target` from the entry's
-     `candidates[]` (`candidates[0]` is the strongest match).
-   - `{ resolution: "reattach" }` (no `target`) restores onto the *original* anchor — for when the symbol
-     is genuinely gone with no better home.
-   - `{ resolution: "delete" }` keeps the entry removed. The never-auto-pruned guarantee means a deleted
-     entry stays in the bin as a tombstone (still recoverable later), so it does **not** drain the loop —
-     only a `reattach` removes an entry from the bin.
-
-   A `reattach` un-bins its entry, so re-call `drift.next` and repeat to drain the recoverable entries;
-   the entries you choose to `delete` remain as tombstones (re-call with a `scope` to skip past them).
-
-### Confirm (both loops)
-
-5. **Confirm.** Re-open the session (a resolved relocation no longer banners) or re-run `drift.list` /
-   `drift.next` (a reattached bin entry is gone), and open the flow in the webview to see the description
-   back on its node — on the new target symbol when you reattached with one.
+4. **Confirm.** Re-open the session — a committed re-anchor no longer banners — and open the flow in
+   the webview to see the content on the renamed symbol.
 
 ## What to watch for
 
-Note any friction: whether the banner / `drift.list` payload told you *which* entry to pick, whether the
-`candidates[]` ranking surfaced the right new target (and whether `drift.next`'s one-at-a-time stepping or
-`drift.list`'s whole-bin survey felt more natural), and whether `reattach` (bare vs `target`) vs
-`reanchor` was obvious for your case.
+Note any friction: whether the banner told you which node to reanchor, and whether the
+`from → to` line made the move obvious for your case.
