@@ -41,11 +41,14 @@ export function affected_persisted_flows(
       { flow_node: flow.node, member_edges: flow.member_edges, bridge_edges: flow.bridge_edges },
       graph,
     );
-    // No live code seed. A skill/doc flow (its members are enumerated doc-member edges) is re-synced via
-    // the touched-skill-root join in `reconcile`, never here. A seed-gone CODE flow (no member edges —
-    // code members are induced from the seeds, never enumerated) is superseded: surface it so
-    // `resync_persisted_flow` retires it (soft-delete) via its seed-gone branch.
-    if (membership.seeds.length === 0) return flow.member_edges.length === 0;
+    // No live code seed: split the two zero-seed shapes. A skill/doc flow enumerates its members as
+    // edges and is re-synced via the touched-skill-root join in `reconcile`, so leave it alone. A
+    // seed-gone CODE flow has no member edges (code members are induced from the seeds, never
+    // enumerated) and is superseded — surface it so `resync_persisted_flow` retires it (soft-delete).
+    if (membership.seeds.length === 0) {
+      const is_seed_gone_code_flow = flow.member_edges.length === 0;
+      return is_seed_gone_code_flow;
+    }
 
     const members = induce_members(membership, graph);
 

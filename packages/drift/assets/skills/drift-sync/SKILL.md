@@ -2,9 +2,9 @@
 name: drift-sync
 description: >-
   Reconcile code-to-diagram drift for a changed-file set: hydrate a flow's diagram the first time
-  its code is worked on, or re-sync an existing flow, preserving user edits. Invoked by the
-  drift-reconciler sub-agent with the files worked on this turn. It always updates the diagram and
-  never asks permission; user-authored content is recalled and re-applied.
+  its code is worked on, or re-sync an existing flow. Invoked by the drift-reconciler sub-agent with
+  the files worked on this turn. It always updates the diagram and never asks permission; agentic
+  content is regenerated each sync.
 allowed-tools: Bash
 ---
 
@@ -45,13 +45,11 @@ For each flow derived from the changed files:
 - **HYDRATE** (no `agentic.flow` node exists yet) — group the deterministic seeds into a functionality
   umbrella, infer `agentic.bridge` cross-links, attach docs, draft member descriptions, then write the
   new flow on the agentic lane and stamp `last_synced_at`.
-- **RE-SYNC** (a diagram already exists) — re-extract and re-induce the flow in place, carrying
-  user-authored fields (description, name, pin) across via the resolver + watermark ladder, and re-stamp
-  `last_synced_at`.
+- **RE-SYNC** (a diagram already exists) — re-extract and re-induce the flow in place, re-anchoring
+  relocated content via the resolver and re-stamping `last_synced_at`.
 
-The diagram always updates; it never gates on the user. User edits always win — an agentic write that
-would overwrite a user-owned field is skipped by the ladder, and content whose anchor no longer resolves
-goes to the recoverable re-attachment bin, never auto-pruned.
+The diagram always updates; it never gates on the user. Agentic descriptions are regenerated each
+sync, so content whose anchor no longer resolves is regenerated rather than stranded.
 
 The re-sync path routes through exactly one in-process funnel, `@code-charter/core`'s
 `re_extract(file_set, origin='code-change')`: it invalidates the raw tier for the files, re-runs the
@@ -64,8 +62,8 @@ never disturbs another.
 
 Descriptions are deterministic-first: a member with a docstring or frontmatter uses it; the rest get a
 name placeholder. No model call is required, so a flow hydrates headlessly. The describe step is an
-injectable seam — you MAY supply short descriptions for members the bin reports as needing them — but v1
-never requires it; the default is the deterministic path.
+injectable seam — you MAY supply short descriptions for the members being described — but v1 never
+requires it; the default is the deterministic path.
 
 ## Contract
 

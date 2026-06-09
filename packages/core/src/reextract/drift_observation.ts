@@ -43,8 +43,8 @@ export interface DriftObservation {
 
 /**
  * Every live node carrying a staged relocation, optionally narrowed to a `scope` path prefix. Read-only
- * and extractor-free: it reads what {@link re_extract} already staged. Soft-deleted rows are excluded
- * (a deleted node is in the re-attachment bin, a separate surface).
+ * and extractor-free: it reads what {@link re_extract} already staged. Soft-deleted (retired) rows are
+ * excluded.
  */
 export function outstanding_drift(store: GraphStore, scope?: string): DriftObservation[] {
   return store.all_nodes().flatMap((node): DriftObservation[] => {

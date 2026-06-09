@@ -22,8 +22,10 @@ export interface DriftToolContext {
 }
 
 /**
- * How `drift.resolve` acts on a target. `reanchor` commits an outstanding relocation — the staged
- * re-anchor a code rename produced — moving the diagram content onto the renamed symbol.
+ * How `drift.resolve` acts on a target. The sole resolution is `reanchor`: commit an outstanding
+ * relocation — the staged re-anchor a code rename produced — moving the diagram content onto the
+ * renamed symbol. (Kept as a named single-member union for the MCP enum wire-shape; the
+ * relocation/reanchor accept-dance, this last arm included, is removed in task-27.1.15.1.)
  */
 export type DriftResolution = "reanchor";
 

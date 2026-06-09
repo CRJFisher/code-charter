@@ -17,8 +17,9 @@ Steps:
    to reconcile exactly those files. The sub-agent invokes the `drift-sync` skill and returns a
    brief acknowledgement.
 3. Where custom sub-agents are unsupported, invoke the `drift-sync` skill directly over the
-   changed files, or — as a last resort — read the re-attachment bin with the `drift.list` MCP
-   tool and resolve entries with `drift.resolve`.
+   changed files. Separately, when a prior session's reconcile staged a code rename as outstanding
+   drift, accept the re-anchor with the `drift.resolve` MCP tool
+   (`{ kind: "node", id, resolution: "reanchor" }`) using the node ids the SessionStart banner lists.
 
 Report a one-line summary of how many files were reconciled. Do not reconcile inline beyond
 delegating to `drift-reconciler` / `drift-sync`.

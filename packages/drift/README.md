@@ -4,16 +4,16 @@ The drift infrastructure substrate for Code Charter's code→diagram half: the u
 MCP surface, the `Stop`-hook → custom sub-agent reconciliation path, the `drift-sync` skill the
 sub-agent invokes, and the installer that wires all of it into a host's `.claude` directory.
 
-This package ships the substrate and its contracts. The reconciliation body (re-extract →
-re-induce → preserve → write) is a stub here; it lands in task-27.1.6. The `drift.list` /
-`drift.resolve` MCP surface is thin-but-real: it reads/writes the re-attachment bin over existing
-store methods today; the full bin semantics (resolver-miss + flow-split/merge stranding) also land
-in task-27.1.6.
+This package ships the substrate and its contracts. The reconciliation body — re-extract →
+re-induce → write — runs inside the `drift-sync` skill the sub-agent invokes. The `drift.resolve`
+MCP tool commits a staged re-anchor: when a code rename relocates a symbol, the re-sync stages the
+move as outstanding drift, and `drift.resolve {reanchor}` commits the diagram content onto the
+renamed symbol.
 
 ## Layout
 
-- `src/mcp/` — the user-facing MCP surface: the `drift.*` pure handlers, the re-attachment bin,
-  call logging, the server builder, and the store-path resolver.
+- `src/mcp/` — the user-facing MCP surface: the `drift.*` pure handlers, call logging, the server
+  builder, and the store-path resolver.
 - `src/hooks/` — the `Stop` and `SessionStart` logic: transcript parsing, the block-or-no-op
   decision, the read-only banner, and git-based out-of-session drift detection.
 - `src/installer/` — the idempotent installer and the host-keyed layout (where each artifact lands
@@ -38,13 +38,13 @@ log); add that directory to the repo's `.gitignore` if it is not already ignored
 
 ## What it provides
 
-- **MCP server** (`drift-mcp` bin) — the user-facing `drift.*` tools, served over stdio:
-  - `drift.list(scope?)` — read the re-attachment bin (soft-deleted agentic/user diagram content).
-  - `drift.resolve(id, resolution)` — `reattach` (restore) or `delete` (keep removed) a bin entry.
+- **MCP server** (`drift-mcp` bin) — the user-facing `drift.resolve` tool, served over stdio:
+  - `drift.resolve({ kind, id, resolution: "reanchor" })` — commit a staged relocation, moving the
+    diagram content onto the renamed symbol. A `kind`/`id` that carries no outstanding drift is a no-op.
   - Each call is logged (timestamp + caller) to `.code-charter/drift-mcp.log`. On a host without
-    the SQLite engine the tools return empty/no-op rather than throwing.
-  - Registered names are `drift_list` / `drift_resolve` (a dot in an MCP tool name is rejected by
-    clients that flatten the namespace); the conceptual surface is the `drift.*` family.
+    the SQLite engine the tool returns a no-op rather than throwing.
+  - The registered name is `drift_resolve` (a dot in an MCP tool name is rejected by clients that
+    flatten the namespace); the conceptual surface is the `drift.*` family.
 - **`Stop` hook** (`drift-stop-hook` bin) — parses the session transcript for the files edited
   this turn and, unless `stop_hook_active` is set or nothing was edited, blocks the stop and
   instructs the main agent to launch the `drift-reconciler` sub-agent over those files.
@@ -64,15 +64,14 @@ Reconciliation and the drift banner degrade gracefully where a host lacks a prim
 | Host | `Stop` hook | `SessionStart` | Custom sub-agent | Reconcile path | Banner path | User-facing fallback |
 | ---- | ----------- | -------------- | ---------------- | -------------- | ----------- | -------------------- |
 | **Claude Code** (v1) | yes | yes (read-only) | yes | `Stop` → `drift-reconciler` → `drift-sync` | `SessionStart` banner | `drift.*` MCP |
-| Cursor | no | no | no (TBD) | `/drift` (manual) | `/drift` listing or `drift.list` pull | `drift.*` MCP |
-| `.agents` (neutral) | reserved | reserved | reserved (`.agents/skills/`) | `/drift` | `drift.list` pull | `drift.*` MCP |
-| `.codex` / OpenCode | no (hooks-via-JS-plugin gap) | no | TBD | `/drift` | `drift.list` pull | `drift.*` MCP |
+| Cursor | no | no | no (TBD) | `/drift` (manual) | `/drift` listing | `drift.*` MCP |
+| `.agents` (neutral) | reserved | reserved | reserved (`.agents/skills/`) | `/drift` | `/drift` listing | `drift.*` MCP |
+| `.codex` / OpenCode | no (hooks-via-JS-plugin gap) | no | TBD | `/drift` | `/drift` listing | `drift.*` MCP |
 
 Degradation rules:
 
 - **No `Stop` hook** → reconciliation degrades to the `/drift` slash command (manual trigger).
-- **No `SessionStart`** → the outstanding-drift banner degrades to a `/drift` listing or an MCP
-  pull of outstanding drift (`drift.list`).
+- **No `SessionStart`** → the outstanding-drift banner degrades to a `/drift` listing.
 - **No custom sub-agents** → reconciliation degrades to invoking the `drift-sync` skill / its
   bundled script directly, or to the MCP path.
 

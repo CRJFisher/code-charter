@@ -78,17 +78,16 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
   it("does not regenerate an unchanged member's description on an unrelated re-sync (content-hash cost guard, AC#6)", async () => {
     await run(["main.ts"]);
     const helper_desc_id = `${DESCRIPTION_NODE_KIND}:main.ts#helper:function`;
-    const before = store.node(helper_desc_id)!;
-    expect(before.attributes.description_hash).toBeDefined();
+    // Stamp a distinctive agentic description so a spurious re-describe is detectable: a re-run of the
+    // describe step would overwrite this with helper's name placeholder.
+    store.write_fields({ kind: "node", id: helper_desc_id }, { description: "DISTINCTIVE" }, "agentic");
 
     // Re-sync after an unrelated body edit to main; helper's body is unchanged, so the content-hash
-    // guard skips re-describing it and its description node is left untouched.
+    // guard skips re-describing it and write_descriptions never touches its node.
     write("main.ts", MAIN_SRC.replace("+ 2", "+ 3"));
     await run(["main.ts"]);
 
-    const after = store.node(helper_desc_id)!;
-    expect(after.attributes.description).toBe(before.attributes.description);
-    expect(after.attributes.description_hash).toBe(before.attributes.description_hash);
+    expect(store.node(helper_desc_id)?.attributes.description).toBe("DISTINCTIVE");
   });
 
   it("retires a superseded flow when its entrypoint is renamed, re-hydrating a fresh flow under the new id", async () => {

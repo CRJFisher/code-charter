@@ -10,10 +10,9 @@
  *
  * Identity (AC#4): a flow's id is the dominant seed entrypoint's `symbol_path` — the location-free,
  * body-independent half of its anchor, so the id is stable across body edits and line shifts (the
- * content_hash is deliberately excluded; including it would re-key the flow on every save). A rename
- * moves the name segment, re-anchored by the resolver when 27.1.6 persists; a skeleton flow is simply
- * re-derived to the new id each session. The full sorted-anchor-set hash + ≥50% overlap remap is
- * deferred to task-27.1.6 (D-FLOW-IDENTITY).
+ * content_hash is deliberately excluded; including it would re-key the flow on every save). A rename of
+ * the dominant seed changes the id: the superseded flow is retired (soft-deleted) and the renamed
+ * entrypoint re-hydrates as a fresh flow; a skeleton flow is simply re-derived to the new id each session.
  *
  * Membership (AC#2) is subgraph-induced: re-induced from seeds + bridges + linked docs on demand, never
  * a stored enumerated leaf set. "Which flow does leaf L belong to" is answered by re-inducing each
