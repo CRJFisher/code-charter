@@ -25,7 +25,7 @@ priority: medium
 
 > **High-level / compatibility-seam sub-task** (folded from task-21's portability residue).
 
-The 27.0/27.1 line already realizes most of task-21 (persisted graph, MCP surface, hooks, agentic inference, doc nodes). The residue is **cross-tool portability as a distribution deliverable**: the same artifact set (the user-facing **MCP server** (`drift.resolve`/`drift.list`), the **`drift-sync` skill** (the single path all agent persistence goes through), the **registered custom sub-agent definitions** (`.claude/agents/*.md`), and the **hooks** — a **Stop** hook (blocks + instructs the main agent to launch the sub-agent) and a read-only **SessionStart** outstanding-drift banner) producing a usable experience in a host beyond Claude Code **without per-tool translation code**. Host parity is a question of four capabilities: a **Stop hook that can block and inject an instruction**, a **SessionStart** read-only banner, **registered custom sub-agents**, and the ability to **run the `drift-sync` skill (or its bundled script directly)**. Where a host lacks one, the experience degrades to the MCP server as the universal pull-fallback. The host-neutral install-target abstraction is reserved in task-27.1.1.
+The 27.0/27.1 line already realizes most of task-21 (persisted graph, hooks, agentic inference, doc nodes). The residue is **cross-tool portability as a distribution deliverable**: the same artifact set — the **`drift-sync` skill** (the single path all agent persistence goes through), the **registered custom sub-agent definitions** (`.claude/agents/*.md`), and a **Stop** hook (blocks + instructs the main agent to launch the sub-agent) — producing a usable experience in a host beyond Claude Code **without per-tool translation code**. (The drift MCP server (`drift.resolve`/`drift.list`) and the read-only SessionStart banner are removed by task-27.1.15, so there is no MCP pull-fallback to carry: the auto-sync write path is the whole product.) Host parity is a question of three capabilities: a **Stop hook that can block and inject an instruction**, **registered custom sub-agents**, and the ability to **run the `drift-sync` skill (or its bundled script directly)**. Where a host lacks the Stop-hook / custom-sub-agent capability, the experience degrades to a host-driven manual `drift-sync` invocation. The host-neutral install-target abstraction is reserved in task-27.1.1.
 
 <!-- SECTION:DESCRIPTION:END -->
 
@@ -33,9 +33,9 @@ The 27.0/27.1 line already realizes most of task-21 (persisted graph, MCP surfac
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 code-charter's own capability (MCP server + `drift-sync` skill + registered custom sub-agent defs + Stop/SessionStart hooks) is a single host-neutral bundle whose install target is selected by a host-keyed layout, no caller hardcoding `.claude/`
+- [ ] #1 code-charter's own capability (`drift-sync` skill + registered custom sub-agent defs + Stop hook) is a single host-neutral bundle whose install target is selected by a host-keyed layout, no caller hardcoding `.claude/`
 - [ ] #2 The same artifact set produces a usable experience in at least one host beyond Claude Code (Cursor lowest-friction) without per-tool translation code — **subject to D-PORT-SCOPE / D-PORT-HOSTS**
-- [ ] #3 The MCP server is the universal pull-fallback when a host lacks the Stop hook / custom-sub-agent capability; the neutral `.agents/skills/` path and OpenCode's hooks-via-JS-plugin gap (which affects the Stop-hook trigger) are handled or explicitly deferred per the host matrix (task-27.1.1)
+- [ ] #3 When a host lacks the Stop hook / custom-sub-agent capability, the fallback is a host-driven manual `drift-sync` run (the skill, or its bundled script, invoked directly) — there is no MCP pull-fallback (the drift MCP server is removed in task-27.1.15); the neutral `.agents/skills/` path and OpenCode's hooks-via-JS-plugin gap (which affects the Stop-hook trigger) are handled or explicitly deferred per the host matrix (task-27.1.1)
 - [ ] #4 No regression to the Claude-Code-native experience; versioned/droppable bundle only if **D-BUNDLE-ARTIFACT** selects that framing
 
 <!-- AC:END -->
@@ -45,7 +45,7 @@ The 27.0/27.1 line already realizes most of task-21 (persisted graph, MCP surfac
 <!-- SECTION:DECISIONS:BEGIN -->
 
 - **D-PORT-SCOPE** — v1 deliverable vs compatibility-seam-only vs deferred shell.
-- **D-PORT-HOSTS** — Claude Code only · + Cursor · + OpenCode · all five via MCP fallback.
+- **D-PORT-HOSTS** — Claude Code only · + Cursor · + OpenCode · broader hosts via a manual skill-invocation fallback (no MCP pull-fallback post-strip).
 - **D-BUNDLE-ARTIFACT** — versioned droppable bundle vs installer-output-suffices vs defer.
 - **D-SKILL-ENTRY-SURFACE** — does rendering a skill directory get its own entry surface, or is it the flow selector scoped to a skill dir? (A skill dir is one flow.)
 

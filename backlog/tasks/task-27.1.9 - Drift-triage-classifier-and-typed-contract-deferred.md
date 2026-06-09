@@ -22,7 +22,7 @@ priority: low
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 
-> **Deferred — NOT in v1.** v1 code→diagram is pure auto-sync (task-27.1.6): the diagram always re-syncs and preserves user edits, with no classification of _whether_ or _how_ to act. This task adds the **review/escalation apparatus** on top, for when drift should be triaged rather than silently absorbed — and it owns the **typed generic triage contract** that the diagram→code direction (task-27.2) reuses.
+> **Deferred — NOT in v1.** v1 code→diagram is pure auto-sync (task-27.1.6): the diagram always re-syncs and the agent re-applies its own content (there are no user edits at the flow layer — customisation is agent-mediated; task-27.1.15), with no classification of _whether_ or _how_ to act. This task adds the **review/escalation apparatus** on top, for when drift should be triaged rather than silently absorbed — and it owns the **typed generic triage contract** that the diagram→code direction (task-27.2) reuses.
 
 A registered custom sub-agent (launched by the main agent, returning ~nothing) that classifies a drift's blast radius (cosmetic vs intent/structural) without auto-editing source, plus the typed `TriageSubject` `{anchor, before_state, proposed_after_state, rationale?}` / `TriageVerdict` `{classification, blast_radius, staleness, rationale}` exported from `@code-charter/types` — the contract task-27.2's actionability assessment calls unchanged. It is deferred because v1 does not surface drift for review; it becomes relevant once the diagram→code authoring direction or a richer review inbox lands.
 

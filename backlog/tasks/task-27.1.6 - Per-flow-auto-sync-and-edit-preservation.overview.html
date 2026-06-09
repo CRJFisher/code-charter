@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- task-family-overview for task-27.1.6 (Per-flow auto-sync + edit preservation), the v1 ship point.
-     Frames the parent's intention and routes to the sub-task companions (27.1.6.1, .2, .3, .4, .5).
+     Frames the parent's intention and routes to the sub-task companions (27.1.6.1 .. 27.1.6.6).
      Cross-file hrefs are sibling filenames only; missing companions render as not-yet-generated rows.
      Re-scanned the backlog/tasks/ dir for child companions on generation. Present-tense. -->
 <html lang="en">
@@ -110,13 +110,13 @@
         <span class="pill">entry point <strong>Stop hook → sub-agent → drift-sync</strong></span>
         <span class="pill">first target <strong>a skill's flow</strong></span>
         <span class="pill">model <strong>auto-sync, not a review queue</strong></span>
-        <span class="pill">children <strong>5</strong></span>
+        <span class="pill">children <strong>6</strong></span>
       </div>
     </header>
 
     <div class="prompt-box">
       <p class="label">This overview covers</p>
-      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), <code>task-27.1.6.4</code> (fine-grained change detection), and <code>task-27.1.6.5</code> (concise Stop-hook instruction). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
+      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), <code>task-27.1.6.4</code> (fine-grained change detection), <code>task-27.1.6.5</code> (concise Stop-hook instruction), and <code>task-27.1.6.6</code> (agentic entrypoint stitching). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
     </div>
 
     <div class="callout invert">
@@ -174,7 +174,7 @@
     </div>
 
     <h2 id="fit">How the sub-tasks fit together</h2>
-    <p>With the parent <strong>Done</strong>, the children are the <em>come-back-and-make-it-real</em> pass: prove and sand the recovery surface, fix a re-sync bug the live loop surfaced, extend recovery, sharpen change detection so drift follows the code rather than the file, and trim the Stop-hook transport.</p>
+    <p>The first five children are the <em>come-back-and-make-it-real</em> pass on the live loop: prove and sand the recovery surface, fix a re-sync bug the loop surfaced, extend recovery, sharpen change detection so drift follows the code rather than the file, and trim the Stop-hook transport. The sixth opens the next capability — the <strong>agentic (L1) lane</strong>: it stitches back together the call-graphs Ariadne's <em>syntactic</em> resolution leaves split. Where a dynamic dispatch or registry lookup fails to resolve, one functionality fragments into several entrypoints; the agent repairs the missing edge so the pieces re-merge into one flow.</p>
     <div class="steps">
       <div class="step">
         <div class="badge">1</div>
@@ -211,7 +211,7 @@
       <div class="step">
         <div class="badge">5</div>
         <div>
-          <span class="id">task-27.1.6.4 · To Do</span>
+          <span class="id">task-27.1.6.4 · Done</span>
           <h3>Fine-grained change detection</h3>
           <p>Drive drift sync from the <em>symbols</em> that changed, not the files that were touched — a turn's edits reduce to an add/remove/modify/relocate <code>SymbolDelta</code> (from the resolver's existing <code>content_hash</code> anchors) that scopes which flows re-sync and which symbols re-describe. An edit to a shared file that touches no symbol a flow depends on no longer re-syncs it.</p>
         </div>
@@ -222,6 +222,14 @@
           <span class="id">task-27.1.6.5 · To Do</span>
           <h3>Concise Stop-hook instruction</h3>
           <p>The Stop block currently emits one bullet line <em>per worked-on file</em> and threads the file set through the prompt prose. This makes the block concise — <em>"N file(s) drifted — run <code>drift-reconciler</code>"</em> — and moves the exact divergence set off the prompt onto a script the reconciler's <code>drift-sync</code> skill reads directly, in reconcile-ready structured form.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge todo">7</div>
+        <div>
+          <span class="id">task-27.1.6.6 · To Do</span>
+          <h3>Agentic entrypoint stitching — reconnect the split call-graphs</h3>
+          <p>Ariadne resolves calls <em>syntactically</em>, so dynamic dispatch, registry lookups, re-exports, and callback wiring frequently fail to resolve — and a callee reached only through such a missed call has no in-graph caller, so it is promoted to its own entrypoint. One functionality fragments into several flows. This adds the agentic pass that <strong>stitches them back together</strong> by confirming the missing edge, through a new injected <code>stitch_entrypoints?</code> executor seam on <code>ReconcileDeps</code> — mirroring the existing <code>describe?</code> seam. Undefined ⇒ today's deterministic one-entrypoint-per-flow, byte-identical. Supplied ⇒ build candidate stitches from task-27.1.4's <code>find_unresolved_shapes</code> + <code>derive_candidate_seeds</code> (their first runtime caller) over the changed neighbourhood, let the agent confirm each — <em>does this unresolved call really link these two entrypoints?</em> — and assemble a multi-seed umbrella (id = dominant seed's path) plus an <code>agentic.bridge</code> over the recovered edge. No new persistence; identity/preservation reuse the ≥50% overlap remap. Doc-attachment-by-judgement is deferred.</p>
         </div>
       </div>
     </div>
@@ -309,14 +317,29 @@
       </div>
     </div>
 
+    <div class="doc-group">
+      <div class="gh">
+        <span class="status-dot note"></span>
+        <span class="id">task-27.1.6.6</span>
+        <span class="title">Agentic entrypoint stitching — reconnect the split call-graphs</span>
+      </div>
+      <div class="doc-links">
+        <a class="doc-link" href="task-27.1.6.6 - Agentic-flow-detection-group-call-graphs-and-docs-into-functionality-umbrellas.approach.html">
+          <span class="status-dot note"></span>
+          <span class="lbl"><b>The approach</b><small>Ariadne's syntactic gap &middot; the stitch_entrypoints seam (default vs agentic) &middot; how/when/where the agent enters &middot; data flow NEW vs REUSED &middot; 2 split entrypoints → 1 multi-seed umbrella + agentic.bridge &middot; identity across re-stitch &middot; bounded cost + proving test</small></span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+
     <div class="callout">
       <span class="k">Reading order</span>
-      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work: the <strong>drift.* surface review</strong> (the decision confirmed), then the <strong>Stop-hook filter</strong> (the focused trigger change), then the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read it once you know what the loop preserves and where the bin sits), then the <strong>recovery walkthrough</strong> (how the kept surface grows the three-case recovery into reaching a new target). Finally, <strong>symbol-level change detection</strong> (task-27.1.6.4) sharpens the trigger from the file to the symbol — read it after the filter, since it replaces that same changed-file intersection inside the reconcile engine.</p>
+      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work in order: the <strong>drift.* surface review</strong> (the decision confirmed), the <strong>Stop-hook filter</strong> (the focused trigger change), the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read once you know what the loop preserves and where the bin sits), the <strong>recovery walkthrough</strong> (growing the three-case recovery toward a new target), then <strong>symbol-level change detection</strong> (27.1.6.4 — sharpens the trigger from file to symbol; read after the filter, since it replaces that same changed-file intersection inside the engine). Read <strong>27.1.6.6 · the approach</strong> last: it opens the agentic lane on top of everything the first five hardened, and its <em>most-is-reused</em> data flow — stitch the call-graphs Ariadne's syntactic resolution leaves split — only reads clearly once the live loop and its identity/preservation guarantees are familiar.</p>
     </div>
 
     <footer>
       task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation.<br>
-      Companions present: 5 — two under task-27.1.6.1, one each under task-27.1.6.2, task-27.1.6.3, task-27.1.6.4 · task-27.1.6.5: none yet.
+      Companions present: 6 — two under task-27.1.6.1, one each under task-27.1.6.2, task-27.1.6.3, task-27.1.6.4, task-27.1.6.6 · task-27.1.6.5: none yet.
     </footer>
   </main>
 

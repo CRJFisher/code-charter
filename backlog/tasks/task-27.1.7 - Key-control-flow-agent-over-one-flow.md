@@ -36,7 +36,7 @@ The structure is **agent-inferred** over the existing call graph + source (no ar
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 **Key-control-flow selection (the core):** the agent selects and ranks which decisions within a flow are key (golden-path / business-relevant); only the decisions that matter surface within the per-view budget; finer/incidental branches appear on zoom-in. Selection is agentic, overridable content — the user can pin a decision as important or suppress one as noise (watermark ladder). How "key" is judged is **D-KEY-CONTROL-FLOW** (open, load-bearing)
+- [ ] #1 **Key-control-flow selection (the core):** the agent selects and ranks which decisions within a flow are key (golden-path / business-relevant); only the decisions that matter surface within the per-view budget; finer/incidental branches appear on zoom-in. Selection is agentic content the user steers **through the agent** — the user instructs the agent to treat a decision as key or as noise, and the agent re-applies that intent on each pass (no direct-edit user tier; customisation at the flow-chart layer is agent-mediated, task-27.1.15). How "key" is judged is **D-KEY-CONTROL-FLOW** (open, load-bearing)
 - [ ] #2 The rendering shows the **key** decision points with labeled branch edges — **not** every branch; functions render as shaped nodes (decision/IO/loop) from a heuristic node-role classifier (the zero-LLM baseline; LLM adds salience + semantics)
 - [ ] #3 Structure is **agent-inferred** from the flow's member source + call-graph (no ariadne change); persisted on the agentic lane (`layer='agentic'`, shaped kinds (`flow.decision`/`cfg.*`), `confidence`, `inference_rationale` attribute); renders visually distinct, user overrides win
 - [ ] #4 **Input contract:** the flow-detection agent supplies `{umbrella, members, entry/exit, docs, rationale}`; this agent operates strictly _within_ one flow to rank key decisions — the two agentic passes do not overlap (**D-AB-CONTRACT**)
@@ -48,7 +48,7 @@ The structure is **agent-inferred** over the existing call graph + source (no ar
 
 <!-- SECTION:DECISIONS:BEGIN -->
 
-- **D-KEY-CONTROL-FLOW (the core) — how is a decision judged "key"?** agent judgement from source + umbrella context · golden-path tracing · structural heuristics (fan-in/out, happy-path-vs-error, core-vs-guard) · user pin/suppress · a blend. _Stake:_ too inclusive = noise, too exclusive = misses what matters.
+- **D-KEY-CONTROL-FLOW (the core) — how is a decision judged "key"?** agent judgement from source + umbrella context · golden-path tracing · structural heuristics (fan-in/out, happy-path-vs-error, core-vs-guard) · agent-applied user intent (the user instructs, the agent re-marks) · a blend. _Stake:_ too inclusive = noise, too exclusive = misses what matters.
 - **D-AB-CONTRACT** — detection supplies umbrella+members+docs; this agent ranks within one flow (recommended) vs may re-scope vs merge into one pass.
 - **D-EDGE-LABEL-VS-STYLE** — orthogonal channels (label=why, style=how-known) vs combined vocabulary vs labels-on-selection.
 

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Approach companion for task-27.1.6.6 — agentic entrypoint stitching.
+     implementation-plan-handoff: the maintainer approves the design before code.
+     Load-bearing: inline-svg-flow-diagram (data flow, NEW vs REUSED) + a side-by-side seam comparison.
+     Self-contained; no external assets. Present-tense, the task's own terms. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>task-27.1.6.6 — agentic entrypoint stitching: the approach</title>
+<style>
+  :root {
+    --ivory:#f7f4ec; --oat:#ece5d6; --slate:#2c3038; --ink:#20242b;
+    --clay:#b5683e; --olive:#6c7a3b; --rust:#9e3b2e;
+    --g1:#fbfaf5; --g2:#efeadd; --g3:#d9d2c1; --g4:#aaa492; --g5:#6c6759;
+    --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --r:10px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ivory); color:var(--slate); font-family:var(--sans); line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+  /* cross-doc nav (top, full-width, sticky) */
+  .topnav { position:sticky; top:0; z-index:10; background:var(--ivory); border-bottom:1px solid var(--g3); }
+  .topnav .inner { width:90%; max-width:1600px; margin-inline:auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; }
+  .topnav .home { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; color:var(--g5); text-decoration:none; border:1px solid var(--g3); border-radius:999px; padding:4px 11px; background:#fff; }
+  .topnav .home:hover { border-color:var(--clay); color:var(--clay); }
+  .topnav .here { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:#fff; background:var(--slate); border-radius:999px; padding:5px 12px; }
+  .topnav .sep { color:var(--g4); font-family:var(--mono); font-size:11px; }
+
+  /* sticky section outline (below topnav) */
+  .toc { position:sticky; top:43px; z-index:9; background:var(--oat); border-bottom:1px solid var(--g3); }
+  .toc .inner { width:90%; max-width:1600px; margin-inline:auto; display:flex; flex-wrap:wrap; gap:6px; padding:8px 0; }
+  .toc a { font-family:var(--mono); font-size:11px; color:var(--g5); text-decoration:none; padding:3px 10px; border-radius:999px; border:1px solid transparent; }
+  .toc a:hover, .toc a.active { color:var(--clay); border-color:var(--clay); background:#fff; }
+
+  main { width:90%; max-width:1600px; margin-inline:auto; padding:30px 0 110px; }
+  .prose { max-width:72ch; }
+  .eyebrow { font-family:var(--mono); text-transform:uppercase; letter-spacing:.14em; font-size:11px; color:var(--g5); margin:0 0 10px; }
+  h1 { font-family:var(--serif); font-weight:600; font-size:34px; line-height:1.12; margin:0 0 14px; color:var(--ink); }
+  h2 { font-family:var(--serif); font-weight:600; font-size:24px; margin:54px 0 6px; color:var(--ink); scroll-margin-top:96px; }
+  h2 .n { font-family:var(--mono); font-size:13px; color:var(--clay); font-weight:700; margin-right:10px; }
+  h3 { font-family:var(--serif); font-weight:600; font-size:17px; margin:24px 0 8px; color:var(--ink); }
+  p { margin:0 0 12px; }
+  .lede { font-size:18px; color:var(--g5); max-width:74ch; }
+  .meta { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 0; font-family:var(--mono); font-size:11px; }
+  .pill { background:var(--oat); border:1px solid var(--g3); border-radius:999px; padding:3px 11px; color:var(--g5); }
+  .pill strong { color:var(--slate); font-weight:600; }
+  .pill.todo { background:#f3ece2; border-color:var(--clay); color:var(--clay); }
+
+  .prompt-box { border:1px solid var(--g3); border-left:4px solid var(--g4); background:var(--g1); border-radius:var(--r); padding:14px 16px; margin:22px 0; max-width:88ch; }
+  .prompt-box .label { font-family:var(--mono); text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--g5); margin:0 0 6px; }
+  .prompt-box p { font-size:13px; margin:0; }
+  .prompt-box code { font-family:var(--mono); font-size:12px; color:var(--clay); }
+
+  code, .mono { font-family:var(--mono); }
+  p code, li code, td code, dd code { font-family:var(--mono); font-size:12.5px; background:var(--oat); border:1px solid var(--g3); border-radius:5px; padding:1px 5px; color:var(--ink); }
+
+  .callout { border-radius:var(--r); padding:14px 18px; margin:20px 0; border-left:4px solid var(--clay); background:#f3ece2; max-width:90ch; }
+  .callout.olive { border-left-color:var(--olive); background:#eef0e3; }
+  .callout.rust { border-left-color:var(--rust); background:#f4e6e2; }
+  .callout .k { font-family:var(--mono); text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--g5); display:block; margin-bottom:6px; }
+  .callout p:last-child { margin-bottom:0; }
+  .invert { background:var(--slate); color:var(--ivory); border-left-color:var(--clay); }
+  .invert .k { color:var(--g4); } .invert code { color:#e7c3a6; background:#3a3f48; border-color:#4a4f59; }
+
+  .diagram { margin:18px 0; border:1px solid var(--g3); border-radius:var(--r); background:var(--g1); padding:10px; }
+  .diagram svg { display:block; width:100%; height:auto; }
+  .legend { display:flex; flex-wrap:wrap; gap:16px; margin:8px 2px 2px; font-family:var(--mono); font-size:11px; color:var(--g5); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .sw { width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block; }
+  .swbox { width:13px; height:13px; border-radius:3px; border:1.5px solid; display:inline-block; }
+
+  /* the entry panel — how/when/where */
+  .entry { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:18px 0; }
+  .entry .card { border:1px solid var(--g3); border-radius:var(--r); background:#fff; padding:0; overflow:hidden; }
+  .entry .card .ch { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#fff; background:var(--clay); padding:8px 14px; }
+  .entry .card.when .ch { background:var(--olive); } .entry .card.how .ch { background:var(--slate); }
+  .entry .card .cb { padding:13px 15px; font-size:13px; }
+  .entry .card .cb p { margin:0 0 8px; } .entry .card .cb p:last-child { margin:0; }
+  .entry .card .cb code { font-size:11.5px; }
+
+  /* two-up seam grid */
+  .grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:18px 0; }
+  .opt { border:1px solid var(--g3); border-radius:var(--r); background:#fff; overflow:hidden; display:flex; flex-direction:column; }
+  .opt > .oh { padding:12px 16px; border-bottom:1px solid var(--g3); }
+  .opt.def > .oh { background:#eef0e3; } .opt.agentic > .oh { background:#f3ece2; }
+  .opt .tag { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; padding:2px 8px; border-radius:999px; color:#fff; }
+  .opt.def .tag { background:var(--olive); } .opt.agentic .tag { background:var(--clay); }
+  .opt h3 { margin:8px 0 2px; font-size:16px; }
+  .opt .sub { font-family:var(--mono); font-size:11px; color:var(--g5); }
+  .opt .body { padding:14px 16px; font-size:13.5px; }
+  .opt .body p { margin:0 0 9px; } .opt .body p:last-child { margin:0; }
+
+  /* code panel */
+  .code { background:#1f232a; border-radius:var(--r); margin:14px 0; overflow:hidden; border:1px solid #2c3138; }
+  .code .file { font-family:var(--mono); font-size:11px; color:#9aa3ad; padding:8px 14px; border-bottom:1px solid #2c3138; background:#23272f; }
+  .code pre { margin:0; padding:13px 16px; overflow-x:auto; font-family:var(--mono); font-size:12.5px; line-height:1.65; color:#d6dae0; white-space:pre; }
+  .code .kw { color:#d09a6a; } .code .str { color:#9fb06a; } .code .cm { color:#6b7480; font-style:italic; }
+  .code .fn { color:#e0c08a; } .code .hl { background:rgba(181,104,62,.22); display:inline-block; width:100%; }
+  .code .dim { color:#7e8893; }
+
+  /* feature matrix */
+  table.mx { border-collapse:collapse; width:100%; margin:18px 0; font-size:13.5px; }
+  table.mx th, table.mx td { border:1px solid var(--g3); padding:9px 12px; text-align:left; vertical-align:top; }
+  table.mx thead th { background:var(--oat); font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--g5); }
+  table.mx td.c { text-align:center; }
+  .glyph { display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; }
+  .glyph.new { background:var(--clay); } .glyph.reuse { background:var(--olive); }
+  td .lbl-new { color:var(--clay); font-weight:600; } td .lbl-reuse { color:var(--olive); font-weight:600; }
+
+  /* worked-example before/after */
+  .ba { display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:center; margin:18px 0; }
+  .ba .col { border:1px solid var(--g3); border-radius:var(--r); background:#fff; padding:14px; }
+  .ba .col h3 { margin:0 0 10px; font-size:14px; }
+  .ba .arrow-mid { font-family:var(--serif); font-size:26px; color:var(--clay); text-align:center; }
+  .flowrow { display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:7px; margin-bottom:7px; font-size:12.5px; }
+  .flowrow:last-child { margin-bottom:0; }
+  .flowrow.single { background:#eef0e3; border:1px solid #cfd6b4; }
+  .flowrow.umb { background:#f3ece2; border:1px solid #e1c6b3; }
+  .flowrow .ico { font-family:var(--mono); font-size:10px; font-weight:700; color:#fff; border-radius:4px; padding:2px 5px; flex:none; }
+  .flowrow.single .ico { background:var(--olive); } .flowrow.umb .ico { background:var(--clay); }
+  .flowrow .nm { font-weight:600; } .flowrow .id { font-family:var(--mono); font-size:10.5px; color:var(--g5); margin-left:auto; }
+  .umbwrap { border:1.5px dashed var(--clay); border-radius:9px; padding:8px; background:#faf1e9; }
+  .umbwrap .uh { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--clay); margin-bottom:7px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .umbwrap .seedchip { font-family:var(--mono); font-size:10px; background:#fff; border:1px solid #e1c6b3; border-radius:5px; padding:1px 6px; }
+  .umbwrap .dom { background:var(--clay); color:#fff; border-color:var(--clay); }
+  .unres { font-family:var(--mono); font-size:10.5px; color:var(--rust); }
+
+  ul.tight { margin:6px 0 12px; padding-left:20px; max-width:74ch; } ul.tight li { margin:0 0 6px; }
+  dl.io { margin:14px 0; border:1px solid var(--g3); border-radius:var(--r); overflow:hidden; }
+  dl.io > div { display:grid; grid-template-columns:160px 1fr; border-top:1px solid var(--g2); }
+  dl.io > div:first-child { border-top:none; }
+  dl.io dt { font-family:var(--mono); font-size:11.5px; padding:10px 14px; background:var(--g1); color:var(--clay); }
+  dl.io dd { margin:0; padding:10px 14px; font-size:13px; }
+
+  /* steps for the bounded-cost rule */
+  .steps { margin:14px 0; max-width:90ch; }
+  .step { display:grid; grid-template-columns:40px 1fr; gap:14px; padding:11px 0; border-bottom:1px solid var(--g2); }
+  .step:last-child { border-bottom:none; }
+  .badge { width:28px; height:28px; border-radius:50%; background:var(--clay); color:#fff; font-family:var(--mono); font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .step h3 { margin:0 0 3px; font-size:14.5px; } .step p { font-size:13px; margin:0; }
+
+  footer { margin-top:60px; padding-top:16px; border-top:1px solid var(--g3); font-family:var(--mono); font-size:11px; color:var(--g4); max-width:90ch; }
+
+  @media (max-width:860px) {
+    .grid2 { grid-template-columns:1fr; }
+    .entry { grid-template-columns:1fr; }
+    .ba { grid-template-columns:1fr; } .ba .arrow-mid { transform:rotate(90deg); }
+    h1 { font-size:27px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Related documents">
+  <div class="inner">
+    <a class="home" href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↑ task-27.1.6 family</a>
+    <span class="sep">/</span>
+    <span class="here" aria-current="page">27.1.6.6 · approach</span>
+  </div>
+</nav>
+
+<nav class="toc" aria-label="On this page">
+  <div class="inner">
+    <a href="#why">Why</a>
+    <a href="#enter">How / when / where the agent enters</a>
+    <a href="#seam">1 · The seam decision</a>
+    <a href="#flow">2 · Data flow: new vs reused</a>
+    <a href="#stitch">3 · The stitch, on one example</a>
+    <a href="#identity">4 · Identity &amp; preservation</a>
+    <a href="#bound">Bounded cost &amp; proof</a>
+  </div>
+</nav>
+
+<main>
+  <header>
+    <p class="eyebrow">task-27.1.6.6 · drift · agentic entrypoint stitching · approach review</p>
+    <h1>Reconnect the call-graphs Ariadne's syntactic analysis leaves split</h1>
+    <p class="lede">Ariadne resolves call references <em>structurally</em>. Dynamic dispatch, registry lookups, re-exports, and callback wiring frequently fail to resolve — and every unresolved call site is a real caller→callee edge missing from the graph. A callee only ever reached through such a call has no in-graph caller, so it is promoted to its own top-level entrypoint, and one functionality fragments into several flows. This task adds the agentic pass that <strong>stitches those fragments back together</strong> by repairing the missing edge — through a single new injected seam, reusing almost everything the shipped engine already does. This page lays out that approach so it can be approved before any code is written.</p>
+    <div class="meta">
+      <span class="pill todo">status <strong>To Do</strong></span>
+      <span class="pill">parent <strong>27.1.6 (Done)</strong></span>
+      <span class="pill">new seam <strong>stitch_entrypoints?</strong></span>
+      <span class="pill">mirrors <strong>describe? seam</strong></span>
+      <span class="pill">default <strong>byte-identical headless</strong></span>
+    </div>
+  </header>
+
+  <div class="prompt-box">
+    <p class="label">Grounded in</p>
+    <p><code>packages/drift/src/reconcile/reconcile.ts</code> (<code>detect_code_umbrellas</code>, the pipeline) · <code>hydrate.ts</code> (<code>CodeUmbrella</code>, the remap) · <code>describe.ts</code> + <code>types.ts</code> (the <code>describe?</code> seam to mirror, <code>goal</code> default) · <code>core/agentic/gap_detection.ts</code> (<code>find_unresolved_shapes</code>, <code>derive_candidate_seeds</code>) · <code>core/agentic/bridge.ts</code> (<code>build_bridge_edges</code>, <code>BRIDGE_CONFIDENCE_INFERRED</code>) · <code>core/model/flow.ts</code> (<code>flow_id_of</code>, <code>induce_members</code>).</p>
+  </div>
+
+  <h2 id="why">Why this matters</h2>
+  <p class="prose">Ariadne is a <strong>syntactic</strong> call-graph extractor: it resolves a call by matching it structurally to a definition. When a call goes through a registry table, a dynamic dispatch, a re-export, or a callback handed off elsewhere, the match <strong>fails</strong> — the call site resolves to nothing. Each such miss is a real caller→callee edge that never enters the graph. The downstream artifact is concrete: a callee that is <em>only</em> reached through unresolved calls looks like it has no caller, so <code>build_skeleton_flows</code> promotes it to its <strong>own top-level entrypoint</strong>. One functionality therefore <strong>fragments into several flows</strong> — one per spuriously-promoted entrypoint — and the v1 deterministic detector (<code>detect_code_umbrellas</code>) faithfully emits each as a separate single-seed flow, because it cannot tell a real entrypoint from a resolution gap.</p>
+
+  <div class="callout">
+    <span class="k">The picture, at its smallest</span>
+    <p>Entrypoint <strong>A</strong> contains a call site that really targets entrypoint <strong>B</strong>, but the call is dynamic dispatch and does not resolve. <strong>Today:</strong> B has no in-graph caller, so A and B surface as <em>two</em> flows. <strong>Stitched:</strong> the agent confirms the missing edge A→B; A and B merge into <em>one</em> multi-seed flow, and the recovered edge is recorded as an <code>agentic.bridge</code> whose click-through lands on the real missed call site.</p>
+  </div>
+
+  <p class="prose">The deterministic substrate (task-27.1.4) already surfaces the raw material for the repair, but <strong>has no runtime caller at all</strong> — this task is its first consumer. <code>find_unresolved_shapes</code> flags the nodes whose call sites mostly fail to resolve (the registry / dynamic-dispatch shapes); <code>derive_candidate_seeds</code> enumerates the orphan entrypoints. From these the engine builds <strong>candidate stitches</strong>: each pairs an unresolved call site in one entrypoint's tree with the entrypoint(s) it might actually target.</p>
+
+  <div class="callout invert">
+    <span class="k">The one architectural move</span>
+    <p>Add an optional executor <code>stitch_entrypoints?: EntrypointStitchExecutor</code> to <code>ReconcileDeps</code>, mirroring the existing <code>describe?: DescribeBatchExecutor</code> exactly. <strong>Undefined ⇒ today's deterministic one-entrypoint-per-flow behaviour, byte-identical.</strong> <strong>Supplied ⇒ the stitch lane:</strong> build candidate stitches from <code>find_unresolved_shapes</code> + <code>derive_candidate_seeds</code> over the changed neighbourhood, hand them to the executor, and assemble each confirmed stitch into a multi-seed <code>CodeUmbrella</code> plus an <code>agentic.bridge</code> over the recovered edge. Everything downstream is the existing path. The judgement asked of the agent is narrow and checkable: <em>does this specific unresolved call really link these two entrypoints?</em> — answerable from the two definitions and the call site, not "what is the essence of this repo?".</p>
+  </div>
+
+  <h2 id="enter"><span class="n">★</span>How, when, and where the agent enters</h2>
+  <p class="prose">The reorientation is precise about <em>when the model is in the loop and when it is not</em>. The seam is filled the same way the shipped <code>describe</code> seam is filled — the <code>drift-reconciler</code> sub-agent's own run — with no new harness and no background spawn. With nothing injected, the path is byte-identical to today and makes no model call.</p>
+
+  <div class="entry">
+    <div class="card where">
+      <div class="ch">Where</div>
+      <div class="cb">
+        <p>An injected executor seam on <code>ReconcileDeps</code>: <code>stitch_entrypoints?: EntrypointStitchExecutor</code>, added <em>exactly</em> like the shipped <code>describe?: DescribeBatchExecutor</code>.</p>
+        <p>Its default is a deterministic <strong>no-stitch grouper</strong> that reproduces today's one-entrypoint-per-flow. No executor ⇒ opt-out is the headless default; stitching is opt-in.</p>
+      </div>
+    </div>
+    <div class="card when">
+      <div class="ch">When</div>
+      <div class="cb">
+        <p>On the <code>Stop</code>-hook reconcile of the files worked on this turn, inside HYDRATE / re-detection, <strong>after <code>re_extract</code> refreshes the call graph</strong> and the substrate proposes candidate stitches.</p>
+        <p>Only the <strong>changed neighbourhood's</strong> entrypoints are considered — lazy and per-flow, never the whole repo.</p>
+      </div>
+    </div>
+    <div class="card how">
+      <div class="ch">How</div>
+      <div class="cb">
+        <p>Filled by the <code>drift-reconciler</code> sub-agent's <strong>own run</strong> — the same place the <code>describe</code> executor is filled. No new harness, no background spawn (task-27.1.5's separate execution model is superseded — YAGNI).</p>
+        <p>The agent receives the candidate stitches, each entrypoint's neighbourhood summary, and the <code>goal</code>, and returns the confirmed stitches. The in-process default makes no model call.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="seam"><span class="n">1</span>The seam decision</h2>
+  <p class="prose">The stitch is a judgement seam, not a new harness — the same pattern <code>describe?</code> already follows. With no executor injected, the headless path stays deterministic and the existing tests are untouched. The two paths differ only in <em>how the set of <code>CodeUmbrella</code>s is produced</em>; they share every downstream step.</p>
+
+  <div class="grid2">
+    <article class="opt def">
+      <div class="oh">
+        <span class="tag">default · stitch_entrypoints undefined</span>
+        <h3>Deterministic no-stitch grouper</h3>
+        <p class="sub">today's one-entrypoint-per-flow, byte-identical</p>
+      </div>
+      <div class="body">
+        <p><code>detect_code_umbrellas</code> walks <code>build_skeleton_flows(graph)</code> and emits one single-seed <code>CodeUmbrella</code> per entrypoint whose reachable subgraph touches a changed file.</p>
+        <p>Each umbrella's id <em>is</em> its one seed's <code>symbol_path</code> (<code>flow.id</code>), so it upgrades the matching skeleton stub <strong>in place</strong>.</p>
+        <p>No model call. No candidate stitches built. Deterministic tests stay green.</p>
+      </div>
+    </article>
+    <article class="opt agentic">
+      <div class="oh">
+        <span class="tag">agentic · stitch_entrypoints supplied</span>
+        <h3>Stitched multi-seed umbrellas</h3>
+        <p class="sub">opt-in edge-repair judgement</p>
+      </div>
+      <div class="body">
+        <p>Run <code>detect_gaps</code> over the changed neighbourhood; from <code>find_unresolved_shapes</code> (the missed-edge sites) and <code>derive_candidate_seeds</code> (the entrypoints), build <strong>candidate stitches</strong> pairing each unresolved call site with the entrypoint(s) it might target.</p>
+        <p>Pass <code>{ goal, candidates, neighbourhoods }</code> to the executor; it returns <strong>confirmed stitches</strong> → <code>{ label, rationale, seeds (≥1), bridges }</code>.</p>
+        <p>Assemble each into a <strong>multi-seed</strong> <code>CodeUmbrella</code> (<code>seeds.length</code> may be &gt; 1) plus an <code>agentic.bridge</code> over the recovered edge. The id is the <em>dominant</em> seed's <code>symbol_path</code>.</p>
+      </div>
+    </article>
+  </div>
+
+  <p class="prose">The mirror is exact. <code>describe?</code> already lives on <code>ReconcileDeps</code> with a deterministic <code>null_describe_executor</code> default, and <code>goal</code> already defaults to <code>orient-in-code-tree</code>; the new seam sits beside them the same way:</p>
+  <div class="code">
+    <div class="file">packages/drift/src/reconcile/types.ts — ReconcileDeps (the seam to extend)</div>
+    <pre><span class="kw">export interface</span> <span class="fn">ReconcileDeps</span> {
+  store: GraphStore;
+  adapter: AriadneAdapter;
+  <span class="cm">/* ... */</span>
+<span class="hl">  <span class="cm">/** The describe-step model call. Defaults to the deterministic null_describe_executor. */</span></span>
+<span class="hl">  describe?: DescribeBatchExecutor;</span>
+  <span class="cm">/** Detection goal (AC#7). Defaults to `orient-in-code-tree`. */</span>
+  goal?: DetectionGoal;
+<span class="hl">  <span class="cm">// NEW — the stitch seam, mirroring `describe?` exactly:</span></span>
+<span class="hl">  <span class="cm">/** Confirms candidate stitches. Defaults to the deterministic no-stitch grouper. */</span></span>
+<span class="hl">  stitch_entrypoints?: EntrypointStitchExecutor;</span>
+  now: () =&gt; <span class="kw">string</span>;
+  log: (message: <span class="kw">string</span>) =&gt; <span class="kw">void</span>;
+}</pre>
+  </div>
+
+  <h3>The executor contract</h3>
+  <dl class="io">
+    <div><dt>input</dt><dd><code>{ goal, candidates: CandidateStitch[], neighbourhoods }</code> — each <code>CandidateStitch</code> pairs an unresolved call site (from <code>UnresolvedShape</code>) with the entrypoint(s) it may target (from <code>CandidateSeed</code>), plus each entrypoint's neighbourhood summary. The <code>goal</code> threads through unchanged (AC#7), so a later goal selector is an added arg, not a rewrite.</dd></div>
+    <div><dt>output</dt><dd><code>ConfirmedStitch[]</code> = <code>{ label, rationale, seeds (≥1 SymbolId), bridges: BridgeCandidate[] }</code> — one entry per merged umbrella the agent confirms.</dd></div>
+    <div><dt>default</dt><dd>a pure no-stitch function returning one single-seed group per candidate entrypoint ⇒ reproduces today's one-entrypoint-per-flow exactly, no bridges.</dd></div>
+  </dl>
+
+  <h2 id="flow"><span class="n">2</span>Data flow: what is NEW vs what is REUSED</h2>
+  <p class="prose">The honest shape of this task: <strong>most of the pipeline already exists.</strong> The stitch path inserts two new stages — <em>build candidate stitches</em> and <em>confirm + assemble</em> — between the refreshed call graph and umbrella hydration. Everything from there onward (induce members, build bridge edges, write substrate, write flow, the remap) is the path the shipped engine already runs for single-seed flows. In the diagram, <span style="color:var(--clay);font-weight:600">clay = NEW work this task adds</span>; <span style="color:var(--olive);font-weight:600">olive = REUSED, already shipped &amp; tested</span>.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1180 360" role="img" aria-label="Data flow. The refreshed call graph feeds two new stages: build candidate stitches from find_unresolved_shapes plus derive_candidate_seeds over the changed neighbourhood, and the stitch executor that confirms edges and assembles a multi-seed CodeUmbrella plus an agentic.bridge. From there everything is reused: induce_members, build_bridge_edges, resolve_descriptions, write_agentic_substrate, write_flow, and the overlap remap.">
+      <defs>
+        <marker id="ar-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+        <marker id="ar-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+        <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="12.5" fill="#2c3038" text-anchor="middle">
+
+        <!-- input -->
+        <rect x="14" y="150" width="138" height="58" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="83" y="172" font-weight="600">re_extract'd</text>
+        <text x="83" y="189" font-weight="600">call graph</text>
+        <text x="83" y="203" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">changed nbhd</text>
+
+        <!-- NEW: build candidate stitches -->
+        <rect x="186" y="134" width="178" height="90" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="2"/>
+        <text x="275" y="156" font-weight="600">build candidate stitches</text>
+        <text x="275" y="173" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">find_unresolved_shapes</text>
+        <text x="275" y="186" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">+ derive_candidate_seeds</text>
+        <text x="275" y="201" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">missed call site × entrypoint(s)</text>
+        <text x="275" y="215" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">first runtime caller (NEW)</text>
+        <line x1="152" y1="179" x2="184" y2="179" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ar-g)"/>
+
+        <!-- NEW: stitch executor -->
+        <rect x="398" y="120" width="166" height="120" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="2"/>
+        <text x="481" y="148" font-weight="600">stitch_entrypoints</text>
+        <text x="481" y="165" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">executor (seam, NEW)</text>
+        <line x1="481" y1="175" x2="481" y2="183" stroke="#b5683e" stroke-width="1"/>
+        <text x="481" y="198" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">{goal, candidates,</text>
+        <text x="481" y="210" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">neighbourhoods}</text>
+        <text x="481" y="226" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">→ confirmed stitches</text>
+        <line x1="364" y1="179" x2="396" y2="179" stroke="#b5683e" stroke-width="1.8" marker-end="url(#ar-c)"/>
+
+        <!-- NEW: assemble multi-seed CodeUmbrella + bridge -->
+        <rect x="598" y="140" width="160" height="80" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="2"/>
+        <text x="678" y="162" font-weight="600">assemble umbrella</text>
+        <text x="678" y="179" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">multi-seed CodeUmbrella</text>
+        <text x="678" y="192" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">+ agentic.bridge candidate</text>
+        <text x="678" y="206" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">id = dominant seed path</text>
+        <line x1="564" y1="180" x2="596" y2="180" stroke="#b5683e" stroke-width="1.8" marker-end="url(#ar-c)"/>
+
+        <!-- REUSED column header -->
+        <text x="958" y="32" font-family="ui-monospace,monospace" font-size="10" fill="#6c7a3b" font-weight="700" text-anchor="middle">REUSED — hydrate_code_flow (already shipped)</text>
+        <rect x="800" y="44" width="316" height="290" rx="12" fill="none" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="6 5"/>
+
+        <!-- reused boxes -->
+        <rect x="822" y="60" width="272" height="40" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="958" y="78" font-weight="600">induce_members(seeds)</text>
+        <text x="958" y="92" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">seed SET → reachable, traverses bridges</text>
+
+        <rect x="822" y="112" width="272" height="40" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="958" y="130" font-weight="600">build_bridge_edges</text>
+        <text x="958" y="144" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">agentic.bridge · conf 0.5 · call-site span</text>
+
+        <rect x="822" y="164" width="272" height="40" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="958" y="182" font-weight="600">resolve_descriptions</text>
+        <text x="958" y="196" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">deterministic-first · describe? seam</text>
+
+        <rect x="822" y="216" width="272" height="40" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="958" y="234" font-weight="600">write_agentic_substrate + write_flow</text>
+        <text x="958" y="248" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">write_fields('agentic') · never rebuild_layer</text>
+
+        <rect x="822" y="268" width="272" height="40" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+        <text x="958" y="286" font-weight="600">≥50% overlap remap</text>
+        <text x="958" y="300" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">match_existing_flow · carries label/pin · bin</text>
+
+        <line x1="758" y1="180" x2="820" y2="80" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#ar-o)"/>
+        <text x="788" y="122" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233" text-anchor="middle">no change</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span><span class="swbox" style="border-color:var(--clay);background:#f3ece2"></span> NEW work this task</span>
+      <span><span class="swbox" style="border-color:var(--olive);background:#eef0e3"></span> REUSED — already shipped &amp; tested</span>
+      <span><span class="sw" style="border-top-color:var(--olive)"></span> reused edge</span>
+      <span><span class="sw" style="border-top-color:var(--clay)"></span> new edge</span>
+    </div>
+  </div>
+
+  <table class="mx">
+    <thead><tr><th>Stage</th><th class="c">New / Reused</th><th>Where it lives</th></tr></thead>
+    <tbody>
+      <tr><td>build candidate stitches over the neighbourhood</td><td class="c"><span class="glyph new"></span></td><td><span class="lbl-new">NEW caller</span> · <code>find_unresolved_shapes</code> + <code>derive_candidate_seeds</code> exist in <code>core/agentic/gap_detection.ts</code>, no runtime consumer yet</td></tr>
+      <tr><td>pair each missed call site with its candidate target(s)</td><td class="c"><span class="glyph new"></span></td><td><span class="lbl-new">NEW</span> · packs <code>UnresolvedShape</code> × <code>CandidateSeed</code> + neighbourhood summary</td></tr>
+      <tr><td>the <code>stitch_entrypoints</code> executor seam + default</td><td class="c"><span class="glyph new"></span></td><td><span class="lbl-new">NEW</span> · <code>ReconcileDeps</code>, mirroring <code>describe?</code></td></tr>
+      <tr><td>assemble confirmed stitch → multi-seed <code>CodeUmbrella</code> + bridge</td><td class="c"><span class="glyph new"></span></td><td><span class="lbl-new">NEW</span> · the data type already supports it (<code>seeds: readonly SymbolId[]</code>)</td></tr>
+      <tr><td><code>induce_members</code> from a seed SET, traversing bridges</td><td class="c"><span class="glyph reuse"></span></td><td><span class="lbl-reuse">REUSED</span> · <code>core/model/flow.ts</code></td></tr>
+      <tr><td><code>build_bridge_edges</code> + <code>BRIDGE_CONFIDENCE_INFERRED</code></td><td class="c"><span class="glyph reuse"></span></td><td><span class="lbl-reuse">REUSED</span> · <code>core/agentic/bridge.ts</code></td></tr>
+      <tr><td><code>resolve_descriptions</code> (describe seam)</td><td class="c"><span class="glyph reuse"></span></td><td><span class="lbl-reuse">REUSED</span> · <code>reconcile/describe.ts</code></td></tr>
+      <tr><td><code>write_agentic_substrate</code> + <code>write_flow</code></td><td class="c"><span class="glyph reuse"></span></td><td><span class="lbl-reuse">REUSED</span> · scoped <code>write_fields('agentic')</code>, no new persistence</td></tr>
+      <tr><td>≥50% overlap remap (<code>match_existing_flow</code>)</td><td class="c"><span class="glyph reuse"></span></td><td><span class="lbl-reuse">REUSED</span> · <code>reconcile/flow_identity.ts</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout olive">
+    <span class="k">No new persistence — AC#4</span>
+    <p>Stitched umbrellas persist through the <strong>existing</strong> <code>hydrate_code_flow</code> path: the recovered bridge + descriptions via <code>write_agentic_substrate</code>, the <code>agentic.flow</code> node + members via <code>write_flow</code> — both scoped <code>write_fields('agentic')</code>, never <code>rebuild_layer('agentic')</code> (which is store-global and would destroy other flows). <code>last_synced_at</code> is stamped from the injected clock. The data model already carries this: <code>CodeUmbrella.seeds</code> is already plural and <code>induce_members</code> already induces membership from a seed set <em>across bridges</em>, so the stitched interior re-induces automatically. The intra-tree interior stays deterministic (induced reachability).</p>
+  </div>
+
+  <h2 id="stitch"><span class="n">3</span>The stitch, on one example</h2>
+  <p class="prose">Two entrypoints, <code>runExport</code> and <code>flushQueue</code>, are really one functionality: <code>runExport</code> dispatches to <code>flushQueue</code> through a handler registry, so Ariadne cannot resolve the call and promotes <code>flushQueue</code> to its own entrypoint. The agent confirms the missing edge; the two merge into one multi-seed umbrella, and the recovered call edge is recorded as an <code>agentic.bridge</code> with the <strong>call-site span</strong> as provenance — click-through lands on the real missed dispatch. The umbrella's id is its <strong>dominant</strong> seed — <code>flow_id_of</code> of the seed with the largest reachable subgraph, ties broken by path — so a single-seed (un-stitched) default derives the <em>same</em> id as today's skeleton flow (byte-identical), while a stitched umbrella gets a stable id that survives a later re-stitch.</p>
+
+  <div class="ba">
+    <div class="col">
+      <h3>Today — Ariadne's gap, 2 singleton flows</h3>
+      <div class="flowrow single"><span class="ico">F</span><span class="nm">runExport</span><span class="id">id = export.ts::runExport</span></div>
+      <div class="unres" style="margin:2px 0 7px 4px">⤷ unresolved dispatch <code>registry.get(kind)()</code> — edge to flushQueue missing</div>
+      <div class="flowrow single"><span class="ico">F</span><span class="nm">flushQueue</span><span class="id">id = queue.ts::flushQueue</span></div>
+      <p style="font-size:12px;color:var(--g5);margin:9px 0 0">flushQueue has no in-graph caller, so it is promoted to its own entrypoint. The reader sees two call-graphs, not one feature.</p>
+    </div>
+    <div class="arrow-mid">→</div>
+    <div class="col">
+      <h3>Stitched — 1 multi-seed umbrella</h3>
+      <div class="umbwrap">
+        <div class="uh"><span>stitched umbrella</span><span class="seedchip dom">id = dominant seed</span></div>
+        <div class="flowrow umb"><span class="ico">★</span><span class="nm">runExport</span><span class="id">dominant · largest subgraph</span></div>
+        <div class="unres" style="margin:2px 0 7px 4px">⤷ <code>agentic.bridge</code> · conf 0.5 · source_range = call-site span</div>
+        <div class="flowrow umb"><span class="ico">+</span><span class="nm">flushQueue</span><span class="id">seed (recovered callee)</span></div>
+      </div>
+      <p style="font-size:12px;color:var(--g5);margin:9px 0 0"><strong>label:</strong> agent-chosen · <strong>rationale:</strong> "registry dispatch links runExport→flushQueue" · <strong>id = </strong><code>export.ts::runExport</code> (dominant). <code>induce_members</code> re-induces flushQueue's interior across the bridge.</p>
+    </div>
+  </div>
+
+  <div class="code">
+    <div class="file">assemble step — dominant-seed id, plus the recovered edge as an agentic.bridge candidate</div>
+    <pre><span class="cm">// induce per-seed reachable size, then pick the dominant seed for the id.</span>
+<span class="kw">const</span> dominant = [...stitch.seeds]
+  .map((s) =&gt; ({ s, size: <span class="fn">reachable_from</span>(s, graph).size, path: <span class="fn">flow_id_of</span>(graph.nodes.get(s)!) }))
+  .sort((a, b) =&gt; b.size - a.size || (a.path &lt; b.path ? -1 : 1))[0];
+
+<span class="kw">const</span> umbrella: CodeUmbrella = {
+  kind: <span class="str">"code"</span>,
+<span class="hl">  id: dominant.path,                 <span class="cm">// single-seed (un-stitched) ⇒ today's skeleton id (byte-identical)</span></span>
+  label: stitch.label,
+  seeds: stitch.seeds,               <span class="cm">// length may be &gt; 1 — the data model already allows it</span>
+};
+
+<span class="cm">// the recovered call edge — the call-site span is the provenance, so click-through</span>
+<span class="cm">// lands on the real missed dispatch, not on a synthetic node.</span>
+<span class="kw">const</span> bridges = <span class="fn">build_bridge_edges</span>(stitch.bridges);   <span class="cm">// conf BRIDGE_CONFIDENCE_INFERRED = 0.5</span></pre>
+  </div>
+
+  <h2 id="identity"><span class="n">4</span>Identity &amp; preservation across re-stitch</h2>
+  <p class="prose">A stitch is a judgement, so a later run can stitch or un-stitch differently. The guarantee: <strong>a re-run never silently drops a user rename or pin.</strong> Two existing mechanisms deliver it, unchanged. First, the id is the dominant seed's path, so an umbrella has a stable identity that survives a non-deterministic re-stitch as long as its dominant seed persists. Second, when a re-stitch <em>does</em> change the id, the ≥50% overlap remap (<code>match_existing_flow</code>, threshold <code>0.5</code>) recognises the freshly-detected flow as the same flow under a new id, carries the user-owned <code>label</code> across (re-stamped <code>user</code>-owned so a later agentic pass cannot overwrite it), and strands the superseded flow — node + member edges — into the re-attachment bin.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1100 220" role="img" aria-label="On a re-stitch, the freshly detected umbrella gets a new id from its new dominant seed. match_existing_flow finds the persisted flow whose members overlap by at least 50 percent, carries its user-owned label and pin across to the new id, and soft-deletes the superseded flow into the re-attachment bin so nothing is silently dropped.">
+      <defs>
+        <marker id="id-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+        <marker id="id-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+        <marker id="id-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui" font-size="12" fill="#2c3038" text-anchor="middle">
+        <rect x="16" y="80" width="172" height="60" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="102" y="103" font-weight="600">persisted umbrella</text>
+        <text x="102" y="120" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">user label "Export" · pinned</text>
+        <text x="102" y="133" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">id = old dominant seed</text>
+
+        <rect x="232" y="80" width="170" height="60" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="317" y="103" font-weight="600">re-stitch → new id</text>
+        <text x="317" y="120" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">new dominant seed</text>
+        <text x="317" y="133" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">members substantially overlap</text>
+        <line x1="188" y1="110" x2="230" y2="110" stroke="#6c6759" stroke-width="1.6" marker-end="url(#id-g)"/>
+
+        <path d="M402 110 L470 110 L470 84 L500 84" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#id-g)"/>
+        <rect x="500" y="58" width="186" height="52" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="593" y="79" font-weight="600">match_existing_flow</text>
+        <text x="593" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">overlap ≥ 0.50 ? same flow</text>
+
+        <rect x="730" y="42" width="178" height="50" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="819" y="62" font-weight="600">carry label / pin</text>
+        <text x="819" y="79" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">re-stamped user-owned</text>
+        <line x1="686" y1="80" x2="728" y2="68" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#id-g)"/>
+        <path d="M819 92 L819 96 L317 96 L317 140" fill="none" stroke="#6c7a3b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#id-g)"/>
+
+        <rect x="730" y="120" width="178" height="50" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.6"/>
+        <text x="819" y="140" font-weight="600">re-attachment bin</text>
+        <text x="819" y="157" font-family="ui-monospace,monospace" font-size="9" fill="#8a3528">old flow soft-deleted · recoverable</text>
+        <path d="M593 110 L593 145 L728 145" fill="none" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#id-r)"/>
+      </g>
+    </svg>
+    <div class="legend">
+      <span><span class="sw" style="border-top-color:var(--olive)"></span> carry user-owned content</span>
+      <span><span class="sw" style="border-top-color:var(--rust);border-top-style:dashed"></span> strand superseded flow → bin</span>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="k">AC#5 — already proven for single-seed; this task adds stitch/un-stitch fixtures</span>
+    <p>The shipped engine already runs this remap for single-seed flows. This task confirms it carries labels across stitch and un-stitch for <strong>multi-seed</strong> flows and adds fixtures for both directions. Nothing in the identity machinery is new code — the work is the fixtures and the confirmation.</p>
+  </div>
+
+  <h2 id="bound">Bounded cost &amp; the proving test</h2>
+  <p class="prose">Cost is bounded (AC#8). The stitch call is capped at a ceiling; entrypoints / candidate stitches beyond the cap — or stitches the agent declines — fall back to <strong>singleton stub flows</strong> (the un-stitched default), and any truncation is <em>logged, never a silent cap</em>. This mirrors the existing per-turn full-hydration cap (<code>MAX_FULL_CODE_HYDRATIONS</code>) already in the pipeline.</p>
+
+  <div class="steps">
+    <div class="step"><div class="badge">1</div><div><h3>Cap the stitch call</h3><p>The task-27.1.1 ceiling budgets the one stitch call. Candidate stitches above the cap are not sent to the agent.</p></div></div>
+    <div class="step"><div class="badge">2</div><div><h3>Overflow / declined → singleton stubs</h3><p>Over-cap or declined stitches fall back to describe-less singleton stub flows — exactly today's cheap default, so a repo never blocks on the agent.</p></div></div>
+    <div class="step"><div class="badge">3</div><div><h3>Log the truncation</h3><p>Any cap is written to the diagnostics sink (<code>deps.log</code>), so the reduction is visible, never silent.</p></div></div>
+  </div>
+
+  <div class="callout invert">
+    <span class="k">AC#9 — the proving target (a registry / dynamic-dispatch fixture)</span>
+    <p>Like the describe seam, v1 wires <strong>no</strong> model-backed executor through the <code>drift-reconcile</code> bin — the stitch path is structural. The proving test <strong>injects a hand-written stitch executor</strong> on a fixture where Ariadne leaves two entrypoints split by an unresolved call site (a registry / dynamic-dispatch shape), and verifies that <em>with</em> the executor they collapse into a single multi-seed umbrella spanning both — an <code>agentic.bridge</code> over the missed call, a sensible label and rationale — versus today's two singleton flows; <em>without</em> an executor the two stay separate (byte-identical). The deterministic skill-dir flow (umbrella = directory) is unchanged.</p>
+  </div>
+
+  <div class="callout">
+    <span class="k">Out of scope (deferred — YAGNI)</span>
+    <p>This task does <strong>not</strong> invent functionality groupings from nothing and does <strong>not</strong> attach docs by judgement. The broad "name arbitrary umbrellas / attach docs by judgement" framing is deferred; doc linkage stays deterministic (the skill-dir flow), and the depth/salience goal of key-control-flow is task-27.1.7.</p>
+  </div>
+
+  <h3>What lands where</h3>
+  <ul class="tight">
+    <li><strong>The seam + default</strong> — <code>EntrypointStitchExecutor</code> type and <code>stitch_entrypoints?</code> on <code>ReconcileDeps</code>; the default reproduces one-entrypoint-per-flow (no-stitch).</li>
+    <li><strong>The candidate wire</strong> — first runtime call to <code>find_unresolved_shapes</code> + <code>derive_candidate_seeds</code> over the changed neighbourhood, paired into candidate stitches.</li>
+    <li><strong>Assembly</strong> — confirmed stitches → multi-seed <code>CodeUmbrella</code> (dominant-seed id) + <code>agentic.bridge</code> over the recovered edge, feeding the existing <code>hydrate_code_flow</code>.</li>
+    <li><strong>Fixtures + docs</strong> — the split-entrypoint stitch fixture (AC#9); the <code>drift-sync</code> SKILL.md and <code>docs/comprehension/flow-construction.html</code> updated to describe the now-wired stitching step (how/when/where the agent enters) while keeping the deterministic default documented (AC#10).</li>
+  </ul>
+
+  <footer>
+    task-27.1.6.6 · approach companion · implementation-plan-handoff.<br>
+    Grounded in reconcile.ts / hydrate.ts / describe.ts / types.ts / gap_detection.ts / bridge.ts / flow.ts as of generation. Present-tense; describes the intended design.
+  </footer>
+</main>
+
+<script>
+/* Progressive enhancement only: highlight the in-view section in the outline. */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) {
+        links.forEach(function (l) { l.classList.remove('active'); });
+        var a = map[e.target.id];
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-100px 0px -70% 0px' });
+  document.querySelectorAll('main h2[id]').forEach(function (h) { obs.observe(h); });
+})();
+</script>
+</body>
+</html>
