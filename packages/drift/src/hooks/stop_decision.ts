@@ -30,7 +30,7 @@ export type StopDecision =
 
 /** The instruction fed back to the main agent (the `Stop` output `reason`). */
 export function build_reconcile_instruction(worked_on: readonly string[]): string {
-  return `Launch the \`${RECONCILER_AGENT_NAME}\` sub-agent to reconcile: ${worked_on.join(", ")}`;
+  return `Launch the \`${RECONCILER_AGENT_NAME}\` sub-agent to reconcile exactly these files: ${worked_on.join(", ")}`;
 }
 
 /** The short user-facing note (the `Stop` output `systemMessage`). */
