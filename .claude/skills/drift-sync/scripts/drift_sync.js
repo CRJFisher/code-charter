@@ -9,13 +9,25 @@
 // @code-charter/core and drives the headless Ariadne reconcile engine). It locates that bin via the
 // `DRIFT_RECONCILE_BIN` env var, or the `.drift_reconcile_bin` sidecar the installer writes next to this
 // skill. An empty file set no-ops; the bin reports per-flow hydrate/resync over the changed files.
+//
+// The changed-file set comes from one of two sources:
+//   - DEFAULT (no `--files`): the pending-reconcile file the Stop hook stages beside the store
+//     (`drift_pending_reconcile.json`, format `{ files: [...] }` — mirrored from
+//     src/hooks/pending_reconcile.ts; this script runs standalone and cannot import it). This is the
+//     hook path: the file list never travels through the main agent's context. The pending file is
+//     CONSUMED (deleted) after a successful non-dry run, so a failed reconcile retries next launch.
+//   - `--files <a,b,...>`: an explicit set, for the manual `/drift` path where no Stop hook ran and
+//     nothing is staged. The pending file is untouched.
 
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const USAGE =
-  "usage: drift_sync.js --files <a,b,...> --store <db_path> --repo-root <abs> [--json] [--dry-run]";
+  "usage: drift_sync.js --store <db_path> --repo-root <abs> [--files <a,b,...>] [--json] [--dry-run]";
+
+// Mirrored from src/hooks/pending_reconcile.ts (the Stop-hook side of the handoff).
+const PENDING_RECONCILE_FILE = "drift_pending_reconcile.json";
 
 const VALUE_FLAGS = { "--files": "files", "--store": "store", "--repo-root": "repo_root" };
 
@@ -41,7 +53,6 @@ function parse_args(argv) {
       return { error: `unknown argument: ${token}` };
     }
   }
-  if (args.files === null) return { error: "missing required --files" };
   if (args.store === null) return { error: "missing required --store" };
   if (args.repo_root === null) return { error: "missing required --repo-root" };
   return { args };
@@ -52,6 +63,31 @@ function split_files(files_value) {
     .split(",")
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
+}
+
+/** Read the staged set, or null when absent/malformed (nothing pending). */
+function read_pending_files(pending_path) {
+  let raw;
+  try {
+    raw = fs.readFileSync(pending_path, "utf8");
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      Array.isArray(parsed.files) &&
+      parsed.files.every((f) => typeof f === "string")
+    ) {
+      return parsed.files;
+    }
+  } catch {
+    /* malformed → nothing pending */
+  }
+  process.stderr.write(`drift-sync: ignoring malformed pending file at ${pending_path}\n`);
+  return null;
 }
 
 /** Locate the built drift-reconcile bin: env override first, then the installer-written sidecar. */
@@ -76,12 +112,18 @@ function main() {
     process.exit(2);
   }
   const { args } = parsed;
-  const files = split_files(args.files);
+  const pending_path = path.join(path.dirname(args.store), PENDING_RECONCILE_FILE);
+  const from_pending = args.files === null;
+  const files = from_pending ? (read_pending_files(pending_path) ?? []) : split_files(args.files);
 
   // An empty file set is a clean no-op without needing the bin (mirrors the bin's own empty-set path).
   if (files.length === 0) {
     if (args.json) process.stdout.write("[]\n");
-    process.stderr.write("drift-sync: empty file set, no-op for 0 file(s)\n");
+    process.stderr.write(
+      from_pending
+        ? "drift-sync: nothing staged in the pending file, no-op for 0 file(s)\n"
+        : "drift-sync: empty file set, no-op for 0 file(s)\n",
+    );
     process.exit(0);
   }
 
@@ -96,7 +138,7 @@ function main() {
   // root so the spawn works regardless of the cwd the skill happens to run from.
   if (!path.isAbsolute(bin)) bin = path.resolve(args.repo_root, bin);
 
-  const forwarded = [bin, "--files", args.files, "--store", args.store, "--repo-root", args.repo_root];
+  const forwarded = [bin, "--files", files.join(","), "--store", args.store, "--repo-root", args.repo_root];
   if (args.json) forwarded.push("--json");
   if (args.dry_run) forwarded.push("--dry-run");
 
@@ -105,7 +147,17 @@ function main() {
     process.stderr.write(`drift-sync: failed to run reconcile bin: ${result.error.message}\n`);
     process.exit(1);
   }
-  process.exit(result.status === null ? 1 : result.status);
+  const status = result.status === null ? 1 : result.status;
+  // Consume the staged set only after a successful mutating run; a failure (or dry run) leaves it
+  // for the next launch to retry, and the Stop hook unions further turns into it meanwhile.
+  if (from_pending && status === 0 && !args.dry_run) {
+    try {
+      fs.unlinkSync(pending_path);
+    } catch {
+      /* already gone — nothing to consume */
+    }
+  }
+  process.exit(status);
 }
 
 main();

@@ -5,8 +5,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 // End-to-end test of the built Stop-hook bin: stdin payload + a real transcript file -> stdout
-// block JSON. Exercises the glue (parse payload -> read transcript -> decide -> emit) that the
-// pure-function tests don't cover. Requires the package to be built (turbo `test` depends on it).
+// block JSON + the staged pending-reconcile file. Exercises the glue (parse payload -> read
+// transcript -> decide -> stage -> emit) that the pure-function tests don't cover. Requires the
+// package to be built (turbo `test` depends on it).
 const BIN = path.resolve(__dirname, "..", "..", "dist", "bin", "drift_stop_hook.js");
 
 const TRANSCRIPT_LINE = JSON.stringify({
@@ -29,8 +30,18 @@ function run_stop_hook(payload: Record<string, unknown>): { status: number | nul
   return { status: result.status, stdout: result.stdout };
 }
 
+/** The staged set the hook wrote beside the store, or null when nothing was staged. */
+function read_pending(cwd: string): string[] | null {
+  const pending = path.join(cwd, ".code-charter", "drift_pending_reconcile.json");
+  try {
+    return (JSON.parse(fs.readFileSync(pending, "utf8")) as { files: string[] }).files;
+  } catch {
+    return null;
+  }
+}
+
 describe("drift_stop_hook bin", () => {
-  it("emits a block decision naming the changed file and the drift-reconciler sub-agent", () => {
+  it("stages the changed file and emits a block decision naming only the sub-agent", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
     const transcript_path = path.join(dir, "t.jsonl");
     fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
@@ -44,8 +55,9 @@ describe("drift_stop_hook bin", () => {
       expect(result.status).toBe(0);
       const output = JSON.parse(result.stdout);
       expect(output.decision).toBe("block");
-      expect(output.reason).toContain("src/a.ts");
       expect(output.reason).toContain("drift-reconciler");
+      expect(output.reason).not.toContain("src/a.ts"); // the list travels via the pending file
+      expect(read_pending(dir)).toEqual(["src/a.ts"]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -66,23 +78,22 @@ describe("drift_stop_hook bin", () => {
     }
   });
 
-  it("re-fires for only the newly edited file after the watermark advances", () => {
+  it("re-fires for a newly edited file, unioning it into an unconsumed staged set", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
     const transcript_path = path.join(dir, "t.jsonl");
     fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
     const payload = { session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" };
     try {
-      run_stop_hook(payload); // first fire handles src/a.ts, advances the cursor
+      run_stop_hook(payload); // first fire stages src/a.ts, advances the cursor
       const next_edit = JSON.stringify({
         type: "assistant",
         message: { content: [{ type: "tool_use", name: "Edit", id: "t2", input: { file_path: "src/b.ts" } }] },
       });
       fs.appendFileSync(transcript_path, next_edit + "\n");
       const result = run_stop_hook(payload);
-      const output = JSON.parse(result.stdout);
-      expect(output.decision).toBe("block");
-      expect(output.reason).toContain("src/b.ts");
-      expect(output.reason).not.toContain("src/a.ts"); // already reconciled — not re-listed
+      expect(JSON.parse(result.stdout).decision).toBe("block");
+      // src/a.ts was never consumed (no reconcile ran), so the second fire retries it too.
+      expect(read_pending(dir)).toEqual(["src/a.ts", "src/b.ts"]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -97,12 +108,13 @@ describe("drift_stop_hook bin", () => {
       const result = run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
       expect(result.status).toBe(0);
       expect(result.stdout).toBe(""); // dropped to empty → no-new-drift guard no-ops, no reconcile launched
+      expect(read_pending(dir)).toBeNull(); // and nothing was staged
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it("blocks for only the flow-relevant file when a turn mixes source and docs", () => {
+  it("stages only the flow-relevant file when a turn mixes source and docs", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
     const transcript_path = path.join(dir, "t.jsonl");
     const doc = path.join(dir, "README.md");
@@ -110,10 +122,9 @@ describe("drift_stop_hook bin", () => {
     fs.writeFileSync(transcript_path, edit_line(doc, "m1") + "\n" + edit_line(src, "m2") + "\n");
     try {
       const result = run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
-      const output = JSON.parse(result.stdout);
-      expect(output.decision).toBe("block");
-      expect(output.reason).toContain(src);
-      expect(output.reason).not.toContain(doc); // the doc is filtered out, not handed to the reconciler
+      expect(JSON.parse(result.stdout).decision).toBe("block");
+      // Staged repo-relative: the doc is filtered out, not handed to the reconciler.
+      expect(read_pending(dir)).toEqual(["src/a.ts"]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

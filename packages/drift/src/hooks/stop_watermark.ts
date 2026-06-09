@@ -9,8 +9,9 @@
  * the current end. Once a turn's edits are dispatched to the reconciler, later turns with no new edits
  * no-op. A different `transcript_path` (a new session) resets the cursor to 0.
  *
- * The cursor is advanced on every fire (the agent is instructed to reconcile what it is handed; the
- * read-only `SessionStart` banner backstops a declined reconcile), so a turn is never reconciled twice.
+ * The cursor is advanced on every fire (a declined or failed reconcile is not lost: the staged pending
+ * set unions across fires until consumed, and the read-only `SessionStart` banner backstops it), so a
+ * turn is never reconciled twice.
  */
 
 import { parse_worked_on_files } from "./transcript_parser";

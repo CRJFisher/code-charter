@@ -46,8 +46,10 @@ log); add that directory to the repo's `.gitignore` if it is not already ignored
   - The registered name is `drift_resolve` (a dot in an MCP tool name is rejected by clients that
     flatten the namespace); the conceptual surface is the `drift.*` family.
 - **`Stop` hook** (`drift-stop-hook` bin) — parses the session transcript for the files edited
-  this turn and, unless `stop_hook_active` is set or nothing was edited, blocks the stop and
-  instructs the main agent to launch the `drift-reconciler` sub-agent over those files.
+  this turn and, unless `stop_hook_active` is set or nothing was edited, stages the set in the
+  pending-reconcile file beside the store, blocks the stop, and instructs the main agent to launch
+  the `drift-reconciler` sub-agent. The instruction names no files — the skill's script fetches
+  and consumes the staged set, keeping the list out of the main agent's context.
 - **`SessionStart` hook** (`drift-session-start` bin) — a read-only banner listing outstanding
   working-tree drift. It never reconciles and never blocks.
 - **`drift-reconciler` sub-agent** + **`drift-sync` skill** — the reconciliation path. The
@@ -61,12 +63,12 @@ log); add that directory to the repo's `.gitignore` if it is not already ignored
 Reconciliation and the drift banner degrade gracefully where a host lacks a primitive. The MCP
 `drift.*` tools are the universal user-facing fallback.
 
-| Host | `Stop` hook | `SessionStart` | Custom sub-agent | Reconcile path | Banner path | User-facing fallback |
-| ---- | ----------- | -------------- | ---------------- | -------------- | ----------- | -------------------- |
-| **Claude Code** (v1) | yes | yes (read-only) | yes | `Stop` → `drift-reconciler` → `drift-sync` | `SessionStart` banner | `drift.*` MCP |
-| Cursor | no | no | no (TBD) | `/drift` (manual) | `/drift` listing | `drift.*` MCP |
-| `.agents` (neutral) | reserved | reserved | reserved (`.agents/skills/`) | `/drift` | `/drift` listing | `drift.*` MCP |
-| `.codex` / OpenCode | no (hooks-via-JS-plugin gap) | no | TBD | `/drift` | `/drift` listing | `drift.*` MCP |
+| Host                 | `Stop` hook                  | `SessionStart`  | Custom sub-agent             | Reconcile path                             | Banner path           | User-facing fallback |
+| -------------------- | ---------------------------- | --------------- | ---------------------------- | ------------------------------------------ | --------------------- | -------------------- |
+| **Claude Code** (v1) | yes                          | yes (read-only) | yes                          | `Stop` → `drift-reconciler` → `drift-sync` | `SessionStart` banner | `drift.*` MCP        |
+| Cursor               | no                           | no              | no (TBD)                     | `/drift` (manual)                          | `/drift` listing      | `drift.*` MCP        |
+| `.agents` (neutral)  | reserved                     | reserved        | reserved (`.agents/skills/`) | `/drift`                                   | `/drift` listing      | `drift.*` MCP        |
+| `.codex` / OpenCode  | no (hooks-via-JS-plugin gap) | no              | TBD                          | `/drift`                                   | `/drift` listing      | `drift.*` MCP        |
 
 Degradation rules:
 

@@ -6,11 +6,13 @@
  *   2. "no new drift → no-op" — nothing was edited this turn, so there is nothing to reconcile.
  *
  * The reconcile trigger is this hook ALONE: it never reconciles inline and never spawns a
- * process — it hands the changed-file list to the main agent, which launches the registered
- * sub-agent. The downstream chain is: main agent → `drift-reconciler` (assets/agents) →
- * `drift-sync` skill → `drift_sync.js` → bin/`drift_reconcile.ts` → the reconcile engine
- * (task-27.1.6). Re-firing is safe because the engine's writes are idempotent and go through
- * SQLite (not Edit/Write), so they never re-arm this hook.
+ * process — the bin stages the changed-file set in the pending file beside the store, and the
+ * instruction tells the main agent only to launch the registered sub-agent (the file list never
+ * enters the main agent's context). The downstream chain is: main agent → `drift-reconciler`
+ * (assets/agents) → `drift-sync` skill → `drift_sync.js` (which fetches and consumes the pending
+ * set) → bin/`drift_reconcile.ts` → the reconcile engine (task-27.1.6). Re-firing is safe because
+ * the engine's writes are idempotent and go through SQLite (not Edit/Write), so they never re-arm
+ * this hook.
  *
  * `worked_on` is the files edited *this turn* — the bin scopes it to edits since the previous Stop via
  * the transcript watermark ({@link worked_on_since}). That is what makes guard 2 satisfiable: once a
@@ -28,9 +30,13 @@ export type StopDecision =
   | { block: false }
   | { block: true; instruction: string; system_message: string };
 
-/** The instruction fed back to the main agent (the `Stop` output `reason`). */
-export function build_reconcile_instruction(worked_on: readonly string[]): string {
-  return `Launch the \`${RECONCILER_AGENT_NAME}\` sub-agent to reconcile exactly these files: ${worked_on.join(", ")}`;
+/**
+ * The instruction fed back to the main agent (the `Stop` output `reason`). It deliberately names no
+ * files: the changed-file set is staged in the pending file and fetched by the sub-agent's script,
+ * so the list never pollutes the main agent's context.
+ */
+export function build_reconcile_instruction(): string {
+  return `Launch the \`${RECONCILER_AGENT_NAME}\` sub-agent.`;
 }
 
 /** The short user-facing note (the `Stop` output `systemMessage`). */
@@ -47,7 +53,7 @@ export function decide_stop_action(input: StopHookInput, worked_on: readonly str
   }
   return {
     block: true,
-    instruction: build_reconcile_instruction(worked_on),
+    instruction: build_reconcile_instruction(),
     system_message: build_system_message(worked_on.length),
   };
 }

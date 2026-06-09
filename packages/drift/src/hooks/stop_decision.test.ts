@@ -14,14 +14,15 @@ function stop_input(overrides: Partial<StopHookInput> = {}): StopHookInput {
 }
 
 describe("decide_stop_action", () => {
-  it("blocks and instructs the main agent to launch drift-reconciler over the changed files", () => {
+  it("blocks and instructs the main agent to launch drift-reconciler, naming no files", () => {
     const decision = decide_stop_action(stop_input(), ["src/a.ts", "src/b.ts"]);
     expect(decision.block).toBe(true);
     if (decision.block) {
       expect(decision.instruction).toContain(RECONCILER_AGENT_NAME);
-      expect(decision.instruction).toContain("src/a.ts");
-      expect(decision.instruction).toContain("src/b.ts");
-      expect(decision.instruction).toContain("exactly these files");
+      // The file list travels via the staged pending file, never the instruction — keeping it out
+      // of the main agent's context is the point of the handoff.
+      expect(decision.instruction).not.toContain("src/a.ts");
+      expect(decision.instruction).not.toContain("src/b.ts");
       expect(decision.system_message).toContain("2 changed file");
     }
   });

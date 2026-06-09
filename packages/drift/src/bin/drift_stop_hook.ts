@@ -2,19 +2,27 @@
 /**
  * The `Stop` hook entry. Reads the payload from stdin, determines the files worked on *this turn* (the
  * edits since the previous Stop fire, via the transcript watermark), pre-filters them to the ones that
- * can form a flow, and — unless a loop guard or the no-new-drift check fires — blocks the stop and feeds
- * the main agent the instruction to launch `drift-reconciler`. A turn no-ops three ways: the loop guard,
- * no edits this turn, or every edited file is non-flow (docs/config the reconcile engine would drop
- * anyway — filtering them here avoids launching a full-repo reconcile that does nothing). The watermark
- * is advanced and persisted each fire (over the full set, including dropped files) so a turn is
- * reconciled once and idle turns no-op. Any failure degrades to a silent no-op (exit 0); a hook must
- * never break the session.
+ * can form a flow, and — unless a loop guard or the no-new-drift check fires — stages the set in the
+ * pending-reconcile file, blocks the stop, and feeds the main agent the instruction to launch
+ * `drift-reconciler` (the file list travels via the pending file, never the instruction). A turn no-ops
+ * four ways: the loop guard, no edits this turn, every edited file is non-flow (docs/config the
+ * reconcile engine would drop anyway — filtering them here avoids launching a full-repo reconcile that
+ * does nothing), or the pending set cannot be staged (blocking with nothing staged would dispatch an
+ * empty reconcile). The watermark is advanced and persisted each fire (over the full set, including
+ * dropped files) so a turn is reconciled once and idle turns no-op. Any failure degrades to a silent
+ * no-op (exit 0); a hook must never break the session.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { is_stop_hook_input, type StopHookOutput } from "../hooks/hook_payloads";
+import {
+  merge_pending_reconcile,
+  parse_pending_reconcile,
+  pending_reconcile_path,
+  serialize_pending_reconcile,
+} from "../hooks/pending_reconcile";
 import { decide_stop_action } from "../hooks/stop_decision";
 import { parse_watermark, serialize_watermark, worked_on_since } from "../hooks/stop_watermark";
 import { resolve_db_path } from "../mcp/resolve_db_path";
@@ -78,6 +86,24 @@ async function main(): Promise<void> {
 
   const decision = decide_stop_action(payload, relevant);
   if (decision.block) {
+    // Stage the changed-file set for the sub-agent's script to fetch — the instruction carries no
+    // file list. Union with any unconsumed prior set (the script deletes the file only after a
+    // successful reconcile), so a declined or failed handoff is retried, not overwritten. Staged
+    // paths are repo-relative forward-slash, the reconcile bin's `--files` contract.
+    const pending_path = pending_reconcile_path(resolve_db_path(process.env, payload.cwd));
+    const staged = relevant.map((file_path) => to_repo_relative(file_path, payload.cwd));
+    try {
+      let prior: string[] = [];
+      try {
+        prior = parse_pending_reconcile(fs.readFileSync(pending_path, "utf8")) ?? [];
+      } catch {
+        /* nothing pending */
+      }
+      fs.mkdirSync(path.dirname(pending_path), { recursive: true });
+      fs.writeFileSync(pending_path, serialize_pending_reconcile(merge_pending_reconcile(prior, staged)));
+    } catch {
+      return; // nothing staged → blocking would dispatch an empty reconcile; no-op instead
+    }
     const output: StopHookOutput = {
       decision: "block",
       reason: decision.instruction,
