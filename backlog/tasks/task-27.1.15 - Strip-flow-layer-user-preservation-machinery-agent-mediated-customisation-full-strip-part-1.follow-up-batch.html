@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full-strip follow-up batch · tasks 27.1.15.1–.6</title>
+<style>
+  :root{
+    --ivory:#f7f3ec; --slate:#2c2a26; --clay:#b5683e; --olive:#6f7a3f;
+    --olive:#6f7a3f; --oat:#e7ddc9; --rust:#9d3a26;
+    --g1:#fbf9f4; --g2:#efe9dd; --g3:#d9d1bf; --g4:#a8a08c; --g5:#6c655a;
+    --serif:ui-serif,Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --r:10px; --rp:999px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);
+    line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  main{width:90%;max-width:1600px;margin-inline:auto;padding:2rem 0 6rem}
+  .prose{max-width:68ch}
+  h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.15;letter-spacing:-.01em}
+  h1{font-size:2.1rem;margin:.2rem 0 .4rem}
+  h2{font-size:1.5rem;margin:0 0 .3rem}
+  h3{font-size:1.15rem;margin:0 0 .25rem}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.16em;
+    font-size:.7rem;color:var(--g5)}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+  a{color:var(--clay)}
+
+  /* cross-doc nav */
+  nav.cross{position:sticky;top:0;z-index:10;background:var(--ivory);
+    border-bottom:1px solid var(--g3);width:100%}
+  nav.cross .inner{width:90%;max-width:1600px;margin-inline:auto;display:flex;
+    flex-wrap:wrap;gap:.4rem;padding:.55rem 0;align-items:center}
+  nav.cross .grp{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;
+    letter-spacing:.12em;color:var(--g4);margin-right:.2rem}
+  .doc-link,.pending,nav.cross a,.current{font-family:var(--mono);font-size:.72rem;
+    text-decoration:none;padding:.28rem .6rem;border-radius:var(--rp);
+    border:1px solid var(--g3);color:var(--slate);background:var(--g1);white-space:nowrap}
+  .doc-link:hover{border-color:var(--clay);color:var(--clay)}
+  .current{background:var(--slate);color:var(--ivory);border-color:var(--slate)}
+  .pending{color:var(--g4);border-style:dashed;background:transparent;cursor:default}
+  .pending .tag{font-size:.6rem;color:var(--clay);margin-left:.3rem}
+
+  /* section outline rail */
+  nav.toc{position:sticky;top:46px;z-index:9;background:var(--g1);
+    border-bottom:1px solid var(--g3);width:100%}
+  nav.toc .inner{width:90%;max-width:1600px;margin-inline:auto;display:flex;
+    flex-wrap:wrap;gap:.35rem;padding:.45rem 0}
+  nav.toc a{font-family:var(--mono);font-size:.68rem;text-decoration:none;color:var(--g5);
+    padding:.2rem .5rem;border-radius:var(--rp);border:1px solid transparent}
+  nav.toc a:hover,nav.toc a.active{border-color:var(--g3);color:var(--clay);background:var(--ivory)}
+
+  section[id]{scroll-margin-top:108px;padding-top:2.4rem}
+  header{scroll-margin-top:108px}
+
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 0}
+  .chip{font-family:var(--mono);font-size:.72rem;background:var(--g2);border:1px solid var(--g3);
+    border-radius:var(--rp);padding:.25rem .6rem}
+  .chip strong{color:var(--clay)}
+
+  .prompt-box{border:1px solid var(--g3);border-left:3px solid var(--g4);border-radius:var(--r);
+    background:var(--g1);padding:.9rem 1.1rem;margin:1.2rem 0}
+  .prompt-box .label{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;
+    letter-spacing:.12em;color:var(--g4);display:block;margin-bottom:.35rem}
+  .files{list-style:none;padding:0;margin:.4rem 0 0;display:flex;flex-wrap:wrap;gap:.3rem}
+  .files code{background:var(--g2);padding:.15rem .45rem;border-radius:6px}
+
+  .lead{font-size:1.06rem;color:var(--g5)}
+
+  /* callouts */
+  aside.call{border:1px solid var(--g3);border-left:4px solid var(--clay);border-radius:var(--r);
+    background:var(--g1);padding:1rem 1.2rem;margin:1.2rem 0}
+  aside.call.olive{border-left-color:var(--olive)}
+  aside.call.rust{border-left-color:var(--rust)}
+  aside.call .k{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;
+    letter-spacing:.12em;color:var(--g5);display:block;margin-bottom:.3rem}
+  aside.invert{background:var(--slate);color:var(--ivory);border:none;border-radius:var(--r);
+    padding:1.2rem 1.4rem;margin:1.4rem 0}
+  aside.invert .k{color:var(--g3)}
+  aside.invert code{color:#e9c9a8}
+
+  /* batch map grid */
+  .map{display:grid;grid-template-columns:repeat(12,1fr);gap:.7rem;margin:1.2rem 0}
+  .node{border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:.8rem .9rem;
+    display:flex;flex-direction:column;gap:.3rem}
+  .node .id{font-family:var(--mono);font-size:.72rem;color:var(--clay);font-weight:600}
+  .node .ttl{font-size:.95rem;font-family:var(--serif)}
+  .node .why{font-size:.82rem;color:var(--g5)}
+  .node .pri{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
+    align-self:flex-start;border-radius:var(--rp);padding:.1rem .45rem;border:1px solid var(--g3)}
+  .pri.high{color:var(--rust);border-color:var(--rust)}
+  .pri.med{color:var(--clay);border-color:var(--clay)}
+  .pri.low{color:var(--olive);border-color:var(--olive)}
+  .grp-core{grid-column:span 6}
+  .grp-retire{grid-column:span 4}
+  .grp-misc{grid-column:span 6}
+  .lane{grid-column:1/-1;font-family:var(--mono);font-size:.66rem;text-transform:uppercase;
+    letter-spacing:.13em;color:var(--g4);margin-top:.5rem;border-top:1px dashed var(--g3);
+    padding-top:.55rem}
+  @media(max-width:860px){.node{grid-column:1/-1 !important}}
+
+  /* numbered build order */
+  .steps{margin:1rem 0;display:flex;flex-direction:column;gap:.65rem}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:.8rem;align-items:start}
+  .badge{width:34px;height:34px;border-radius:50%;background:var(--slate);color:var(--ivory);
+    font-family:var(--mono);font-size:.85rem;display:flex;align-items:center;justify-content:center;
+    margin-top:.1rem}
+  .step .b-ttl{font-weight:600}
+  .step .b-ttl .commit{font-family:var(--mono);font-size:.7rem;color:var(--g4);margin-left:.5rem}
+  .step .b-body{font-size:.9rem;color:var(--g5)}
+
+  /* svg diagram wrapper */
+  .diagram{width:100%;margin:1.2rem 0;border:1px solid var(--g3);border-radius:var(--r);
+    background:var(--g1);padding:1rem}
+  .diagram svg{width:100%;height:auto;display:block}
+  figcaption{font-size:.82rem;color:var(--g5);margin-top:.5rem;font-family:var(--sans)}
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin:.6rem 0 0;font-family:var(--mono);font-size:.68rem;color:var(--g5)}
+  .legend span{display:flex;align-items:center;gap:.35rem}
+  .swatch{width:22px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block}
+
+  /* code panel */
+  .code{background:#23211d;border-radius:var(--r);overflow:hidden;margin:1rem 0;font-family:var(--mono);
+    font-size:.78rem;line-height:1.55}
+  .code .file-label{background:#2f2c27;color:#b9b09c;padding:.4rem .9rem;font-size:.7rem;
+    border-bottom:1px solid #1a1814;display:flex;justify-content:space-between}
+  .code pre{margin:0;padding:.8rem .9rem;overflow-x:auto;color:#ded6c4;white-space:pre}
+  .kw{color:#c98a5a}.str{color:#9aa06a}.cm{color:#6f685b;font-style:italic}.fn{color:#dcc187}
+  .hl{background:rgba(181,104,62,.22);display:inline-block;width:100%}
+  .del{background:rgba(157,58,38,.24);display:inline-block;width:100%;text-decoration:line-through;opacity:.85}
+  .add{background:rgba(111,122,63,.26);display:inline-block;width:100%}
+  .dim{color:#6f685b}
+
+  /* comparison grid (decision space) */
+  .grid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin:1.1rem 0}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .opt{border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:.9rem 1rem;
+    display:flex;flex-direction:column;gap:.5rem}
+  .opt .num{display:inline-block;font-family:var(--mono);font-size:.7rem;background:var(--slate);
+    color:var(--ivory);border-radius:var(--rp);padding:.12rem .5rem;margin-right:.4rem}
+  .opt h3{margin:0}
+  .pc{display:grid;grid-template-columns:1fr;gap:.25rem;font-size:.84rem}
+  .pro,.con{padding-left:1.1rem;position:relative;color:var(--g5)}
+  .pro::before,.con::before{content:"";position:absolute;left:0;top:.5em;width:7px;height:7px;border-radius:50%}
+  .pro::before{background:var(--olive)}
+  .con::before{background:var(--rust)}
+  .verdict{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;
+    border-top:1px solid var(--g3);padding-top:.5rem;margin-top:.2rem}
+  .verdict.pick{color:var(--olive)}
+  .verdict.maybe{color:var(--clay)}
+  .verdict.no{color:var(--rust)}
+
+  /* feature matrix */
+  table.mtx{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.85rem}
+  table.mtx th,table.mtx td{border:1px solid var(--g3);padding:.5rem .65rem;text-align:left;vertical-align:top}
+  table.mtx th{background:var(--g2);font-family:var(--mono);font-size:.72rem;font-weight:600}
+  table.mtx td.c{text-align:center;width:13%}
+  .disc{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle}
+  .disc.full{background:var(--olive)}
+  .disc.half{background:linear-gradient(90deg,var(--clay) 50%,transparent 50%);border:1.5px solid var(--clay)}
+  .disc.none{background:transparent;border:1.5px solid var(--rust)}
+
+  ul.tight{margin:.4rem 0;padding-left:1.2rem}
+  ul.tight li{margin:.2rem 0}
+  .glos{display:grid;grid-template-columns:max-content 1fr;gap:.3rem .9rem;margin:1rem 0;
+    font-size:.88rem;max-width:68ch}
+  .glos dt{font-family:var(--mono);font-size:.78rem;color:var(--clay)}
+  .glos dd{margin:0;color:var(--g5)}
+
+  footer{margin-top:3rem;border-top:1px solid var(--g3);padding-top:1rem;font-family:var(--mono);
+    font-size:.7rem;color:var(--g4)}
+</style>
+</head>
+<body>
+
+<nav class="cross" aria-label="Companion documents">
+  <div class="inner">
+    <span class="grp">27.1.15 family</span>
+    <a class="doc-link" href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.overview.html">Overview</a>
+    <a class="doc-link" href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.strip-map.html">Part 1 strip-map</a>
+    <span class="current" aria-current="page">Follow-up batch (.1–.6)</span>
+  </div>
+</nav>
+
+<nav class="toc" aria-label="On this page">
+  <div class="inner">
+    <a href="#map">Batch map</a>
+    <a href="#order">Build order</a>
+    <a href="#strip1">.1 The accept-dance strip</a>
+    <a href="#decide3">.3 Demotion decision</a>
+    <a href="#guard4">.4 Degenerate-graph guard</a>
+    <a href="#invariant6">.6 The invariant</a>
+    <a href="#small">.2 / .5 cleanup</a>
+  </div>
+</nav>
+
+<main>
+  <header>
+    <span class="eyebrow">task-27.1.15 · follow-up batch · before implementation</span>
+    <h1>Finishing the full strip: six tasks, one shape</h1>
+    <p class="lead prose">Part 1 (the parent, already merged) removed the flow-layer user-preservation surface and the recovery product. This batch &mdash; <span class="mono">.1</span> through <span class="mono">.6</span> &mdash; removes what part 1 deliberately left standing, closes the one lifecycle case the new retirement path misses, makes retirement safe and observable, and writes the governing rule into the design docs.</p>
+    <div class="meta">
+      <span class="chip"><strong>6</strong> sub-tasks</span>
+      <span class="chip">2 high · 3 med · 1 low</span>
+      <span class="chip">code: core + drift + types</span>
+      <span class="chip">verified against worktree</span>
+    </div>
+    <div class="prompt-box">
+      <span class="label">Grounded in</span>
+      <ul class="files">
+        <li><code>core/src/reextract/re_extract.ts:147-159</code></li>
+        <li><code>drift/src/reconcile/reconcile.ts:146-155</code></li>
+        <li><code>drift/src/reconcile/affected_flows.ts:48-50</code></li>
+        <li><code>core/src/model/flow.ts:257-263</code></li>
+        <li><code>drift/src/reconcile/headless_project.ts:77-92</code></li>
+        <li><code>types/src/graph_store.ts:200</code></li>
+        <li><code>drift/src/mcp/drift_tool.ts</code></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- ============================ BATCH MAP ============================ -->
+  <section id="map">
+    <span class="eyebrow">Comprehension job 1</span>
+    <h2>How the six tasks relate</h2>
+    <p class="prose">Three independent concerns, plus residue. <span class="mono">.1</span> and <span class="mono">.5</span> share the storage / MCP teardown. <span class="mono">.3</span> and <span class="mono">.4</span> both reshape the one surviving lifecycle path &mdash; <em>seed-gone retirement</em>. <span class="mono">.2</span> is residue cleanup. <span class="mono">.6</span> records the principle the whole strip relies on.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 1000 430" role="img" aria-label="Map of the six follow-up tasks grouped into three concerns around the surviving reconcile path">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#6c655a"/>
+          </marker>
+        </defs>
+        <!-- center: the surviving reconcile path -->
+        <rect x="370" y="170" width="260" height="90" rx="12" fill="#e7ddc9" stroke="#b5683e" stroke-width="2"/>
+        <text x="500" y="200" text-anchor="middle" font-family="ui-serif,Georgia,serif" font-size="16" fill="#2c2a26">Surviving reconcile path</text>
+        <text x="500" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#6c655a">seed-gone retirement</text>
+        <text x="500" y="240" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#6c655a">+ inline re-anchor</text>
+
+        <!-- .1 storage/MCP strip (top-left) -->
+        <rect x="60" y="40" width="250" height="86" rx="10" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
+        <text x="75" y="64" font-family="ui-monospace,monospace" font-size="12" fill="#9d3a26" font-weight="600">.1  accept-dance strip</text>
+        <text x="75" y="84" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">re_extract inline re-anchor;</text>
+        <text x="75" y="100" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">remove drift MCP server +</text>
+        <text x="75" y="116" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">SessionStart hook</text>
+
+        <!-- .5 restore (bottom-left) -->
+        <rect x="60" y="300" width="250" height="70" rx="10" fill="#fbf9f4" stroke="#6f7a3f" stroke-width="1.6"/>
+        <text x="75" y="324" font-family="ui-monospace,monospace" font-size="12" fill="#6f7a3f" font-weight="600">.5  remove GraphStore.restore</text>
+        <text x="75" y="344" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">last callers were the deleted</text>
+        <text x="75" y="360" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">reattach/delete arms</text>
+
+        <!-- .3 demotion (top-right) -->
+        <rect x="690" y="40" width="250" height="86" rx="10" fill="#fbf9f4" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="705" y="64" font-family="ui-monospace,monospace" font-size="12" fill="#b5683e" font-weight="600">.3  close the demotion gap</text>
+        <text x="705" y="84" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">retire a flow when its seed is</text>
+        <text x="705" y="100" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">wrapped (demoted), not just</text>
+        <text x="705" y="116" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">renamed/removed</text>
+
+        <!-- .4 guard (bottom-right) -->
+        <rect x="690" y="300" width="250" height="86" rx="10" fill="#fbf9f4" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="705" y="324" font-family="ui-monospace,monospace" font-size="12" fill="#b5683e" font-weight="600">.4  guard + observability</text>
+        <text x="705" y="344" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">don't retire on a degenerate</text>
+        <text x="705" y="360" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">graph; report retirements in</text>
+        <text x="705" y="376" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">ReconcileResult outcomes</text>
+
+        <!-- .6 invariant (bottom-center) -->
+        <rect x="370" y="320" width="260" height="66" rx="10" fill="#2c2a26"/>
+        <text x="500" y="346" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" fill="#e7ddc9" font-weight="600">.6  record the invariant</text>
+        <text x="500" y="366" text-anchor="middle" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#f7f3ec">amend doc-5 / doc-5.1:</text>
+        <text x="500" y="380" text-anchor="middle" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#f7f3ec">customisation is agent-mediated</text>
+
+        <!-- .2 residue (top-center) -->
+        <rect x="385" y="40" width="230" height="66" rx="10" fill="#fbf9f4" stroke="#a8a08c" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="500" y="64" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" fill="#6c655a" font-weight="600">.2  vocabulary residue</text>
+        <text x="500" y="84" text-anchor="middle" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">2 test comments/titles +</text>
+        <text x="500" y="100" text-anchor="middle" font-family="ui-sans,system-ui,sans-serif" font-size="11.5" fill="#2c2a26">retire a stale worktree</text>
+
+        <!-- edges -->
+        <line x1="310" y1="83" x2="368" y2="190" stroke="#6c655a" stroke-width="1.5" marker-end="url(#ar)"/>
+        <line x1="310" y1="335" x2="368" y2="225" stroke="#6c655a" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+        <line x1="690" y1="83" x2="632" y2="190" stroke="#b5683e" stroke-width="1.8" marker-end="url(#ar)"/>
+        <line x1="690" y1="335" x2="632" y2="225" stroke="#b5683e" stroke-width="1.8" marker-end="url(#ar)"/>
+        <line x1="500" y1="320" x2="500" y2="262" stroke="#6c655a" stroke-width="1.5" marker-end="url(#ar)"/>
+      </svg>
+      <figcaption>Solid clay edges touch the surviving reconcile path directly (.1 replaces the relocation half; .3/.4 reshape retirement). The dashed edges (.5, .2) are clean-up that the path makes possible but does not depend on. .6 documents the path's premise.</figcaption>
+      <div class="legend">
+        <span><span class="swatch" style="border-top-color:#b5683e"></span> reshapes the reconcile path</span>
+        <span><span class="swatch" style="border-top-color:#6c655a;border-top-style:dashed"></span> enabled clean-up</span>
+        <span><span class="swatch" style="border-top-color:#9d3a26"></span> teardown (high blast radius)</span>
+      </div>
+    </figure>
+
+    <div class="map">
+      <article class="node grp-core">
+        <span class="pri high">high</span>
+        <span class="id">27.1.15.1 — full strip part 2</span>
+        <span class="ttl">Strip the core relocation / reanchor accept-dance</span>
+        <span class="why">Replaces the staged-drift round trip with an inline re-anchor. Removes the whole drift MCP server and the SessionStart hook. The largest blast radius in the batch.</span>
+      </article>
+      <article class="node grp-core">
+        <span class="pri low">low</span>
+        <span class="id">27.1.15.5</span>
+        <span class="ttl">Remove the orphaned GraphStore.restore API</span>
+        <span class="why">Its only callers were the reattach/delete arms .1 deletes. Once they're gone, restore is surplus across the whole interface chain. Lands with .1 if the storage surface is already open.</span>
+      </article>
+
+      <div class="lane">Reshape the surviving retirement path</div>
+      <article class="node grp-retire">
+        <span class="pri med">med</span>
+        <span class="id">27.1.15.3</span>
+        <span class="ttl">Retire on demotion-by-wrapper</span>
+        <span class="why">Seed-gone retirement covers rename + removal but not demotion. Close the gap, or record a decision that coexistence is acceptable. A genuine design choice.</span>
+      </article>
+      <article class="node grp-retire">
+        <span class="pri med">med</span>
+        <span class="id">27.1.15.4</span>
+        <span class="ttl">Guard + surface retirement</span>
+        <span class="why">A bad parse run could retire every flow silently. Add a graph-health guard, and make retirements appear in ReconcileResult outcomes / CLI JSON.</span>
+      </article>
+      <article class="node grp-retire" style="grid-column:span 4">
+        <span class="pri med">med</span>
+        <span class="id">depends on the reconcile graph</span>
+        <span class="ttl">.3 and .4 touch the same files</span>
+        <span class="why"><code>affected_flows.ts</code> + <code>reconcile.ts</code> + <code>flow.ts</code>. Sequence .3 before .4 so the guard wraps the final retirement shape.</span>
+      </article>
+
+      <div class="lane">Residue &amp; record</div>
+      <article class="node grp-misc">
+        <span class="pri high">high</span>
+        <span class="id">27.1.15.2</span>
+        <span class="ttl">Dogfood surface + vocabulary residue</span>
+        <span class="why">Installed <code>.claude/</code> copies are already refreshed (commit b4d63da). Remaining: two test comment/title edits, and retiring the stale worktree <code>task-27.1.6.1</code>.</span>
+      </article>
+      <article class="node grp-misc">
+        <span class="pri med">med</span>
+        <span class="id">27.1.15.6</span>
+        <span class="ttl">Amend doc-5 / doc-5.1</span>
+        <span class="why">The design docs still promise the deleted preservation surface. Write the agent-mediated model in. Load-bearing for tasks 27.1.7 and 27.2.</span>
+      </article>
+    </div>
+
+    <aside class="call">
+      <span class="k">Spec correction baked in</span>
+      Task .2's AC#1 (refresh the installed dogfood copies) is <strong>already satisfied</strong> by commit <code>b4d63da</code>, which refreshed <code>.claude/commands/drift.md</code> and <code>.claude/skills/drift-sync/SKILL.md</code> from the assets and matches byte-for-byte. The committed <code>drift.md</code> step 3 already points at <code>drift.resolve&nbsp;{reanchor}</code> &mdash; no <code>drift.list</code> / bin references remain. <strong>.2 shrinks to</strong>: the two test-vocabulary edits and retiring the stale worktree.
+    </aside>
+  </section>
+
+  <!-- ============================ BUILD ORDER ============================ -->
+  <section id="order">
+    <span class="eyebrow">Comprehension job 1 · sequencing</span>
+    <h2>A sensible build order, one commit per task</h2>
+    <p class="prose">The tasks have no hard inter-dependencies in the metadata, but the file overlap and blast radius suggest an order. Each is a self-contained commit so review stays bounded.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="badge">1</div>
+        <div><div class="b-ttl">27.1.15.1 &mdash; the accept-dance strip <span class="commit">core + drift; large diff, isolated</span></div>
+        <div class="b-body">First and alone. Removes the drift MCP server and SessionStart hook entirely. Everything downstream is smaller once this lands. Reconcile the Stop-hook chain carefully &mdash; it <em>stays</em> (commit b4d63da made it stage a pending-reconcile file); only SessionStart and the MCP server go.</div></div>
+      </div>
+      <div class="step">
+        <div class="badge">2</div>
+        <div><div class="b-ttl">27.1.15.5 &mdash; remove GraphStore.restore <span class="commit">types + core storage</span></div>
+        <div class="b-body">Folds naturally into .1's storage work, or stands alone immediately after. Trivial once the reattach/delete arms are confirmed gone.</div></div>
+      </div>
+      <div class="step">
+        <div class="badge">3</div>
+        <div><div class="b-ttl">27.1.15.3 &mdash; close the demotion gap <span class="commit">decision first, then code</span></div>
+        <div class="b-body">Needs the user's call on a mechanism (see below). Reshapes <code>affected_flows.ts</code> / <code>reconcile.ts</code> retirement.</div></div>
+      </div>
+      <div class="step">
+        <div class="badge">4</div>
+        <div><div class="b-ttl">27.1.15.4 &mdash; guard + observability <span class="commit">same files as .3</span></div>
+        <div class="b-body">After .3 so the guard wraps the final retirement shape, and the new outcome surface reports demotion retirements too.</div></div>
+      </div>
+      <div class="step">
+        <div class="badge">5</div>
+        <div><div class="b-ttl">27.1.15.2 &mdash; residue + worktree <span class="commit">2 test edits + git worktree remove</span></div>
+        <div class="b-body">Anytime; cheap. Keep separate so the test-vocab churn doesn't muddy a code-behaviour diff.</div></div>
+      </div>
+      <div class="step">
+        <div class="badge">6</div>
+        <div><div class="b-ttl">27.1.15.6 &mdash; amend the docs <span class="commit">docs only</span></div>
+        <div class="b-body">Last, so the docs describe the final shipped behaviour including whatever .3 decides. Flags any contradiction in 27.1.7 / 27.2.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ .1 STRIP ============================ -->
+  <section id="strip1">
+    <span class="eyebrow">Comprehension job 2 · task .1</span>
+    <h2>The accept-dance, and the inline re-anchor that replaces it</h2>
+    <p class="prose">A <em>relocated</em> symbol is one Ariadne can still find under a new <code>symbol_path</code> (a rename within the same file, or a move). Today, a relocation does <strong>not</strong> follow the rename automatically &mdash; it stages drift attributes onto the old node and waits for a human to accept the re-anchor through an MCP tool. With customisation now agent-mediated everywhere, there is no human edit to protect, so the round trip is pure ceremony.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 1000 360" role="img" aria-label="Before and after of a relocated symbol's description">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#6c655a"/>
+          </marker>
+          <marker id="ar2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#9d3a26"/>
+          </marker>
+        </defs>
+        <!-- BEFORE -->
+        <text x="40" y="30" font-family="ui-monospace,monospace" font-size="12" fill="#9d3a26" font-weight="600">TODAY — the staged-drift round trip</text>
+        <rect x="40" y="48" width="150" height="56" rx="9" fill="#fbf9f4" stroke="#a8a08c"/>
+        <text x="115" y="72" text-anchor="middle" font-size="11.5" font-family="ui-sans,system-ui">code rename</text>
+        <text x="115" y="90" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#6c655a">f → g (relocated)</text>
+
+        <rect x="230" y="48" width="180" height="56" rx="9" fill="#f3e3d9" stroke="#b5683e"/>
+        <text x="320" y="68" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">re_extract stages</text>
+        <text x="320" y="84" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">DRIFT_* attrs on old node</text>
+        <text x="320" y="98" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">re_extract.ts:147-159</text>
+
+        <rect x="450" y="48" width="160" height="56" rx="9" fill="#f3e3d9" stroke="#b5683e"/>
+        <text x="530" y="68" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">SessionStart banner</text>
+        <text x="530" y="84" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">"N outstanding"</text>
+        <text x="530" y="98" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">read-only</text>
+
+        <rect x="650" y="48" width="160" height="56" rx="9" fill="#f3e3d9" stroke="#b5683e"/>
+        <text x="730" y="64" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">human / agent</text>
+        <text x="730" y="80" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">drift.resolve</text>
+        <text x="730" y="94" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">{reanchor}</text>
+
+        <rect x="850" y="48" width="120" height="56" rx="9" fill="#e7ece0" stroke="#6f7a3f"/>
+        <text x="910" y="72" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">anchor moves</text>
+        <text x="910" y="88" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#6f7a3f">onto g</text>
+
+        <line x1="190" y1="76" x2="228" y2="76" stroke="#9d3a26" stroke-width="1.6" marker-end="url(#ar2r)"/>
+        <line x1="410" y1="76" x2="448" y2="76" stroke="#9d3a26" stroke-width="1.6" marker-end="url(#ar2r)"/>
+        <line x1="610" y1="76" x2="648" y2="76" stroke="#9d3a26" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar2r)"/>
+        <line x1="810" y1="76" x2="848" y2="76" stroke="#9d3a26" stroke-width="1.6" marker-end="url(#ar2r)"/>
+        <text x="600" y="130" font-size="10.5" font-family="ui-sans,system-ui" fill="#9d3a26">the dashed hop waits for an explicit accept — content sits stranded until then</text>
+
+        <!-- divider -->
+        <line x1="40" y1="190" x2="970" y2="190" stroke="#d9d1bf" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- AFTER -->
+        <text x="40" y="232" font-family="ui-monospace,monospace" font-size="12" fill="#6f7a3f" font-weight="600">AFTER .1 — inline re-anchor, no round trip</text>
+        <rect x="40" y="250" width="150" height="56" rx="9" fill="#fbf9f4" stroke="#a8a08c"/>
+        <text x="115" y="274" text-anchor="middle" font-size="11.5" font-family="ui-sans,system-ui">code rename</text>
+        <text x="115" y="292" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#6c655a">f → g (relocated)</text>
+
+        <rect x="250" y="250" width="230" height="56" rx="9" fill="#e7ece0" stroke="#6f7a3f" stroke-width="1.8"/>
+        <text x="365" y="270" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">re_extract re-anchors inline</text>
+        <text x="365" y="286" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#6f7a3f">node.anchor rewritten → g</text>
+        <text x="365" y="300" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">content rides across</text>
+
+        <rect x="540" y="250" width="230" height="56" rx="9" fill="#e7ece0" stroke="#6f7a3f"/>
+        <text x="655" y="270" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">description re-described?</text>
+        <text x="655" y="286" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#6f7a3f">content-hash cache HIT → skip</text>
+        <text x="655" y="300" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">cost guard, kept</text>
+
+        <rect x="830" y="250" width="140" height="56" rx="9" fill="#e7ece0" stroke="#6f7a3f"/>
+        <text x="900" y="282" text-anchor="middle" font-size="11" font-family="ui-sans,system-ui">done. no MCP.</text>
+
+        <line x1="190" y1="278" x2="248" y2="278" stroke="#6f7a3f" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="480" y1="278" x2="538" y2="278" stroke="#6f7a3f" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="770" y1="278" x2="828" y2="278" stroke="#6f7a3f" stroke-width="1.6" marker-end="url(#ar2)"/>
+      </svg>
+      <figcaption>The description's words never change &mdash; only its anchor. The content-hash re-describe skip (a kept cost guard) means the agent doesn't even pay to regenerate the description when the body is unchanged. The three rust nodes (staging, banner, MCP resolve) are deleted; <code>drift.resolve</code> loses its last arm, so the whole MCP server and the SessionStart hook go with it.</figcaption>
+    </figure>
+
+    <h3>The branch being removed</h3>
+    <p class="prose">The relocation branch lives in <code>re_extract.ts</code> (in <code>packages/core</code> &mdash; this is the core half of the strip, which is why .1 is &ldquo;part 2&rdquo;). Today it writes staged-drift attributes instead of moving the anchor:</p>
+    <div class="code">
+      <div class="file-label"><span>packages/core/src/reextract/re_extract.ts</span><span>:147&ndash;159 — removed</span></div>
+<pre><span class="cm">// Stage a relocation as outstanding drift, or bin a miss.</span>
+<span class="kw">if</span> (result.status === <span class="str">"downgrade"</span> &amp;&amp; result.reason === <span class="str">"relocated"</span>) {
+<span class="del">  store.write_fields(target, {</span>
+<span class="del">    [DRIFT_STATUS_KEY]: DRIFT_STATUS_RELOCATED,        // staged, waits for accept</span>
+<span class="del">    [DRIFT_FROM_KEY]: anchor.symbol_path,</span>
+<span class="del">    [DRIFT_TO_SYMBOL_PATH_KEY]: result.state.symbol_path,</span>
+<span class="del">    [DRIFT_TO_CONTENT_HASH_KEY]: result.state.content_hash,</span>
+<span class="del">  }, "agentic");</span>
+<span class="del">  return { node_id, from_symbol_path, to_symbol_path, reason: "relocated" };</span>
+<span class="add">  // AFTER: re-anchor inline — rewrite node.anchor to the new symbol_path+hash,</span>
+<span class="add">  // the content rides across, no DRIFT_* keys, no staged finding.</span>
+}</pre>
+    </div>
+    <p class="prose">Everything keyed off those staged attributes then becomes dead and is removed in the same task: <code>reanchor_node</code>, <code>outstanding_drift</code>, the <code>drift.resolve&nbsp;{reanchor}</code> arm (the last arm), and with it <code>build_drift_server</code>, the <code>drift_mcp</code> bin, the <code>.mcp.json</code> registration, the installer MCP wiring, and the <code>SessionStart</code> hook (which now has nothing to announce &mdash; its bin half already went in part 1).</p>
+
+    <aside class="call rust">
+      <span class="k">The trap to verify — AC#4</span>
+      A relocated <em>member</em> of a flow (not a flow seed) must still re-sync. That path is membership-drift detection via the symbol-level delta (task-27.1.6.4) reshaping induced membership &mdash; it is independent of the staged-drift surface being removed. Verify with a relocation fixture that the affected flow re-syncs with no regression. Removing the accept-dance must not quietly drop membership re-sync.
+    </aside>
+
+    <aside class="call">
+      <span class="k">Stop-hook chain — do not touch (spec correction)</span>
+      Commit <code>b4d63da</code> changed <code>drift_stop_hook.ts</code> / <code>stop_decision.ts</code> so the <strong>Stop</strong> hook now stages a pending-reconcile file. That chain <strong>stays</strong>. Only the <strong>SessionStart</strong> hook and the drift MCP server are removed by .1. Read the current Stop-hook code before editing &mdash; the task docs slightly predate this change.
+    </aside>
+  </section>
+
+  <!-- ============================ .3 DECISION ============================ -->
+  <section id="decide3">
+    <span class="eyebrow">Comprehension job 3 · task .3 · decision needed</span>
+    <h2>Demotion-by-wrapper: the case seed-gone retirement misses</h2>
+    <p class="prose">Part 1 replaced the Jaccard overlap remap with <em>seed-gone retirement</em>: a persisted code flow is soft-deleted when its stored <code>entry_points</code> no longer resolve in the fresh graph. That covers two of the three cases the remap covered &mdash; <strong>rename</strong> and <strong>removal</strong>. It misses the third: <strong>demotion</strong>.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 1000 250" role="img" aria-label="Why a demoted seed still resolves and the flow is never retired">
+        <defs>
+          <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#6c655a"/>
+          </marker>
+        </defs>
+        <!-- before -->
+        <text x="40" y="28" font-family="ui-monospace,monospace" font-size="11.5" fill="#6c655a" font-weight="600">BEFORE: handler is the entry point</text>
+        <rect x="60" y="50" width="120" height="44" rx="9" fill="#e7ddc9" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="120" y="70" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace">handler()</text>
+        <text x="120" y="86" text-anchor="middle" font-size="9" font-family="ui-sans,system-ui" fill="#6f7a3f">flow seed ✓</text>
+        <line x1="120" y1="94" x2="120" y2="124" stroke="#6c655a" stroke-width="1.4" marker-end="url(#ar3)"/>
+        <rect x="60" y="128" width="120" height="40" rx="9" fill="#fbf9f4" stroke="#a8a08c"/>
+        <text x="120" y="152" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace">validate()</text>
+        <text x="60" y="200" font-size="10" font-family="ui-sans,system-ui" fill="#6c655a">flow id = symbol_path(handler)</text>
+
+        <!-- arrow -->
+        <line x1="220" y1="110" x2="320" y2="110" stroke="#b5683e" stroke-width="2" marker-end="url(#ar3)"/>
+        <text x="270" y="100" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#b5683e">add wrapper</text>
+
+        <!-- after -->
+        <text x="380" y="28" font-family="ui-monospace,monospace" font-size="11.5" fill="#9d3a26" font-weight="600">AFTER: route() wraps handler — handler is DEMOTED</text>
+        <rect x="400" y="50" width="120" height="44" rx="9" fill="#e7ddc9" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="460" y="70" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace">route()</text>
+        <text x="460" y="86" text-anchor="middle" font-size="9" font-family="ui-sans,system-ui" fill="#6f7a3f">NEW seed ✓</text>
+        <line x1="460" y1="94" x2="460" y2="124" stroke="#6c655a" stroke-width="1.4" marker-end="url(#ar3)"/>
+        <rect x="400" y="128" width="120" height="40" rx="9" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
+        <text x="460" y="148" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace">handler()</text>
+        <text x="460" y="162" text-anchor="middle" font-size="8.5" font-family="ui-sans,system-ui" fill="#9d3a26">still EXISTS — resolves!</text>
+        <line x1="460" y1="168" x2="460" y2="190" stroke="#6c655a" stroke-width="1.4" marker-end="url(#ar3)"/>
+        <rect x="400" y="194" width="120" height="38" rx="9" fill="#fbf9f4" stroke="#a8a08c"/>
+        <text x="460" y="217" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace">validate()</text>
+
+        <!-- result -->
+        <rect x="600" y="60" width="370" height="150" rx="10" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.4"/>
+        <text x="620" y="86" font-size="12" font-family="ui-serif,Georgia,serif" fill="#9d3a26">Two live flows persist forever</text>
+        <text x="620" y="110" font-size="11" font-family="ui-monospace,monospace" fill="#2c2a26">old flow: seed handler() still resolves</text>
+        <text x="620" y="128" font-size="11" font-family="ui-sans,system-ui" fill="#6c655a">  → seed-gone never fires → not retired</text>
+        <text x="620" y="150" font-size="11" font-family="ui-monospace,monospace" fill="#2c2a26">new flow: seed route(), superset members</text>
+        <text x="620" y="168" font-size="11" font-family="ui-sans,system-ui" fill="#6c655a">  → hydrates under its own id</text>
+        <text x="620" y="194" font-size="10.5" font-family="ui-sans,system-ui" fill="#9d3a26">both re-sync indefinitely; the flow list accumulates a duplicate</text>
+      </svg>
+      <figcaption>The root cause is in <code>build_symbol_path_index</code> (<code>flow.ts:257-263</code>): it indexes <strong>all</strong> call-graph nodes, not just entry points. So a demoted <code>handler()</code> &mdash; now an interior node under <code>route()</code> &mdash; still has a <code>symbol_path</code> entry, the old flow's stored seed still resolves, and seed-gone retirement never fires. The deleted Jaccard remap caught this because <code>jaccard(old &cup; {wrapper}, old) &ge; 0.5</code> for any non-empty flow.</figcaption>
+    </figure>
+
+    <p class="prose">No data is lost (flow content is agent-regenerated), but duplicates accumulate, and part 1's AC#2 claim &mdash; &ldquo;the seed-gone path covers the cases the remap covered&rdquo; &mdash; is not fully true. <strong>This is a genuine decision.</strong> Three candidate mechanisms, with trade-offs:</p>
+
+    <div class="grid2">
+      <article class="opt">
+        <h3><span class="num">A</span>Seed-not-an-entrypoint</h3>
+        <p style="font-size:.84rem;color:var(--g5);margin:.2rem 0">Retire when a flow's dominant seed is no longer an <em>entry point</em> of the live graph (not merely &ldquo;no longer a node&rdquo;).</p>
+        <div class="pc">
+          <span class="pro">Directly targets demotion: a wrapped seed stops being an entry point.</span>
+          <span class="pro">Small change — narrow the resolution test from &ldquo;node exists&rdquo; to &ldquo;is in <code>graph.entry_points</code>&rdquo;.</span>
+          <span class="con">Risks retiring a <strong>legitimate multi-entrypoint</strong> flow whose seed is reachable from another entry but still validly an entry too — needs the AC#3 negative test.</span>
+          <span class="con">Entry-point set must be trustworthy — couples to .4's graph-health guard.</span>
+        </div>
+        <div class="verdict pick">Likely pick — closest to intent</div>
+      </article>
+      <article class="opt">
+        <h3><span class="num">B</span>Member-set subsumption</h3>
+        <p style="font-size:.84rem;color:var(--g5);margin:.2rem 0">Retire a flow when its induced member set is a strict subset of another live flow's members.</p>
+        <div class="pc">
+          <span class="pro">Catches demotion <em>and</em> other subsumption shapes (merges) in one rule.</span>
+          <span class="pro">Independent of entry-point classification.</span>
+          <span class="con">O(flows&sup2;) set comparisons per reconcile; the most expensive option.</span>
+          <span class="con">&ldquo;Strict subset&rdquo; is fragile — a one-member difference defeats it; near-subsets aren't caught.</span>
+          <span class="con">Could retire a deliberately-narrow flow the user wants kept distinct.</span>
+        </div>
+        <div class="verdict maybe">Heavier; broader but riskier</div>
+      </article>
+      <article class="opt">
+        <h3><span class="num">C</span>Record coexistence</h3>
+        <p style="font-size:.84rem;color:var(--g5);margin:.2rem 0">Decide duplicates are acceptable; document why in this task and leave both flows live.</p>
+        <div class="pc">
+          <span class="pro">Zero code; honest if duplicates are rare and self-healing.</span>
+          <span class="pro">Avoids the false-retirement risk of A and B entirely.</span>
+          <span class="con">The flow list grows monotonically under refactoring — a comprehension product that accumulates stale flows undermines its own purpose.</span>
+          <span class="con">Leaves part 1's AC#2 claim formally false.</span>
+        </div>
+        <div class="verdict no">Fallback only</div>
+      </article>
+    </div>
+
+    <aside class="call">
+      <span class="k">What the AC requires either way</span>
+      AC#1 demands exactly one live flow after demotion (or a recorded coexistence decision). AC#3 demands a <strong>negative test</strong>: genuine multi-entrypoint flows that legitimately share members are <em>not</em> retired. That negative case is the sharp edge of options A and B &mdash; whichever mechanism is chosen must distinguish &ldquo;demoted, retire&rdquo; from &ldquo;still a legitimate entry, keep&rdquo;.
+    </aside>
+  </section>
+
+  <!-- ============================ .4 GUARD ============================ -->
+  <section id="guard4">
+    <span class="eyebrow">Comprehension job 4 · task .4</span>
+    <h2>Where the degenerate-graph risk enters, and where the guard sits</h2>
+    <p class="prose">Seed-gone retirement runs <strong>globally on every reconcile</strong> &mdash; against the whole freshly-built call graph, regardless of which files the turn touched. The judgement is only as good as that graph, and the graph can be silently wrong.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 1000 280" role="img" aria-label="The path from a bad parse run to mass retirement, and where the guard goes">
+        <defs>
+          <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#9d3a26"/>
+          </marker>
+          <marker id="ar4o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#6f7a3f"/>
+          </marker>
+        </defs>
+        <rect x="30" y="40" width="200" height="70" rx="10" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
+        <text x="130" y="64" text-anchor="middle" font-size="11.5" font-family="ui-sans,system-ui">one bad parse run</text>
+        <text x="130" y="82" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">read/update_file throws</text>
+        <text x="130" y="98" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">headless_project.ts:77-84</text>
+
+        <rect x="280" y="40" width="200" height="70" rx="10" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
+        <text x="380" y="60" text-anchor="middle" font-size="11.5" font-family="ui-sans,system-ui">files silently omitted</text>
+        <text x="380" y="78" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">empty-graph fallback</text>
+        <text x="380" y="94" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#6c655a">get_call_graph() → {nodes:∅}</text>
+        <text x="380" y="106" text-anchor="middle" font-size="9" font-family="ui-monospace,monospace" fill="#6c655a">flow.ts :90-92</text>
+
+        <rect x="530" y="40" width="200" height="70" rx="10" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
+        <text x="630" y="60" text-anchor="middle" font-size="11.5" font-family="ui-sans,system-ui">every seed fails to resolve</text>
+        <text x="630" y="78" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">affected_flows.ts:48-50</text>
+        <text x="630" y="94" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">all surfaced as seed-gone</text>
+
+        <rect x="780" y="40" width="190" height="70" rx="10" fill="#f0d7cf" stroke="#9d3a26" stroke-width="2"/>
+        <text x="875" y="64" text-anchor="middle" font-size="11.5" font-family="ui-serif,Georgia,serif" fill="#9d3a26">mass retirement</text>
+        <text x="875" y="82" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#9d3a26">reconcile.ts:148-153</text>
+        <text x="875" y="98" text-anchor="middle" font-size="9" font-family="ui-sans,system-ui" fill="#6c655a">only a stderr line each</text>
+
+        <line x1="230" y1="75" x2="278" y2="75" stroke="#9d3a26" stroke-width="1.6" marker-end="url(#ar4)"/>
+        <line x1="480" y1="75" x2="528" y2="75" stroke="#9d3a26" stroke-width="1.6" marker-end="url(#ar4)"/>
+        <line x1="730" y1="75" x2="778" y2="75" stroke="#9d3a26" stroke-width="1.6" marker-end="url(#ar4)"/>
+
+        <!-- the guard -->
+        <rect x="430" y="160" width="320" height="74" rx="10" fill="#e7ece0" stroke="#6f7a3f" stroke-width="2"/>
+        <text x="590" y="184" text-anchor="middle" font-size="12" font-family="ui-serif,Georgia,serif" fill="#3f4a1f">GUARD goes here — before retire</text>
+        <text x="590" y="206" text-anchor="middle" font-size="10.5" font-family="ui-monospace,monospace" fill="#2c2a26">drift_reconcile.ts: skip retirement when</text>
+        <text x="590" y="222" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#6c655a">graph degenerate (empty fallback · omitted files · implausible failure rate)</text>
+        <line x1="590" y1="160" x2="630" y2="112" stroke="#6f7a3f" stroke-width="2" marker-end="url(#ar4o)"/>
+        <text x="610" y="142" font-size="9.5" font-family="ui-sans,system-ui" fill="#6f7a3f">intercept here</text>
+      </svg>
+      <figcaption>A single Ariadne failure over, say, all <code>.py</code> files would empty the graph, surface every code flow as seed-gone, and retire them all in one turn &mdash; recoverable only by re-touching each flow's file. The guard sits between &ldquo;graph looks degenerate&rdquo; and &ldquo;retire&rdquo;: retirement of a healthy flow must require a trustworthy graph. Defer (don't retire) and log the reason when the graph is suspect.</figcaption>
+    </figure>
+
+    <p class="prose">The second half of .4 is observability. Today <code>resync_persisted_flow</code> returns <code>undefined</code> on the retire branch (<code>reconcile.ts:146-155</code>), so retirements <strong>never appear</strong> in <code>ReconcileResult.outcomes</code>, the <code>--json</code> output, or the &ldquo;reconciled N flow(s)&rdquo; summary. The skill consuming the result cannot see or report that flows were retired.</p>
+    <div class="code">
+      <div class="file-label"><span>packages/drift/src/reconcile/reconcile.ts</span><span>:146&ndash;155 — the silent retire</span></div>
+<pre><span class="kw">async function</span> <span class="fn">resync_persisted_flow</span>(...): Promise&lt;FlowOutcome | <span class="kw">undefined</span>&gt; {
+  <span class="kw">const</span> seeds = stored_seed_symbol_ids(flow, graph);
+  <span class="kw">if</span> (seeds.length === <span class="str">0</span>) {
+    deps.store.soft_delete({ kind: <span class="str">"node"</span>, id: flow.node.id });
+    deps.log(<span class="str">`retired flow ${flow.node.id} (seed entrypoint gone)`</span>);
+<span class="del">    return undefined;   // ← invisible to outcomes, --json, summary</span>
+<span class="add">    // AFTER: return a { action: "retire", id, reason } outcome so the</span>
+<span class="add">    // skill can report it and .3's demotion retirements surface too</span>
+  }
+  ...
+}</pre>
+    </div>
+    <aside class="call olive">
+      <span class="k">Why .4 comes after .3</span>
+      The new outcome surface should carry <em>both</em> seed-gone <em>and</em> demotion retirements, and the guard should wrap whatever final retirement shape .3 lands on. Build .3's mechanism first, then make it safe and observable in .4. The two tasks share <code>affected_flows.ts</code> and <code>reconcile.ts</code>.
+    </aside>
+  </section>
+
+  <!-- ============================ .6 INVARIANT ============================ -->
+  <section id="invariant6">
+    <span class="eyebrow">Comprehension job 5 · task .6</span>
+    <h2>The agent-mediated customisation model, in one picture</h2>
+    <p class="prose">Every strip in this family rests on one principle that is currently recorded <em>only</em> in the task docs &mdash; the design docs (doc-5, doc-5.1) still describe the deleted preservation surface. Task .6 writes the principle in: <strong>no diagram layer stores direct human byte-edits; customisation is agent-mediated &mdash; the agent authors it and re-applies it each sync.</strong></p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 1000 290" role="img" aria-label="What lives in code versus what the agent re-authors, joined by wholesale upserts">
+        <!-- code side -->
+        <rect x="30" y="40" width="290" height="210" rx="12" fill="#e7ece0" stroke="#6f7a3f" stroke-width="1.8"/>
+        <text x="175" y="68" text-anchor="middle" font-size="14" font-family="ui-serif,Georgia,serif" fill="#3f4a1f">Lives in the CODE</text>
+        <text x="175" y="88" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#6c655a">deterministically re-read each sync</text>
+        <text x="55" y="120" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• docstrings</text>
+        <text x="55" y="146" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• frontmatter</text>
+        <text x="55" y="172" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• symbol names / structure</text>
+        <text x="55" y="198" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• call-graph shape</text>
+        <text x="55" y="230" font-size="10" font-family="ui-sans,system-ui" fill="#6f7a3f">authored by humans, but in the source —</text>
+        <text x="55" y="244" font-size="10" font-family="ui-sans,system-ui" fill="#6f7a3f">never copied into a protected diagram field</text>
+
+        <!-- agent side -->
+        <rect x="680" y="40" width="290" height="210" rx="12" fill="#f3e3d9" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="825" y="68" text-anchor="middle" font-size="14" font-family="ui-serif,Georgia,serif" fill="#8a3f1f">RE-AUTHORED by the agent</text>
+        <text x="825" y="88" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#6c655a">regenerated / re-applied on sync</text>
+        <text x="705" y="120" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• flow node descriptions</text>
+        <text x="705" y="146" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• flow membership / boundaries</text>
+        <text x="705" y="172" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• chart-layer customisation</text>
+        <text x="705" y="198" font-size="11.5" font-family="ui-monospace,monospace" fill="#2c2a26">• (future) pins, salience</text>
+        <text x="705" y="230" font-size="10" font-family="ui-sans,system-ui" fill="#b5683e">the agent owns the diagram surface —</text>
+        <text x="705" y="244" font-size="10" font-family="ui-sans,system-ui" fill="#b5683e">it re-derives intent, it doesn't recall it</text>
+
+        <!-- the join -->
+        <rect x="370" y="90" width="260" height="110" rx="12" fill="#2c2a26"/>
+        <text x="500" y="118" text-anchor="middle" font-size="13" font-family="ui-serif,Georgia,serif" fill="#e7ddc9">Wholesale agentic upsert</text>
+        <text x="500" y="142" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#f7f3ec">write_flow · write_descriptions</text>
+        <text x="500" y="160" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#d9d1bf">replace layer + field_ownership</text>
+        <text x="500" y="176" text-anchor="middle" font-size="9.5" font-family="ui-monospace,monospace" fill="#d9d1bf">ON CONFLICT full replace</text>
+        <text x="500" y="192" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#a8a08c">sqlite_graph_store.ts:205-225</text>
+
+        <line x1="320" y1="145" x2="368" y2="145" stroke="#6f7a3f" stroke-width="2"/>
+        <line x1="632" y1="145" x2="678" y2="145" stroke="#b5683e" stroke-width="2"/>
+      </svg>
+      <figcaption>Human-authored inputs that reach the diagram (docstrings, frontmatter) live in the code and are re-read each sync &mdash; they are never copied into a protected user-tier field. Everything on the diagram is an unconditional agentic upsert that replaces <code>layer</code> and <code>field_ownership</code> wholesale. There is nothing in the middle to preserve, which is exactly why the whole preservation apparatus could be stripped.</figcaption>
+    </figure>
+
+    <h3>What the docs say today vs. what .6 must write</h3>
+    <table class="mtx">
+      <thead><tr><th>Doc claim today</th><th>Status</th><th>Amended claim</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>doc-5.1:29 — preservation + re-attachment bin &ldquo;Included, fully and first&hellip; Deferred: nothing&rdquo;</td>
+          <td class="c"><span class="disc none" title="contradicts implementation"></span></td>
+          <td>No bin; no recall-and-reapply. Flow + description writes are wholesale agentic upserts.</td>
+        </tr>
+        <tr>
+          <td>doc-5.1:41 — &ldquo;a user pin is preserved across every auto-sync and never silently overwritten&rdquo;</td>
+          <td class="c"><span class="disc none" title="contradicts implementation"></span></td>
+          <td>No user-tier pins at the flow / description layer; persistent customisation is agent-authored and re-applied.</td>
+        </tr>
+        <tr>
+          <td>doc-5:14-16 — authored content &ldquo;is held for you to reattach, not dropped&rdquo;</td>
+          <td class="c"><span class="disc none" title="contradicts implementation"></span></td>
+          <td>Customisation is agent-mediated; the agent re-authors it. Code-resident inputs are re-read deterministically.</td>
+        </tr>
+        <tr>
+          <td>The content-hash re-describe cost guard</td>
+          <td class="c"><span class="disc full" title="still accurate"></span></td>
+          <td>Unchanged &mdash; kept, accurately documented.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="legend">
+      <span><span class="disc full"></span> doc still accurate</span>
+      <span><span class="disc none"></span> doc contradicts the implementation</span>
+    </div>
+
+    <aside class="invert">
+      <span class="k">Why .6 is load-bearing for downstream tasks</span>
+      Anything a future task stores as a <strong>user-tier field at the flow or description layer is clobbered</strong> by the upsert paths (<code>write_flow</code> at <code>flow_store.ts:74</code>, <code>write_descriptions.ts:59-70</code>, via the full <code>ON CONFLICT</code> replace at <code>sqlite_graph_store.ts:205-225</code>). Task <strong>27.1.7 (pins)</strong> and <strong>27.2 (edit-driven authority)</strong> must design their customisation as agent-mediated. AC#4 requires checking both against the amended invariant and flagging any contradiction in their task files. Write the invariant down so those tasks design against it &mdash; not against the deleted surface the docs still promise.
+    </aside>
+
+    <aside class="call">
+      <span class="k">Style — canonical, present tense</span>
+      AC#3 requires the amendment in canonical self-contained style: describe the system as it <em>is</em>, with no &ldquo;removed&rdquo;/&ldquo;previously&rdquo;/&ldquo;the strip&rdquo; framing. The reader of doc-5 should never know a preservation surface ever existed.
+    </aside>
+  </section>
+
+  <!-- ============================ .2 / .5 small ============================ -->
+  <section id="small">
+    <span class="eyebrow">The two clean-ups</span>
+    <h2>.2 vocabulary residue &amp; .5 GraphStore.restore</h2>
+    <p class="prose">Both are mechanical once the larger work lands. Here is the exact, verified scope of each so neither balloons.</p>
+
+    <div class="grid2" style="grid-template-columns:1fr 1fr">
+      <article class="opt">
+        <h3><span class="num">.2</span>Residue cleanup</h3>
+        <p style="font-size:.84rem;color:var(--g5);margin:.2rem 0">Installed dogfood copies are <strong>already refreshed</strong> (b4d63da). Remaining:</p>
+        <ul class="tight" style="font-size:.85rem;color:var(--g5)">
+          <li><code>core/.../round_trip.test.ts:31</code> &mdash; comment &ldquo;the re-attachment bin&rdquo; &rarr; current vocabulary.</li>
+          <li><code>drift/.../ariadne_adapter.test.ts:74</code> &mdash; test title &ldquo;not binned&rdquo; &rarr; &ldquo;not soft-deleted&rdquo;. Assertion stays meaningful.</li>
+          <li>Retire the stale worktree <code>.claude/worktrees/task-27.1.6.1</code> (branch <code>worktree-task-27.1.6.1</code>) &mdash; it holds the entire pre-strip tree and dominates greps for removed symbols. <code>git worktree remove</code> + branch cleanup.</li>
+          <li>Tests green after the edits.</li>
+        </ul>
+        <div class="verdict pick">AC#1 already done; scope is small</div>
+      </article>
+      <article class="opt">
+        <h3><span class="num">.5</span>Remove GraphStore.restore</h3>
+        <p style="font-size:.84rem;color:var(--g5);margin:.2rem 0">Zero production callers since .1 deletes the reattach/delete arms. Remove across the chain:</p>
+        <ul class="tight" style="font-size:.85rem;color:var(--g5)">
+          <li>declaration: <code>types/src/graph_store.ts:200</code></li>
+          <li>impl: <code>core/.../sqlite_graph_store.ts:356</code></li>
+          <li>stubs: <code>null_graph_store.ts:56</code>, <code>dry_run_store.ts:30</code></li>
+          <li>delete restore-only tests; rewrite incidental uses against surviving APIs.</li>
+          <li>Grep over <code>packages/*/src</code> finds no remaining reference; typecheck + suite green.</li>
+        </ul>
+        <div class="verdict maybe">Lands with .1, or stands alone after</div>
+      </article>
+    </div>
+
+    <h3>Recurring vocabulary, decoded</h3>
+    <dl class="glos">
+      <dt>seed</dt><dd>The entry-point symbol whose <code>symbol_path</code> is a code flow's identity. A flow's members are <em>induced</em> from its seeds by graph traversal, never enumerated.</dd>
+      <dt>seed-gone retirement</dt><dd>Soft-deleting a code flow when its stored <code>entry_points</code> no longer resolve in the fresh graph. The surviving lifecycle path that replaced the Jaccard remap.</dd>
+      <dt>relocated</dt><dd>A symbol Ariadne still finds under a new <code>symbol_path</code> (rename/move). Distinct from a <em>miss</em> (gone entirely).</dd>
+      <dt>accept-dance</dt><dd>The staged-drift round trip: stage a relocation, announce it, wait for an explicit <code>drift.resolve {reanchor}</code>. Removed by .1.</dd>
+      <dt>demotion</dt><dd>An existing flow's seed wrapped by a new caller, so it stops being an entry point but still exists as an interior node. The gap .3 closes.</dd>
+      <dt>agent-mediated</dt><dd>Customisation the agent authors and re-applies each sync, rather than human byte-edits stored in a protected field. The invariant .6 records.</dd>
+    </dl>
+  </section>
+
+  <footer>
+    Generated as a comprehension companion for the task-27.1.15 follow-up batch (.1&ndash;.6) ·
+    line claims verified against the worktree at <code>.claude/worktrees/task-27.1.15.1-6</code> · 2026-06-09 ·
+    self-contained, opens from file://
+  </footer>
+</main>
+
+<script>
+  // progressive enhancement: active section in the outline rail
+  (function(){
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var map = {};
+    links.forEach(function(a){ var id=a.getAttribute('href').slice(1); map[id]=a; });
+    var obs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          links.forEach(function(l){l.classList.remove('active');});
+          var a = map[e.target.id]; if(a) a.classList.add('active');
+        }
+      });
+    }, {rootMargin:'-110px 0px -70% 0px'});
+    document.querySelectorAll('section[id]').forEach(function(s){obs.observe(s);});
+  })();
+</script>
+</body>
+</html>

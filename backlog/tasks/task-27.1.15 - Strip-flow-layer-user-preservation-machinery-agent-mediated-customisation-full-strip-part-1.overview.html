@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>task-27.1.15 — full strip overview</title>
+<style>
+  :root{
+    --ivory:#f7f3ec; --slate:#2c2a26; --clay:#b5683e; --olive:#6f7a3f;
+    --oat:#e7ddc9; --rust:#9d3a26;
+    --g1:#fbf9f4; --g2:#efe9dd; --g3:#d9d1bf; --g4:#a8a08c; --g5:#6c655a;
+    --serif:ui-serif,Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --r:10px; --rp:999px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);
+    line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  main{width:90%;max-width:1600px;margin-inline:auto;padding:2rem 0 6rem}
+  .prose{max-width:68ch}
+  h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.15;letter-spacing:-.01em}
+  h1{font-size:2.1rem;margin:.2rem 0 .4rem}
+  h2{font-size:1.5rem;margin:0 0 .3rem}
+  h3{font-size:1.1rem;margin:0 0 .2rem}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.16em;
+    font-size:.7rem;color:var(--g5)}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+  a{color:var(--clay)}
+  .lead{font-size:1.06rem;color:var(--g5)}
+
+  nav.cross{position:sticky;top:0;z-index:10;background:var(--ivory);
+    border-bottom:1px solid var(--g3);width:100%}
+  nav.cross .inner{width:90%;max-width:1600px;margin-inline:auto;display:flex;
+    flex-wrap:wrap;gap:.4rem;padding:.55rem 0;align-items:center}
+  nav.cross .grp{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;
+    letter-spacing:.12em;color:var(--g4);margin-right:.2rem}
+  .doc-link,.pending,.current{font-family:var(--mono);font-size:.72rem;text-decoration:none;
+    padding:.28rem .6rem;border-radius:var(--rp);border:1px solid var(--g3);
+    color:var(--slate);background:var(--g1);white-space:nowrap}
+  .doc-link:hover{border-color:var(--clay);color:var(--clay)}
+  .current{background:var(--slate);color:var(--ivory);border-color:var(--slate)}
+  .pending{color:var(--g4);border-style:dashed;background:transparent;cursor:default}
+  .pending .tag{font-size:.6rem;color:var(--clay);margin-left:.3rem}
+
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 0}
+  .chip{font-family:var(--mono);font-size:.72rem;background:var(--g2);border:1px solid var(--g3);
+    border-radius:var(--rp);padding:.25rem .6rem}
+  .chip strong{color:var(--clay)}
+  .pill{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
+    border-radius:var(--rp);padding:.12rem .5rem;border:1px solid var(--g3)}
+  .pill.done{color:var(--olive);border-color:var(--olive)}
+  .pill.todo{color:var(--clay);border-color:var(--clay)}
+
+  .prompt-box{border:1px solid var(--g3);border-left:3px solid var(--g4);border-radius:var(--r);
+    background:var(--g1);padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.9rem;color:var(--g5);max-width:74ch}
+  .prompt-box .label{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;
+    letter-spacing:.12em;color:var(--g4);display:block;margin-bottom:.35rem}
+
+  aside.call{border:1px solid var(--g3);border-left:4px solid var(--clay);border-radius:var(--r);
+    background:var(--g1);padding:1rem 1.2rem;margin:1.2rem 0}
+  aside.call.olive{border-left-color:var(--olive)}
+  aside.call .k{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;
+    letter-spacing:.12em;color:var(--g5);display:block;margin-bottom:.3rem}
+
+  .diagram{width:100%;margin:1.2rem 0;border:1px solid var(--g3);border-radius:var(--r);
+    background:var(--g1);padding:1rem}
+  .diagram svg{width:100%;height:auto;display:block}
+  figcaption{font-size:.82rem;color:var(--g5);margin-top:.5rem}
+
+  .steps{margin:1rem 0;display:flex;flex-direction:column;gap:.5rem}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:.8rem;align-items:start;
+    border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:.7rem .9rem}
+  .badge{width:34px;height:34px;border-radius:50%;background:var(--slate);color:var(--ivory);
+    font-family:var(--mono);font-size:.78rem;display:flex;align-items:center;justify-content:center}
+  .step .b-ttl{font-weight:600;display:flex;flex-wrap:wrap;gap:.5rem;align-items:baseline}
+  .step .b-ttl .id{font-family:var(--mono);font-size:.72rem;color:var(--clay)}
+  .step .b-body{font-size:.88rem;color:var(--g5);margin-top:.2rem}
+  .step .b-body a{font-family:var(--mono);font-size:.78rem}
+
+  footer{margin-top:3rem;border-top:1px solid var(--g3);padding-top:1rem;font-family:var(--mono);
+    font-size:.7rem;color:var(--g4)}
+</style>
+</head>
+<body>
+
+<nav class="cross" aria-label="Companion documents">
+  <div class="inner">
+    <span class="grp">27.1.15 family</span>
+    <span class="current" aria-current="page">Overview</span>
+    <a class="doc-link" href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.strip-map.html">Part 1 strip-map (removed vs kept)</a>
+    <a class="doc-link" href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html">Follow-up batch (.1&ndash;.6)</a>
+    <span class="grp" style="margin-left:.4rem">sub-tasks</span>
+    <span class="pending">.1 accept-dance<span class="tag">in batch page</span></span>
+    <span class="pending">.2 residue<span class="tag">in batch page</span></span>
+    <span class="pending">.3 demotion<span class="tag">in batch page</span></span>
+    <span class="pending">.4 guard<span class="tag">in batch page</span></span>
+    <span class="pending">.5 restore<span class="tag">in batch page</span></span>
+    <span class="pending">.6 doc-5<span class="tag">in batch page</span></span>
+  </div>
+</nav>
+
+<main>
+  <header>
+    <span class="eyebrow">task-27.1.15 · parent overview</span>
+    <h1>The full strip: removing a safety net for a state that cannot occur</h1>
+    <p class="lead prose">A code-charter diagram is rebuilt from the code by an agent. At the flow layer, every node description is agent-generated; higher-layer chart customisation is agent-mediated &mdash; the agent authors it and re-applies it on each sync. No diagram layer holds direct human byte-edits that an agentic pass must avoid overwriting. So the user-preservation and recovery machinery built across task 27.1 &mdash; the user-tier writes, the overlap remap, the re-attachment bin, the recovery MCP tools, the relocation accept-dance &mdash; protects a state that never happens. The full strip removes it.</p>
+    <div class="meta">
+      <span class="chip"><strong>part 1</strong> done &amp; merged</span>
+      <span class="chip">part 2 + 5 follow-ups</span>
+      <span class="chip">labels: drift · flows · graph-db · simplification</span>
+    </div>
+    <div class="prompt-box">
+      <span class="label">The premise in one line</span>
+      Nothing on the diagram is a protected human edit; everything on it is either re-derived from the code each sync or re-authored by the agent. Therefore the preservation apparatus is surplus &mdash; and per the no-surplus-code principle, it goes.
+    </div>
+  </header>
+
+  <section>
+    <h2>What part 1 did, and what it left standing</h2>
+    <p class="prose">Part 1 (this task, merged) stripped the flow-layer half: no more <code>user</code>-tier writes, the &ge;50% Jaccard overlap remap deleted, the write-only <code>anchor_set_hash</code> gone, the re-attachment bin and its <code>drift.list</code>/<code>drift.next</code> recovery tools removed, and <code>write_descriptions</code> turned into an unconditional agentic upsert that resurrects a stranded description instead of leaving it &ldquo;for <code>drift.resolve</code>&rdquo;. The <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.strip-map.html">strip-map companion</a> shows exactly what was removed versus kept.</p>
+    <p class="prose">Part 1 deliberately left three things for the follow-up batch: the <strong>core relocation accept-dance</strong> (kept so its blast radius could be reviewed on its own), one <strong>uncovered retirement case</strong> (demotion-by-wrapper), and the <strong>design docs</strong> that still describe the deleted surface. The batch also adds the <strong>safety and observability</strong> the global retirement path needs, and removes a now-orphaned storage API.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 1000 220" role="img" aria-label="How part 1 and the six follow-up tasks compose into the full strip">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#6c655a"/>
+          </marker>
+        </defs>
+        <rect x="30" y="70" width="180" height="80" rx="11" fill="#2c2a26"/>
+        <text x="120" y="100" text-anchor="middle" font-size="13" font-family="ui-serif,Georgia,serif" fill="#e7ddc9">Part 1 (done)</text>
+        <text x="120" y="122" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#d9d1bf">flow layer +</text>
+        <text x="120" y="136" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#d9d1bf">recovery product</text>
+
+        <line x1="210" y1="110" x2="268" y2="110" stroke="#6c655a" stroke-width="1.6" marker-end="url(#a)"/>
+
+        <rect x="270" y="30" width="200" height="50" rx="9" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
+        <text x="370" y="50" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#9d3a26">.1 accept-dance strip</text>
+        <text x="370" y="66" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">+ .5 restore (storage teardown)</text>
+
+        <rect x="270" y="92" width="200" height="50" rx="9" fill="#fbf9f4" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="370" y="112" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#b5683e">.3 + .4 retirement path</text>
+        <text x="370" y="128" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">close the gap; guard + observe</text>
+
+        <rect x="270" y="154" width="200" height="46" rx="9" fill="#fbf9f4" stroke="#a8a08c" stroke-width="1.4"/>
+        <text x="370" y="174" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#6c655a">.2 residue · .6 docs</text>
+        <text x="370" y="190" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">clean up &amp; record the rule</text>
+
+        <line x1="470" y1="55" x2="528" y2="95" stroke="#6c655a" stroke-width="1.4" marker-end="url(#a)"/>
+        <line x1="470" y1="117" x2="528" y2="112" stroke="#6c655a" stroke-width="1.4" marker-end="url(#a)"/>
+        <line x1="470" y1="177" x2="528" y2="128" stroke="#6c655a" stroke-width="1.4" marker-end="url(#a)"/>
+
+        <rect x="530" y="80" width="200" height="60" rx="11" fill="#e7ece0" stroke="#6f7a3f" stroke-width="1.8"/>
+        <text x="630" y="106" text-anchor="middle" font-size="12.5" font-family="ui-serif,Georgia,serif" fill="#3f4a1f">Full strip complete</text>
+        <text x="630" y="126" text-anchor="middle" font-size="10" font-family="ui-sans,system-ui" fill="#6c655a">one upsert, no preservation</text>
+
+        <line x1="730" y1="110" x2="788" y2="110" stroke="#6c655a" stroke-width="1.4" marker-end="url(#a)"/>
+        <rect x="790" y="78" width="180" height="64" rx="11" fill="#f3e3d9" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="880" y="102" text-anchor="middle" font-size="11.5" font-family="ui-serif,Georgia,serif" fill="#8a3f1f">enables 27.1.7 / 27.2</text>
+        <text x="880" y="122" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">designed agent-mediated</text>
+      </svg>
+      <figcaption>The six tasks are not six independent chores &mdash; they finish one strip. Removing the accept-dance (.1/.5) leaves a single lifecycle path (retirement), which .3 completes and .4 makes safe and visible; .2 clears residue and .6 records the principle so the next authoring tasks design against the real system, not the deleted one.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The six tasks &mdash; status and where to read the detail</h2>
+    <p class="prose">The deep, visual walk-through of each task &mdash; the before/after accept-dance flow, the demotion decision, the degenerate-graph guard, and the agent-mediated invariant &mdash; lives in the <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html">follow-up batch companion</a>. Each task below links into its section there.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="badge">1</div>
+        <div>
+          <div class="b-ttl"><span class="id">27.1.15.1</span> Strip the core relocation / reanchor accept-dance <span class="pill todo">to do · high</span></div>
+          <div class="b-body">A relocated symbol re-anchors inline; the content rides across via the content-hash cache. The whole drift MCP server and the SessionStart hook go. The Stop-hook chain stays. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#strip1">read the before/after flow &rarr;</a></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">2</div>
+        <div>
+          <div class="b-ttl"><span class="id">27.1.15.5</span> Remove the orphaned GraphStore.restore API <span class="pill todo">to do · low</span></div>
+          <div class="b-body">Its only callers were the reattach/delete arms .1 deletes. Remove the declaration, implementations, stubs, and restore-only tests. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#small">scope &rarr;</a></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">3</div>
+        <div>
+          <div class="b-ttl"><span class="id">27.1.15.3</span> Retire on demotion-by-wrapper <span class="pill todo">to do · medium · decision</span></div>
+          <div class="b-body">Seed-gone retirement misses the case where a flow's seed is wrapped (demoted) but still exists. Close the gap, or record coexistence. A genuine design choice with three candidate mechanisms. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#decide3">weigh the options &rarr;</a></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">4</div>
+        <div>
+          <div class="b-ttl"><span class="id">27.1.15.4</span> Guard against degenerate graphs; surface retirements <span class="pill todo">to do · medium</span></div>
+          <div class="b-body">A bad parse run could retire every flow silently. Add a graph-health guard, and make retirements first-class outcomes in ReconcileResult / CLI JSON. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#guard4">where the guard sits &rarr;</a></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">5</div>
+        <div>
+          <div class="b-ttl"><span class="id">27.1.15.2</span> Dogfood surface + vocabulary residue <span class="pill todo">to do · high</span></div>
+          <div class="b-body">Installed copies already refreshed (b4d63da). Remaining: two test comment/title edits and retiring the stale worktree <code>task-27.1.6.1</code>. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#small">exact scope &rarr;</a></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="badge">6</div>
+        <div>
+          <div class="b-ttl"><span class="id">27.1.15.6</span> Amend doc-5 / doc-5.1 to the agent-mediated model <span class="pill todo">to do · medium</span></div>
+          <div class="b-body">The design docs still promise the deleted preservation surface. Write the invariant in canonical style. Load-bearing for tasks 27.1.7 and 27.2. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#invariant6">the invariant in one picture &rarr;</a></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="call olive">
+      <span class="k">Suggested build order</span>
+      <strong>.1 &rarr; .5 &rarr; .3 &rarr; .4 &rarr; .2 &rarr; .6</strong>, one commit each. .1 first (largest teardown; everything downstream is smaller after). .5 folds into .1's storage work. .3 before .4 so the guard wraps the final retirement shape. .2 anytime (cheap). .6 last so the docs describe the shipped behaviour including .3's decision. Full reasoning in the batch companion.
+    </aside>
+
+    <aside class="call">
+      <span class="k">Two spec corrections to carry into implementation</span>
+      (1) Task .2's AC#1 is already satisfied by commit <code>b4d63da</code> &mdash; the installed <code>.claude/</code> copies match the assets and carry no <code>drift.list</code> / bin references; .2 shrinks to two test edits + worktree retirement.
+      (2) Task .1 must keep the <strong>Stop</strong>-hook chain (b4d63da made it stage a pending-reconcile file); only the <strong>SessionStart</strong> hook and the drift MCP server are removed. Read the current Stop-hook code before editing.
+    </aside>
+  </section>
+
+  <footer>
+    Overview for task-27.1.15 and its six follow-up sub-tasks · companions re-scanned from
+    <code>backlog/tasks/</code> · 2026-06-09 · self-contained, opens from file://
+  </footer>
+</main>
+</body>
+</html>

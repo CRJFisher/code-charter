@@ -107,7 +107,8 @@ describe("SqliteGraphStore (:memory:)", () => {
       expect(with_deleted).toHaveLength(1);
       expect(with_deleted[0].deleted_at).not.toBeNull();
 
-      store.restore({ kind: "node", id: node.id });
+      // Revival is a later upsert: the wholesale REPLACE lands the row live again.
+      store.upsert_node(node);
       expect(store.node(node.id)).toEqual(node);
     });
 
@@ -307,12 +308,12 @@ describe("SqliteGraphStore (:memory:)", () => {
   });
 
   describe("edge soft-delete and ladder (AC#5)", () => {
-    it("soft-deletes, hides, reveals via include_deleted, and restores an edge", () => {
+    it("soft-deletes, hides, reveals via include_deleted; a later upsert revives an edge", () => {
       store.upsert_edge(make_edge({ key: "e.user", layer: "user" }), []);
       store.soft_delete({ kind: "edge", id: "e.user" });
       expect(store.all_edges().map((e) => e.key)).toEqual([]);
       expect(store.all_edges({ include_deleted: true }).map((e) => e.key)).toEqual(["e.user"]);
-      store.restore({ kind: "edge", id: "e.user" });
+      store.upsert_edge(make_edge({ key: "e.user", layer: "user" }), []);
       expect(store.all_edges().map((e) => e.key)).toEqual(["e.user"]);
     });
 
@@ -542,8 +543,8 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
     });
   });
 
-  describe("rebuild_layer leaves soft-deleted higher-tier rows restorable (AC#5)", () => {
-    it("does not hard-delete or un-flag a soft-deleted agentic row, and it restores after the rebuild", () => {
+  describe("rebuild_layer leaves soft-deleted higher-tier rows intact (AC#5)", () => {
+    it("does not hard-delete or un-flag a soft-deleted agentic row; revival is a later upsert", () => {
       store.upsert_node(make_node({ id: "gone", layer: "agentic", anchor: null }));
       store.soft_delete({ kind: "node", id: "gone" });
       const deleted_at = store.all_nodes({ include_deleted: true }).find((n) => n.id === "gone")?.deleted_at;
@@ -556,7 +557,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
       const after = store.all_nodes({ include_deleted: true }).find((n) => n.id === "gone");
       expect(after?.deleted_at).toBe(deleted_at);
 
-      store.restore({ kind: "node", id: "gone" });
+      store.upsert_node(make_node({ id: "gone", layer: "agentic", anchor: null }));
       expect(store.node("gone")?.id).toBe("gone");
     });
   });

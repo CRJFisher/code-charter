@@ -195,9 +195,8 @@ export interface GraphStore {
    */
   invalidate_nodes_for_files(paths: string[]): void;
 
-  /** Soft-delete only — there is no hard delete on agentic/user content (AC5). */
+  /** Soft-delete only — there is no hard delete on agentic/user content (AC5); revival is a later upsert. */
   soft_delete(target: GraphTarget): void;
-  restore(target: GraphTarget): void;
 
   /** The per-table disposable/preserved property as DATA, never a hard-coded name list (AC6). */
   table_disposition(): Array<{ table: string; disposable: boolean }>;
