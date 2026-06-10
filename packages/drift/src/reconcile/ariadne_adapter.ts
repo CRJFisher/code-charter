@@ -40,6 +40,8 @@ export interface AriadneAdapter {
   anchored_symbols(file_set: readonly string[]): AnchoredSymbol[];
   /** Repo-relative defining file of a call-graph node, or undefined when it is not a graph node. */
   file_of(symbol_id: SymbolId): string | undefined;
+  /** Repo-relative files omitted from the graph by a read/index failure (the retirement guard input). */
+  omitted_files(): ReadonlySet<string>;
 }
 
 /** Assemble the per-file Ariadne inputs (top-level definitions + source) for `rel_files`. */
@@ -111,5 +113,7 @@ export function make_ariadne_adapter(
       const node = project.get_call_graph().nodes.get(symbol_id);
       return node === undefined ? undefined : node.location.file_path;
     },
+
+    omitted_files: () => project.omitted_files(),
   };
 }

@@ -24,9 +24,9 @@ Deterministic substrate (objective, free, L0): Ariadne call/import edges, the fu
 
 ## Per-principle manifestation
 
-### Anything you author is always considered
+### Customisation is agent-mediated at every layer
 
-Included, fully and first: write_fields promotes a row's layer to user so a user-owned field survives rebuild_layer('agentic') (27.1.2, a prerequisite); authored content (a description, a name, a pin) is **recalled and re-applied during every auto-sync** so your intent carries across each code→diagram update (27.1.6, via the resolver + watermark ladder); recoverable re-attachment bin for a resolver miss or a flow split/merge stranding a name/pin (AC#6). Deferred: nothing. Why: trust floor; the machinery is kind-agnostic, so a pin (the pinnable key decision arrives with 27.1.7) is covered.
+Included: customisation at the flow and description layers is agent-mediated — the agent authors it and re-applies it on each sync, the way the describe seam regenerates descriptions. Flow-layer and description writes are unconditional agentic upserts that replace `layer` and `field_ownership` wholesale (`write_flow`, `write_descriptions`, via the store's full ON CONFLICT replace), so nothing at these layers is a protected user-tier field and nothing stored there survives a sync except by being re-applied. A relocated symbol's content is re-anchored inline by the resolver (an unchanged body is a content-hash cache hit); a resolver miss soft-deletes, and agentic content is regenerated on a later sync. Human-authored inputs that reach the diagram (docstrings, frontmatter) live in the code and are deterministically re-read each sync. Deferred: pinning (27.1.7) and edit-driven authority (27.2) — both specify their customisation as agent-mediated against this invariant. Why: agent re-application gives durability without preservation machinery, and the upsert paths stay the single write funnel.
 
 ### The whole repo is one zoomable map, built for comprehension — showing the essence, not everything
 
@@ -34,19 +34,19 @@ Included: one flow at a time, **hydrated lazily and piecemeal** (a flow's diagra
 
 ### The diagram and the code stay consistent in both directions
 
-Included (code→diagram only): **per-flow auto-sync** — when a flow you are working on changes, the Claude Code `Stop` hook drives a custom sub-agent to **hydrate** the flow (first time) or **re-sync** it (task-27.1.6), always updating with no review queue, recalling and re-applying user edits via the resolver + watermark ladder; a genuine miss goes to the re-attachment bin (AC#5/#6). The sub-agent writes the store through the **`drift-sync` skill** (never directly, never via MCP — MCP stays user-facing) and returns only a couple of lines to your session; the work deliberately spends your tokens to stay on your radar, and only flows you touch are processed (AC#8). `SessionStart` adds a read-only outstanding-drift banner only. Deferred: the whole **review apparatus** — triage classifier + typed TriageSubject/TriageVerdict contract (27.1.9), drift surfaces + the single PreCommit gate (27.1.10) — and the diagram→code describe-first direction (27.2). Why: v1 keeps the diagram honest by silent auto-sync; review/escalation and authoring come later; the section-F seams keep them additive.
+Included (code→diagram only): **per-flow auto-sync** — when a flow you are working on changes, the Claude Code `Stop` hook drives a custom sub-agent to **hydrate** the flow (first time) or **re-sync** it (task-27.1.6), always updating with no review queue; agentic content is regenerated each sync and a relocated symbol is re-anchored inline by the resolver (an unchanged body is a content-hash cache hit). A flow whose seed entrypoint is gone or demoted by a superseding flow is retired, on-demand and only when the turn's changes implicate it. The sub-agent writes the store through the **`drift-sync` skill** (never directly) and returns only a couple of lines to your session; the work deliberately spends your tokens to stay on your radar, and only flows you touch are processed (AC#8). Deferred: the whole **review apparatus** — triage classifier + typed TriageSubject/TriageVerdict contract (27.1.9), drift surfaces + the single PreCommit gate (27.1.10) — and the diagram→code describe-first direction (27.2). Why: v1 keeps the diagram honest by silent auto-sync; review/escalation and authoring come later; the section-F seams keep them additive.
 
 ### Authority over each element follows where you keep editing it
 
-Included: per-field watermark-wins on descriptions (AC#2); a user pin is preserved across every auto-sync and never silently overwritten (AC#6). Deferred: the absorb-trivial/escalate-structural classifier (27.1.9) and edit-driven authority via diagram→code (27.2). Why: v1's only authored surface is descriptions / names / pins, all preserved by the watermark ladder.
+Included: descriptions and flow structure are agentic content steered through the agent, which re-applies instructed intent on each pass. Deferred: the absorb-trivial/escalate-structural classifier (27.1.9) and edit-driven authority via diagram→code (27.2). Why: with no protected user-tier fields at the flow and description layers, authority arrives as an agent-mediated design (27.2), not a storage guarantee.
 
 ### First milestone
 
-Included exactly: the rename milestone — drift detected and reconciled by the `Stop`-hook-launched sub-agent, with the already-detected drift surfaced as a read-only `SessionStart` banner — validated first on a skill's flow (27.1.2, AC#9). Deferred: nothing. Why: smallest end-to-end proof of preservation+drift; a distinct first from the skill-flow comprehension-build first — the skill flow is merely its corpus.
+Included exactly: the rename milestone — drift detected and reconciled by the `Stop`-hook-launched sub-agent, the description re-anchored inline onto the renamed symbol — validated first on a skill's flow (task-27.1.2). Deferred: nothing. Why: smallest end-to-end proof of drift re-sync — the content rides the rename via the inline re-anchor (a content-hash cache hit); a distinct first from the skill-flow comprehension-build first — the skill flow is merely its corpus.
 
 ### Scope
 
-Included: Claude Code first; degrade gracefully via host-keyed installer + degradation matrix (27.1.1), MCP-pull read fallback. Deferred: Cursor parity (27.1.8). Why: prove one host first; a second host is a layout entry.
+Included: Claude Code first; degrade gracefully via host-keyed installer + degradation matrix (27.1.1). Deferred: Cursor parity (27.1.8). Why: prove one host first; a second host is a layout entry.
 
 ## v1 scope summary and critical path
 
@@ -64,6 +64,6 @@ Critical path (v1 ships at 27.1.6): 27.1.1 → 27.1.2 → 27.1.3 → 27.1.4 → 
 
 ## Open decisions
 
-Per-flow open decisions (flow-list legibility, large-flow render, flow identity, A-to-B contract, salience, clustering trigger, ariadne ownership/split) are in the sub-tasks of task-27.1. The sub-agent trigger is resolved: the `Stop` hook (with `SessionStart` as a read-only banner).
+Per-flow open decisions (flow-list legibility, large-flow render, flow identity, A-to-B contract, salience, clustering trigger, ariadne ownership/split) are in the sub-tasks of task-27.1. The sub-agent trigger is resolved: the `Stop` hook.
 
 See also: doc-5 (the timeless vision), doc-4, and task-27.1.

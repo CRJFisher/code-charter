@@ -16,25 +16,29 @@
  * A flow with no live code seed never reaches the (a)/(b) triggers (`paths_of(∅)` ≠ the stored
  * `anchor_set` would otherwise fire (b) spuriously); the two zero-seed shapes are split by whether the
  * flow enumerates member edges. A skill (doc) flow enumerates its doc members as edges and is re-synced
- * via the touched-skill-root join in `reconcile`, so it is left alone. A seed-gone code flow has no
- * member edges (code members are induced from the seeds) and is superseded — it is surfaced so
- * `resync_persisted_flow` retires it (soft-delete), a renamed seed re-hydrating as a fresh flow.
+ * via the touched-skill-root join in `reconcile`, so it is left alone. A seed-gone code flow is
+ * surfaced for retirement ONLY when this turn's changed files implicate its stored seed (the seed's
+ * defining file is in `changed_files`) — retirement is on-demand, never a global sweep, so an
+ * unrelated edit (or a degenerate graph) can never retire a flow whose code was not touched. A
+ * seed-gone flow whose file is untouched simply lingers until that file next changes.
  */
 
 import type { CallGraph, SymbolId } from "@ariadnejs/types";
 import { induce_members, paths_of, reconstruct_flow_membership } from "@code-charter/core";
 
+import { stored_seed_files } from "./flow_store";
 import type { PersistedFlow } from "./flow_store";
 
 /**
  * The persisted code flows touched by this turn's change. `body_modified_ids` are the live `SymbolId`s
  * of the body-modified symbols (the body-drift trigger); membership drift is detected per flow against
- * its stored `anchor_set`.
+ * its stored `anchor_set`; `changed_files` (the turn's repo-relative set) scopes seed-gone retirement.
  */
 export function affected_persisted_flows(
   body_modified_ids: ReadonlySet<SymbolId>,
   persisted: readonly PersistedFlow[],
   graph: CallGraph,
+  changed_files: ReadonlySet<string>,
 ): PersistedFlow[] {
   return persisted.filter((flow) => {
     const membership = reconstruct_flow_membership(
@@ -44,10 +48,10 @@ export function affected_persisted_flows(
     // No live code seed: split the two zero-seed shapes. A skill/doc flow enumerates its members as
     // edges and is re-synced via the touched-skill-root join in `reconcile`, so leave it alone. A
     // seed-gone CODE flow has no member edges (code members are induced from the seeds, never
-    // enumerated) and is superseded — surface it so `resync_persisted_flow` retires it (soft-delete).
+    // enumerated) — surface it for retirement only when this turn implicates its seed's file.
     if (membership.seeds.length === 0) {
-      const is_seed_gone_code_flow = flow.member_edges.length === 0;
-      return is_seed_gone_code_flow;
+      if (flow.member_edges.length > 0) return false; // skill/doc flow
+      return stored_seed_files(flow).some((file) => changed_files.has(file));
     }
 
     const members = induce_members(membership, graph);

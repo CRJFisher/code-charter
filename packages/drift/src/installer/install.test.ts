@@ -5,7 +5,7 @@ import * as path from "node:path";
 
 import { CLAUDE_CODE_LAYOUT } from "./host_layout";
 import { install_drift } from "./install";
-import { read_hook_groups, read_mcp_server } from "./merge_settings";
+import { read_hook_groups } from "./merge_settings";
 
 // The package root: this test compiles from src/installer, so ../../ is packages/drift, where the
 // real assets/ tree lives. install_drift copies from <package_root>/assets.
@@ -25,14 +25,6 @@ describe("install_drift (idempotency + asset install)", () => {
       const settings_path = path.join(target, ".claude", "settings.json");
       const settings = read_json(settings_path);
       expect(read_hook_groups(settings, CLAUDE_CODE_LAYOUT, "Stop")).toHaveLength(1);
-      expect(read_hook_groups(settings, CLAUDE_CODE_LAYOUT, "SessionStart")).toHaveLength(1);
-
-      const mcp = read_json(path.join(target, ".mcp.json"));
-      const drift_server = read_mcp_server(mcp, "drift");
-      expect(drift_server?.command).toBe("node");
-      expect(drift_server?.args[0]).toContain("drift_mcp.js");
-      // The MCP server is pinned to the target repo's store so it + the skill open the same db.
-      expect(drift_server?.env?.CODE_CHARTER_DB).toContain(path.join(".code-charter", "graph.db"));
 
       // The .claude asset bundle is present, exactly once each.
       expect(fs.existsSync(path.join(target, ".claude", "agents", "drift-reconciler.md"))).toBe(true);

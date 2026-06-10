@@ -71,7 +71,7 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     expect(index.by_symbol_path.has(ANON_SYMBOL_PATH)).toBe(false);
   });
 
-  it("(AC#3/#4b) re-sync preserves the named symbol's resolvable description — not binned", () => {
+  it("(AC#3/#4b) re-sync preserves the named symbol's resolvable description — not soft-deleted", () => {
     // Derive the real anchor for the named symbol straight from the adapter, so the stored description's
     // content_hash matches the live code and resolves as a `hit` (never an accidental miss).
     const named = adapter.anchored_symbols([REL]).find((a) => a.symbol_path === NAMED_SYMBOL_PATH);
@@ -98,10 +98,10 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     const survivor = store.node(DESC_ID);
     expect(survivor).toBeDefined(); // still live — `node()` hides soft-deleted rows
     expect(survivor!.deleted_at).toBeNull();
-    const binned = store
+    const soft_deleted = store
       .all_nodes({ include_deleted: true })
       .find((n) => n.id === DESC_ID && n.deleted_at != null);
-    expect(binned).toBeUndefined();
+    expect(soft_deleted).toBeUndefined();
   });
 
   it("(AC#5) logs a drop and keeps the first when a residual duplicate symbol_path is deduped", () => {

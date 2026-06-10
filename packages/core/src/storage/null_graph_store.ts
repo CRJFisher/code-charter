@@ -53,8 +53,6 @@ export class NullGraphStore implements GraphStore {
 
   soft_delete(): void {}
 
-  restore(): void {}
-
   table_disposition(): Array<{ table: string; disposable: boolean }> {
     return [];
   }

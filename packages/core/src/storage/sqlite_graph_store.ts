@@ -353,12 +353,6 @@ export class SqliteGraphStore implements GraphStore {
     );
   }
 
-  restore(target: GraphTarget): void {
-    const table = target.kind === "node" ? "nodes" : "edges";
-    const id_col = target.kind === "node" ? "id" : "key";
-    this.sql(`UPDATE ${table} SET deleted_at = NULL WHERE ${id_col} = ?`).run(target.id);
-  }
-
   // --- disposition + rebuild ------------------------------------------------
 
   table_disposition(): Array<{ table: string; disposable: boolean }> {

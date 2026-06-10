@@ -27,7 +27,6 @@ export function read_only_store(store: GraphStore): GraphStore {
     invalidate_edges_for_files: () => {},
     invalidate_nodes_for_files: () => {},
     soft_delete: () => {},
-    restore: () => {},
     rebuild_layer: () => {},
     close: () => {},
   };

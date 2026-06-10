@@ -12,8 +12,7 @@
  * transcript under the same session id resets the cursor to 0.
  *
  * The cursor is advanced on every fire (a declined or failed reconcile is not lost: the staged pending
- * set unions across fires until consumed, and the read-only `SessionStart` banner backstops it), so a
- * turn is never reconciled twice.
+ * set unions across fires until consumed), so a turn is never reconciled twice.
  */
 
 import { parse_worked_on_files } from "./transcript_parser";

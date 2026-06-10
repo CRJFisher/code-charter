@@ -123,7 +123,7 @@ export interface CodeState {
  *                 'relocated' = content_hash matches at a different symbol_path (renamed
  *                 in place or moved across files); 'body-changed' = symbol_path matches,
  *                 content_hash differs.
- *   - 'miss'      not resolvable — content is preserved for re-attachment (repair is 27.1).
+ *   - 'miss'      not resolvable — the node is soft-deleted; agentic content is regenerated on a later sync.
  */
 export type ResolveResult =
   | { status: "hit"; state: CodeState }
@@ -195,9 +195,8 @@ export interface GraphStore {
    */
   invalidate_nodes_for_files(paths: string[]): void;
 
-  /** Soft-delete only — there is no hard delete on agentic/user content (AC5). */
+  /** Soft-delete only — there is no hard delete on agentic/user content (AC5); revival is a later upsert. */
   soft_delete(target: GraphTarget): void;
-  restore(target: GraphTarget): void;
 
   /** The per-table disposable/preserved property as DATA, never a hard-coded name list (AC6). */
   table_disposition(): Array<{ table: string; disposable: boolean }>;

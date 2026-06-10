@@ -3,7 +3,7 @@ id: TASK-27.1.15.2
 title: >-
   Refresh and commit the installed dogfood drift surface; retire bin vocabulary
   residue
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-06-09 21:14"
 labels:
@@ -41,8 +41,19 @@ Small residue to clean in the same pass:
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 The committed .claude/commands/drift.md and .claude/skills/drift-sync/ contents match the packages/drift/assets sources; grep over .claude/ finds no reference to drift.list, drift.next, the re-attachment bin, or user-edit recall-and-reapply.
-- [ ] #2 round_trip.test.ts:31 and the ariadne_adapter.test.ts:74 test title use current vocabulary (soft-delete; no bin).
-- [ ] #3 The stale worktree .claude/worktrees/task-27.1.6.1 is removed and unregistered (git worktree remove + branch cleanup), or its retention is documented.
-- [ ] #4 Test suites green after the rename/comment edits.
+- [x] #1 The committed .claude/commands/drift.md and .claude/skills/drift-sync/ contents match the packages/drift/assets sources; grep over .claude/ finds no reference to drift.list, drift.next, the re-attachment bin, or user-edit recall-and-reapply.
+- [x] #2 round_trip.test.ts:31 and the ariadne_adapter.test.ts:74 test title use current vocabulary (soft-delete; no bin).
+- [x] #3 The stale worktree .claude/worktrees/task-27.1.6.1 is removed and unregistered (git worktree remove + branch cleanup), or its retention is documented.
+- [x] #4 Test suites green after the rename/comment edits.
 <!-- AC:END -->
+
+## Implementation Notes
+
+## High-level summary
+
+The committed dogfood surface and the assets are byte-identical, and no retired vocabulary remains on any agent-facing surface: `grep` over `.claude/commands`, `.claude/agents`, and `.claude/skills` finds no `drift.list`, `drift.next`, re-attachment-bin, recall-and-reapply, or reanchor references. The installed copies were refreshed from the assets in the same commits that edited them (tasks 27.1.15.1 and 27.1.15.4), so the surface a session loads always matches the shipped package.
+
+The vocabulary residue is retired: `round_trip.test.ts`'s repair-policy comment states the current model (a relocation re-anchors inline; a miss soft-deletes, with agentic content regenerated on a later sync), and the `ariadne_adapter.test.ts` title and local speak soft-delete vocabulary. The stale pre-strip worktree `.claude/worktrees/task-27.1.6.1` (branch fully merged into main) is removed and unregistered, so greps no longer surface removed symbols from it.
+
+Suite health (AC#4): the drift package's `test` script runs each Ariadne-heavy reconcile suite (`reconcile_code`, `reconcile_delta`, `reconcile_membership`, `ariadne_adapter`) in its own jest process — Ariadne `Project` state accumulates per worker process, and once several `HeadlessProject`-heavy suites share one worker, indexing returns empty results mid-run. A fresh process per heavy suite is exactly what running a suite in isolation does; the root cause lives upstream in `@ariadnejs/core` and is out of this repo's scope. With the split, the full suite is deterministically green.
+

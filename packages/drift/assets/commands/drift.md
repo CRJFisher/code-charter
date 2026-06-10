@@ -18,9 +18,7 @@ Steps:
    hook ran, so nothing is staged for it to fetch. The sub-agent invokes the `drift-sync` skill
    with that list and returns a brief acknowledgement.
 3. Where custom sub-agents are unsupported, invoke the `drift-sync` skill directly over the
-   changed files. Separately, when a prior session's reconcile staged a code rename as outstanding
-   drift, accept the re-anchor with the `drift.resolve` MCP tool
-   (`{ kind: "node", id, resolution: "reanchor" }`) using the node ids the SessionStart banner lists.
+   changed files.
 
 Report a one-line summary of how many files were reconciled. Do not reconcile inline beyond
 delegating to `drift-reconciler` / `drift-sync`.

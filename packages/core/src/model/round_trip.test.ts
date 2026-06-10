@@ -28,9 +28,10 @@ import {
 /**
  * Re-anchor every preserved (non-raw) row whose anchored symbol moved, by asking the resolver where
  * its anchor now resolves. This is the minimal "follow the rename" wiring the round-trip needs — the
- * full repair policy (what to do on a `miss`, the re-attachment bin) is task-27.1's. On a `relocated`
- * downgrade the row's `anchor` is rewritten to the new code state; `hit`/`body-changed`/`miss` rows
- * are left untouched, so content is never dropped here.
+ * full repair policy (a relocation re-anchors inline; a miss soft-deletes, with agentic content
+ * regenerated on a later sync) is `re_extract`'s. On a `relocated` downgrade the row's `anchor` is
+ * rewritten to the new code state; `hit`/`body-changed`/`miss` rows are left untouched, so content
+ * is never dropped here.
  */
 function reanchor_preserved_rows(store: GraphStore, index: ResolverIndex): void {
   for (const node of store.all_nodes()) {

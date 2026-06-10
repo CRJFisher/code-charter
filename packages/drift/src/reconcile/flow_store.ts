@@ -11,6 +11,7 @@ import {
   build_flow_member_edges,
   build_flow_node,
   collect_persisted_flow,
+  file_of_symbol_path,
   FLOW_MEMBER_EDGE_KIND,
   FLOW_NODE_KIND,
 } from "@code-charter/core";
@@ -38,6 +39,31 @@ export function read_persisted_flows(store: GraphStore): PersistedFlow[] {
 export function read_persisted_flow(store: GraphStore, flow_id: string): PersistedFlow | undefined {
   const rows = collect_persisted_flow(flow_id, store.all_nodes(), store.all_edges());
   return rows === undefined ? undefined : { node: rows.flow_node, member_edges: rows.member_edges, bridge_edges: rows.bridge_edges };
+}
+
+/**
+ * A flow's stored `entry_points` symbol_paths. The attribute is agent-authored and upserted
+ * wholesale, so its shape is not trusted: a missing/non-array value or non-string element is
+ * dropped rather than thrown on.
+ */
+export function stored_seed_paths(flow: PersistedFlow): string[] {
+  const stored = flow.node.attributes.entry_points;
+  return Array.isArray(stored) ? stored.filter((seed_path): seed_path is string => typeof seed_path === "string") : [];
+}
+
+/**
+ * The repo-relative files a code flow's stored `entry_points` live in, deduped. A seed symbol_path
+ * embeds its defining file (`<file>#<qualified>:<kind>`); an entry point without the `#` separator
+ * (malformed, or a non-code id) names no file and is skipped.
+ */
+export function stored_seed_files(flow: PersistedFlow): string[] {
+  return [
+    ...new Set(
+      stored_seed_paths(flow)
+        .filter((seed_path) => seed_path.includes("#"))
+        .map((seed_path) => file_of_symbol_path(seed_path)),
+    ),
+  ];
 }
 
 export interface WriteFlowArgs {

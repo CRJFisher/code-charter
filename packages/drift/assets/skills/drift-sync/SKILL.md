@@ -14,15 +14,13 @@ Reconcile the diagram store for the changed-file set staged for this turn.
 
 This skill is the single store-mutation path for drift reconciliation. The work is performed by the
 bundled script `scripts/drift_sync.js`, which you run directly. You do not write the store through any
-other tool, and never through the MCP `drift.*` surface.
+other tool.
 
 ## Run the reconciler
 
 Run the bundled script. It fetches the changed-file set from the pending-reconcile file the Stop hook
 staged beside the store, so you pass no file list — only the store path and the repo root. The store
-path resolves from `CODE_CHARTER_DB` (the same env var the MCP server uses), falling back to
-`.code-charter/graph.db` under the repo root — so the skill and the MCP server always open the same
-store:
+path resolves from `CODE_CHARTER_DB`, falling back to `.code-charter/graph.db` under the repo root:
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/drift_sync.js" \
@@ -40,8 +38,13 @@ The script is dependency-free; it shells into the built `drift-reconcile` bin (l
 `DRIFT_RECONCILE_BIN` env var or the `.drift_reconcile_bin` sidecar the installer drops beside this
 skill). The bin opens the store, builds the headless Ariadne call graph over the repo, and reconciles
 each affected flow. The `--json` output is one record per flow: `{ flow_id, action, kind, member_count,
-last_synced_at }`, where `action` is `hydrate` or `resync` (an empty file set or no affected flows
-emits `[]`).
+last_synced_at }`, where `action` is `hydrate`, `resync`, or `retire` (an empty file set or no
+affected flows emits `[]`; a retire record carries `member_count: 0` and `last_synced_at: null`).
+A flow whose stored seed no longer resolves is retired only when the reconciled set includes the
+seed's file and the graph indexed it cleanly; a retirement skipped because the graph looked
+untrustworthy (it came back empty, or the seed's file failed to index or yields no symbols) is
+deferred and reported on stderr. A seed-gone flow whose file is outside the reconciled set is
+simply left until that file next changes.
 
 ## What it does, per flow
 
@@ -52,6 +55,9 @@ For each flow derived from the changed files:
   new flow on the agentic lane and stamp `last_synced_at`.
 - **RE-SYNC** (a diagram already exists) — re-extract and re-induce the flow in place, re-anchoring
   relocated content via the resolver and re-stamping `last_synced_at`.
+- **RETIRE** (the flow is superseded) — soft-delete it: either its stored seed entrypoint no longer
+  resolves (gone or renamed away; a rename hydrates a fresh flow under the new id in the same run),
+  or a flow written this run demoted its entrypoint (a new wrapper caller) and subsumes its members.
 
 The diagram always updates; it never gates on the user. Agentic descriptions are regenerated each
 sync, so content whose anchor no longer resolves is regenerated rather than stranded.
@@ -59,9 +65,9 @@ sync, so content whose anchor no longer resolves is regenerated rather than stra
 The re-sync path routes through exactly one in-process funnel, `@code-charter/core`'s
 `re_extract(file_set, origin='code-change')`: it invalidates the raw tier for the files, re-runs the
 headless extractor, rebuilds the file-module scaffold, and resolves every preserved node's anchor —
-staging a `relocated` verdict as outstanding drift the next session surfaces and `drift.resolve
-{reanchor}` commits. Writes are scoped (upsert + ladder-aware `write_fields`), so hydrating one flow
-never disturbs another.
+re-anchoring a relocated symbol inline (an unchanged body is a content-hash cache hit, so its
+description rides across the rename). Writes are scoped (per-row upserts + field writes), so
+hydrating one flow never disturbs another.
 
 ## Member descriptions
 

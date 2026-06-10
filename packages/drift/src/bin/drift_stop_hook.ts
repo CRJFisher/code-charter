@@ -25,7 +25,7 @@ import {
 } from "../hooks/pending_reconcile";
 import { decide_stop_action } from "../hooks/stop_decision";
 import { parse_watermark, serialize_watermark, worked_on_since } from "../hooks/stop_watermark";
-import { resolve_db_path } from "../mcp/resolve_db_path";
+import { resolve_db_path } from "../hooks/resolve_db_path";
 import { filter_flow_relevant } from "../reconcile/flow_relevance";
 import { to_repo_relative } from "../reconcile/paths";
 import { read_stdin } from "./read_stdin";

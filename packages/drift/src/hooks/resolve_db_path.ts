@@ -1,9 +1,8 @@
 /**
- * Resolve the on-disk graph store path the MCP server opens. The host launches the server with
- * the workspace as cwd; `.code-charter/graph.db` matches the VSCode extension's convention. The
- * `CODE_CHARTER_DB` env var overrides it — the installer sets it on the MCP server registration
- * (`.mcp.json`), and the `drift-sync` skill resolves the same `CODE_CHARTER_DB`-or-default path,
- * so the server and the reconcile path provably open the same store.
+ * Resolve the on-disk graph store path. The Stop hook bin runs with the target repo as cwd;
+ * `.code-charter/graph.db` matches the VSCode extension's convention. The `CODE_CHARTER_DB` env
+ * var is an operator override, and the `drift-sync` skill resolves the same var-or-default path,
+ * so the hook's watermark/pending files and the reconcile bin provably sit beside one store.
  */
 
 import * as path from "node:path";

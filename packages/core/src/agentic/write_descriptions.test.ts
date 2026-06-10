@@ -66,20 +66,21 @@ describe("write_descriptions (AC#3)", () => {
     expect(node.attributes.description).toBe("regenerated"); // overwritten with the fresh text
   });
 
-  it("survives re-extraction of its file and re-anchors when the symbol is renamed", () => {
+  it("survives re-extraction of its file and rides across a rename inline", () => {
     write_descriptions(store, [description_for(COMPUTE_V1, "adds two numbers")]);
-    const id = description_node_id(symbol_path_of(COMPUTE_V1));
+    const old_id = description_node_id(symbol_path_of(COMPUTE_V1));
 
     const result = re_extract([FILE], "code-change", v2_deps(store));
 
     // The raw node was rebuilt (compute → calculate) ...
     expect(store.node(symbol_path_of(CALCULATE_V2))).toBeDefined();
     expect(store.node(symbol_path_of(COMPUTE_V1))).toBeUndefined();
-    // ... but the agentic description side-node survived with its text intact ...
-    const desc = store.node(id)!;
+    // ... and the description side-node was re-keyed to the renamed symbol with its text intact.
+    const desc = store.node(description_node_id(symbol_path_of(CALCULATE_V2)))!;
     expect(desc).toBeDefined();
     expect(desc.attributes.description).toBe("adds two numbers");
-    // ... and the rename surfaced as a relocated finding so 27.1.6 can re-anchor it.
-    expect(result.findings.some((f) => f.node_id === id && f.reason === "relocated")).toBe(true);
+    expect(desc.attributes.description_hash).toBe(content_hash_of(CALCULATE_V2)); // cache key intact
+    expect(store.node(old_id)).toBeUndefined();
+    expect(result.findings.some((f) => f.node_id === old_id && f.reason === "relocated")).toBe(true);
   });
 });

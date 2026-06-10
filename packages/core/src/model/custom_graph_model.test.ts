@@ -116,9 +116,6 @@ class RecordingStore implements GraphStore {
     this.writes.push({ method: "soft_delete", target });
     this.inner.soft_delete(target);
   }
-  restore(target: GraphTarget): void {
-    this.inner.restore(target);
-  }
   table_disposition(): Array<{ table: string; disposable: boolean }> {
     return this.inner.table_disposition();
   }

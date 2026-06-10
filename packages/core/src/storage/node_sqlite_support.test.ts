@@ -48,7 +48,6 @@ describe("NullGraphStore (AC#3 degraded store)", () => {
       store.invalidate_edges_for_files();
       store.invalidate_nodes_for_files();
       store.soft_delete();
-      store.restore();
       store.rebuild_layer("raw", () => undefined);
       store.close();
     }).not.toThrow();

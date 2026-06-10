@@ -1,37 +1,21 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { CLAUDE_CODE_LAYOUT, type HookArtifactSpec } from "./host_layout";
-import {
-  hook_group_is_ours,
-  merge_all_hooks,
-  merge_mcp_server,
-  read_hook_groups,
-  read_mcp_server,
-} from "./merge_settings";
+import { hook_group_is_ours, merge_all_hooks, read_hook_groups } from "./merge_settings";
 
 const STOP_SPEC: HookArtifactSpec = {
   event_name: "Stop",
-  matcher: null,
   command: "node /pkg/dist/bin/drift_stop_hook.js",
   identity_token: "drift_stop_hook",
 };
-const SESSION_SPEC: HookArtifactSpec = {
-  event_name: "SessionStart",
-  matcher: "startup",
-  command: "node /pkg/dist/bin/drift_session_start.js",
-  identity_token: "drift_session_start",
-};
-const SPECS = [STOP_SPEC, SESSION_SPEC];
+const SPECS = [STOP_SPEC];
 
 describe("merge_all_hooks", () => {
-  it("installs one Stop entry (no matcher) and one SessionStart entry (startup matcher)", () => {
+  it("installs one matcher-less Stop entry", () => {
     const merged = merge_all_hooks({}, CLAUDE_CODE_LAYOUT, SPECS);
     const stop = read_hook_groups(merged, CLAUDE_CODE_LAYOUT, "Stop");
-    const session = read_hook_groups(merged, CLAUDE_CODE_LAYOUT, "SessionStart");
     expect(stop).toHaveLength(1);
     expect(stop[0].matcher).toBeUndefined();
-    expect(session).toHaveLength(1);
-    expect(session[0].matcher).toBe("startup");
   });
 
   it("is idempotent: re-merging leaves exactly one entry per event", () => {
@@ -39,7 +23,6 @@ describe("merge_all_hooks", () => {
     const twice = merge_all_hooks(once, CLAUDE_CODE_LAYOUT, SPECS);
     expect(twice).toEqual(once);
     expect(read_hook_groups(twice, CLAUDE_CODE_LAYOUT, "Stop")).toHaveLength(1);
-    expect(read_hook_groups(twice, CLAUDE_CODE_LAYOUT, "SessionStart")).toHaveLength(1);
   });
 
   it("collapses pre-existing duplicate drift groups to one", () => {
@@ -80,20 +63,5 @@ describe("hook_group_is_ours", () => {
     ).toBe(true);
     expect(hook_group_is_ours({ hooks: [{ type: "command", command: "other" }] }, "drift_stop_hook")).toBe(false);
     expect(hook_group_is_ours("not-a-group", "drift_stop_hook")).toBe(false);
-  });
-});
-
-describe("merge_mcp_server", () => {
-  it("registers the drift server while preserving other servers", () => {
-    const seeded = { mcpServers: { other: { command: "x", args: [] } } };
-    const merged = merge_mcp_server(seeded, "drift", { command: "node", args: ["/pkg/dist/bin/drift_mcp.js"] });
-    expect(read_mcp_server(merged, "other")).toEqual({ command: "x", args: [] });
-    expect(read_mcp_server(merged, "drift")).toEqual({ command: "node", args: ["/pkg/dist/bin/drift_mcp.js"] });
-  });
-
-  it("is idempotent", () => {
-    const once = merge_mcp_server({}, "drift", { command: "node", args: ["/a"] });
-    const twice = merge_mcp_server(once, "drift", { command: "node", args: ["/a"] });
-    expect(twice).toEqual(once);
   });
 });

@@ -1,5 +1,6 @@
 import type { GraphStore, NodeRow } from "@code-charter/types";
 
+import { DESCRIPTION_NODE_KIND, description_node_id } from "../agentic/write_descriptions";
 import { CustomGraphModel } from "../model/custom_graph_model";
 import {
   anchor_string_of,
@@ -11,33 +12,38 @@ import {
   symbol_path_of,
 } from "../model/__fixtures__/round_trip_codebase";
 import { module_group_id } from "../model/module_scaffold";
-import { build_resolver_index, parse_anchor } from "../resolver";
+import { build_resolver_index, derive_code_state, format_anchor, parse_anchor } from "../resolver";
+import type { ResolverSymbol } from "../resolver";
 import { SqliteGraphStore } from "../storage/sqlite_graph_store";
-import { DRIFT_STATUS_KEY, outstanding_drift } from "./drift_observation";
-import { reanchor_node } from "./reanchor";
 import { re_extract } from "./re_extract";
 import type { ReExtractDeps } from "./re_extract";
 
-const DESC_ID = "user:description:helper";
-const DESCRIPTION = "the addition helper, by hand";
+const DESCRIPTION = "the addition helper, agent-authored";
 const FILE = "src/app.ts";
+const OLD_DESC_ID = description_node_id(symbol_path_of(COMPUTE_V1));
+const NEW_DESC_ID = description_node_id(symbol_path_of(CALCULATE_V2));
+/** The rename-stable content hash shared by `compute` and `calculate` (identical bodies). */
+const CONTENT_HASH = parse_anchor(anchor_string_of(COMPUTE_V1)).content_hash;
 
-/** A user description node, anchored to `compute`, with a user-owned `description`. */
-function load_user_description(store: SqliteGraphStore): void {
+/** An agentic description side-node anchored to `compute`, shaped as `write_descriptions` persists it. */
+function load_description(store: SqliteGraphStore): void {
   store.upsert_node({
-    id: DESC_ID,
-    kind: "user.description",
+    id: OLD_DESC_ID,
+    kind: DESCRIPTION_NODE_KIND,
     path: FILE,
     anchor: anchor_string_of(COMPUTE_V1),
     layer: "agentic",
     attributes: {},
     field_ownership: {},
-    origin: "test.user",
-    intent_source: "explicit-pin",
+    origin: "describe-policy",
+    intent_source: "code-edit",
     deleted_at: null,
   } satisfies NodeRow);
-  // The user hand-writes the description; AC#1 promotes the node to layer='user'.
-  store.write_fields({ kind: "node", id: DESC_ID }, { description: DESCRIPTION }, "user");
+  store.write_fields(
+    { kind: "node", id: OLD_DESC_ID },
+    { description: DESCRIPTION, description_hash: CONTENT_HASH, description_source: "llm" },
+    "agentic",
+  );
 }
 
 function deps(store: SqliteGraphStore): ReExtractDeps {
@@ -55,7 +61,7 @@ describe("re_extract (AC#2/#3/#9)", () => {
   beforeEach(() => {
     store = new SqliteGraphStore(":memory:");
     store.rebuild_layer("raw", apply_raw_v1);
-    load_user_description(store);
+    load_description(store);
   });
 
   afterEach(() => store.close());
@@ -66,36 +72,65 @@ describe("re_extract (AC#2/#3/#9)", () => {
     expect(store.node(symbol_path_of(COMPUTE_V1))).toBeUndefined();
   });
 
-  it("reports exactly one relocated finding for the renamed leaf and stages it as outstanding drift", () => {
+  it("reports exactly one relocated finding for the renamed leaf and re-anchors it inline", () => {
     const result = re_extract([FILE], "code-change", deps(store));
 
     const relocated = result.findings.filter((f) => f.reason === "relocated");
     expect(relocated).toHaveLength(1);
-    expect(relocated[0].node_id).toBe(DESC_ID);
+    expect(relocated[0].node_id).toBe(OLD_DESC_ID);
     expect(relocated[0].to_symbol_path).toBe(symbol_path_of(CALCULATE_V2));
 
-    const drift = outstanding_drift(store);
-    expect(drift).toHaveLength(1);
-    expect(drift[0].node_id).toBe(DESC_ID);
-    expect(drift[0].to_symbol_path).toBe(symbol_path_of(CALCULATE_V2));
+    // Re-keyed to the new symbol_path in the same pass: no staged drift, no resolve step.
+    const node = store.node(NEW_DESC_ID)!;
+    expect(node.deleted_at).toBeNull();
+    expect(parse_anchor(node.anchor!).symbol_path).toBe(symbol_path_of(CALCULATE_V2));
+    expect(node.attributes.description).toBe(DESCRIPTION);
+    expect(node.attributes.description_hash).toBe(CONTENT_HASH); // cache key rides across
+    expect(node.attributes.drift_status).toBeUndefined();
+
+    // The old-id row is retired so it never resolves as relocated again.
+    expect(store.node(OLD_DESC_ID)).toBeUndefined();
+    const retired = store.all_nodes({ include_deleted: true }).find((n) => n.id === OLD_DESC_ID);
+    expect(retired?.deleted_at).not.toBeNull();
   });
 
   it("does not flag unrelated symbols (no false positives)", () => {
-    re_extract([FILE], "code-change", deps(store));
-    // `main` resolves as a hit (unchanged symbol_path); only the renamed helper drifts.
-    const drift = outstanding_drift(store);
-    expect(drift).toHaveLength(1);
-    expect(drift.map((d) => d.node_id)).not.toContain(symbol_path_of(CALCULATE_V2));
+    const result = re_extract([FILE], "code-change", deps(store));
+    // `main` resolves as a hit (unchanged symbol_path); only the renamed helper relocates.
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].node_id).toBe(OLD_DESC_ID);
   });
 
-  it("leaves the preserved description live and untouched while drift is outstanding", () => {
+  it("a non-description preserved node keeps its id and follows the anchor", () => {
+    const BEHAVIOUR_ID = "agentic:behaviour:adder";
+    store.upsert_node({
+      id: BEHAVIOUR_ID,
+      kind: "agentic.behaviour",
+      path: FILE,
+      anchor: anchor_string_of(COMPUTE_V1),
+      layer: "agentic",
+      attributes: {},
+      field_ownership: {},
+      origin: "fixture.agentic",
+      intent_source: "diagram-edit",
+      deleted_at: null,
+    });
+
     re_extract([FILE], "code-change", deps(store));
-    const node = store.node(DESC_ID)!;
+
+    const node = store.node(BEHAVIOUR_ID)!;
     expect(node.deleted_at).toBeNull();
-    expect(node.layer).toBe("user");
-    expect(node.attributes.description).toBe(DESCRIPTION);
-    // still anchored to the OLD symbol until the re-anchor is accepted
-    expect(parse_anchor(node.anchor!).symbol_path).toBe(symbol_path_of(COMPUTE_V1));
+    expect(parse_anchor(node.anchor!).symbol_path).toBe(symbol_path_of(CALCULATE_V2));
+  });
+
+  it("the description rides across the rename in one step, visible in the render", () => {
+    re_extract([FILE], "code-change", deps(store));
+
+    const view = CustomGraphModel.hydrate(store).render([{ kind: "raw" }, { kind: "agentic" }, { kind: "user" }]);
+    expect(view.hasNode(NEW_DESC_ID)).toBe(true);
+    expect(view.hasNode(OLD_DESC_ID)).toBe(false);
+    expect(parse_anchor(view.getNodeAttributes(NEW_DESC_ID).row.anchor!).symbol_path).toBe(symbol_path_of(CALCULATE_V2));
+    expect(view.getNodeAttributes(NEW_DESC_ID).row.attributes.description).toBe(DESCRIPTION);
   });
 
   it("builds the file-module scaffold for the worked-on file's leaves (AC#9)", () => {
@@ -106,6 +141,77 @@ describe("re_extract (AC#2/#3/#9)", () => {
     // one per current raw code leaf: `main` and the renamed `calculate` (the code.doc node is not a leaf)
     expect(contains).toHaveLength(2);
     expect(contains.map((e) => e.src_id)).toContain(symbol_path_of(CALCULATE_V2));
+  });
+
+  describe("same-pass relocation chains are order-independent (two-phase apply)", () => {
+    const local_sym = (name: string, body: string): ResolverSymbol => ({
+      file_path: FILE,
+      name,
+      kind: "function",
+      enclosing: [],
+      body_source: body,
+    });
+    const anchor_of = (s: ResolverSymbol): string => {
+      const state = derive_code_state(s);
+      return format_anchor({ symbol_path: state.symbol_path, content_hash: state.content_hash });
+    };
+    const path_of = (s: ResolverSymbol): string => derive_code_state(s).symbol_path;
+    const load_desc = (s: ResolverSymbol, text: string): void => {
+      const id = description_node_id(path_of(s));
+      store.upsert_node({
+        id,
+        kind: DESCRIPTION_NODE_KIND,
+        path: FILE,
+        anchor: anchor_of(s),
+        layer: "agentic",
+        attributes: {},
+        field_ownership: {},
+        origin: "describe-policy",
+        intent_source: "code-edit",
+        deleted_at: null,
+      });
+      store.write_fields({ kind: "node", id }, { description: text }, "agentic");
+    };
+    const chain_deps = (code: ResolverSymbol[]): ReExtractDeps => ({
+      store,
+      extract_raw: () => {},
+      build_index: () => build_resolver_index(code),
+      analyzed_root: "src",
+    });
+
+    const A = local_sym("aaa", "{\n  return 101;\n}");
+    const B = local_sym("bbb", "{\n  return 202;\n}");
+
+    it("a relocation onto a body-changed twin's id never clobbers it (rename chain a→b, b→c)", () => {
+      // After the chain, path bbb holds a's old body: desc(b) resolves body-changed (the cascade
+      // prefers its own path) and stays put for re-description; desc(a)'s relocation onto the
+      // occupied id is dropped, never upserted over the live twin.
+      const B_WITH_A_BODY = local_sym("bbb", A.body_source);
+      const C_WITH_B_BODY = local_sym("ccc", B.body_source);
+      load_desc(A, "describes aaa");
+      load_desc(B, "describes bbb");
+
+      const result = re_extract([FILE], "code-change", chain_deps([B_WITH_A_BODY, C_WITH_B_BODY]));
+
+      expect(store.node(description_node_id(path_of(B)))?.attributes.description).toBe("describes bbb");
+      expect(store.node(description_node_id(path_of(A)))).toBeUndefined(); // relocating row retired
+      expect(store.node(description_node_id(path_of(C_WITH_B_BODY)))).toBeUndefined(); // nothing relocated to ccc
+      expect(result.findings.filter((f) => f.reason === "relocated").map((f) => f.node_id)).toEqual([
+        description_node_id(path_of(A)),
+      ]);
+    });
+
+    it("a relocation onto an already-described live hit never clobbers it", () => {
+      const A_DUP = local_sym("aaa", B.body_source); // a's body now duplicates b's; a was deleted
+      load_desc(A_DUP, "stale duplicate of bbb");
+      load_desc(B, "describes bbb");
+
+      re_extract([FILE], "code-change", chain_deps([B]));
+
+      // desc(b) is a live hit at the target id; the relocating duplicate is retired, not upserted over it.
+      expect(store.node(description_node_id(path_of(B)))?.attributes.description).toBe("describes bbb");
+      expect(store.node(description_node_id(path_of(A_DUP)))).toBeUndefined();
+    });
   });
 
   it("retires a renamed-away leaf's contains edge instead of orphaning it", () => {
@@ -132,26 +238,5 @@ describe("re_extract (AC#2/#3/#9)", () => {
       .all_edges({ include_deleted: true })
       .find((e) => e.kind === "agentic.contains" && e.src_id === compute);
     expect(retired?.deleted_at).not.toBeNull();
-  });
-
-  it("accepting the re-anchor moves the description onto the renamed symbol, untouched", () => {
-    re_extract([FILE], "code-change", deps(store));
-    const drift = outstanding_drift(store)[0];
-    const node = store.node(drift.node_id)!;
-
-    reanchor_node(store, node, { symbol_path: drift.to_symbol_path, content_hash: drift.to_content_hash });
-
-    const reanchored = store.node(DESC_ID)!;
-    expect(parse_anchor(reanchored.anchor!).symbol_path).toBe(symbol_path_of(CALCULATE_V2));
-    expect(reanchored.attributes.description).toBe(DESCRIPTION);
-    expect(reanchored.field_ownership.description).toBe("user");
-    expect(reanchored.attributes[DRIFT_STATUS_KEY]).toBeUndefined();
-    expect(outstanding_drift(store)).toHaveLength(0);
-
-    // the re-render shows the description anchored to the renamed symbol
-    const view = CustomGraphModel.hydrate(store).render([{ kind: "raw" }, { kind: "agentic" }, { kind: "user" }]);
-    expect(view.hasNode(DESC_ID)).toBe(true);
-    expect(parse_anchor(view.getNodeAttributes(DESC_ID).row.anchor!).symbol_path).toBe(symbol_path_of(CALCULATE_V2));
-    expect(view.getNodeAttributes(DESC_ID).row.attributes.description).toBe(DESCRIPTION);
   });
 });
