@@ -7,7 +7,9 @@
  * transcript). The watermark records how many transcript lines a prior fire already handed off, so each
  * fire considers only edits in *newer* lines — the genuine "this turn" set — and advances the cursor to
  * the current end. Once a turn's edits are dispatched to the reconciler, later turns with no new edits
- * no-op. A different `transcript_path` (a new session) resets the cursor to 0.
+ * no-op. The cursor file is kept per session (concurrent sessions in one repo must not thrash each
+ * other's cursor); the `transcript_path` field guards rotation within a session — a different
+ * transcript under the same session id resets the cursor to 0.
  *
  * The cursor is advanced on every fire (a declined or failed reconcile is not lost: the staged pending
  * set unions across fires until consumed, and the read-only `SessionStart` banner backstops it), so a

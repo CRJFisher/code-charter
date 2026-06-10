@@ -130,6 +130,27 @@ describe("drift_stop_hook bin", () => {
     }
   });
 
+  it("keeps independent cursors for concurrent sessions in the same repo", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_a = path.join(dir, "a.jsonl");
+    const transcript_b = path.join(dir, "b.jsonl");
+    fs.writeFileSync(transcript_a, edit_line("src/a.ts", "a1") + "\n");
+    fs.writeFileSync(transcript_b, edit_line("src/b.ts", "b1") + "\n");
+    const payload_a = { session_id: "sA", transcript_path: transcript_a, cwd: dir, hook_event_name: "Stop" };
+    const payload_b = { session_id: "sB", transcript_path: transcript_b, cwd: dir, hook_event_name: "Stop" };
+    try {
+      run_stop_hook(payload_a); // session A stages src/a.ts and advances its own cursor
+      // The reconciler consumes A's handoff before B fires.
+      fs.rmSync(path.join(dir, ".code-charter", "drift_pending_reconcile.json"));
+      run_stop_hook(payload_b); // session B fires in between — must not reset A's cursor
+      const again = run_stop_hook(payload_a); // A again, no new edits
+      expect(again.stdout).toBe(""); // a shared cursor would re-fire ALL of A's edits here
+      expect(read_pending(dir)).toEqual(["src/b.ts"]); // only B's unconsumed handoff remains staged
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("no-ops (empty stdout) when stop_hook_active is set", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
     const transcript_path = path.join(dir, "t.jsonl");

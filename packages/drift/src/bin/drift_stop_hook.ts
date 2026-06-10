@@ -30,11 +30,17 @@ import { filter_flow_relevant } from "../reconcile/flow_relevance";
 import { to_repo_relative } from "../reconcile/paths";
 import { read_stdin } from "./read_stdin";
 
-/** The watermark lives beside the store, so it is per-repo and shares the gitignored `.code-charter/`. */
-const WATERMARK_FILE = "drift_stop_watermark.json";
+/**
+ * The watermark lives beside the store (the gitignored `.code-charter/`) and is keyed PER SESSION:
+ * concurrent sessions in one repo each have their own cursor. A single shared cursor is keyed to one
+ * transcript_path, so every alternation between sessions reads a "different transcript", resets to 0,
+ * and re-fires the whole session's edits.
+ */
+const WATERMARK_PREFIX = "drift_stop_watermark";
 
-function watermark_path(cwd: string): string {
-  return path.join(path.dirname(resolve_db_path(process.env, cwd)), WATERMARK_FILE);
+function watermark_path(cwd: string, session_id: string): string {
+  const safe = session_id.replace(/[^A-Za-z0-9_-]/g, "_");
+  return path.join(path.dirname(resolve_db_path(process.env, cwd)), `${WATERMARK_PREFIX}.${safe}.json`);
 }
 
 async function main(): Promise<void> {
@@ -56,7 +62,7 @@ async function main(): Promise<void> {
     transcript_text = "";
   }
 
-  const state_path = watermark_path(payload.cwd);
+  const state_path = watermark_path(payload.cwd, payload.session_id);
   let prev = null;
   try {
     prev = parse_watermark(fs.readFileSync(state_path, "utf8"));
