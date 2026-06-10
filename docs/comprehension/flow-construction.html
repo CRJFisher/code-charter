@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- Comprehension doc: Flow Construction. How a flow is detected and constructed — the deterministic skeleton always available, and the agentic hydration that enriches it. Present-tense, canonical, self-contained. -->
+<!-- Comprehension doc: Flow Construction. How a flow is detected and constructed — the deterministic skeleton always available, the agentic hydration that enriches it, and the entrypoint stitching that repairs syntactic splits. Present-tense, canonical, self-contained. -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -125,6 +125,7 @@
       <span class="pill done">skeleton <b>always available</b></span>
       <span class="pill">hydration <b>lazy · per flow</b></span>
       <span class="pill">id <b>dominant seed symbol_path</b></span>
+      <span class="pill">stitch seam <b>always wired · null default</b></span>
     </div>
     <div class="legend">
       <span class="sw"><i class="raw"></i> raw / call graph (deterministic)</span>
@@ -286,11 +287,11 @@
 
   <!-- ============================ 3 · AGENTIC HYDRATION ============================ -->
   <h2 id="hydration">Agentic hydration &amp; induction</h2>
-  <p class="thesis"><b>Does an agent search the repo and connect Ariadne's entrypoints into logical groupings? Only through the stitch seam.</b> Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code> along a deterministic engine spine, and a model can speak in exactly <b>two optional seams</b>: the <b>describe seam</b> supplies member <em>descriptions</em>, and the <b>stitch seam</b> supplies <em>boundary decisions</em> — merging orphan entrypoints that syntactic analysis leaves split into one multi-seed umbrella. Both default to deterministic and headless: with no executor set, a flow's grouping <em>is</em> reachability, already computed by <code>build_skeleton_flows</code> — one entrypoint plus its reachable subgraph — and the engine induces members, infers bridges with deterministic heuristics, runs a deterministic-first describe ladder, and writes the result. "Agentic" names the storage <em>lane</em> the result is written to (lower-confidence, judgement-tier), not a runtime AI.</p>
+  <p class="thesis"><b>Does an agent search the repo and connect Ariadne's entrypoints into logical groupings? Only through the stitch seam.</b> Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code> along a deterministic engine spine, and a model can speak in exactly <b>two optional seams</b>: the <b>describe seam</b> supplies member <em>descriptions</em>, and the <b>stitch seam</b> supplies <em>boundary decisions</em> — merging orphan entrypoints that syntactic analysis leaves split into one multi-seed umbrella. Both default to deterministic and headless: the stitch seam is crossed on every HYDRATE turn, but its executor resolves as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> and the default confirms nothing, so a flow's grouping <em>is</em> reachability, already computed by <code>build_skeleton_flows</code> — one entrypoint plus its reachable subgraph — and the engine induces members, infers bridges with deterministic heuristics, runs a deterministic-first describe ladder, and writes the result. "Agentic" names the storage <em>lane</em> the result is written to (lower-confidence, judgement-tier), not a runtime AI.</p>
 
   <div class="fig">
     <svg viewBox="0 0 1320 470" role="img"
-      aria-label="The hydration pipeline as a deterministic engine spine with two optional model seams. The spine runs left to right across the middle. Stage one, umbrella detection: by default detect_code_umbrellas runs build_skeleton_flows, one flow per entrypoint, keeping any flow whose induced members touch a changed file this turn; when a stitch executor is set on ReconcileDeps, detect_and_stitch_code_umbrellas takes stage one instead and merges confirmed orphan entrypoints into multi-seed CodeUmbrellas, with singletons for unconfirmed orphans and the deterministic path for non-orphan flows. Stage two, induce_members: re-derive the member node set from the umbrella's seeds by forward reachability, plus deterministic bridge endpoints. Stage three, build_bridge_edges and detect_meta_json_sub_agent_bridges: deterministic heuristics infer cross-call-graph and sub-agent links as agentic.bridge edges at confidence 0.5, rendered dashed; stitch bridges join the same plumbing. Stage four, plan_descriptions, the deterministic-first ladder: cache, then docstring, then optional LLM up to 200, then a name placeholder. Stage five, write_agentic_substrate plus write_flow: persist the agentic.flow node and its substrate via scoped write_fields on the agentic layer, stamping last_synced_at, never a store-global rebuild_layer. Above the spine, the describe seam feeds only stage four: a model MAY supply short member descriptions; the default is headless. Below the spine, the stitch seam feeds stage one: build_candidate_stitches pairs orphan entrypoints in the changed neighbourhood as source-target candidates, capped at fifty; the executor returns ConfirmedStitch records, each carrying merged seeds, a justifying bridge and an inference rationale; union-find merges confirmed groups into multi-seed umbrellas. Both seams are optional; the default null_stitch_executor confirms nothing, leaving the pipeline byte-identical to the fully deterministic path.">
+      aria-label="The hydration pipeline as a deterministic engine spine with two optional model seams. The spine runs left to right across the middle. Stage one, umbrella detection: detect_and_stitch_code_umbrellas runs on every HYDRATE turn — there is no conditional branch. Orphan entrypoints flow through the stitch seam: build_candidate_stitches proposes pairs, the executor — deps.stitch_entrypoints with null_stitch_executor as the default — judges them, and confirmed stitches merge into multi-seed CodeUmbrellas; unconfirmed orphans stay singleton flows; non-orphan skeleton flows take detect_code_umbrellas, one flow per entrypoint, kept when its induced members touch a changed file. Stage two, induce_members: re-derive the member node set from the umbrella's seeds by forward reachability, plus deterministic bridge endpoints. Stage three, build_bridge_edges and detect_meta_json_sub_agent_bridges: deterministic heuristics infer cross-call-graph and sub-agent links as agentic.bridge edges at confidence 0.5, rendered dashed; stitch bridges join the same plumbing. Stage four, plan_descriptions, the deterministic-first ladder: cache, then docstring, then optional LLM up to 200, then a name placeholder. Stage five, write_agentic_substrate plus write_flow: persist the agentic.flow node and its substrate via scoped write_fields on the agentic layer, stamping last_synced_at, never a store-global rebuild_layer. Above the spine, the describe seam feeds only stage four: a model MAY supply short member descriptions; the default is headless. Below the spine, the stitch seam feeds stage one: build_candidate_stitches pairs orphan entrypoints in the changed neighbourhood as source-target candidates, capped at fifty; the executor returns ConfirmedStitch records, each carrying merged seeds, a justifying bridge and an inference rationale; union-find merges confirmed groups into multi-seed umbrellas. Both seams are optional; the default null_stitch_executor confirms nothing, leaving the pipeline byte-identical to the fully deterministic path.">
       <defs>
         <marker id="hy-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="hy-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -302,7 +303,7 @@
         <g font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759" text-anchor="start">
           <text x="14" y="92">DESCRIBE SEAM</text><text x="14" y="104" fill="#6c7a3b">optional · text</text>
           <text x="14" y="232">ENGINE SPINE</text><text x="14" y="244" fill="#6c7a3b">deterministic · headless</text>
-          <text x="14" y="404">STITCH SEAM</text><text x="14" y="416" fill="#6c7a3b">optional · boundaries</text>
+          <text x="14" y="404">STITCH SEAM</text><text x="14" y="416" fill="#6c7a3b">always crossed · null default</text>
         </g>
 
         <!-- ============ DESCRIBE SEAM (top, side input) ============ -->
@@ -321,12 +322,12 @@
         <!-- stage 1 -->
         <circle cx="58" cy="186" r="11" fill="#2c3038"/><text x="58" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
         <rect x="40" y="200" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="156" y="224" text-anchor="middle" font-size="12.5" font-weight="700">detect_code_umbrellas</text>
-        <text x="156" y="244" text-anchor="middle" font-size="10.5" fill="#2c3038">default: one flow per entrypoint,</text>
-        <text x="156" y="259" text-anchor="middle" font-size="10.5" fill="#2c3038">kept if it touches a changed file</text>
-        <text x="156" y="282" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c7a3b">stitch executor set →</text>
-        <text x="156" y="296" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c7a3b">detect_and_stitch_code_umbrellas</text>
-        <text x="156" y="313" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">confirmed orphans → multi-seed</text>
+        <text x="156" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700">detect_and_stitch_</text>
+        <text x="156" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700">code_umbrellas</text>
+        <text x="156" y="257" text-anchor="middle" font-size="10.5" fill="#2c3038">every HYDRATE turn — no branch</text>
+        <text x="156" y="276" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c7a3b">orphans → stitch seam (1b)</text>
+        <text x="156" y="292" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">non-orphans → detect_code_umbrellas</text>
+        <text x="156" y="309" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">kept if members touch a changed file</text>
 
         <!-- stage 2 -->
         <circle cx="318" cy="186" r="11" fill="#2c3038"/><text x="318" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
@@ -376,7 +377,7 @@
         <text x="660" y="372" text-anchor="middle" font-size="13" font-weight="700" fill="#20242b">stitch seam — model MAY merge entrypoints</text>
         <text x="660" y="391" text-anchor="middle" font-size="10.5" fill="#2c3038">build_candidate_stitches → executor → <tspan font-weight="700">ConfirmedStitch[]</tspan></text>
         <text x="660" y="409" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">orphan (source, target) pairs · changed neighbourhood · cap = 50</text>
-        <text x="660" y="424" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">default null_stitch_executor confirms nothing — headless path</text>
+        <text x="660" y="424" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">executor = deps.stitch_entrypoints ?? null_stitch_executor — confirms nothing</text>
         <!-- the stitch seam feeds ONLY stage 1's boundaries -->
         <path d="M470 389 L156 389 L156 328" fill="none" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#hy-olive)"/>
         <text x="180" y="382" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233" text-anchor="start">ConfirmedStitch[] → union-find → multi-seed</text>
@@ -387,25 +388,155 @@
   <div class="legend">
     <span class="sw"><i class="engine"></i> deterministic · default path</span>
     <span class="sw"><i class="agentic"></i> describe seam (optional · model supplies text)</span>
-    <span class="sw"><i class="agentic"></i> stitch seam (optional · executor fills ConfirmedStitch[])</span>
+    <span class="sw"><i class="agentic"></i> stitch seam (always crossed · executor fills ConfirmedStitch[])</span>
     <span class="sw"><i class="hook"></i> agentic-lane store write</span>
   </div>
   <div class="refs">
-    <div class="r"><span class="n">1</span><div><b>Grouping — deterministic default, stitch-aware with an executor.</b> <code>detect_code_umbrellas</code> runs <code>build_skeleton_flows(graph)</code> and keeps any flow whose induced members intersect a changed file — one entrypoint + its reachable subgraph. When <code>ReconcileDeps.stitch_entrypoints</code> is set, <code>detect_and_stitch_code_umbrellas</code> takes stage 1 instead: confirmed orphans merge into multi-seed umbrellas, unconfirmed/overflow orphans stay singletons, non-orphan flows take the deterministic path. <code>drift/reconcile/reconcile.ts</code></div></div>
-    <div class="r"><span class="n">1b</span><div><b>Stitch seam.</b> <code>build_candidate_stitches</code> runs <code>detect_gaps</code>, filters orphan entrypoints in the changed neighbourhood, and pairs each (plus unresolved-shape orphans) against every other neighbourhood orphan as (source, target) candidates, capped at <code>MAX_STITCH_CANDIDATES = 50</code>. The executor returns <code>ConfirmedStitch[]</code> — <code>merged_seeds</code> + a justifying <code>bridge</code> span + an <code>inference_rationale</code> — union-found into multi-seed <code>CodeUmbrella</code>s whose id is the alphabetically-first seed's <code>symbol_path</code>; <code>bridges</code> and <code>rationale</code> flow through <code>hydrate_code_flow</code> unchanged. <code>core/agentic/stitch.ts</code></div></div>
+    <div class="r"><span class="n">1</span><div><b>Grouping — always stitch-aware.</b> HYDRATE routes every turn through <code>detect_and_stitch_code_umbrellas</code> — there is no conditional branch. Orphan entrypoints enter the stitch seam (1b): confirmed groups become multi-seed umbrellas, unconfirmed/overflow orphans stay singletons. Non-orphan skeleton flows take <code>detect_code_umbrellas</code> — one flow per entrypoint, kept if its induced members touch a changed file. <code>drift/reconcile/reconcile.ts</code></div></div>
+    <div class="r"><span class="n">1b</span><div><b>Stitch seam.</b> <code>build_candidate_stitches</code> runs <code>detect_gaps</code>, keeps orphan entrypoints in the changed neighbourhood, and pairs each orphan whose reachable tree holds ≥1 unresolved shape with every other neighbourhood orphan as (source, target) candidates, capped at <code>MAX_STITCH_CANDIDATES = 50</code>. The executor — <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — returns <code>ConfirmedStitch[]</code>, union-found into multi-seed <code>CodeUmbrella</code>s whose id is the alphabetically-first seed's <code>symbol_path</code>; <code>bridges</code> and <code>rationale</code> flow through <code>hydrate_code_flow</code> unchanged. Full anatomy: <a href="#stitching">Entrypoint stitching</a>. <code>core/agentic/stitch.ts</code></div></div>
     <div class="r"><span class="n">2</span><div><b>Induce.</b> <code>induce_members</code> re-derives the member set by forward reachability from the umbrella's seeds, plus any deterministic bridge endpoints — never a stored leaf set. <code>core/model/flow.ts</code></div></div>
     <div class="r"><span class="n">3</span><div><b>Bridges = heuristics.</b> <code>build_bridge_edges</code> and <code>detect_meta_json_sub_agent_bridges</code> infer cross-graph and skill sub-agent links as <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> (dashed render); stitch bridges join the same plumbing. A pure code flow writes <code>bridges: []</code>. <code>core/agentic/bridge.ts · registry_detector.ts</code></div></div>
     <div class="r"><span class="n">4</span><div><b>Descriptions — the describe seam.</b> <code>plan_descriptions</code> is deterministic-first: cache → docstring → optional batched LLM ≤ <code>DEFAULT_DESCRIBE_CAP = 200</code> → name placeholder. A flow hydrates headlessly with no model call; this seam supplies text only. <code>core/agentic/describe_policy.ts</code></div></div>
     <div class="r"><span class="n">5</span><div><b>Persist.</b> <code>write_agentic_substrate</code> + <code>write_flow</code> write the <code>agentic.flow</code> node and substrate row-by-row through scoped <code>write_fields('agentic')</code>, stamping <code>last_synced_at</code>, never <code>rebuild_layer</code>. <code>drift/reconcile/hydrate.ts · flow_store.ts</code></div></div>
   </div>
-  <p class="cap"><b>"Agentic" is the storage lane, not a runtime AI.</b> Two model seams exist and both are optional: the describe seam supplies text, the stitch seam supplies boundary decisions. The drift-reconciler sub-agent fills both — it shells the bundled script into the headless <code>drift-reconcile</code> bin and, as the stitch executor, judges which orphan entrypoints belong together. <b>core/agentic/stitch.ts · drift/reconcile/reconcile.ts</b></p>
+  <p class="cap"><b>"Agentic" is the storage lane, not a runtime AI.</b> Two model seams exist and both are optional: the describe seam supplies text, the stitch seam supplies boundary decisions. Both are filled in-process — the drift-reconciler sub-agent acts as the stitch executor, judging which orphan entrypoints belong together. The headless <code>drift-reconcile</code> bin that the drift-sync script shells into injects neither: it runs the deterministic defaults. <b>core/agentic/stitch.ts · drift/reconcile/reconcile.ts</b></p>
   <div class="callout">
     <span class="k">Does an agent group entrypoints? — Only through the stitch seam</span>
-    The deterministic default never does: an umbrella <em>is</em> a skeleton flow (one entrypoint + its reachable subgraph) and <code>build_bridge_edges</code> is a heuristic. When <code>ReconcileDeps.stitch_entrypoints</code> is set, the executor — the drift-reconciler sub-agent — judges candidate orphan pairs and its <code>ConfirmedStitch[]</code> merges them into multi-seed umbrellas, each stitch carrying a justifying <code>bridge</code> span and an <code>inference_rationale</code>. The describe seam supplies text; the stitch seam supplies boundaries; <code>null_stitch_executor</code> confirms nothing and keeps hydration byte-identical to the headless path.
+    The deterministic default never does: an umbrella <em>is</em> a skeleton flow (one entrypoint + its reachable subgraph) and <code>build_bridge_edges</code> is a heuristic. The seam is always crossed — the executor resolves as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — and the default confirms nothing, keeping hydration byte-identical to one-entrypoint-per-flow. A live executor (the drift-reconciler sub-agent, in-process) judges candidate orphan pairs and its <code>ConfirmedStitch[]</code> merges them into multi-seed umbrellas, each stitch carrying a justifying <code>bridge</code> span and an <code>inference_rationale</code>. The describe seam supplies text; the stitch seam supplies boundaries.
   </div>
   <div class="callout invert">
     <span class="k">The single most load-bearing write rule</span>
     Persisting a flow must <b>never</b> call <code>rebuild_layer('agentic')</code> — that call is store-global and would delete every <em>other</em> flow's agentic content, defeating lazy per-flow hydration. Field writes go through <code>write_fields(..., 'agentic')</code>, so a user-promoted (renamed/pinned) flow node survives untouched.
+  </div>
+
+  <!-- ============================ 3b · ENTRYPOINT STITCHING ============================ -->
+  <h2 id="stitching">Entrypoint stitching</h2>
+  <p class="thesis">Ariadne's call-graph extraction is syntactic: dynamic dispatch, registry lookups and callback wiring frequently fail to resolve, and each unresolved callee is promoted to its own top-level entrypoint — one functionality fragments into several flows. Entrypoint stitching is hydration stage 1's repair pass, run on every HYDRATE turn: <b>Detect → Propose → Judge → Merge</b>, with the judging step the only place a model speaks.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1320 570" role="img"
+      aria-label="The entrypoint-stitching pipeline in four numbered stages, followed by a before-and-after worked example. Stage one, detect: detect_gaps runs over the changed neighbourhood, finding orphan entrypoints and UnresolvedShapes — nodes where at least fifty percent of at least two call sites carry no resolution. Stage two, propose: build_candidate_stitches pairs each orphan entrypoint whose reachable tree holds at least one UnresolvedShape with every other neighbourhood orphan as a StitchCandidate, capped at fifty pairs with the truncation logged. Stage three, judge: the executor, deps.stitch_entrypoints defaulting to null_stitch_executor, judges each candidate and returns ConfirmedStitch records carrying a label, an inference rationale, merged seeds, and a justifying bridge with source file and range; the null default confirms nothing. Stage four, merge: build_stitch_groups union-finds confirmed seeds, groups sharing any seed collapse, each group becomes one multi-seed CodeUmbrella whose id is the alphabetically-first seed's symbol_path, build_bridge_edges writes recovered edges at confidence 0.5 with the call-site span as provenance, and unconfirmed seeds fall back to singleton flows. The worked example shows two split flows before stitching — process_order whose dispatch node has three of four call sites unresolved by a registry lookup, and send_invoice promoted to its own orphan entrypoint — and after stitching, one multi-seed umbrella containing both trees joined by a dashed agentic.bridge edge at confidence 0.5 with file-and-line provenance, the umbrella id being the alphabetically-first seed's symbol_path.">
+      <defs>
+        <marker id="st-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="st-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+        <marker id="st-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui">
+
+        <!-- ======= STAGE ROW ======= -->
+        <!-- stage 1 DETECT -->
+        <circle cx="58" cy="44" r="12" fill="#2c3038"/><text x="58" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
+        <rect x="40" y="60" width="290" height="140" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="185" y="86" text-anchor="middle" font-size="13.5" font-weight="700">detect</text>
+        <text x="185" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">detect_gaps(graph, doc_edges)</text>
+        <text x="185" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">orphan entrypoints in the</text>
+        <text x="185" y="141" text-anchor="middle" font-size="10.5" fill="#2c3038">changed neighbourhood files</text>
+        <text x="185" y="164" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">UnresolvedShape: ≥50% unresolved</text>
+        <text x="185" y="178" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">across ≥2 call sites</text>
+
+        <!-- stage 2 PROPOSE -->
+        <circle cx="378" cy="44" r="12" fill="#2c3038"/><text x="378" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <rect x="360" y="60" width="290" height="140" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="505" y="86" text-anchor="middle" font-size="13.5" font-weight="700">propose</text>
+        <text x="505" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">build_candidate_stitches</text>
+        <text x="505" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">source: orphan with ≥1 unresolved</text>
+        <text x="505" y="141" text-anchor="middle" font-size="10.5" fill="#2c3038">shape in its reachable tree</text>
+        <text x="505" y="156" text-anchor="middle" font-size="10.5" fill="#2c3038">target: every other neighbourhood orphan</text>
+        <text x="505" y="178" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">StitchCandidate · cap 50 · overflow logged</text>
+        <line x1="330" y1="130" x2="358" y2="130" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
+
+        <!-- stage 3 JUDGE -->
+        <circle cx="698" cy="44" r="12" fill="#2c3038"/><text x="698" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
+        <rect x="680" y="60" width="290" height="140" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
+        <text x="825" y="86" text-anchor="middle" font-size="13.5" font-weight="700">judge</text>
+        <text x="825" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">deps.stitch_entrypoints ?? null_stitch_executor</text>
+        <text x="825" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">the executor judges each pair →</text>
+        <text x="825" y="143" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700" fill="#20242b">ConfirmedStitch[]</text>
+        <text x="825" y="163" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">label · inference_rationale · merged_seeds</text>
+        <text x="825" y="177" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">bridge{src, dst, source_file, source_range}</text>
+        <text x="825" y="192" text-anchor="middle" font-size="9.5" fill="#5b6233">default confirms nothing — deterministic</text>
+        <line x1="650" y1="130" x2="678" y2="130" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
+
+        <!-- stage 4 MERGE -->
+        <circle cx="1018" cy="44" r="12" fill="#2c3038"/><text x="1018" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
+        <rect x="1000" y="60" width="290" height="140" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="1145" y="86" text-anchor="middle" font-size="13.5" font-weight="700">merge</text>
+        <text x="1145" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">build_stitch_groups → union-find</text>
+        <text x="1145" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">groups sharing any seed collapse;</text>
+        <text x="1145" y="141" text-anchor="middle" font-size="10.5" fill="#2c3038">each group → one multi-seed CodeUmbrella</text>
+        <text x="1145" y="163" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">id = alphabetically-first seed symbol_path</text>
+        <text x="1145" y="177" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">build_bridge_edges · conf 0.5 · span provenance</text>
+        <text x="1145" y="192" text-anchor="middle" font-size="9.5" fill="#6c6759">unconfirmed seeds → singleton flows</text>
+        <line x1="970" y1="130" x2="998" y2="130" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
+
+        <!-- ======= WORKED EXAMPLE: BEFORE / AFTER ======= -->
+        <text x="40" y="242" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">EXAMPLE · a registry dispatch Ariadne cannot resolve, repaired into one umbrella</text>
+
+        <!-- BEFORE panel -->
+        <rect x="40" y="256" width="560" height="296" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="60" y="282" font-size="13" font-weight="700" fill="#20242b">BEFORE · syntactic split — two flows</text>
+        <!-- flow A -->
+        <rect x="60" y="298" width="252" height="238" rx="10" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <text x="74" y="316" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">flow · process_order</text>
+        <rect x="80" y="326" width="212" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="186" y="344" text-anchor="middle" font-size="11.5" font-weight="600">process_order()</text>
+        <text x="186" y="359" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">entrypoint · seed</text>
+        <rect x="80" y="396" width="212" height="38" rx="8" fill="#fbfaf5" stroke="#aaa492"/>
+        <text x="186" y="419" text-anchor="middle" font-size="11.5">dispatch(order)</text>
+        <line x1="186" y1="368" x2="186" y2="394" stroke="#6c6759" stroke-width="1.4" marker-end="url(#st-g)"/>
+        <rect x="80" y="466" width="212" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="4 3"/>
+        <text x="186" y="486" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10">registry.get(kind)(…)</text>
+        <text x="186" y="502" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#9e3b2e">UnresolvedShape · 3 of 4 call sites unresolved</text>
+        <line x1="186" y1="434" x2="186" y2="464" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#st-rust)"/>
+        <!-- flow B -->
+        <rect x="332" y="298" width="248" height="150" rx="10" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <text x="346" y="316" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">flow · send_invoice</text>
+        <rect x="352" y="326" width="208" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="456" y="344" text-anchor="middle" font-size="11.5" font-weight="600">send_invoice()</text>
+        <text x="456" y="359" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">promoted orphan entrypoint</text>
+        <text x="456" y="398" text-anchor="middle" font-size="10" fill="#6c6759">callee never resolved —</text>
+        <text x="456" y="413" text-anchor="middle" font-size="10" fill="#6c6759">its own top-level flow</text>
+
+        <!-- middle arrow -->
+        <line x1="606" y1="404" x2="714" y2="404" stroke="#b5683e" stroke-width="2.4" marker-end="url(#st-clay)"/>
+        <text x="660" y="392" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" font-weight="700" fill="#b5683e">ConfirmedStitch</text>
+        <text x="660" y="422" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">merged_seeds + bridge</text>
+
+        <!-- AFTER panel -->
+        <rect x="720" y="256" width="560" height="296" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="740" y="282" font-size="13" font-weight="700" fill="#20242b">AFTER · one multi-seed umbrella</text>
+        <rect x="740" y="298" width="520" height="222" rx="12" fill="none" stroke="#6c7a3b" stroke-width="1.8" stroke-dasharray="7 5"/>
+        <text x="756" y="318" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">CodeUmbrella · id = …/process_order (alphabetically-first seed) · seeds = [process_order, send_invoice]</text>
+        <rect x="764" y="334" width="184" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="856" y="352" text-anchor="middle" font-size="11.5" font-weight="600">process_order()</text>
+        <text x="856" y="367" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
+        <rect x="764" y="412" width="184" height="38" rx="8" fill="#fbfaf5" stroke="#aaa492"/>
+        <text x="856" y="435" text-anchor="middle" font-size="11.5">dispatch(order)</text>
+        <line x1="856" y1="376" x2="856" y2="410" stroke="#6c6759" stroke-width="1.4" marker-end="url(#st-g)"/>
+        <rect x="1052" y="412" width="184" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="1144" y="430" text-anchor="middle" font-size="11.5" font-weight="600">send_invoice()</text>
+        <text x="1144" y="445" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
+        <line x1="948" y1="431" x2="1050" y2="431" stroke="#b5683e" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#st-clay)"/>
+        <text x="999" y="421" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5</text>
+        <text x="999" y="470" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">src/orders.ts · L42 (call-site span)</text>
+        <text x="756" y="504" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">endpoints persisted as symbol_paths — rename-stable store ids, not raw Ariadne SymbolIds</text>
+      </g>
+    </svg>
+  </div>
+  <div class="refs">
+    <div class="r"><span class="n">1</span><div><b>Detect.</b> <code>detect_gaps</code> runs over the changed neighbourhood: orphan entrypoints are the candidate seeds; an <code>UnresolvedShape</code> flags a node when ≥50% of its ≥2 call sites carry no resolution (<code>DEFAULT_GAP_OPTIONS</code>). <code>core/agentic/gap_detection.ts</code></div></div>
+    <div class="r"><span class="n">2</span><div><b>Propose.</b> <code>build_candidate_stitches</code> pairs each orphan whose reachable tree holds at least one <code>UnresolvedShape</code> — the evidence — with every other neighbourhood orphan as a <code>StitchCandidate{source_seed, target_seed, unresolved_shapes_in_source}</code>. Capped at <code>MAX_STITCH_CANDIDATES = 50</code>, truncation logged (never silent); overflow seeds remain in <code>StitchBatch.neighbourhood_seeds</code> as singleton fallbacks. <code>core/agentic/stitch.ts</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Judge.</b> The executor resolves as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> and returns <code>ConfirmedStitch[]</code> — <code>label</code>, <code>inference_rationale</code>, <code>merged_seeds</code>, and a justifying <code>bridge{src_symbol_id, dst_symbol_id, source_file, source_range}</code>. <code>null_stitch_executor</code> confirms nothing. <code>core/agentic/stitch.ts</code></div></div>
+    <div class="r"><span class="n">4</span><div><b>Merge.</b> <code>build_stitch_groups</code> union-finds confirmed seeds — groups sharing any seed collapse into one. Each group becomes one multi-seed <code>CodeUmbrella</code> whose id is the alphabetically-first seed's <code>symbol_path</code>; <code>build_bridge_edges</code> writes the recovered edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> with the call-site span as provenance; unconfirmed seeds fall back to singleton flows. <code>drift/reconcile/reconcile.ts</code></div></div>
+  </div>
+  <p class="cap">Grouping is independent of bridge writes — a stitch whose bridge endpoints fail to resolve still merges its seeds; a malformed stitch resolving to fewer than two seeds is skipped. <b>drift/reconcile/reconcile.ts</b></p>
+  <div class="callout">
+    <span class="k">The seam is always crossed — the default confirms nothing</span>
+    HYDRATE has no stitch branch: <code>detect_and_stitch_code_umbrellas</code> runs every turn and resolves its executor as <code>deps.stitch_entrypoints ?? null_stitch_executor</code>. The null default returns no confirmations, leaving the result byte-identical to one-entrypoint-per-flow — so the <code>drift-sync</code> script's headless reconcile, which injects no live executor, stays deterministic. The seam is filled by in-process hosts: the drift-reconciler sub-agent supplies the real executor.
+  </div>
+  <div class="callout olive">
+    <span class="k">Bridge endpoints are symbol_paths, never raw SymbolIds</span>
+    A <code>ConfirmedStitch</code> carries Ariadne <code>SymbolId</code>s; <code>build_stitch_groups</code> converts both endpoints to rename-stable <code>symbol_path</code>s before persistence — <code>src</code> via <code>paths_of</code>, <code>dst</code> via the target seed's id (already a <code>symbol_path</code>) — so persisted <code>agentic.bridge</code> edges live in the store's id space and survive re-parses.
   </div>
 
   <!-- ============================ 4 · SKELETON ↔ HYDRATED RECONCILIATION ============================ -->
@@ -528,7 +659,7 @@
       <tr><td><code>build_flow_member_edges</code></td><td>The <code>agentic.flow_member</code> edges from a flow to its seed roots + linked docs, with deterministic keys.</td><td><code>model/flow.ts</code></td></tr>
       <tr><td><code>build_symbol_path_index</code></td><td>The <code>symbol_path → SymbolId</code> index (inverse of <code>flow_id_of</code>), first-wins in sorted order — bridges the two id spaces.</td><td><code>model/flow.ts</code></td></tr>
       <tr><td><code>detect_gaps · derive_candidate_seeds</code></td><td>Deterministic candidate boundaries: orphan entrypoints + disconnected components → seeds; unresolved shapes → bridge feed.</td><td><code>agentic/gap_detection.ts</code></td></tr>
-      <tr><td><code>build_candidate_stitches · null_stitch_executor</code></td><td><b>The stitch seam.</b> Pair orphan entrypoints in the changed neighbourhood as (source, target) candidates (cap <code>50</code>); an <code>EntrypointStitchExecutor</code> returns <code>ConfirmedStitch[]</code> — merged seeds + a justifying bridge — union-found into multi-seed umbrellas. The default confirms nothing.</td><td><code>agentic/stitch.ts</code></td></tr>
+      <tr><td><code>build_candidate_stitches · null_stitch_executor</code></td><td><b>The stitch seam.</b> Pair orphan entrypoints in the changed neighbourhood as (source, target) candidates (cap <code>50</code>); an <code>EntrypointStitchExecutor</code> — wired as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — returns <code>ConfirmedStitch[]</code> (merged seeds + a justifying bridge), union-found into multi-seed umbrellas. The default confirms nothing.</td><td><code>agentic/stitch.ts</code></td></tr>
       <tr><td><code>build_bridge_edges</code></td><td>Candidates → <code>agentic.bridge</code> edges at confidence <code>0.5</code>, each with an <code>inference_rationale</code> + justifying span.</td><td><code>agentic/bridge.ts</code></td></tr>
       <tr><td><code>plan_descriptions</code></td><td>The deterministic-first ladder: cache → docstring → LLM ≤ 200 → placeholder. No model call required.</td><td><code>agentic/describe_policy.ts</code></td></tr>
       <tr><td><code>match_existing_flow · anchor_set_hash</code></td><td>The ≥0.5 Jaccard identity remap that carries a user label across an id change; weak overlap → re-attachment bin.</td><td><code>drift/reconcile/flow_identity.ts</code></td></tr>

@@ -69,15 +69,18 @@ The reconciler repairs those gaps with an **entrypoint-stitch step** that runs d
 the flow is written. Its algorithm:
 
 1. **Detect.** Run `detect_gaps` over the changed neighbourhood. Collect *orphan entrypoints* — entry
-   points that have no callers in the graph — and flag each that has at least one *unresolved shape*
-   (a node with ≥ 50 % unresolved call ratio and ≥ 2 call sites) in its reachable tree.
+   points with no incident documentation edge (not yet linked to any existing flow) — and flag each
+   that has at least one *unresolved shape* (a node with ≥ 50 % unresolved call ratio and ≥ 2 call
+   sites) in its reachable tree.
 2. **Propose.** For each orphan with unresolved shapes, pair it with every other neighbourhood orphan
    as a `(source, target)` stitch candidate. The candidate carries the unresolved shapes as evidence.
    Candidates are capped at 50 per turn; overflow falls back to singleton flows and is logged.
-3. **Judge.** Pass the candidates to the `stitch_entrypoints` executor — you, the drift-reconciler
-   sub-agent. For each confirmed stitch you return a `ConfirmedStitch`: the merged seed list, a label,
-   a rationale, and a bridge spanning from the unresolved shape's enclosing node to the target
-   entrypoint's primary seed. Unconfirmed candidates fall back to singleton flows — no gap in coverage.
+3. **Judge.** The candidates are passed to the `stitch_entrypoints` executor injected on
+   `ReconcileDeps`. The executor returns `ConfirmedStitch` records: the merged seed list, a label, a
+   rationale, and a bridge spanning from the node enclosing the unresolved call site to the target
+   entrypoint's primary seed. Unconfirmed candidates fall back to singleton flows — no gap in
+   coverage. The default executor is `null_stitch_executor` (confirms nothing). The drift-sync script
+   does not yet inject a stitch executor; the seam is available for in-process hosts.
 4. **Merge.** Confirmed stitches that share seeds are union-found into single groups. Each group
    becomes one multi-seed `CodeUmbrella` (id = alphabetically-first seed's `symbol_path`, stable
    across re-stitch). The bridge is written via `build_bridge_edges` with

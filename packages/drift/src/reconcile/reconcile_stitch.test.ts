@@ -221,10 +221,11 @@ describe("reconcile — agentic entrypoint stitch (AC#9)", () => {
     expect(entry_points).toContain("handler.ts#dispatch:function");
     expect(entry_points).toContain("router.ts#handle_request:function");
 
-    // One agentic.bridge was written
+    // One agentic.bridge was written, with symbol_path endpoints (not raw SymbolIds)
     const bridges = store.all_edges().filter((e) => e.kind === BRIDGE_EDGE_KIND);
     expect(bridges).toHaveLength(1);
-    expect(bridges[0].dst_id).toBe(HANDLE_REQUEST_ID);
+    expect(bridges[0].src_id).toBe("handler.ts#dispatch:function");
+    expect(bridges[0].dst_id).toBe("router.ts#handle_request:function");
   });
 
   it("stitch executor that declines all candidates: falls back to two singleton flows", async () => {

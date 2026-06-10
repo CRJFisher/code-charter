@@ -27,12 +27,14 @@ import {
   build_symbol_path_index,
   induce_members,
   MAX_STITCH_CANDIDATES,
+  null_stitch_executor,
+  paths_of,
   read_sub_agents,
   re_extract,
   STITCH_EXTRACTOR_ID,
   STITCH_EXTRACTOR_VERSION,
 } from "@code-charter/core";
-import type { BridgeCandidate, CandidateSeed, ConfirmedStitch, SymbolDelta } from "@code-charter/core";
+import type { BridgeCandidate, CandidateSeed, ConfirmedStitch, StitchBatch, SymbolDelta } from "@code-charter/core";
 
 import { affected_persisted_flows } from "./affected_flows";
 import { read_persisted_flows, stored_seed_files, stored_seed_paths } from "./flow_store";
@@ -132,15 +134,13 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     }
   }
 
-  // 3c. HYDRATE new code skeleton flows touching the changed files. When stitch_entrypoints is
-  //     provided, orphan entrypoints are first proposed as candidate stitches (the executor judges
-  //     each pair and merges confirmed ones into multi-seed umbrellas). Otherwise the deterministic
-  //     one-entrypoint-per-flow path is used byte-identically. Bounded: the first N get the full
+  // 3c. HYDRATE new code skeleton flows touching the changed files. Orphan entrypoints are first
+  //     proposed as candidate stitches; the stitch_entrypoints executor (defaults to
+  //     null_stitch_executor — confirms nothing, one-entrypoint-per-flow) judges each pair and
+  //     confirms merges into multi-seed umbrellas. Bounded: the first N get the full
   //     (describe-bearing) hydration; the overflow is written as cheap singleton stubs (AC#8). The
   //     truncation is logged — never a silent cap.
-  const all_new_code = deps.stitch_entrypoints
-    ? await detect_and_stitch_code_umbrellas(deps, changed, code_files, graph)
-    : detect_code_umbrellas(changed, code_files, graph);
+  const all_new_code = await detect_and_stitch_code_umbrellas(deps, changed, code_files, graph);
   const new_code = all_new_code.filter(
     (umbrella) => !persisted_ids.has(umbrella.id) && !handled.has(umbrella.id),
   );
@@ -324,13 +324,13 @@ async function detect_and_stitch_code_umbrellas(
     );
   }
 
-  const confirmed =
-    batch.candidates.length > 0 && deps.stitch_entrypoints
-      ? await deps.stitch_entrypoints(batch.candidates, deps.goal ?? "orient-in-code-tree")
-      : [];
+  const executor = deps.stitch_entrypoints ?? null_stitch_executor;
+  const confirmed = batch.candidates.length > 0
+    ? await executor(batch.candidates, deps.goal ?? "orient-in-code-tree")
+    : [];
 
   // Union-find: merge confirmed stitches that share seeds into single umbrella groups
-  const groups = build_stitch_groups(confirmed, batch);
+  const groups = build_stitch_groups(confirmed, batch, graph);
   const stitched_seed_ids = new Set(groups.flatMap((g) => g.seed_ids));
 
   // Merged multi-seed umbrellas from confirmed stitches
@@ -386,15 +386,17 @@ interface StitchGroup {
 /**
  * Merge confirmed stitches that share seeds (union-find). Seeds within one confirmed stitch are
  * unioned; two groups sharing any seed collapse into one. The dominant seed is the alphabetically
- * smallest `CandidateSeed.id` in the group (deterministic).
+ * smallest `CandidateSeed.id` in the group (deterministic). Bridge endpoints are converted from
+ * Ariadne SymbolIds to rename-stable symbol_paths so persisted edges live in the store's id space.
  */
 function build_stitch_groups(
   confirmed: readonly ConfirmedStitch[],
-  batch: ReturnType<typeof build_candidate_stitches>,
+  batch: StitchBatch,
+  graph: CallGraph,
 ): StitchGroup[] {
   if (confirmed.length === 0) return [];
 
-  // Map: SymbolId → CandidateSeed.id
+  // Map: SymbolId → CandidateSeed.id (a symbol_path)
   const sym_to_seed_id = new Map<SymbolId, string>();
   for (const seed of batch.neighbourhood_seeds) {
     for (const sym of seed.seeds) sym_to_seed_id.set(sym, seed.id);
@@ -425,6 +427,9 @@ function build_stitch_groups(
   const bridges_by_root = new Map<string, BridgeCandidate[]>();
   const label_by_root = new Map<string, string>();
   const rationale_by_root = new Map<string, string>();
+  // Track which pre-union roots had at least one confirmed stitch (independent of bridges,
+  // so a stitch with unresolvable bridge endpoints still merges its seeds).
+  const confirmed_roots = new Set<string>();
 
   for (const stitch of confirmed) {
     const seed_ids: string[] = [
@@ -438,23 +443,33 @@ function build_stitch_groups(
     for (let i = 1; i < seed_ids.length; i++) union(seed_ids[0], seed_ids[i]);
 
     const root = find(seed_ids[0]);
+    confirmed_roots.add(root);
     label_by_root.set(root, stitch.label);
     rationale_by_root.set(root, stitch.inference_rationale);
-    if (!bridges_by_root.has(root)) bridges_by_root.set(root, []);
-    bridges_by_root.get(root)!.push({
-      src_id: stitch.bridge.src_symbol_id,
-      dst_id: stitch.bridge.dst_symbol_id,
-      inference_rationale: stitch.inference_rationale,
-      provenance: {
-        source_file: stitch.bridge.source_file,
-        source_range: stitch.bridge.source_range,
-        extractor_id: STITCH_EXTRACTOR_ID,
-        extractor_version: STITCH_EXTRACTOR_VERSION,
-      },
-    });
+
+    // Convert bridge endpoints from SymbolId to symbol_path for store-stable, rename-safe ids.
+    // dst: target seed's CandidateSeed.id is already a symbol_path; fall back to paths_of.
+    const src_symbol_paths = paths_of(new Set([stitch.bridge.src_symbol_id]), graph);
+    const dst_symbol_path =
+      sym_to_seed_id.get(stitch.bridge.dst_symbol_id) ??
+      paths_of(new Set([stitch.bridge.dst_symbol_id]), graph)[0];
+    if (src_symbol_paths.length > 0 && dst_symbol_path !== undefined) {
+      if (!bridges_by_root.has(root)) bridges_by_root.set(root, []);
+      bridges_by_root.get(root)!.push({
+        src_id: src_symbol_paths[0],
+        dst_id: dst_symbol_path,
+        inference_rationale: stitch.inference_rationale,
+        provenance: {
+          source_file: stitch.bridge.source_file,
+          source_range: stitch.bridge.source_range,
+          extractor_id: STITCH_EXTRACTOR_ID,
+          extractor_version: STITCH_EXTRACTOR_VERSION,
+        },
+      });
+    }
   }
 
-  // Re-key bridges after all unions (roots may have changed)
+  // Re-key bridges/labels/rationales after all unions (roots may have changed)
   const final_bridges = new Map<string, BridgeCandidate[]>();
   const final_labels = new Map<string, string>();
   const final_rationales = new Map<string, string>();
@@ -472,12 +487,14 @@ function build_stitch_groups(
     const root = find(old_root);
     final_rationales.set(root, v);
   }
+  // Final confirmed roots after all unions
+  const confirmed_final_roots = new Set([...confirmed_roots].map((r) => find(r)));
 
   // Build one StitchGroup per root that has ≥2 seeds
   const groups_by_root = new Map<string, { seed_ids: Set<string>; all_syms: Set<SymbolId> }>();
   for (const seed of batch.neighbourhood_seeds) {
     const root = find(seed.id);
-    if (!final_bridges.has(root)) continue; // this seed is not in any confirmed stitch
+    if (!confirmed_final_roots.has(root)) continue; // this seed is not in any confirmed stitch
     if (!groups_by_root.has(root)) groups_by_root.set(root, { seed_ids: new Set(), all_syms: new Set() });
     const g = groups_by_root.get(root)!;
     g.seed_ids.add(seed.id);

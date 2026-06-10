@@ -137,7 +137,7 @@ export function build_candidate_stitches(
     const reachable = reachable_by_flow_id.get(source_orphan.flow_id)!;
 
     const unresolved_in_tree = gap_report.unresolved_shapes.filter(
-      (U) => U.symbol_id === source_orphan.symbol_id || reachable.has(U.symbol_id),
+      (shape) => shape.symbol_id === source_orphan.symbol_id || reachable.has(shape.symbol_id),
     );
     if (unresolved_in_tree.length === 0) continue;
 

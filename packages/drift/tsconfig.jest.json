@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@code-charter/types": ["../types/src/index.ts"],
+      "@code-charter/core": ["../core/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

@@ -11,12 +11,7 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "rootDir": "src",
-    "baseUrl": ".",
-    "paths": {
-      "@code-charter/types": ["../types/src/index.ts"],
-      "@code-charter/core": ["../core/src/index.ts"]
-    }
+    "rootDir": "src"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
