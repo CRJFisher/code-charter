@@ -32,6 +32,16 @@ The structure is **agent-inferred** over the existing call graph + source (no ar
 
 <!-- SECTION:DESCRIPTION:END -->
 
+## Invariant flag (task-27.1.15.6)
+
+doc-5/doc-5.1's agent-mediated customisation invariant: flow-layer and description writes are
+wholesale agentic upserts that replace `layer` and `field_ownership`; nothing at these layers
+survives a sync as a protected user-tier field. AC#1 already specifies selection steering as
+agent-mediated. **AC#3's "user overrides win" must be realised the same way** — as agent-recorded
+intent re-applied on each pass, not as a stored user-tier field at the flow-chart layer, which the
+upsert paths (`write_flow`, `write_descriptions`) would clobber.
+
+
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->

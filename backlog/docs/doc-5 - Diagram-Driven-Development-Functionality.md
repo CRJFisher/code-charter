@@ -11,9 +11,9 @@ _Target functionality. For the implementation strategy, see **task-27**._
 
 A code-charter diagram is a peer artifact above the code: code captures _how_, the diagram captures _what_ and _why_, carrying its own authored authority, never regenerated on demand. You direct teams of AI agents and become the bottleneck; the diagram is your surface at that altitude — comprehend a moving codebase at a glance, direct change as intent, not diffs.
 
-## Anything you author is always considered
+## Customisation is agent-mediated at every layer
 
-What you author — a description, a name, a pin — is recalled and surfaced to the agent during every drift-initiated update, so your intentions are always considered, never silently overwritten, even when the element it attaches to is rebuilt or re-identified. Where an intention still fits the changed code it carries across; where it no longer can — the element it attached to is gone, or re-identified beyond recognition — it is held for you to reattach, not dropped.
+What you want the diagram to say — a description, a name, an emphasis — you express to the agent, and the agent authors it into the diagram and re-applies it on every sync. No diagram layer stores direct human byte-edits: flow-layer and description writes are wholesale agentic upserts that replace the row's layer and field ownership outright, and agentic content is regenerated each sync. Human-authored inputs that reach the diagram — docstrings, doc frontmatter — live in the code and are deterministically re-read each sync. Your intent persists because the agent re-applies it, not because the store protects it.
 
 ## The whole repo is one zoomable map, built for comprehension
 
@@ -39,11 +39,11 @@ Drift is a silent, work-scoped observation the diagram absorbs out-of-band — o
 
 ## Authority over each element follows where you keep editing it
 
-Authority follows edits; pin to override; ownership stays visible and flippable; agents absorb trivial drift, escalate architectural change.
+Authority follows edits; instruct the agent to pin and it records and re-applies that intent on each pass; ownership stays visible and flippable; agents absorb trivial drift, escalate architectural change.
 
 ## First milestone
 
-Rename a script; session open flags one drifted node; the diagram re-syncs out-of-band and your hand-written description is surfaced and carries across to the renamed symbol intact.
+Rename a script; the diagram re-syncs out-of-band and the description follows the renamed symbol intact — an unchanged body is a content-hash cache hit, so nothing is regenerated and no review step intervenes.
 
 ## Scope
 

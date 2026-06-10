@@ -35,6 +35,30 @@ Builds on the shared custom graph model (task-27.0): the diagram it edits, the a
 
 <!-- SECTION:DESCRIPTION:END -->
 
+## Invariant flag (task-27.1.15.6)
+
+doc-5/doc-5.1 specify customisation at the flow and description layers as **agent-mediated**:
+writes there are wholesale agentic upserts replacing `layer` and `field_ownership`, so no stored
+user-tier field at those layers survives a sync. The following spots in this task presuppose
+machinery that conflicts with that invariant (or no longer exists) and need re-design when this
+task is picked up:
+
+- AC#4 "re-anchors the user layer so customizations follow the changed elements" — there is no
+  protected user layer at the flow/description layers to re-anchor; relocation re-anchors inline in
+  `re_extract`, and instructed customisation is agent-re-applied.
+- AC#6 / Plan F: `user_layer.update` and pin-as-`intent_source` presuppose user-tier fields that
+  survive sync; at the flow/description layers they are clobbered by the upsert paths — pins must
+  live outside those layers or be agent-re-applied.
+- Plan C "mirroring `drift.resolve` so both directions are named and auditable" — `drift.resolve`
+  and the drift MCP server no longer exist (task-27.1.15.1); a new write surface needs its own
+  auditing story.
+- Plan E "preserved (task-27.0) and surfaced in task-27.1's re-attachment bin, recoverable and
+  never auto-deleted" — there is no re-attachment bin; a resolver miss soft-deletes and agentic
+  content is regenerated on a later sync.
+- Implementation Notes' inherited promote-row-to-`layer='user'` mechanism is void at the
+  flow/description layers — the upsert replaces `layer` wholesale.
+
+
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
