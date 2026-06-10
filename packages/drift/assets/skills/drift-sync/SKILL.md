@@ -38,8 +38,10 @@ The script is dependency-free; it shells into the built `drift-reconcile` bin (l
 `DRIFT_RECONCILE_BIN` env var or the `.drift_reconcile_bin` sidecar the installer drops beside this
 skill). The bin opens the store, builds the headless Ariadne call graph over the repo, and reconciles
 each affected flow. The `--json` output is one record per flow: `{ flow_id, action, kind, member_count,
-last_synced_at }`, where `action` is `hydrate` or `resync` (an empty file set or no affected flows
-emits `[]`).
+last_synced_at }`, where `action` is `hydrate`, `resync`, or `retire` (an empty file set or no
+affected flows emits `[]`). A flow whose stored seed no longer resolves is retired only when the
+reconciled set includes the seed's file and the graph indexed that file cleanly; otherwise the
+retirement is deferred to a later run and the deferral is reported on stderr.
 
 ## What it does, per flow
 

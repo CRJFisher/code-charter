@@ -8,7 +8,7 @@
 // It validates the pinned contract, then SHELLS INTO the built `drift-reconcile` bin (which imports
 // @code-charter/core and drives the headless Ariadne reconcile engine). It locates that bin via the
 // `DRIFT_RECONCILE_BIN` env var, or the `.drift_reconcile_bin` sidecar the installer writes next to this
-// skill. An empty file set no-ops; the bin reports per-flow hydrate/resync over the changed files.
+// skill. An empty file set no-ops; the bin reports per-flow hydrate/resync/retire over the changed files.
 //
 // The changed-file set comes from one of two sources:
 //   - DEFAULT (no `--files`): the pending-reconcile file the Stop hook stages beside the store

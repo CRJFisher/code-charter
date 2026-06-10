@@ -59,6 +59,8 @@ export class HeadlessProject {
   private project: Project | undefined;
   /** Repo-relative path → file source, cached at index time so the raw walk re-slices without re-reading. */
   private readonly sources = new Map<string, string>();
+  /** Repo-relative paths whose read or index failed — present on disk but absent from the graph. */
+  private readonly omitted = new Set<string>();
 
   constructor(private readonly repo_root_abs: string) {}
 
@@ -74,13 +76,15 @@ export class HeadlessProject {
     const files = this.scan_files(this.repo_root_abs);
     await with_quiet_ariadne_warnings(() => {
       for (const abs of files) {
+        const rel = to_repo_relative(abs, this.repo_root_abs);
         try {
-          const rel = to_repo_relative(abs, this.repo_root_abs);
           const content = fs.readFileSync(abs, "utf-8");
           project.update_file(rel as FilePath, content);
           this.sources.set(rel, content);
         } catch {
-          // A file that fails to read/parse is omitted from the graph rather than aborting the run.
+          // A file that fails to read/index is omitted from the graph rather than aborting the run.
+          // The omission is recorded so retirement decisions never trust a graph missing the file.
+          this.omitted.add(rel);
         }
       }
     });
@@ -89,6 +93,11 @@ export class HeadlessProject {
 
   get_call_graph(): CallGraph {
     return this.project?.get_call_graph() ?? { nodes: new Map(), entry_points: [] };
+  }
+
+  /** Repo-relative files present on disk but omitted from the graph by a read/index failure. */
+  omitted_files(): ReadonlySet<string> {
+    return this.omitted;
   }
 
   /** The semantic index for a repo-relative path. */

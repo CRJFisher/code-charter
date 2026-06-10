@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import {
+  build_resolver_index,
   DESCRIPTION_NODE_KIND,
   FLOW_NODE_KIND,
   open_graph_store,
@@ -11,10 +12,11 @@ import {
 } from "@code-charter/core";
 
 import { make_ariadne_adapter } from "./ariadne_adapter";
+import type { AriadneAdapter } from "./ariadne_adapter";
 import { HeadlessProject } from "./headless_project";
 import { read_persisted_flow, read_persisted_flows } from "./flow_store";
 import { reconcile } from "./reconcile";
-import type { ReconcileDeps } from "./types";
+import type { ReconcileDeps, ReconcileResult } from "./types";
 
 let repo: string;
 let store: GraphStore;
@@ -28,19 +30,18 @@ function write(rel: string, content: string): void {
   fs.writeFileSync(abs, content);
 }
 
-async function run(file_set: string[]): Promise<ReconcileDeps> {
+async function run(file_set: string[], adapter?: AriadneAdapter): Promise<ReconcileResult> {
   const project = new HeadlessProject(repo);
   await project.initialize();
   const deps: ReconcileDeps = {
     store,
-    adapter: make_ariadne_adapter(project, () => {}),
+    adapter: adapter ?? make_ariadne_adapter(project, () => {}),
     repo_root_abs: repo,
     analyzed_root: "",
     now: () => new Date(2026, 0, 1, 0, 0, clock++).toISOString(),
     log: () => {},
   };
-  await reconcile(file_set, deps);
-  return deps;
+  return reconcile(file_set, deps);
 }
 
 beforeEach(() => {
@@ -99,7 +100,7 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
 
     // Rename the entrypoint: the flow id changes, so the old flow is retired and a fresh flow hydrates.
     write("main.ts", v1.replace(/entry/g, "entry_renamed"));
-    await run(["main.ts"]);
+    const result = await run(["main.ts"]);
 
     const live = read_persisted_flows(store);
     expect(live).toHaveLength(1); // old id superseded, new id is the only live flow
@@ -107,6 +108,85 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     // The old flow is retired (soft-deleted), not left live and stale.
     const old = store.all_nodes({ include_deleted: true }).find((n) => n.id === old_id);
     expect(old?.deleted_at).not.toBeNull();
+    // The retirement is a first-class outcome — visible in the result the --json surface serializes.
+    expect(result.outcomes).toContainEqual(
+      expect.objectContaining({ flow_id: old_id, action: "retire", kind: "code" }),
+    );
+    expect(result.deferred_retirements).toEqual([]);
+  });
+
+  it("scopes seed-gone retirement to the changed set: an unrelated edit never retires another file's flow", async () => {
+    write("a.ts", "export function a_entry() { return 1; }\n");
+    write("b.ts", "export function b_entry() { return 2; }\n");
+    await run(["a.ts", "b.ts"]);
+    expect(read_persisted_flows(store).map((f) => f.node.id).sort()).toEqual([
+      "a.ts#a_entry:function",
+      "b.ts#b_entry:function",
+    ]);
+
+    // Rename b's entrypoint on disk, but reconcile only a.ts: b's flow is not implicated this turn,
+    // so it must linger live — retirement is on-demand, not a global sweep.
+    write("b.ts", "export function b_renamed() { return 2; }\n");
+    write("a.ts", "export function a_entry() { return 11; }\n");
+    const unrelated = await run(["a.ts"]);
+    expect(unrelated.outcomes.filter((o) => o.action === "retire")).toEqual([]);
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain("b.ts#b_entry:function");
+
+    // The turn that touches b.ts retires it.
+    const related = await run(["b.ts"]);
+    expect(related.outcomes).toContainEqual(
+      expect.objectContaining({ flow_id: "b.ts#b_entry:function", action: "retire" }),
+    );
+    expect(read_persisted_flows(store).map((f) => f.node.id)).not.toContain("b.ts#b_entry:function");
+  });
+
+  it("defers retirement on a degenerate (empty) graph instead of retiring on bad evidence", async () => {
+    await run(["main.ts"]);
+    const flow_id = read_persisted_flows(store)[0].node.id;
+
+    // An adapter whose graph came back empty (the get_call_graph fallback): nothing resolves, but
+    // retiring on that evidence would wipe healthy flows. The retirement defers instead.
+    const empty_adapter: AriadneAdapter = {
+      call_graph: () => ({ nodes: new Map(), entry_points: [] }),
+      extract_raw: () => {},
+      build_index: () => build_resolver_index([]),
+      anchored_symbols: () => [],
+      file_of: () => undefined,
+      omitted_files: () => new Set(),
+    };
+    // Reconcile a non-code path so re_extract is skipped and only the flow-retirement path runs.
+    const result = await run(["notes.md"], empty_adapter);
+
+    expect(result.outcomes.filter((o) => o.action === "retire")).toEqual([]);
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
+    // ... but with the flow's own file in the changed set, the defer is surfaced with its reason.
+    const scoped = await run(["main.ts"], empty_adapter);
+    expect(scoped.outcomes.filter((o) => o.action === "retire")).toEqual([]);
+    expect(scoped.deferred_retirements).toContainEqual({ flow_id, reason: "empty call graph" });
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
+  });
+
+  it("defers retirement when the seed's file was omitted from the graph (e.g. a mid-edit parse failure)", async () => {
+    await run(["main.ts"]);
+    const flow_id = read_persisted_flows(store)[0].node.id;
+
+    // Simulate main.ts failing to read/index: the graph is healthy elsewhere (other.ts), but main.ts
+    // is reported omitted, so its flow's seed not resolving is untrustworthy evidence.
+    write("other.ts", "export function other_entry() { return 3; }\n");
+    fs.rmSync(path.join(repo, "main.ts"));
+    const project = new HeadlessProject(repo);
+    await project.initialize();
+    const real = make_ariadne_adapter(project, () => {});
+    const omitting_adapter: AriadneAdapter = { ...real, omitted_files: () => new Set(["main.ts"]) };
+
+    const result = await run(["main.ts", "other.ts"], omitting_adapter);
+
+    expect(result.outcomes.filter((o) => o.action === "retire")).toEqual([]);
+    expect(result.deferred_retirements).toContainEqual({
+      flow_id,
+      reason: "seed file omitted from graph: main.ts",
+    });
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
   });
 
   it("re-syncs in place and advances last_synced_at without duplicating the flow (AC#1)", async () => {

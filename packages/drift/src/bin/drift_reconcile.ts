@@ -103,7 +103,13 @@ async function main(): Promise<void> {
         );
       }
     }
-    process.stderr.write(`drift-reconcile: reconciled ${result.outcomes.length} flow(s) over ${args.files.length} file(s)\n`);
+    const retired = result.outcomes.filter((outcome) => outcome.action === "retire").length;
+    const retired_note = retired > 0 ? ` (${retired} retired)` : "";
+    const deferred_note =
+      result.deferred_retirements.length > 0 ? `; deferred ${result.deferred_retirements.length} retirement(s)` : "";
+    process.stderr.write(
+      `drift-reconcile: reconciled ${result.outcomes.length} flow(s)${retired_note} over ${args.files.length} file(s)${deferred_note}\n`,
+    );
   } finally {
     store.close();
   }

@@ -27,7 +27,7 @@ export interface ReconcileDeps {
   log: (message: string) => void;
 }
 
-export type FlowAction = "hydrate" | "resync";
+export type FlowAction = "hydrate" | "resync" | "retire";
 
 /** One flow's reconcile result — the unit the `drift-sync` dispatch records carry. */
 export interface FlowOutcome {
@@ -38,7 +38,15 @@ export interface FlowOutcome {
   last_synced_at: string | null;
 }
 
+/** A retirement the graph-health guard skipped this run, retried naturally on the next turn. */
+export interface DeferredRetirement {
+  flow_id: string;
+  reason: string;
+}
+
 export interface ReconcileResult {
   file_set: readonly string[];
   outcomes: FlowOutcome[];
+  /** Retirements deferred because the graph looked untrustworthy for the flow's seed (often empty). */
+  deferred_retirements: DeferredRetirement[];
 }
