@@ -1,7 +1,7 @@
 {
   "name": "@code-charter/drift",
   "version": "0.0.1",
-  "description": "Drift infrastructure substrate: drift MCP server, reconciliation sub-agent + drift-sync skill, and the .claude hook installer",
+  "description": "Drift infrastructure substrate: the Stop-hook reconciliation chain (sub-agent + drift-sync skill) and the .claude installer",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -9,9 +9,7 @@
     "assets"
   ],
   "bin": {
-    "drift-mcp": "dist/bin/drift_mcp.js",
     "drift-stop-hook": "dist/bin/drift_stop_hook.js",
-    "drift-session-start": "dist/bin/drift_session_start.js",
     "drift-install": "dist/bin/drift_install.js",
     "drift-reconcile": "dist/bin/drift_reconcile.js"
   },
@@ -27,9 +25,7 @@
     "@ariadnejs/core": "^0.8.0",
     "@ariadnejs/types": "^0.8.0",
     "@code-charter/core": "^0.0.1",
-    "@code-charter/types": "^0.0.1",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.0"
+    "@code-charter/types": "^0.0.1"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

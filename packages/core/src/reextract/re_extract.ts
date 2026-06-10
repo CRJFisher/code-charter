@@ -8,13 +8,12 @@
  *
  * It re-extracts only the raw tier for the file set (never the whole store), rebuilds the file-module
  * scaffold for those files, then resolves every preserved (non-raw, anchored) node in the set against
- * the fresh code. A `relocated` verdict is staged as outstanding drift on the node — surfaced at the
- * next session open and committed by `drift.resolve` — rather than re-anchored inline. The re-sync is
- * automatic and out-of-band (the resolver determines the target with no human authoring), but moving
- * authored content (a user-owned `description`) onto a different symbol is surfaced for an explicit
- * accept rather than applied silently: the determinism makes that accept a one-click commit, not a
- * re-resolve. A `miss` (the symbol is both renamed and re-bodied) soft-deletes the node into the
- * re-attachment bin.
+ * the fresh code. A `relocated` verdict re-anchors the node inline: the anchor and defining path follow
+ * the symbol, a description side-node is re-keyed to its new symbol_path (the id embeds the path — the
+ * describe cache's key), and the attached content rides across byte-for-byte (an unchanged body is a
+ * content-hash cache hit downstream, so nothing is regenerated). Customisation is agent-mediated, so a
+ * resolver-determined move needs no human accept. A `miss` (the symbol is both renamed and re-bodied)
+ * soft-deletes the node; agentic content is regenerated on the next sync.
  *
  * Alongside the per-node findings, `re_extract` promotes those same verdicts into a turn-level
  * {@link SymbolDelta} (`{added, removed, modified, relocated}` keyed by symbol_path; see `symbol_delta.ts`)
@@ -22,8 +21,8 @@
  * pass. Downstream re-sync (`affected_persisted_flows`) and re-describe scope to that delta (task-27.1.6.4).
  *
  * `re_extract` is not a single transaction. Each store call is atomic and idempotent, so a re-run after
- * a mid-way failure re-applies cleanly: raw invalidation/extraction is repeatable and staging a
- * relocation twice is a no-op.
+ * a mid-way failure re-applies cleanly: raw invalidation/extraction is repeatable and re-anchoring a
+ * relocation twice is a no-op REPLACE.
  *
  * Core stays extractor-agnostic: the host supplies `extract_raw` (Ariadne in production, a fixture in
  * tests) and `build_index`, so `re_extract` itself imports no parser.
@@ -31,16 +30,10 @@
 
 import type { GraphStore, GraphTarget, NodeRow } from "@code-charter/types";
 
-import { build_module_scaffold, file_module_resolver } from "../model/module_scaffold";
-import { parse_anchor, resolve_anchor } from "../resolver";
+import { DESCRIPTION_NODE_KIND, description_node_id } from "../agentic/write_descriptions";
+import { build_module_scaffold, file_module_resolver, file_of_symbol_path } from "../model/module_scaffold";
+import { format_anchor, parse_anchor, resolve_anchor } from "../resolver";
 import type { ResolverIndex } from "../resolver";
-import {
-  DRIFT_FROM_KEY,
-  DRIFT_STATUS_KEY,
-  DRIFT_STATUS_RELOCATED,
-  DRIFT_TO_CONTENT_HASH_KEY,
-  DRIFT_TO_SYMBOL_PATH_KEY,
-} from "./drift_observation";
 import { compute_symbol_delta } from "./symbol_delta";
 import type { SymbolDelta } from "./symbol_delta";
 
@@ -96,8 +89,10 @@ export function re_extract(file_set: readonly string[], origin: ReExtractOrigin,
   // 2. Rebuild the file-module scaffold for the freshly-extracted leaves (deterministic, idempotent).
   rebuild_file_module_scaffold(store, file_set, analyzed_root);
 
-  // 3. Resolve every preserved, anchored node in the set against the fresh index — staging drift per
-  //    node — and accumulate the persisted-anchor baseline the symbol delta diffs against.
+  // 3. Resolve every preserved, anchored node in the set against the fresh index — re-anchoring
+  //    relocations inline — and accumulate the persisted-anchor baseline the symbol delta diffs against.
+  //    The baseline records each node's PRE-change anchor (the in-memory row), so the delta still
+  //    reports the relocation this turn.
   const index = build_index(file_set);
   const findings: DriftFinding[] = [];
   const baseline = new Map<string, string>();
@@ -138,24 +133,30 @@ function preserved_anchored_nodes(store: GraphStore, file_set: readonly string[]
     .filter((node) => node.layer !== "raw" && node.anchor !== null && files.has(node.path));
 }
 
-/** Stage a relocation as outstanding drift, or bin a miss. Returns the finding, or null on hit/body-changed. */
+/**
+ * Re-anchor a relocation inline, or soft-delete a miss. Returns the finding, or null on hit/body-changed.
+ *
+ * A relocated description side-node is re-keyed to `description_node_id(new symbol_path)` — the id
+ * embeds the symbol_path, and the describe cache recovers it from the id — with the old-id row retired
+ * so it never resolves as relocated again. Other kinds keep their id; anchor and defining `path` follow
+ * the symbol either way, so the attached content (and its content-hash cache fields) rides across.
+ */
 function reconcile_node(store: GraphStore, node: NodeRow, index: ResolverIndex): DriftFinding | null {
   const anchor = parse_anchor(node.anchor!);
   const result = resolve_anchor(anchor, index);
   const target: GraphTarget = { kind: "node", id: node.id };
 
   if (result.status === "downgrade" && result.reason === "relocated") {
-    store.write_fields(
-      target,
-      {
-        [DRIFT_STATUS_KEY]: DRIFT_STATUS_RELOCATED,
-        [DRIFT_FROM_KEY]: anchor.symbol_path,
-        [DRIFT_TO_SYMBOL_PATH_KEY]: result.state.symbol_path,
-        [DRIFT_TO_CONTENT_HASH_KEY]: result.state.content_hash,
-      },
-      "agentic",
-    );
-    return { node_id: node.id, from_symbol_path: anchor.symbol_path, to_symbol_path: result.state.symbol_path, reason: "relocated" };
+    const new_path = result.state.symbol_path;
+    const new_id = node.kind === DESCRIPTION_NODE_KIND ? description_node_id(new_path) : node.id;
+    store.upsert_node({
+      ...node,
+      id: new_id,
+      path: file_of_symbol_path(new_path),
+      anchor: format_anchor({ symbol_path: new_path, content_hash: result.state.content_hash }),
+    });
+    if (new_id !== node.id) store.soft_delete(target);
+    return { node_id: node.id, from_symbol_path: anchor.symbol_path, to_symbol_path: new_path, reason: "relocated" };
   }
 
   if (result.status === "miss") {
@@ -184,7 +185,7 @@ function rebuild_file_module_scaffold(store: GraphStore, file_set: readonly stri
 
   // Retire stale containment: a contains edge into one of this run's groups whose key the fresh
   // scaffold no longer emits points at a renamed-away leaf. Soft-delete it so render/the adapter never
-  // see a dangling edge and it does not pile up. (Scaffold rows are excluded from the re-attachment bin.)
+  // see a dangling edge and it does not pile up.
   const live_group_ids = new Set(scaffold.module_nodes.map((node) => node.id));
   const fresh_edge_keys = new Set(scaffold.contains_edges.map((edge) => edge.key));
   for (const edge of store.all_edges()) {

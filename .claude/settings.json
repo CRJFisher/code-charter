@@ -9,17 +9,6 @@
           }
         ]
       }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/packages/drift/dist/bin/drift_session_start.js\""
-          }
-        ],
-        "matcher": "startup"
-      }
     ]
   }
 }

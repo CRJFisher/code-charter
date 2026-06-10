@@ -63,13 +63,6 @@ export type Umbrella = SkillUmbrella | CodeUmbrella;
 export interface HydrateOptions {
   /** Run the (cost-bearing) describe step. False for the singleton-stub overflow above the cap (AC#8). */
   describe?: boolean;
-  /**
-   * symbol_paths relocated this turn (the delta's `relocated` targets). They are NOT re-described: the
-   * resolver carries the existing description across via the relocation staged by `re_extract`, so
-   * describing them afresh would both waste a model call and orphan the carried description on a
-   * stale-id node (task-27.1.6.4 AC#3).
-   */
-  relocated_targets?: ReadonlySet<string>;
 }
 
 export async function hydrate_skill_flow(
@@ -116,8 +109,9 @@ export async function hydrate_code_flow(
   const seed_paths = paths_of(new Set(umbrella.seeds), graph);
 
   // Deterministic-first describe over the flow's member files, persisted (with the cost ceiling) through
-  // the substrate writer; a user-owned description is preserved by the ladder. Skipped for the
-  // singleton-stub overflow above the per-turn cap (AC#8).
+  // the substrate writer. A member relocated this turn was already re-anchored inline by re_extract
+  // (description and cache key re-keyed to the new symbol_path), so it resolves as a content-hash cache
+  // hit here. Skipped for the singleton-stub overflow above the per-turn cap (AC#8).
   let descriptions: Awaited<ReturnType<typeof resolve_descriptions>> = [];
   if (options.describe !== false) {
     const member_files = new Set<string>();
@@ -125,10 +119,9 @@ export async function hydrate_code_flow(
       const file = deps.adapter.file_of(id as SymbolId);
       if (file !== undefined) member_files.add(file);
     }
-    const relocated_targets = options.relocated_targets;
     const anchored = deps.adapter
       .anchored_symbols([...member_files])
-      .filter((a) => members.has(a.symbol_id) && !(relocated_targets?.has(a.symbol_path) ?? false));
+      .filter((a) => members.has(a.symbol_id));
     descriptions = await resolve_descriptions(deps.store, anchored, deps.describe);
   }
 

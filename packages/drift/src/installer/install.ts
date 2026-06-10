@@ -1,9 +1,8 @@
 /**
- * The idempotent drift installer. Against a host layout it installs exactly two hook entries
- * (a `Stop` reconcile hook and a read-only `SessionStart` banner hook), registers the `drift`
- * MCP server, and copies the `.claude` asset bundle (the `drift-reconciler` sub-agent, the
- * `drift-sync` skill, and the `/drift` fallback command). Re-running is safe: hook/MCP merges
- * replace only the drift entries, and asset copies overwrite in place.
+ * The idempotent drift installer. Against a host layout it installs the `Stop` reconcile hook
+ * entry and copies the `.claude` asset bundle (the `drift-reconciler` sub-agent, the
+ * `drift-sync` skill, and the `/drift` fallback command). Re-running is safe: the hook merge
+ * replaces only the drift entries, and asset copies overwrite in place.
  *
  * All decision logic lives in the pure merge functions; this module owns only the file I/O and
  * the install-time path resolution. `install_drift` takes `package_root` explicitly so tests can
@@ -13,28 +12,17 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { DRIFT_DB_ENV_VAR } from "../mcp/resolve_db_path";
-
 import {
   type HookArtifactSpec,
   type HostLayout,
 } from "./host_layout";
-import { merge_all_hooks, merge_mcp_server, type McpServerEntry } from "./merge_settings";
-
-/** The MCP server name the `drift.*` tools register under. */
-export const DRIFT_MCP_SERVER_NAME = "drift";
+import { merge_all_hooks } from "./merge_settings";
 
 const STOP_BIN = "drift_stop_hook.js";
-const SESSION_START_BIN = "drift_session_start.js";
-const MCP_BIN = "drift_mcp.js";
 const RECONCILE_BIN = "drift_reconcile.js";
 
 /** Sidecar the installer drops beside the drift-sync skill so its dependency-free script finds the bin. */
 const RECONCILE_BIN_SIDECAR = ".drift_reconcile_bin";
-
-// The store path is named by DRIFT_DB_ENV_VAR (CODE_CHARTER_DB) — the same var the MCP server and
-// the drift-sync skill resolve — so the installer pins all three to one path.
-const DB_RELATIVE_PATH = path.join(".code-charter", "graph.db");
 
 /** The package root when running from a built `dist/` (installer compiled to dist/installer/). */
 export function resolve_package_root(): string {
@@ -46,8 +34,8 @@ function bin_path(package_root: string, bin_filename: string): string {
 }
 
 /**
- * The bin path as a forward-slash path relative to the install target. Hooks, the MCP server, and the
- * drift-sync skill all run with the target repo as their cwd, so a repo-relative path is portable across
+ * The bin path as a forward-slash path relative to the install target. The hook and the drift-sync
+ * skill both run with the target repo as their cwd, so a repo-relative path is portable across
  * machines and checkouts — the installed `.claude` config can be committed without baking in an absolute
  * home directory.
  */
@@ -92,7 +80,7 @@ function copy_asset_tree(source_dir: string, target_dir: string): void {
   fs.cpSync(source_dir, target_dir, { recursive: true });
 }
 
-/** Fail loudly if a bin a hook/MCP command points at has not been built yet. */
+/** Fail loudly if a bin a hook command points at has not been built yet. */
 function assert_bin_built(package_root: string, bin_filename: string): void {
   const built = bin_path(package_root, bin_filename);
   if (!fs.existsSync(built)) {
@@ -102,27 +90,20 @@ function assert_bin_built(package_root: string, bin_filename: string): void {
   }
 }
 
-/** The two hook specs the installer writes, with their identity tokens for idempotency. */
+/** The hook specs the installer writes, with their identity tokens for idempotency. */
 export function build_hook_specs(target_root: string, package_root: string): HookArtifactSpec[] {
   return [
     {
       event_name: "Stop",
-      matcher: null,
       command: hook_command(target_root, package_root, STOP_BIN),
       identity_token: "drift_stop_hook",
-    },
-    {
-      event_name: "SessionStart",
-      matcher: "startup",
-      command: hook_command(target_root, package_root, SESSION_START_BIN),
-      identity_token: "drift_session_start",
     },
   ];
 }
 
 /** Install (or refresh) the drift substrate into `target_root` for the given host layout. */
 export function install_drift(target_root: string, layout: HostLayout, package_root: string): void {
-  for (const bin of [STOP_BIN, SESSION_START_BIN, MCP_BIN, RECONCILE_BIN]) {
+  for (const bin of [STOP_BIN, RECONCILE_BIN]) {
     assert_bin_built(package_root, bin);
   }
 
@@ -131,17 +112,6 @@ export function install_drift(target_root: string, layout: HostLayout, package_r
   const settings_path = path.join(target_root, layout.settings_file);
   const merged_settings = merge_all_hooks(read_json(settings_path), layout, specs);
   write_json(settings_path, merged_settings);
-
-  // All paths are repo-relative: the MCP server launches with the target repo as cwd, so a relative bin
-  // path + a relative CODE_CHARTER_DB resolve against it, and the committed config stays machine-portable.
-  const mcp_path = path.join(target_root, layout.mcp_config_file);
-  const mcp_entry: McpServerEntry = {
-    command: "node",
-    args: [relative_bin(target_root, package_root, MCP_BIN)],
-    env: { [DRIFT_DB_ENV_VAR]: DB_RELATIVE_PATH.split(path.sep).join("/") },
-  };
-  const merged_mcp = merge_mcp_server(read_json(mcp_path), DRIFT_MCP_SERVER_NAME, mcp_entry);
-  write_json(mcp_path, merged_mcp);
 
   const assets_root = path.join(package_root, "assets");
   for (const asset of [layout.agents, layout.skills, layout.commands]) {

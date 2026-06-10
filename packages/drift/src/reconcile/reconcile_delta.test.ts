@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { DESCRIPTION_NODE_KIND, open_graph_store, outstanding_drift, type GraphStore } from "@code-charter/core";
+import { DESCRIPTION_NODE_KIND, open_graph_store, type GraphStore } from "@code-charter/core";
 
 import { make_ariadne_adapter } from "./ariadne_adapter";
 import { HeadlessProject } from "./headless_project";
@@ -142,25 +142,71 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(desc_attrs("main.ts#main:function")).toEqual(before_main);
   });
 
-  it("relocate: a renamed member (stable body) rides the resolver as staged drift, re-syncing the flow", async () => {
+  it("relocate: a renamed member (stable body) rides across inline — re-keyed, byte-identical, no duplicate", async () => {
     await run(["main.ts"]);
     const before = flow_sync();
+    // Stamp a distinctive agent-authored description so a regeneration (cache miss) is detectable.
+    store.write_fields(
+      { kind: "node", id: `${DESCRIPTION_NODE_KIND}:main.ts#beta:function` },
+      { description: "DISTINCTIVE: beta adds two" },
+      "agentic",
+    );
+    const before_hash = desc_attrs("main.ts#beta:function")?.description_hash;
 
-    // Rename beta → beta_renamed with an identical body (stable content_hash ⇒ the resolver's relocated verdict).
-    const v2 = BASE.replace(/beta/g, "beta_renamed");
-    write("main.ts", v2);
+    // Turn 1 — rename beta → beta_renamed, identical body (stable content_hash ⇒ relocated verdict).
+    write("main.ts", BASE.replace(/beta/g, "beta_renamed"));
     await run(["main.ts"]);
 
     expect(flow_sync() > before).toBe(true); // flow re-synced (member symbol_path changed)
-    // The move is carried via the resolver: the old description's anchor is staged as outstanding drift
-    // onto the new symbol_path, rather than the description being regenerated from scratch.
-    const drift = outstanding_drift(store);
-    const relocated = drift.find((d) => d.to_symbol_path === "main.ts#beta_renamed:function");
-    expect(relocated).toBeDefined();
-    expect(relocated!.node_id).toBe(`${DESCRIPTION_NODE_KIND}:main.ts#beta:function`);
-    // AC#3: the relocated symbol is NOT re-described — no fresh description node at the new path; the
-    // carried description (still on the old-path node, staged) is the single source until drift.resolve.
-    expect(store.node(`${DESCRIPTION_NODE_KIND}:main.ts#beta_renamed:function`)).toBeUndefined();
+    expect(anchor_set()).toContain("main.ts#beta_renamed:function");
+    expect(anchor_set()).not.toContain("main.ts#beta:function");
+    // The description rode across in one step: re-keyed to the new symbol_path, text and cache key
+    // byte-identical (content-hash cache hit — not regenerated), the old-id node no longer live.
+    expect(desc_attrs("main.ts#beta_renamed:function")).toEqual({
+      description: "DISTINCTIVE: beta adds two",
+      description_hash: before_hash,
+    });
+    expect(store.node(`${DESCRIPTION_NODE_KIND}:main.ts#beta:function`)).toBeUndefined();
+
+    // Turn 2 — a later edit to a DIFFERENT member must not regenerate or duplicate the carried
+    // description (the describe cache reads the re-keyed id, so the new path is a cache hit).
+    write("main.ts", BASE.replace(/beta/g, "beta_renamed").replace("return n + 1;", "return n + 1000;"));
+    await run(["main.ts"]);
+
+    expect(desc_attrs("main.ts#beta_renamed:function")).toEqual({
+      description: "DISTINCTIVE: beta adds two",
+      description_hash: before_hash,
+    });
+    const beta_lineage = store
+      .all_nodes()
+      .filter((n) => n.kind === DESCRIPTION_NODE_KIND && (n.id.includes("#beta") || n.id.includes("beta_renamed")));
+    expect(beta_lineage).toHaveLength(1); // exactly one live description for the beta lineage
+  });
+
+  it("relocate across files: a moved member's description follows, with its defining path updated", async () => {
+    await run(["main.ts"]);
+    const before_hash = desc_attrs("main.ts#beta:function")?.description_hash;
+
+    // Move beta (identical body) into lib.ts; main.ts now imports it. Both files are in the turn's set.
+    write(
+      "main.ts",
+      [
+        "import { beta } from './lib';",
+        "",
+        "export function main() {\n  return alpha(1) + beta(2);\n}",
+        "",
+        "export function alpha(n: number) {\n  return n + 1;\n}",
+        "",
+      ].join("\n"),
+    );
+    write("lib.ts", "export function beta(n: number) {\n  return n + 2;\n}\n");
+    await run(["main.ts", "lib.ts"]);
+
+    const moved = store.node(`${DESCRIPTION_NODE_KIND}:lib.ts#beta:function`);
+    expect(moved).toBeDefined();
+    expect(moved!.path).toBe("lib.ts"); // the side-node's defining path followed the move
+    expect(moved!.attributes.description_hash).toBe(before_hash); // carried, not regenerated
+    expect(store.node(`${DESCRIPTION_NODE_KIND}:main.ts#beta:function`)).toBeUndefined();
   });
 
   it("no-op: a whitespace/comment edit that changes no member body reconciles nothing (AC#4)", async () => {

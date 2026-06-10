@@ -99,23 +99,12 @@ export type { BridgeEdge, FlowMembership, PersistedFlowRows, SkeletonFlow } from
 export { DEFAULT_FLOW_BUDGET, project_flow, project_hydrated_flow } from "./model/flow_projection";
 export type { FlowBudget, ProjectFlowOptions } from "./model/flow_projection";
 
-// task-27.1.2 AC#2/#3/#4 — the single re-extraction funnel, outstanding-drift surface, and re-anchor write
+// task-27.1.2 AC#2/#3 — the single re-extraction funnel (relocations re-anchor inline)
 export { re_extract } from "./reextract/re_extract";
 export type { DriftFinding, ReExtractDeps, ReExtractOrigin, ReExtractResult } from "./reextract/re_extract";
 // task-27.1.6.4 AC#1 — the turn-level symbol change set the funnel emits
 export { compute_symbol_delta } from "./reextract/symbol_delta";
 export type { RelocatedSymbol, SymbolDelta } from "./reextract/symbol_delta";
-export { reanchor_node } from "./reextract/reanchor";
-export {
-  DRIFT_FROM_KEY,
-  DRIFT_STAGING_KEYS,
-  DRIFT_STATUS_KEY,
-  DRIFT_STATUS_RELOCATED,
-  DRIFT_TO_CONTENT_HASH_KEY,
-  DRIFT_TO_SYMBOL_PATH_KEY,
-  outstanding_drift,
-} from "./reextract/drift_observation";
-export type { DriftObservation } from "./reextract/drift_observation";
 
 // task-27.1.4 AC#1/#4 — deterministic gap-detection + candidate flow seeds
 export {

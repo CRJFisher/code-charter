@@ -99,15 +99,15 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   // 3b. RE-SYNC the persisted CODE flows whose body or membership drifted this turn (task-27.1.6.4 AC#2).
   //     The delta drives this: its `modified` class maps to the body-drift trigger (a changed body is a
   //     member), while `added`/`removed`/`relocated` reshape a flow's induced member set and are realized
-  //     by the membership-drift trigger inside affected_persisted_flows (the id-robust intersection of the
-  //     structural delta classes with the flow). Sorted by id so the emitted outcomes are byte-stable.
+  //     by the membership-drift trigger inside affected_persisted_flows (a relocated member's description
+  //     was already re-anchored inline by re_extract, so the re-describe pass is a content-hash cache
+  //     hit). Sorted by id so the emitted outcomes are byte-stable.
   const body_modified_ids = body_modified_member_ids(deps, code_files, delta);
-  const relocated_targets = new Set(delta.relocated.map((r) => r.to));
   const affected = affected_persisted_flows(body_modified_ids, persisted, graph)
     .filter((flow) => !handled.has(flow.node.id))
     .sort((a, b) => (a.node.id < b.node.id ? -1 : a.node.id > b.node.id ? 1 : 0));
   for (const flow of affected) {
-    const outcome = await resync_persisted_flow(deps, flow, graph, relocated_targets);
+    const outcome = await resync_persisted_flow(deps, flow, graph);
     if (outcome !== undefined) {
       outcomes.push(outcome);
       handled.add(flow.node.id);
@@ -122,9 +122,7 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   );
   for (const [index, umbrella] of new_code.entries()) {
     const full = index < MAX_FULL_CODE_HYDRATIONS;
-    outcomes.push(
-      await hydrate_code_flow(deps, umbrella, graph, { describe: full, relocated_targets }),
-    );
+    outcomes.push(await hydrate_code_flow(deps, umbrella, graph, { describe: full }));
     handled.add(umbrella.id);
   }
   if (new_code.length > MAX_FULL_CODE_HYDRATIONS) {
@@ -142,7 +140,6 @@ async function resync_persisted_flow(
   deps: ReconcileDeps,
   flow: PersistedFlow,
   graph: CallGraph,
-  relocated_targets: ReadonlySet<string>,
 ): Promise<FlowOutcome | undefined> {
   const seeds = stored_seed_symbol_ids(flow, graph);
   if (seeds.length === 0) {
@@ -160,7 +157,7 @@ async function resync_persisted_flow(
     seeds,
   };
   return {
-    ...(await hydrate_code_flow(deps, umbrella, graph, { relocated_targets })),
+    ...(await hydrate_code_flow(deps, umbrella, graph)),
     action: "resync",
   };
 }

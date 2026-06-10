@@ -123,7 +123,7 @@ export interface CodeState {
  *                 'relocated' = content_hash matches at a different symbol_path (renamed
  *                 in place or moved across files); 'body-changed' = symbol_path matches,
  *                 content_hash differs.
- *   - 'miss'      not resolvable — content is preserved for re-attachment (repair is 27.1).
+ *   - 'miss'      not resolvable — the node is soft-deleted; agentic content is regenerated on a later sync.
  */
 export type ResolveResult =
   | { status: "hit"; state: CodeState }

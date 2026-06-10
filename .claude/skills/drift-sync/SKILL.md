@@ -14,15 +14,13 @@ Reconcile the diagram store for the changed-file set staged for this turn.
 
 This skill is the single store-mutation path for drift reconciliation. The work is performed by the
 bundled script `scripts/drift_sync.js`, which you run directly. You do not write the store through any
-other tool, and never through the MCP `drift.*` surface.
+other tool.
 
 ## Run the reconciler
 
 Run the bundled script. It fetches the changed-file set from the pending-reconcile file the Stop hook
 staged beside the store, so you pass no file list — only the store path and the repo root. The store
-path resolves from `CODE_CHARTER_DB` (the same env var the MCP server uses), falling back to
-`.code-charter/graph.db` under the repo root — so the skill and the MCP server always open the same
-store:
+path resolves from `CODE_CHARTER_DB`, falling back to `.code-charter/graph.db` under the repo root:
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/drift_sync.js" \
@@ -59,9 +57,9 @@ sync, so content whose anchor no longer resolves is regenerated rather than stra
 The re-sync path routes through exactly one in-process funnel, `@code-charter/core`'s
 `re_extract(file_set, origin='code-change')`: it invalidates the raw tier for the files, re-runs the
 headless extractor, rebuilds the file-module scaffold, and resolves every preserved node's anchor —
-staging a `relocated` verdict as outstanding drift the next session surfaces and `drift.resolve
-{reanchor}` commits. Writes are scoped (upsert + ladder-aware `write_fields`), so hydrating one flow
-never disturbs another.
+re-anchoring a relocated symbol inline (an unchanged body is a content-hash cache hit, so its
+description rides across the rename). Writes are scoped (upsert + ladder-aware `write_fields`), so
+hydrating one flow never disturbs another.
 
 ## Member descriptions
 
