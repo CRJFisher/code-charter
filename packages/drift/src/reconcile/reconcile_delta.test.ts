@@ -183,6 +183,26 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(beta_lineage).toHaveLength(1); // exactly one live description for the beta lineage
   });
 
+  it("relocate of an undescribed member: the flow re-syncs and a fresh description lands at the new path", async () => {
+    await run(["main.ts"]);
+    const before = flow_sync();
+    // Strip beta's description so the rename rides the delta as removed+added (no preserved node to
+    // relocate) — the membership trigger alone must re-sync the flow and the describe pass fills in.
+    store.soft_delete({ kind: "node", id: `${DESCRIPTION_NODE_KIND}:main.ts#beta:function` });
+
+    write("main.ts", BASE.replace(/beta/g, "beta_renamed"));
+    await run(["main.ts"]);
+
+    expect(flow_sync() > before).toBe(true); // membership drift re-synced the flow
+    expect(anchor_set()).toContain("main.ts#beta_renamed:function");
+    const fresh = desc_attrs("main.ts#beta_renamed:function");
+    expect(fresh?.description_hash).toBeDefined(); // freshly described at the new path
+    const beta_lineage = store
+      .all_nodes()
+      .filter((n) => n.kind === DESCRIPTION_NODE_KIND && (n.id.includes("#beta") || n.id.includes("beta_renamed")));
+    expect(beta_lineage).toHaveLength(1); // no stale node at the old path
+  });
+
   it("relocate across files: a moved member's description follows, with its defining path updated", async () => {
     await run(["main.ts"]);
     const before_hash = desc_attrs("main.ts#beta:function")?.description_hash;

@@ -11,11 +11,11 @@ export { parse_worked_on_files, EDIT_TOOL_NAMES } from "./hooks/transcript_parse
 
 // Reconcile engine (task-27.1.6 — the drift-sync skill body)
 export { reconcile, make_ariadne_adapter, HeadlessProject } from "./reconcile";
-export type { AriadneAdapter, FlowOutcome, ReconcileDeps, ReconcileResult } from "./reconcile";
+export type { AriadneAdapter, DeferredRetirement, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./reconcile";
 
 // Installer
 export { install_drift, build_hook_specs, hook_command } from "./installer/install";
-export { resolve_db_path } from "./installer/resolve_db_path";
+export { resolve_db_path } from "./hooks/resolve_db_path";
 export {
   merge_all_hooks,
   merge_hook_entry,

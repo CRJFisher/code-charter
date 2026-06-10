@@ -47,6 +47,6 @@ export interface DeferredRetirement {
 export interface ReconcileResult {
   file_set: readonly string[];
   outcomes: FlowOutcome[];
-  /** Retirements deferred because the graph looked untrustworthy for the flow's seed (often empty). */
+  /** Retirements deferred because the graph looked untrustworthy for the flow's seed — an empty call graph, or a seed file that failed to index. */
   deferred_retirements: DeferredRetirement[];
 }

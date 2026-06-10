@@ -5,10 +5,13 @@
  *
  * Pipeline:
  *   1. Partition changed files into skill bundles (a `SKILL.md` ancestor) and plain code.
- *   2. Refresh raw: `re_extract(code, 'code-change')` (the single funnel — gives preservation for free),
- *      and `ingest_skill` per touched bundle.
- *   3. Re-induce the affected persisted flows (AC#5) and re-sync each; detect new umbrellas over the
- *      changed files and hydrate each.
+ *   2. Refresh raw: `re_extract(code, 'code-change')` (the single funnel — relocations re-anchor
+ *      inline), and `ingest_skill` per touched bundle.
+ *   3. Dispatch per flow — HYDRATE, RE-SYNC, or RETIRE: re-induce the affected persisted flows (AC#5)
+ *      and re-sync each; detect new umbrellas over the changed files and hydrate each; RETIRE a flow
+ *      whose stored seed no longer resolves (deferred into `deferred_retirements` when the graph is
+ *      untrustworthy for the seed's file) or whose seeds were demoted by a flow written this turn
+ *      whose members subsume its own ({@link retire_flows_subsumed_by}).
  *
  * "No new drift → no-op": an empty file set, or no affected/new flows, returns an empty outcome list.
  * Writes are scoped and idempotent, so re-firing the hook (or the `stop_hook_active` re-entry) is safe.
@@ -28,7 +31,7 @@ import {
 import type { SymbolDelta } from "@code-charter/core";
 
 import { affected_persisted_flows } from "./affected_flows";
-import { read_persisted_flows, stored_seed_files } from "./flow_store";
+import { read_persisted_flows, stored_seed_files, stored_seed_paths } from "./flow_store";
 import type { PersistedFlow } from "./flow_store";
 import { find_skill_root, ingest_skill_dir } from "./skill_dir";
 import { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
@@ -110,6 +113,9 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     .filter((flow) => !handled.has(flow.node.id))
     .sort((a, b) => (a.node.id < b.node.id ? -1 : a.node.id > b.node.id ? 1 : 0));
   for (const flow of affected) {
+    // A flow can be retired mid-loop by an earlier iteration's demotion check; re-syncing it here
+    // would resurrect the soft-deleted node (write_flow upserts deleted_at: null) — skip it.
+    if (handled.has(flow.node.id)) continue;
     const result = await resync_persisted_flow(deps, flow, graph);
     if (result.kind === "outcome") {
       outcomes.push(result.outcome);
@@ -157,10 +163,10 @@ interface TurnState {
 
 /**
  * Retire persisted flows superseded by a flow written this turn (task-27.1.15.3): a candidate is
- * retired when its dominant seed has been demoted to a non-entrypoint (no stored seed is still an
- * entry point of the live graph — typically a new wrapper caller) AND its member set is subsumed by
- * the just-written flow's. The conjunction protects genuine multi-entrypoint flows that merely share
- * members: each still owns a live entrypoint, so demotion never holds for them.
+ * retired when none of its stored seeds is still an entry point of the live graph (each demoted to a
+ * non-entrypoint — typically by a new wrapper caller) AND its member set is subsumed by the
+ * just-written flow's. The conjunction protects coexisting genuine entrypoint flows that merely
+ * share members: each still owns a live entrypoint, so demotion never holds for them.
  *
  * On-demand by construction: it runs only when a flow was hydrated or re-synced this turn, against
  * the persisted list already in memory — never as a sweep over untouched flows. A candidate whose
@@ -196,7 +202,7 @@ function retire_flows_subsumed_by(
     if (!subsumed) continue;
 
     deps.store.soft_delete({ kind: "node", id: other.node.id });
-    deps.log(`retired flow ${other.node.id} (dominant seed demoted; subsumed by ${new_flow_id})`);
+    deps.log(`retired flow ${other.node.id} (seed entrypoint demoted; subsumed by ${new_flow_id})`);
     // One truthful record per flow: a same-turn resync of the now-superseded flow is dropped in
     // favour of the retire record (the store writes net out to retired either way).
     const earlier = state.outcomes.findIndex((outcome) => outcome.flow_id === other.node.id);
@@ -216,8 +222,12 @@ function retire_flows_subsumed_by(
 /**
  * Re-sync one persisted CODE flow in place (idempotent) and stamp `last_synced_at`. A flow whose seed
  * no longer resolves is retired (soft-deleted) — but only on a trustworthy graph: when the graph came
- * back empty, or the seed's own file was omitted by a read/index failure (e.g. a mid-edit syntax
- * error), the retirement is deferred and retried naturally on the next turn that touches the file.
+ * back empty, the seed's own file was omitted by a read/index failure, or the file is still on disk
+ * but yields no indexed symbols at all (a mid-edit syntax error typically parses without throwing
+ * and just drops the definitions), the retirement is deferred and retried naturally on the next
+ * turn that touches the file. A partially broken file that still yields some symbols is
+ * indistinguishable from a genuine deletion and retires; the flow re-hydrates under the same id
+ * once the file parses again.
  */
 async function resync_persisted_flow(
   deps: ReconcileDeps,
@@ -230,12 +240,19 @@ async function resync_persisted_flow(
       return { kind: "deferred", deferred: { flow_id: flow.node.id, reason: "empty call graph" } };
     }
     const omitted = deps.adapter.omitted_files();
-    const omitted_seed_file = stored_seed_files(flow).find((file) => omitted.has(file));
-    if (omitted_seed_file !== undefined) {
-      return {
-        kind: "deferred",
-        deferred: { flow_id: flow.node.id, reason: `seed file omitted from graph: ${omitted_seed_file}` },
-      };
+    for (const file of stored_seed_files(flow)) {
+      if (omitted.has(file)) {
+        return {
+          kind: "deferred",
+          deferred: { flow_id: flow.node.id, reason: `seed file omitted from graph: ${file}` },
+        };
+      }
+      if (fs.existsSync(to_abs(file, deps.repo_root_abs)) && deps.adapter.anchored_symbols([file]).length === 0) {
+        return {
+          kind: "deferred",
+          deferred: { flow_id: flow.node.id, reason: `seed file present but yields no indexed symbols: ${file}` },
+        };
+      }
     }
     // The seed entrypoint is gone (deleted, or renamed away). The flow is superseded, so retire it
     // (soft-delete) rather than leave it live and stale; a renamed seed re-hydrates as a fresh flow
@@ -263,11 +280,9 @@ async function resync_persisted_flow(
 
 /** Map a code flow's stored `entry_points` (symbol_paths) back to live `SymbolId`s (the inverse of flow_id_of). */
 function stored_seed_symbol_ids(flow: PersistedFlow, graph: CallGraph): SymbolId[] {
-  const stored = flow.node.attributes.entry_points;
-  const seed_paths = Array.isArray(stored) ? (stored as string[]) : [];
   const index = build_symbol_path_index(graph);
   const out: SymbolId[] = [];
-  for (const seed_path of seed_paths) {
+  for (const seed_path of stored_seed_paths(flow)) {
     const id = index.get(seed_path);
     if (id !== undefined) out.push(id);
   }

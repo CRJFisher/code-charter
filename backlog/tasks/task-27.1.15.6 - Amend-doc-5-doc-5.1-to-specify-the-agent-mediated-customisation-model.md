@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.15.6
 title: Amend doc-5/doc-5.1 to specify the agent-mediated customisation model
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-06-09 21:15"
 labels:
@@ -40,8 +40,17 @@ This amendment is load-bearing for downstream design: task-27.1.7 (pins) and 27.
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 doc-5 and doc-5.1 describe the agent-mediated customisation model with no mention of the re-attachment bin, recall-and-reapply preservation, or user-tier pins at the flow layer.
-- [ ] #2 The docs state the invariant: flow-layer and description writes are wholesale agentic upserts; persistent customisation is agent-authored and re-applied, never stored as protected user-tier fields at these layers.
-- [ ] #3 Written in canonical, self-contained style (present tense, no references to removed machinery or the strip).
-- [ ] #4 task-27.1.7 and task-27.2 are checked against the amended invariant; any contradiction in their descriptions is flagged in their task files.
+- [x] #1 doc-5 and doc-5.1 describe the agent-mediated customisation model with no mention of the re-attachment bin, recall-and-reapply preservation, or user-tier pins at the flow layer.
+- [x] #2 The docs state the invariant: flow-layer and description writes are wholesale agentic upserts; persistent customisation is agent-authored and re-applied, never stored as protected user-tier fields at these layers.
+- [x] #3 Written in canonical, self-contained style (present tense, no references to removed machinery or the strip).
+- [x] #4 task-27.1.7 and task-27.2 are checked against the amended invariant; any contradiction in their descriptions is flagged in their task files.
 <!-- AC:END -->
+
+## Implementation Notes
+
+## High-level summary
+
+doc-5 and doc-5.1 now state the invariant the system implements. doc-5's principle "Anything you author is always considered" is restated as "Customisation is agent-mediated at every layer": what you want the diagram to say you express to the agent, which authors it and re-applies it on every sync; no diagram layer stores direct human byte-edits; flow-layer and description writes are wholesale agentic upserts that replace `layer` and `field_ownership`; human-authored inputs that reach the diagram (docstrings, frontmatter) live in the code and are deterministically re-read each sync. doc-5.1's per-principle section mirrors it, names the write funnel (`write_flow`, `write_descriptions`, the store's full ON CONFLICT replace), and states the consequence downstream designs must build against: nothing stored at these layers survives a sync except by being re-applied. The auto-sync section describes the inline re-anchor and on-demand retirement; the authority, first-milestone, scope, and open-decisions sections carry no MCP, SessionStart, bin, or watermark-ladder references.
+
+Tasks 27.1.7 and 27.2 are checked against the invariant (AC#4) and carry an "Invariant flag (task-27.1.15.6)" inside their Description sections: 27.1.7's AC#3 "user overrides win" must be realised as agent-re-applied intent, not a stored user-tier field; 27.2's user-layer re-anchor (AC#4), `user_layer.update`/pin-as-`intent_source` (AC#6, Plan F), `drift.resolve` mirror (Plan C), re-attachment bin (Plan E), and promote-to-`layer='user'` mechanism all presuppose machinery the invariant excludes and need re-design when those tasks are picked up.
+

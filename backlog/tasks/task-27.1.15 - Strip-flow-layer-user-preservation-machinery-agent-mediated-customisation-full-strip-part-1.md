@@ -76,5 +76,5 @@ What to know / watch: the content-hash re-describe cost guard and the core `user
 
 ### Review follow-ups (not actioned here)
 
-- `docs/comprehension/{flow-construction,drift-sync,core-engine,architecture}.html` still depict the deleted `rank_candidates.ts`/`flow_identity.ts`, the bin, and the Jaccard remap as live — a follow-up doc-sync (four large HTML files, outside this strip's code scope).
+- `docs/comprehension/{flow-construction,drift-sync,core-engine,architecture}.html` still depict the deleted `rank_candidates.ts`/`flow_identity.ts`, the bin, and the Jaccard remap as live — and, after part 2 (task-27.1.15.1), also the removed drift MCP server / `drift.resolve` tool and the SessionStart banner — a follow-up doc-sync (four large HTML files, outside this strip's code scope).
 - `re_extract.ts` comments still reference a "re-attachment bin"; the underlying miss soft-delete is part-2 territory (AC#6 keeps the primitive untouched), so the comment cleanup lands with part 2.

@@ -5,16 +5,21 @@ custom sub-agent reconciliation path, the `drift-sync` skill the sub-agent invok
 installer that wires all of it into a host's `.claude` directory.
 
 This package ships the substrate and its contracts. The reconciliation body — re-extract →
-re-induce → write — runs inside the `drift-sync` skill the sub-agent invokes. A code rename that
-relocates a symbol is re-anchored inline by the re-sync: the diagram content rides across to the
-renamed symbol in the same pass, with no resolve step.
+re-induce → write — is this package's reconcile engine (`src/reconcile/`), which the `drift-sync`
+skill's dependency-free script shells into via the `drift-reconcile` bin. A code rename that
+relocates a symbol is absorbed inline by the re-sync: the diagram content is re-anchored onto the
+renamed symbol in the same pass, with no resolve step (at the flow level the old flow id is retired
+and a fresh flow hydrates under the new id; descriptions ride across).
 
 ## Layout
 
 - `src/hooks/` — the `Stop` logic: transcript parsing, the block-or-no-op decision, the per-turn
-  watermark, and the pending-reconcile handoff.
+  watermark, the pending-reconcile handoff, and the store-path resolver.
+- `src/reconcile/` — the reconcile engine behind the `drift-reconcile` bin: hydrate / re-sync /
+  retire dispatch over affected flows, the headless Ariadne adapter, and the flow store.
+- `src/skill/` — the contract test pinning the bundled `drift_sync.js` script to the bin.
 - `src/installer/` — the idempotent installer and the host-keyed layout (where each artifact lands
-  per host, the non-destructive settings merge, and the store-path resolver).
+  per host, and the non-destructive settings merge).
 - `src/bin/` — the thin executable entries the installer wires into a host (`drift-stop-hook`,
   `drift-install`, `drift-reconcile`).
 - `assets/` — the `.claude` templates the installer copies verbatim: the `drift-reconciler`
@@ -26,7 +31,7 @@ Build the package, then run the installer from the target repository root (it in
 repo's `.claude/` directory):
 
 ```bash
-npm run build --workspace=@code-charter/drift
+npx turbo run build --filter=@code-charter/drift   # builds the dependency chain (types, core) too
 node <path-to>/packages/drift/dist/bin/drift_install.js   # the `drift-install` bin
 ```
 

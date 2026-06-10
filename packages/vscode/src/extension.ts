@@ -23,7 +23,7 @@ import { UIDevWatcher } from "./dev_watcher";
 import { AriadneProjectManager } from "./ariadne/project_manager";
 
 const extension_folder = ".code-charter";
-/** The on-disk graph store the hydrated-flow read opens — same convention as the drift MCP server. */
+/** The on-disk graph store the hydrated-flow read opens — same convention as the drift Stop-hook chain. */
 const graph_db_file = "graph.db";
 
 let webview_column: vscode.ViewColumn | undefined;

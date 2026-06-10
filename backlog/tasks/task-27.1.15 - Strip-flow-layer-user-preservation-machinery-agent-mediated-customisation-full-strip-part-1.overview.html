@@ -43,12 +43,14 @@
   .doc-link:hover{border-color:var(--clay);color:var(--clay)}
   .current{background:var(--slate);color:var(--ivory);border-color:var(--slate)}
   .pending{color:var(--g4);border-style:dashed;background:transparent;cursor:default}
-  .pending .tag{font-size:.6rem;color:var(--clay);margin-left:.3rem}
+  .pending .tag{font-size:.6rem;color:var(--olive);margin-left:.3rem}
 
   .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 0}
   .chip{font-family:var(--mono);font-size:.72rem;background:var(--g2);border:1px solid var(--g3);
     border-radius:var(--rp);padding:.25rem .6rem}
   .chip strong{color:var(--clay)}
+  .chip.done{color:var(--olive);border-color:var(--olive)}
+  .chip.done strong{color:var(--olive)}
   .pill{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
     border-radius:var(--rp);padding:.12rem .5rem;border:1px solid var(--g3)}
   .pill.done{color:var(--olive);border-color:var(--olive)}
@@ -73,7 +75,7 @@
   .steps{margin:1rem 0;display:flex;flex-direction:column;gap:.5rem}
   .step{display:grid;grid-template-columns:44px 1fr;gap:.8rem;align-items:start;
     border:1px solid var(--g3);border-radius:var(--r);background:var(--g1);padding:.7rem .9rem}
-  .badge{width:34px;height:34px;border-radius:50%;background:var(--slate);color:var(--ivory);
+  .badge{width:34px;height:34px;border-radius:50%;background:var(--olive);color:var(--ivory);
     font-family:var(--mono);font-size:.78rem;display:flex;align-items:center;justify-content:center}
   .step .b-ttl{font-weight:600;display:flex;flex-wrap:wrap;gap:.5rem;align-items:baseline}
   .step .b-ttl .id{font-family:var(--mono);font-size:.72rem;color:var(--clay)}
@@ -92,39 +94,39 @@
     <span class="current" aria-current="page">Overview</span>
     <a class="doc-link" href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.strip-map.html">Part 1 strip-map (removed vs kept)</a>
     <a class="doc-link" href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html">Follow-up batch (.1&ndash;.6)</a>
-    <span class="grp" style="margin-left:.4rem">sub-tasks</span>
-    <span class="pending">.1 accept-dance<span class="tag">in batch page</span></span>
-    <span class="pending">.2 residue<span class="tag">in batch page</span></span>
-    <span class="pending">.3 demotion<span class="tag">in batch page</span></span>
-    <span class="pending">.4 guard<span class="tag">in batch page</span></span>
-    <span class="pending">.5 restore<span class="tag">in batch page</span></span>
-    <span class="pending">.6 doc-5<span class="tag">in batch page</span></span>
+    <span class="grp" style="margin-left:.4rem">sub-tasks · all done</span>
+    <span class="pending">.1 accept-dance<span class="tag">done · in batch</span></span>
+    <span class="pending">.2 residue<span class="tag">done · in batch</span></span>
+    <span class="pending">.3 demotion<span class="tag">done · in batch</span></span>
+    <span class="pending">.4 guard<span class="tag">done · in batch</span></span>
+    <span class="pending">.5 restore<span class="tag">done · in batch</span></span>
+    <span class="pending">.6 doc-5<span class="tag">done · in batch</span></span>
   </div>
 </nav>
 
 <main>
   <header>
-    <span class="eyebrow">task-27.1.15 · parent overview</span>
+    <span class="eyebrow">task-27.1.15 · parent overview · complete</span>
     <h1>The full strip: removing a safety net for a state that cannot occur</h1>
-    <p class="lead prose">A code-charter diagram is rebuilt from the code by an agent. At the flow layer, every node description is agent-generated; higher-layer chart customisation is agent-mediated &mdash; the agent authors it and re-applies it on each sync. No diagram layer holds direct human byte-edits that an agentic pass must avoid overwriting. So the user-preservation and recovery machinery built across task 27.1 &mdash; the user-tier writes, the overlap remap, the re-attachment bin, the recovery MCP tools, the relocation accept-dance &mdash; protects a state that never happens. The full strip removes it.</p>
+    <p class="lead prose">A code-charter diagram is rebuilt from the code by an agent. At the flow layer, every node description is agent-generated; higher-layer chart customisation is agent-mediated &mdash; the agent authors it and re-applies it on each sync. No diagram layer holds direct human byte-edits that an agentic pass must avoid overwriting. So the user-preservation and recovery machinery built across task 27.1 &mdash; the user-tier writes, the overlap remap, the re-attachment bin, the recovery MCP tools, the relocation accept-dance &mdash; protected a state that never happens. The full strip removed it. Part 1 and all six follow-up sub-tasks are now done and merged.</p>
     <div class="meta">
-      <span class="chip"><strong>part 1</strong> done &amp; merged</span>
-      <span class="chip">part 2 + 5 follow-ups</span>
+      <span class="chip done"><strong>part 1</strong> done &amp; merged</span>
+      <span class="chip done"><strong>6 / 6</strong> follow-ups done</span>
       <span class="chip">labels: drift · flows · graph-db · simplification</span>
     </div>
     <div class="prompt-box">
       <span class="label">The premise in one line</span>
-      Nothing on the diagram is a protected human edit; everything on it is either re-derived from the code each sync or re-authored by the agent. Therefore the preservation apparatus is surplus &mdash; and per the no-surplus-code principle, it goes.
+      Nothing on the diagram is a protected human edit; everything on it is either re-derived from the code each sync or re-authored by the agent. Therefore the preservation apparatus was surplus &mdash; and per the no-surplus-code principle, it is gone.
     </div>
   </header>
 
   <section>
-    <h2>What part 1 did, and what it left standing</h2>
+    <h2>What part 1 did, and what the batch finished</h2>
     <p class="prose">Part 1 (this task, merged) stripped the flow-layer half: no more <code>user</code>-tier writes, the &ge;50% Jaccard overlap remap deleted, the write-only <code>anchor_set_hash</code> gone, the re-attachment bin and its <code>drift.list</code>/<code>drift.next</code> recovery tools removed, and <code>write_descriptions</code> turned into an unconditional agentic upsert that resurrects a stranded description instead of leaving it &ldquo;for <code>drift.resolve</code>&rdquo;. The <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.strip-map.html">strip-map companion</a> shows exactly what was removed versus kept.</p>
-    <p class="prose">Part 1 deliberately left three things for the follow-up batch: the <strong>core relocation accept-dance</strong> (kept so its blast radius could be reviewed on its own), one <strong>uncovered retirement case</strong> (demotion-by-wrapper), and the <strong>design docs</strong> that still describe the deleted surface. The batch also adds the <strong>safety and observability</strong> the global retirement path needs, and removes a now-orphaned storage API.</p>
+    <p class="prose">Part 1 deliberately left three things for the follow-up batch, all now shipped: the <strong>core relocation accept-dance</strong> (kept so its blast radius could be reviewed on its own &mdash; now an inline re-anchor), one <strong>uncovered retirement case</strong> (demotion-by-wrapper &mdash; now closed with demoted-seed + subsumption), and the <strong>design docs</strong> that described the deleted surface (now amended). The batch also added the <strong>safety and observability</strong> the retirement path needed and removed a now-orphaned storage API.</p>
 
     <figure class="diagram">
-      <svg viewBox="0 0 1000 220" role="img" aria-label="How part 1 and the six follow-up tasks compose into the full strip">
+      <svg viewBox="0 0 1000 220" role="img" aria-label="How part 1 and the six follow-up tasks compose into the completed full strip">
         <defs>
           <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0 0 L10 5 L0 10 z" fill="#6c655a"/>
@@ -137,17 +139,17 @@
 
         <line x1="210" y1="110" x2="268" y2="110" stroke="#6c655a" stroke-width="1.6" marker-end="url(#a)"/>
 
-        <rect x="270" y="30" width="200" height="50" rx="9" fill="#fbf9f4" stroke="#9d3a26" stroke-width="1.6"/>
-        <text x="370" y="50" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#9d3a26">.1 accept-dance strip</text>
-        <text x="370" y="66" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">+ .5 restore (storage teardown)</text>
+        <rect x="270" y="30" width="200" height="50" rx="9" fill="#e7ece0" stroke="#6f7a3f" stroke-width="1.6"/>
+        <text x="370" y="50" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#3f4a1f">.1 accept-dance strip ✓</text>
+        <text x="370" y="66" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">+ .5 restore (storage teardown) ✓</text>
 
-        <rect x="270" y="92" width="200" height="50" rx="9" fill="#fbf9f4" stroke="#b5683e" stroke-width="1.6"/>
-        <text x="370" y="112" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#b5683e">.3 + .4 retirement path</text>
-        <text x="370" y="128" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">close the gap; guard + observe</text>
+        <rect x="270" y="92" width="200" height="50" rx="9" fill="#e7ece0" stroke="#6f7a3f" stroke-width="1.6"/>
+        <text x="370" y="112" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#3f4a1f">.4 + .3 retirement path ✓</text>
+        <text x="370" y="128" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">guard + observe, then close the gap</text>
 
-        <rect x="270" y="154" width="200" height="46" rx="9" fill="#fbf9f4" stroke="#a8a08c" stroke-width="1.4"/>
-        <text x="370" y="174" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#6c655a">.2 residue · .6 docs</text>
-        <text x="370" y="190" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">clean up &amp; record the rule</text>
+        <rect x="270" y="154" width="200" height="46" rx="9" fill="#e7ece0" stroke="#6f7a3f" stroke-width="1.4"/>
+        <text x="370" y="174" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#3f4a1f">.2 residue · .6 docs ✓</text>
+        <text x="370" y="190" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">cleaned up &amp; recorded the rule</text>
 
         <line x1="470" y1="55" x2="528" y2="95" stroke="#6c655a" stroke-width="1.4" marker-end="url(#a)"/>
         <line x1="470" y1="117" x2="528" y2="112" stroke="#6c655a" stroke-width="1.4" marker-end="url(#a)"/>
@@ -162,74 +164,74 @@
         <text x="880" y="102" text-anchor="middle" font-size="11.5" font-family="ui-serif,Georgia,serif" fill="#8a3f1f">enables 27.1.7 / 27.2</text>
         <text x="880" y="122" text-anchor="middle" font-size="9.5" font-family="ui-sans,system-ui" fill="#6c655a">designed agent-mediated</text>
       </svg>
-      <figcaption>The six tasks are not six independent chores &mdash; they finish one strip. Removing the accept-dance (.1/.5) leaves a single lifecycle path (retirement), which .3 completes and .4 makes safe and visible; .2 clears residue and .6 records the principle so the next authoring tasks design against the real system, not the deleted one.</figcaption>
+      <figcaption>The six tasks were not six independent chores &mdash; they finished one strip. Removing the accept-dance (.1/.5) left a single lifecycle path (retirement), which .4 made safe and visible and .3 then completed; .2 cleared residue and .6 recorded the principle so the next authoring tasks design against the real system, not the deleted one. All boxes are olive &mdash; done.</figcaption>
     </figure>
   </section>
 
   <section>
     <h2>The six tasks &mdash; status and where to read the detail</h2>
-    <p class="prose">The deep, visual walk-through of each task &mdash; the before/after accept-dance flow, the demotion decision, the degenerate-graph guard, and the agent-mediated invariant &mdash; lives in the <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html">follow-up batch companion</a>. Each task below links into its section there.</p>
+    <p class="prose">The deep, visual walk-through of each task &mdash; the before/after accept-dance flow, the demotion decision and its chosen mechanism, the changed-set scope and degenerate-graph guard, and the agent-mediated invariant &mdash; lives in the <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html">follow-up batch companion</a>. Each task below links into its section there, in the order it was built.</p>
 
     <div class="steps">
       <div class="step">
         <div class="badge">1</div>
         <div>
-          <div class="b-ttl"><span class="id">27.1.15.1</span> Strip the core relocation / reanchor accept-dance <span class="pill todo">to do · high</span></div>
-          <div class="b-body">A relocated symbol re-anchors inline; the content rides across via the content-hash cache. The whole drift MCP server and the SessionStart hook go. The Stop-hook chain stays. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#strip1">read the before/after flow &rarr;</a></div>
+          <div class="b-ttl"><span class="id">27.1.15.1</span> Strip the core relocation / reanchor accept-dance <span class="pill done">done · f14c352</span></div>
+          <div class="b-body">A relocated symbol re-anchors inline &mdash; <code>reconcile_node</code> re-keys the description side-node to <code>description_node_id(new path)</code> and the content rides across via the content-hash cache. The whole drift MCP server and the SessionStart hook are gone; the Stop-hook chain stays and <code>resolve_db_path</code> now lives in <code>src/hooks/</code>. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#strip1">read the before/after flow &rarr;</a></div>
         </div>
       </div>
       <div class="step">
         <div class="badge">2</div>
         <div>
-          <div class="b-ttl"><span class="id">27.1.15.5</span> Remove the orphaned GraphStore.restore API <span class="pill todo">to do · low</span></div>
-          <div class="b-body">Its only callers were the reattach/delete arms .1 deletes. Remove the declaration, implementations, stubs, and restore-only tests. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#small">scope &rarr;</a></div>
+          <div class="b-ttl"><span class="id">27.1.15.5</span> Remove the orphaned GraphStore.restore API <span class="pill done">done · 14a1b43</span></div>
+          <div class="b-body">Its only callers were the reattach/delete arms .1 deleted, plus one the task list missed &mdash; the <code>RecordingStore</code> test double. Declaration, implementations, stubs, and restore-only tests removed; revival is now a later upsert. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#small">scope &rarr;</a></div>
         </div>
       </div>
       <div class="step">
         <div class="badge">3</div>
         <div>
-          <div class="b-ttl"><span class="id">27.1.15.3</span> Retire on demotion-by-wrapper <span class="pill todo">to do · medium · decision</span></div>
-          <div class="b-body">Seed-gone retirement misses the case where a flow's seed is wrapped (demoted) but still exists. Close the gap, or record coexistence. A genuine design choice with three candidate mechanisms. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#decide3">weigh the options &rarr;</a></div>
+          <div class="b-ttl"><span class="id">27.1.15.4</span> Guard against degenerate graphs; surface retirements <span class="pill done">done · 56f064d</span></div>
+          <div class="b-body">Built before .3. Seed-gone retirement is scoped to the changed set; a three-condition guard defers on an empty graph, an omitted seed file, or a file present-but-zero-symbols; retirements are first-class <code>FlowAction "retire"</code> outcomes and deferrals ride <code>ReconcileResult.deferred_retirements</code> + the CLI summary. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#guard4">where the guard sits &rarr;</a></div>
         </div>
       </div>
       <div class="step">
         <div class="badge">4</div>
         <div>
-          <div class="b-ttl"><span class="id">27.1.15.4</span> Guard against degenerate graphs; surface retirements <span class="pill todo">to do · medium</span></div>
-          <div class="b-body">A bad parse run could retire every flow silently. Add a graph-health guard, and make retirements first-class outcomes in ReconcileResult / CLI JSON. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#guard4">where the guard sits &rarr;</a></div>
+          <div class="b-ttl"><span class="id">27.1.15.3</span> Retire on demotion-by-wrapper <span class="pill done">done · d6a6a9f</span></div>
+          <div class="b-body">Seed-gone retirement missed the case where a flow's seed is wrapped (demoted) but still exists. The user-resolved choice: <strong>demoted seed + member-subsumption</strong>, evaluated on-demand after each flow is written &mdash; the conjunction makes shared-member entrypoint flows safe by construction, and a 3b loop guard stops a retired flow being resurrected by its own resync. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#decide3">the decision &rarr;</a></div>
         </div>
       </div>
       <div class="step">
         <div class="badge">5</div>
         <div>
-          <div class="b-ttl"><span class="id">27.1.15.2</span> Dogfood surface + vocabulary residue <span class="pill todo">to do · high</span></div>
-          <div class="b-body">Installed copies already refreshed (b4d63da). Remaining: two test comment/title edits and retiring the stale worktree <code>task-27.1.6.1</code>. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#small">exact scope &rarr;</a></div>
+          <div class="b-ttl"><span class="id">27.1.15.2</span> Dogfood surface + vocabulary residue <span class="pill done">done · 4ddb7a1</span></div>
+          <div class="b-body">Installed copies were already current (AC#1 pre-satisfied). Shipped two test comment/title edits, and split each Ariadne-heavy reconcile suite into its own jest process so the full suite is deterministically green. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#small">exact scope &rarr;</a></div>
         </div>
       </div>
       <div class="step">
         <div class="badge">6</div>
         <div>
-          <div class="b-ttl"><span class="id">27.1.15.6</span> Amend doc-5 / doc-5.1 to the agent-mediated model <span class="pill todo">to do · medium</span></div>
-          <div class="b-body">The design docs still promise the deleted preservation surface. Write the invariant in canonical style. Load-bearing for tasks 27.1.7 and 27.2. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#invariant6">the invariant in one picture &rarr;</a></div>
+          <div class="b-ttl"><span class="id">27.1.15.6</span> Amend doc-5 / doc-5.1 to the agent-mediated model <span class="pill done">done · 922eedf</span></div>
+          <div class="b-body">The design docs described the deleted preservation surface; doc-5 / doc-5.1 now state the agent-mediated invariant in canonical style. Load-bearing for tasks 27.1.7 and 27.2 &mdash; both now carry an invariant flag inside their Description sections. &mdash; <a href="task-27.1.15 - Strip-flow-layer-user-preservation-machinery-agent-mediated-customisation-full-strip-part-1.follow-up-batch.html#invariant6">the invariant in one picture &rarr;</a></div>
         </div>
       </div>
     </div>
 
     <aside class="call olive">
-      <span class="k">Suggested build order</span>
-      <strong>.1 &rarr; .5 &rarr; .3 &rarr; .4 &rarr; .2 &rarr; .6</strong>, one commit each. .1 first (largest teardown; everything downstream is smaller after). .5 folds into .1's storage work. .3 before .4 so the guard wraps the final retirement shape. .2 anytime (cheap). .6 last so the docs describe the shipped behaviour including .3's decision. Full reasoning in the batch companion.
+      <span class="k">The order it shipped</span>
+      <strong>.1 &rarr; .5 &rarr; .4 &rarr; .3 &rarr; .2 &rarr; .6</strong>, one commit each. .1 first (largest teardown). .5 folded onto .1's storage work. <strong>.4 before .3</strong> &mdash; the guard and retire-outcome plumbing landed first, so demotion retirements were observable and safe from birth. .2 carried the test edits + per-process jest isolation. .6 last, so the docs describe the shipped behaviour including .3's chosen mechanism. Full reasoning in the batch companion.
     </aside>
 
     <aside class="call">
-      <span class="k">Two spec corrections to carry into implementation</span>
-      (1) Task .2's AC#1 is already satisfied by commit <code>b4d63da</code> &mdash; the installed <code>.claude/</code> copies match the assets and carry no <code>drift.list</code> / bin references; .2 shrinks to two test edits + worktree retirement.
-      (2) Task .1 must keep the <strong>Stop</strong>-hook chain (b4d63da made it stage a pending-reconcile file); only the <strong>SessionStart</strong> hook and the drift MCP server are removed. Read the current Stop-hook code before editing.
+      <span class="k">Two scope notes that shaped the batch</span>
+      (1) Task .2's AC#1 was already satisfied before this batch &mdash; the installed <code>.claude/</code> copies matched the assets and carried no <code>drift.list</code> / bin references; .2 shrank to two test edits, plus the per-process Ariadne suite isolation that made the full run deterministically green.
+      (2) Task .1 kept the <strong>Stop</strong>-hook chain (it stages a pending-reconcile file); only the <strong>SessionStart</strong> hook and the drift MCP server were removed, and <code>resolve_db_path</code> survived in <code>src/hooks/</code>.
     </aside>
   </section>
 
   <footer>
-    Overview for task-27.1.15 and its six follow-up sub-tasks · companions re-scanned from
-    <code>backlog/tasks/</code> · 2026-06-09 · self-contained, opens from file://
+    Overview for task-27.1.15 and its six follow-up sub-tasks (all done) · companions re-scanned from
+    <code>backlog/tasks/</code> · claims verified against commits f14c352&hellip;HEAD · 2026-06-10 · self-contained, opens from file://
   </footer>
 </main>
 </body>

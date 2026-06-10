@@ -28,7 +28,7 @@
  * tests) and `build_index`, so `re_extract` itself imports no parser.
  */
 
-import type { GraphStore, GraphTarget, NodeRow } from "@code-charter/types";
+import type { GraphStore, NodeRow } from "@code-charter/types";
 
 import { DESCRIPTION_NODE_KIND, description_node_id } from "../agentic/write_descriptions";
 import { build_module_scaffold, file_module_resolver, file_of_symbol_path } from "../model/module_scaffold";
@@ -92,14 +92,26 @@ export function re_extract(file_set: readonly string[], origin: ReExtractOrigin,
   // 3. Resolve every preserved, anchored node in the set against the fresh index — re-anchoring
   //    relocations inline — and accumulate the persisted-anchor baseline the symbol delta diffs against.
   //    The baseline records each node's PRE-change anchor (the in-memory row), so the delta still
-  //    reports the relocation this turn.
+  //    reports the relocation this turn. Verdicts are computed against the pre-pass snapshot and
+  //    applied in two phases (all soft-deletes, then all re-key upserts), so same-pass chains —
+  //    rename A→B while B renames away, or a relocation onto a just-missed node's id — are
+  //    order-independent and never destroy a carried row.
   const index = build_index(file_set);
   const findings: DriftFinding[] = [];
   const baseline = new Map<string, string>();
+  const misses: string[] = [];
+  const relocations: RelocationApply[] = [];
   for (const node of preserved_anchored_nodes(store, file_set)) {
-    const finding = reconcile_node(store, node, index);
-    if (finding !== null) findings.push(finding);
+    const verdict = resolve_node(node, index);
     record_baseline_anchor(baseline, node, deps.log);
+    if (verdict === null) continue;
+    findings.push(verdict.finding);
+    if (verdict.relocation !== undefined) relocations.push(verdict.relocation);
+    else misses.push(node.id);
+  }
+  apply_reconcile_verdicts(store, misses, relocations);
+  if (misses.length > 0) {
+    deps.log?.(`re_extract: soft-deleted ${misses.length} preserved node(s) whose anchors no longer resolve (miss)`);
   }
 
   // 4. Promote the per-node verdicts into the turn-level symbol delta (AC#1).
@@ -133,39 +145,73 @@ function preserved_anchored_nodes(store: GraphStore, file_set: readonly string[]
     .filter((node) => node.layer !== "raw" && node.anchor !== null && files.has(node.path));
 }
 
+/** One relocated node's re-key, computed in the verdict phase and applied after all soft-deletes. */
+interface RelocationApply {
+  node: NodeRow;
+  new_id: string;
+  new_path: string;
+  content_hash: string;
+}
+
 /**
- * Re-anchor a relocation inline, or soft-delete a miss. Returns the finding, or null on hit/body-changed.
+ * Resolve one preserved node's verdict against the fresh index — pure, no store writes. Returns the
+ * finding plus a relocation to apply, the finding alone for a miss, or null on hit/body-changed.
  *
  * A relocated description side-node is re-keyed to `description_node_id(new symbol_path)` — the id
- * embeds the symbol_path, and the describe cache recovers it from the id — with the old-id row retired
- * so it never resolves as relocated again. Other kinds keep their id; anchor and defining `path` follow
- * the symbol either way, so the attached content (and its content-hash cache fields) rides across.
+ * embeds the symbol_path, and the describe cache recovers it from the id. Other kinds keep their id;
+ * anchor and defining `path` follow the symbol either way, so the attached content (and its
+ * content-hash cache fields) rides across.
  */
-function reconcile_node(store: GraphStore, node: NodeRow, index: ResolverIndex): DriftFinding | null {
+function resolve_node(
+  node: NodeRow,
+  index: ResolverIndex,
+): { finding: DriftFinding; relocation?: RelocationApply } | null {
   const anchor = parse_anchor(node.anchor!);
   const result = resolve_anchor(anchor, index);
-  const target: GraphTarget = { kind: "node", id: node.id };
 
   if (result.status === "downgrade" && result.reason === "relocated") {
     const new_path = result.state.symbol_path;
     const new_id = node.kind === DESCRIPTION_NODE_KIND ? description_node_id(new_path) : node.id;
-    store.upsert_node({
-      ...node,
-      id: new_id,
-      path: file_of_symbol_path(new_path),
-      anchor: format_anchor({ symbol_path: new_path, content_hash: result.state.content_hash }),
-    });
-    if (new_id !== node.id) store.soft_delete(target);
-    return { node_id: node.id, from_symbol_path: anchor.symbol_path, to_symbol_path: new_path, reason: "relocated" };
+    return {
+      finding: { node_id: node.id, from_symbol_path: anchor.symbol_path, to_symbol_path: new_path, reason: "relocated" },
+      relocation: { node, new_id, new_path, content_hash: result.state.content_hash },
+    };
   }
 
   if (result.status === "miss") {
-    store.soft_delete(target);
-    return { node_id: node.id, from_symbol_path: anchor.symbol_path, to_symbol_path: null, reason: "miss" };
+    return { finding: { node_id: node.id, from_symbol_path: anchor.symbol_path, to_symbol_path: null, reason: "miss" } };
   }
 
   // hit / body-changed: the symbol_path still resolves, so the node points at the right symbol — no drift.
   return null;
+}
+
+/**
+ * Apply a pass's verdicts: every soft-delete (misses, plus each re-keyed node's old id) lands before
+ * any re-key upsert, so apply order can never destroy a row another verdict produced. A re-key whose
+ * target id holds a live row skips the upsert — that row tracks the same path itself (a hit, or a
+ * body-changed twin awaiting re-description, since the resolver prefers a path match over a
+ * relocation), and overwriting it would clobber newer content; the relocating old row stays retired
+ * and its content is regenerated by a later describe pass.
+ */
+function apply_reconcile_verdicts(store: GraphStore, misses: readonly string[], relocations: readonly RelocationApply[]): void {
+  for (const id of misses) {
+    store.soft_delete({ kind: "node", id });
+  }
+  for (const relocation of relocations) {
+    if (relocation.new_id !== relocation.node.id) {
+      store.soft_delete({ kind: "node", id: relocation.node.id });
+    }
+  }
+  for (const relocation of relocations) {
+    if (relocation.new_id !== relocation.node.id && store.node(relocation.new_id) !== undefined) continue;
+    store.upsert_node({
+      ...relocation.node,
+      id: relocation.new_id,
+      path: file_of_symbol_path(relocation.new_path),
+      anchor: format_anchor({ symbol_path: relocation.new_path, content_hash: relocation.content_hash }),
+    });
+  }
 }
 
 /**

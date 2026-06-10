@@ -12,7 +12,8 @@ import {
   symbol_path_of,
 } from "../model/__fixtures__/round_trip_codebase";
 import { module_group_id } from "../model/module_scaffold";
-import { build_resolver_index, parse_anchor } from "../resolver";
+import { build_resolver_index, derive_code_state, format_anchor, parse_anchor } from "../resolver";
+import type { ResolverSymbol } from "../resolver";
 import { SqliteGraphStore } from "../storage/sqlite_graph_store";
 import { re_extract } from "./re_extract";
 import type { ReExtractDeps } from "./re_extract";
@@ -140,6 +141,77 @@ describe("re_extract (AC#2/#3/#9)", () => {
     // one per current raw code leaf: `main` and the renamed `calculate` (the code.doc node is not a leaf)
     expect(contains).toHaveLength(2);
     expect(contains.map((e) => e.src_id)).toContain(symbol_path_of(CALCULATE_V2));
+  });
+
+  describe("same-pass relocation chains are order-independent (two-phase apply)", () => {
+    const local_sym = (name: string, body: string): ResolverSymbol => ({
+      file_path: FILE,
+      name,
+      kind: "function",
+      enclosing: [],
+      body_source: body,
+    });
+    const anchor_of = (s: ResolverSymbol): string => {
+      const state = derive_code_state(s);
+      return format_anchor({ symbol_path: state.symbol_path, content_hash: state.content_hash });
+    };
+    const path_of = (s: ResolverSymbol): string => derive_code_state(s).symbol_path;
+    const load_desc = (s: ResolverSymbol, text: string): void => {
+      const id = description_node_id(path_of(s));
+      store.upsert_node({
+        id,
+        kind: DESCRIPTION_NODE_KIND,
+        path: FILE,
+        anchor: anchor_of(s),
+        layer: "agentic",
+        attributes: {},
+        field_ownership: {},
+        origin: "describe-policy",
+        intent_source: "code-edit",
+        deleted_at: null,
+      });
+      store.write_fields({ kind: "node", id }, { description: text }, "agentic");
+    };
+    const chain_deps = (code: ResolverSymbol[]): ReExtractDeps => ({
+      store,
+      extract_raw: () => {},
+      build_index: () => build_resolver_index(code),
+      analyzed_root: "src",
+    });
+
+    const A = local_sym("aaa", "{\n  return 101;\n}");
+    const B = local_sym("bbb", "{\n  return 202;\n}");
+
+    it("a relocation onto a body-changed twin's id never clobbers it (rename chain a→b, b→c)", () => {
+      // After the chain, path bbb holds a's old body: desc(b) resolves body-changed (the cascade
+      // prefers its own path) and stays put for re-description; desc(a)'s relocation onto the
+      // occupied id is dropped, never upserted over the live twin.
+      const B_WITH_A_BODY = local_sym("bbb", A.body_source);
+      const C_WITH_B_BODY = local_sym("ccc", B.body_source);
+      load_desc(A, "describes aaa");
+      load_desc(B, "describes bbb");
+
+      const result = re_extract([FILE], "code-change", chain_deps([B_WITH_A_BODY, C_WITH_B_BODY]));
+
+      expect(store.node(description_node_id(path_of(B)))?.attributes.description).toBe("describes bbb");
+      expect(store.node(description_node_id(path_of(A)))).toBeUndefined(); // relocating row retired
+      expect(store.node(description_node_id(path_of(C_WITH_B_BODY)))).toBeUndefined(); // nothing relocated to ccc
+      expect(result.findings.filter((f) => f.reason === "relocated").map((f) => f.node_id)).toEqual([
+        description_node_id(path_of(A)),
+      ]);
+    });
+
+    it("a relocation onto an already-described live hit never clobbers it", () => {
+      const A_DUP = local_sym("aaa", B.body_source); // a's body now duplicates b's; a was deleted
+      load_desc(A_DUP, "stale duplicate of bbb");
+      load_desc(B, "describes bbb");
+
+      re_extract([FILE], "code-change", chain_deps([B]));
+
+      // desc(b) is a live hit at the target id; the relocating duplicate is retired, not upserted over it.
+      expect(store.node(description_node_id(path_of(B)))?.attributes.description).toBe("describes bbb");
+      expect(store.node(description_node_id(path_of(A_DUP)))).toBeUndefined();
+    });
   });
 
   it("retires a renamed-away leaf's contains edge instead of orphaning it", () => {

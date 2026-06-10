@@ -30,8 +30,6 @@ A **registered Claude Code custom sub-agent** (`.claude/agents/*.md`, not a SKIL
 
 The structure is **agent-inferred** over the existing call graph + source (no ariadne change required; the ariadne add-on, task-27.1.13, only sharpens it). It runs through the same custom-sub-agent execution path (the Stop hook blocks and instructs the main agent, which launches the registered sub-agent; the sub-agent persists via the `drift-sync` skill and returns ~nothing) + agentic lane (`layer='agentic'`, shaped kinds (`flow.decision`/`cfg.*`), lower `confidence`, `inference_rationale` in the attributes bag — there is no `extractor` field) as the flow hydration / auto-sync sub-agent (task-27.1.6), and renders through the same adapter (shaped nodes: decision/IO/loop; semantic edge labels) — a rendering of the flow, not a separate surface.
 
-<!-- SECTION:DESCRIPTION:END -->
-
 ## Invariant flag (task-27.1.15.6)
 
 doc-5/doc-5.1's agent-mediated customisation invariant: flow-layer and description writes are
@@ -42,6 +40,7 @@ intent re-applied on each pass, not as a stored user-tier field at the flow-char
 upsert paths (`write_flow`, `write_descriptions`) would clobber.
 
 
+<!-- SECTION:DESCRIPTION:END -->
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->

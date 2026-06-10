@@ -19,4 +19,4 @@ export { resolve_descriptions, null_describe_executor } from "./describe";
 export { to_abs, to_repo_relative } from "./paths";
 export { read_only_store } from "./dry_run_store";
 export type { DescribeBatchExecutor } from "./describe";
-export type { DetectionGoal, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";
+export type { DeferredRetirement, DetectionGoal, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";

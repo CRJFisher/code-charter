@@ -1,7 +1,7 @@
 ---
 id: TASK-27.1.15.5
 title: Remove the orphaned GraphStore.restore API
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-06-09 21:14"
 labels:
@@ -36,7 +36,14 @@ This naturally lands with task-27.1.15.1 (part 2, the core relocation/reanchor s
 
 <!-- AC:BEGIN -->
 
-- [ ] #1 restore is removed from the GraphStore interface and every implementation (sqlite, null, dry-run); grep over packages/\*/src finds no remaining reference.
-- [ ] #2 Tests covering only restore are deleted; assertions that used restore incidentally are rewritten against surviving APIs.
-- [ ] #3 Typecheck and full suite green.
+- [x] #1 restore is removed from the GraphStore interface and every implementation (sqlite, null, dry-run); grep over packages/\*/src finds no remaining reference.
+- [x] #2 Tests covering only restore are deleted; assertions that used restore incidentally are rewritten against surviving APIs.
+- [x] #3 Typecheck and full suite green.
 <!-- AC:END -->
+
+## Implementation Notes
+
+## High-level summary
+
+`GraphStore.restore` is gone from the whole interface chain: the declaration (`packages/types/src/graph_store.ts`), the sqlite implementation, the null and dry-run stubs, and the `RecordingStore` test double's delegation (`custom_graph_model.test.ts` — a caller the task list missed). Revival of a soft-deleted row is a later upsert: the store's wholesale REPLACE lands the row live, which is the pattern `write_descriptions` already relies on and `custom_graph_model.ts`'s "There is no `restore`" doc records. Assertions that used `restore` incidentally are rewritten against the upsert revival path; tests that existed only to exercise `restore` are gone with it. `grep` over `packages/*/src` finds no remaining reference.
+

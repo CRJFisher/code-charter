@@ -42,7 +42,7 @@ Included: descriptions and flow structure are agentic content steered through th
 
 ### First milestone
 
-Included exactly: the rename milestone — drift detected and reconciled by the `Stop`-hook-launched sub-agent, the description re-anchored inline onto the renamed symbol — validated first on a skill's flow (27.1.2, AC#9). Deferred: nothing. Why: smallest end-to-end proof of preservation+drift; a distinct first from the skill-flow comprehension-build first — the skill flow is merely its corpus.
+Included exactly: the rename milestone — drift detected and reconciled by the `Stop`-hook-launched sub-agent, the description re-anchored inline onto the renamed symbol — validated first on a skill's flow (task-27.1.2). Deferred: nothing. Why: smallest end-to-end proof of drift re-sync — the content rides the rename via the inline re-anchor (a content-hash cache hit); a distinct first from the skill-flow comprehension-build first — the skill flow is merely its corpus.
 
 ### Scope
 

@@ -162,6 +162,71 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     ]);
   });
 
+  it("a flow retired by an earlier 3b resync's demotion check is not resurrected by its own resync", async () => {
+    // Two persisted flows; the wrapper's id sorts before the victim's, so in the turn where the
+    // wrapper starts calling the victim's entrypoint BOTH are 3b-affected and the wrapper's resync
+    // retires the victim before the loop reaches it. The victim's own iteration must be skipped —
+    // re-syncing it would upsert the flow node live again (deleted_at: null), undoing the retirement.
+    write("a.ts", "export function a_wrapper() {\n  return 0;\n}\n");
+    write("m.ts", "export function entry() {\n  return h1();\n}\n\nfunction h1() {\n  return 1;\n}\n");
+    await run(["a.ts", "m.ts"]);
+    expect(read_persisted_flows(store).map((f) => f.node.id).sort()).toEqual([
+      "a.ts#a_wrapper:function",
+      "m.ts#entry:function",
+    ]);
+
+    // One turn: the wrapper now calls entry (membership drift for the wrapper, demotion for entry)
+    // and entry's tree also changes (body drift for the victim) — both land in the same 3b pass.
+    write("a.ts", "import { entry } from './m';\n\nexport function a_wrapper() {\n  return entry();\n}\n");
+    write("m.ts", "export function entry() {\n  return h1();\n}\n\nfunction h1() {\n  return 1000;\n}\n");
+    const result = await run(["a.ts", "m.ts"]);
+
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toEqual(["a.ts#a_wrapper:function"]);
+    const victim_records = result.outcomes.filter((o) => o.flow_id === "m.ts#entry:function");
+    expect(victim_records).toEqual([expect.objectContaining({ action: "retire" })]);
+  });
+
+  it("a deferred retirement completes on a later turn with trustworthy evidence", async () => {
+    await run(["main.ts"]);
+    const flow_id = read_persisted_flows(store)[0].node.id;
+
+    // Turn 1: main.ts reported omitted → defer.
+    write("other.ts", "export function other_entry() { return 3; }\n");
+    fs.rmSync(path.join(repo, "main.ts"));
+    const project = new HeadlessProject(repo);
+    await project.initialize();
+    const real = make_ariadne_adapter(project, () => {});
+    const omitting_adapter: AriadneAdapter = { ...real, omitted_files: () => new Set(["main.ts"]) };
+    const deferred = await run(["main.ts"], omitting_adapter);
+    expect(deferred.deferred_retirements).toHaveLength(1);
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
+
+    // Turn 2: a healthy run over the same file — the seed file is genuinely gone, so retire.
+    const retried = await run(["main.ts"]);
+    expect(retried.outcomes).toContainEqual(expect.objectContaining({ flow_id, action: "retire" }));
+    expect(read_persisted_flows(store).map((f) => f.node.id)).not.toContain(flow_id);
+  });
+
+  it("defers retirement when the seed's file parses to zero symbols (a real mid-edit breakage)", async () => {
+    // A healthy sibling keeps the graph non-empty, so the empty-graph guard cannot mask this path.
+    write("other.ts", "export function other_entry() { return 3; }\n");
+    await run(["main.ts", "other.ts"]);
+    const flow_id = "main.ts#main:function";
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
+
+    // Genuinely broken source: tree-sitter parses without throwing, but no definition survives, so
+    // the file never lands in omitted_files — the zero-symbols guard must catch it instead.
+    write("main.ts", "export funct main( {{{\n  retur helper(1\n");
+    const result = await run(["main.ts"]);
+
+    expect(result.outcomes.filter((o) => o.action === "retire")).toEqual([]);
+    expect(result.deferred_retirements).toContainEqual({
+      flow_id,
+      reason: "seed file present but yields no indexed symbols: main.ts",
+    });
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
+  });
+
   it("a same-turn resync of the superseded flow nets out to a single retire record", async () => {
     const v1 = "export function entry() { return h1(); }\n\nfunction h1() { return 1; }\n";
     write("main.ts", v1);

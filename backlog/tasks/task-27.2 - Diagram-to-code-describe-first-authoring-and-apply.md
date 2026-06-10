@@ -33,8 +33,6 @@ Serves `doc-5`'s "From the diagram to the code: describe-first". The primary sur
 
 Builds on the shared custom graph model (task-27.0): the diagram it edits, the anchor resolver it snapshots and re-validates against, and the preservation guarantees. Depends on task-27.1 for the comprehension map it edits and reuses task-27.1's diff-signal + triage + re-extraction entry point for its round-trip. This task also **owns authority/pin** — the arbitration between diagram-authoring and code-editing, which exists only here because that conflict cannot arise until the diagram can author change.
 
-<!-- SECTION:DESCRIPTION:END -->
-
 ## Invariant flag (task-27.1.15.6)
 
 doc-5/doc-5.1 specify customisation at the flow and description layers as **agent-mediated**:
@@ -59,6 +57,7 @@ task is picked up:
   flow/description layers — the upsert replaces `layer` wholesale.
 
 
+<!-- SECTION:DESCRIPTION:END -->
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
