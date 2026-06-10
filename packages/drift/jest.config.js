@@ -7,6 +7,9 @@ const config = {
     "^@code-charter/types$": "<rootDir>/../types/src/index.ts",
     "^@code-charter/core$": "<rootDir>/../core/src/index.ts",
   },
+  transform: {
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "packages/drift/tsconfig.jest.json" }],
+  },
 };
 
 // Ariadne Project state accumulates per worker process; once several HeadlessProject-heavy suites
