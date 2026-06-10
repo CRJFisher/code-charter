@@ -86,6 +86,8 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   const outcomes: FlowOutcome[] = [];
   const deferred_retirements: DeferredRetirement[] = [];
   const handled = new Set<string>();
+  const retired = new Set<string>();
+  const state: TurnState = { outcomes, handled, retired };
 
   // 3a. Skill bundles touched this turn are detected directly from their roots and always written —
   //     HYDRATE if no flow exists yet, RE-SYNC in place if one does. (Their doc-member paths are
@@ -112,6 +114,8 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     if (result.kind === "outcome") {
       outcomes.push(result.outcome);
       handled.add(flow.node.id);
+      if (result.outcome.action === "retire") retired.add(flow.node.id);
+      else retire_flows_subsumed_by(deps, flow.node.id, result.seeds, persisted, graph, state);
     } else {
       deferred_retirements.push(result.deferred);
       deps.log(`deferred retirement of ${result.deferred.flow_id}: ${result.deferred.reason}`);
@@ -128,6 +132,7 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     const full = index < MAX_FULL_CODE_HYDRATIONS;
     outcomes.push(await hydrate_code_flow(deps, umbrella, graph, { describe: full }));
     handled.add(umbrella.id);
+    retire_flows_subsumed_by(deps, umbrella.id, umbrella.seeds, persisted, graph, state);
   }
   if (new_code.length > MAX_FULL_CODE_HYDRATIONS) {
     deps.log(
@@ -140,8 +145,73 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
 }
 
 type ResyncResult =
-  | { kind: "outcome"; outcome: FlowOutcome }
+  | { kind: "outcome"; outcome: FlowOutcome; seeds: readonly SymbolId[] }
   | { kind: "deferred"; deferred: DeferredRetirement };
+
+/** The turn's accumulating record, shared with the demotion-retirement check. */
+interface TurnState {
+  outcomes: FlowOutcome[];
+  handled: Set<string>;
+  retired: Set<string>;
+}
+
+/**
+ * Retire persisted flows superseded by a flow written this turn (task-27.1.15.3): a candidate is
+ * retired when its dominant seed has been demoted to a non-entrypoint (no stored seed is still an
+ * entry point of the live graph — typically a new wrapper caller) AND its member set is subsumed by
+ * the just-written flow's. The conjunction protects genuine multi-entrypoint flows that merely share
+ * members: each still owns a live entrypoint, so demotion never holds for them.
+ *
+ * On-demand by construction: it runs only when a flow was hydrated or re-synced this turn, against
+ * the persisted list already in memory — never as a sweep over untouched flows. A candidate whose
+ * seeds no longer resolve at all is the seed-gone path's case and is skipped here.
+ */
+function retire_flows_subsumed_by(
+  deps: ReconcileDeps,
+  new_flow_id: string,
+  new_flow_seeds: readonly SymbolId[],
+  persisted: readonly PersistedFlow[],
+  graph: CallGraph,
+  state: TurnState,
+): void {
+  if (new_flow_seeds.length === 0) return;
+  const entry_points = new Set(graph.entry_points);
+  let new_members: Set<SymbolId> | undefined; // induced lazily, once, only if a demoted candidate exists
+  const candidates = [...persisted].sort((a, b) => (a.node.id < b.node.id ? -1 : a.node.id > b.node.id ? 1 : 0));
+  for (const other of candidates) {
+    if (other.node.id === new_flow_id || state.retired.has(other.node.id)) continue;
+    if (other.member_edges.length > 0) continue; // skill/doc flow — never code-subsumed
+    const other_seeds = stored_seed_symbol_ids(other, graph);
+    if (other_seeds.length === 0) continue; // seed gone — the scoped seed-gone path owns that case
+    if (other_seeds.some((seed) => entry_points.has(seed))) continue; // still owns a live entrypoint
+    new_members ??= induce_members({ id: new_flow_id, seeds: [...new_flow_seeds] }, graph);
+    const other_members = induce_members({ id: other.node.id, seeds: other_seeds }, graph);
+    let subsumed = true;
+    for (const member of other_members) {
+      if (!new_members.has(member)) {
+        subsumed = false;
+        break;
+      }
+    }
+    if (!subsumed) continue;
+
+    deps.store.soft_delete({ kind: "node", id: other.node.id });
+    deps.log(`retired flow ${other.node.id} (dominant seed demoted; subsumed by ${new_flow_id})`);
+    // One truthful record per flow: a same-turn resync of the now-superseded flow is dropped in
+    // favour of the retire record (the store writes net out to retired either way).
+    const earlier = state.outcomes.findIndex((outcome) => outcome.flow_id === other.node.id);
+    if (earlier !== -1) state.outcomes.splice(earlier, 1);
+    state.outcomes.push({
+      flow_id: other.node.id,
+      action: "retire",
+      kind: "code",
+      member_count: 0,
+      last_synced_at: null,
+    });
+    state.handled.add(other.node.id);
+    state.retired.add(other.node.id);
+  }
+}
 
 /**
  * Re-sync one persisted CODE flow in place (idempotent) and stamp `last_synced_at`. A flow whose seed
@@ -175,6 +245,7 @@ async function resync_persisted_flow(
     return {
       kind: "outcome",
       outcome: { flow_id: flow.node.id, action: "retire", kind: "code", member_count: 0, last_synced_at: null },
+      seeds: [],
     };
   }
   const umbrella: CodeUmbrella = {
@@ -186,6 +257,7 @@ async function resync_persisted_flow(
   return {
     kind: "outcome",
     outcome: { ...(await hydrate_code_flow(deps, umbrella, graph)), action: "resync" },
+    seeds,
   };
 }
 

@@ -115,6 +115,74 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     expect(result.deferred_retirements).toEqual([]);
   });
 
+  it("retires a superseded flow when a new wrapper demotes its entrypoint — exactly one live flow", async () => {
+    const v1 = "export function entry() { return h1() + h2(); }\n\nfunction h1() { return 1; }\n\nfunction h2() { return 2; }\n";
+    write("main.ts", v1);
+    await run(["main.ts"]);
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toEqual(["main.ts#entry:function"]);
+
+    // Wrap the entrypoint: entry still exists (seed-gone never fires) but is demoted to a
+    // non-entrypoint, and the wrapper's flow subsumes the old flow's members.
+    write("main.ts", "export function wrapper() { return entry(); }\n\n" + v1.replace("export function entry", "function entry"));
+    const result = await run(["main.ts"]);
+
+    const live = read_persisted_flows(store);
+    expect(live).toHaveLength(1); // the wrapper's superset flow is the only live flow
+    expect(live[0].node.id).toBe("main.ts#wrapper:function");
+    const old = store.all_nodes({ include_deleted: true }).find((n) => n.id === "main.ts#entry:function");
+    expect(old?.deleted_at).not.toBeNull();
+    expect(result.outcomes).toContainEqual(
+      expect.objectContaining({ flow_id: "main.ts#entry:function", action: "retire" }),
+    );
+    expect(result.outcomes).toContainEqual(
+      expect.objectContaining({ flow_id: "main.ts#wrapper:function", action: "hydrate" }),
+    );
+  });
+
+  it("does not retire a genuine multi-entrypoint flow whose members are merely shared (negative case)", async () => {
+    // Two real entrypoints share `shared`: entry_big's member set subsumes entry_small's, but both
+    // remain live entrypoints — subsumption alone must never retire; only demotion + subsumption does.
+    const src =
+      "export function entry_small() { return shared(1); }\n\n" +
+      "export function entry_big() { return shared(2) + other(); }\n\n" +
+      "function shared(n: number) { return n; }\n\n" +
+      "function other() { return 9; }\n";
+    write("app.ts", src);
+    await run(["app.ts"]);
+    expect(read_persisted_flows(store)).toHaveLength(2);
+
+    // Touch the shared member's body so both flows re-sync (the demotion check runs on each write).
+    write("app.ts", src.replace("return n;", "return n + 1;"));
+    const result = await run(["app.ts"]);
+
+    expect(result.outcomes.filter((o) => o.action === "retire")).toEqual([]);
+    expect(read_persisted_flows(store).map((f) => f.node.id).sort()).toEqual([
+      "app.ts#entry_big:function",
+      "app.ts#entry_small:function",
+    ]);
+  });
+
+  it("a same-turn resync of the superseded flow nets out to a single retire record", async () => {
+    const v1 = "export function entry() { return h1(); }\n\nfunction h1() { return 1; }\n";
+    write("main.ts", v1);
+    await run(["main.ts"]);
+
+    // One turn both edits the old flow's member body (firing its 3b resync) and adds the wrapper
+    // (firing the demotion check from the wrapper's 3c hydration).
+    write(
+      "main.ts",
+      "export function wrapper() { return entry(); }\n\n" +
+        v1.replace("export function entry", "function entry").replace("return 1;", "return 1000;"),
+    );
+    const result = await run(["main.ts"]);
+
+    const entry_records = result.outcomes.filter((o) => o.flow_id === "main.ts#entry:function");
+    expect(entry_records).toEqual([
+      expect.objectContaining({ action: "retire" }), // the earlier resync record is dropped
+    ]);
+    expect(read_persisted_flows(store).map((f) => f.node.id)).toEqual(["main.ts#wrapper:function"]);
+  });
+
   it("scopes seed-gone retirement to the changed set: an unrelated edit never retires another file's flow", async () => {
     write("a.ts", "export function a_entry() { return 1; }\n");
     write("b.ts", "export function b_entry() { return 2; }\n");
