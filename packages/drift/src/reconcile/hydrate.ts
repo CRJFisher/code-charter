@@ -56,6 +56,10 @@ export interface CodeUmbrella {
   id: string;
   label: string;
   seeds: readonly SymbolId[];
+  /** Agent-inferred bridges to write alongside this flow (stitch path only). */
+  bridges?: readonly BridgeCandidate[];
+  /** Agent-authored rationale for the flow grouping (stitch path only). */
+  rationale?: string;
 }
 
 export type Umbrella = SkillUmbrella | CodeUmbrella;
@@ -127,13 +131,15 @@ export async function hydrate_code_flow(
 
   const last_synced_at = deps.now();
 
-  write_agentic_substrate(deps.store, { bridges: [], descriptions });
+  const bridges = build_bridge_edges(umbrella.bridges ?? []);
+  write_agentic_substrate(deps.store, { bridges, descriptions });
+  const default_rationale = `entrypoint '${umbrella.label}' and its reachable subgraph (goal: ${deps.goal ?? "orient-in-code-tree"})`;
   write_flow(deps.store, {
     id: umbrella.id,
     label: umbrella.label,
     seed_paths,
     member_ids: [], // members are induced from the seeds (carried on entry_points), not enumerated
-    rationale: `entrypoint '${umbrella.label}' and its reachable subgraph (goal: ${deps.goal ?? "orient-in-code-tree"})`,
+    rationale: umbrella.rationale ?? default_rationale,
     anchor_set: member_paths,
     last_synced_at,
   });

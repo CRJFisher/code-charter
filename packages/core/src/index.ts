@@ -176,3 +176,19 @@ export {
   SKILL_TO_SUBAGENT_KIND,
 } from "./extractors";
 export type { MarkdownLink, SkillIngestDeps, SkillIngestResult, SubAgentDecl } from "./extractors";
+
+// task-27.1.6.6 — agentic entrypoint-stitch detector
+export {
+  MAX_STITCH_CANDIDATES,
+  null_stitch_executor,
+  STITCH_EXTRACTOR_ID,
+  STITCH_EXTRACTOR_VERSION,
+  build_candidate_stitches,
+} from "./agentic/stitch";
+export type {
+  ConfirmedStitch,
+  DetectionGoal,
+  EntrypointStitchExecutor,
+  StitchBatch,
+  StitchCandidate,
+} from "./agentic/stitch";

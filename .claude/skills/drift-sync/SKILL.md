@@ -51,13 +51,43 @@ simply left until that file next changes.
 For each flow derived from the changed files:
 
 - **HYDRATE** (no `agentic.flow` node exists yet) — group the deterministic seeds into a functionality
-  umbrella, infer `agentic.bridge` cross-links, attach docs, draft member descriptions, then write the
-  new flow on the agentic lane and stamp `last_synced_at`.
+  umbrella (see "Entrypoint stitching" below), infer `agentic.bridge` cross-links, attach docs, draft
+  member descriptions, then write the new flow on the agentic lane and stamp `last_synced_at`.
 - **RE-SYNC** (a diagram already exists) — re-extract and re-induce the flow in place, re-anchoring
   relocated content via the resolver and re-stamping `last_synced_at`.
 - **RETIRE** (the flow is superseded) — soft-delete it: either its stored seed entrypoint no longer
   resolves (gone or renamed away; a rename hydrates a fresh flow under the new id in the same run),
   or a flow written this run demoted its entrypoint (a new wrapper caller) and subsumes its members.
+
+## Entrypoint stitching
+
+Ariadne is a syntactic call-graph extractor. Dynamic dispatch, registry lookups, and callback wiring
+frequently fail to resolve: each unresolved callee is promoted to its own top-level entrypoint,
+fragmenting one functionality into several flows.
+
+The reconciler repairs those gaps with an **entrypoint-stitch step** that runs during HYDRATE, before
+the flow is written. Its algorithm:
+
+1. **Detect.** Run `detect_gaps` over the changed neighbourhood. Collect *orphan entrypoints* — entry
+   points that have no callers in the graph — and flag each that has at least one *unresolved shape*
+   (a node with ≥ 50 % unresolved call ratio and ≥ 2 call sites) in its reachable tree.
+2. **Propose.** For each orphan with unresolved shapes, pair it with every other neighbourhood orphan
+   as a `(source, target)` stitch candidate. The candidate carries the unresolved shapes as evidence.
+   Candidates are capped at 50 per turn; overflow falls back to singleton flows and is logged.
+3. **Judge.** Pass the candidates to the `stitch_entrypoints` executor — you, the drift-reconciler
+   sub-agent. For each confirmed stitch you return a `ConfirmedStitch`: the merged seed list, a label,
+   a rationale, and a bridge spanning from the unresolved shape's enclosing node to the target
+   entrypoint's primary seed. Unconfirmed candidates fall back to singleton flows — no gap in coverage.
+4. **Merge.** Confirmed stitches that share seeds are union-found into single groups. Each group
+   becomes one multi-seed `CodeUmbrella` (id = alphabetically-first seed's `symbol_path`, stable
+   across re-stitch). The bridge is written via `build_bridge_edges` with
+   `confidence = BRIDGE_CONFIDENCE_INFERRED = 0.5` and the call-site span as provenance (click-through
+   lands on the real missed call).
+
+The **default executor** is the deterministic no-stitch path (`null_stitch_executor`): confirms
+nothing, one entrypoint per flow, byte-identical to the pre-stitch behaviour. The drift-reconciler
+fills the real executor by inspecting the candidates' unresolved-shape evidence and confirming the
+stitches it can verify.
 
 The diagram always updates; it never gates on the user. Agentic descriptions are regenerated each
 sync, so content whose anchor no longer resolves is regenerated rather than stranded.
