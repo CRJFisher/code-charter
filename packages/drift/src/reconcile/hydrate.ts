@@ -112,11 +112,12 @@ export async function hydrate_code_flow(
   const member_paths = paths_of(members, graph);
   const seed_paths = paths_of(new Set(umbrella.seeds), graph);
 
-  // Deterministic-first describe over the flow's member files, persisted (with the cost ceiling) through
+  // Deterministic describe over the flow's member files, persisted (with the cost ceiling) through
   // the substrate writer. A member relocated this turn was already re-anchored inline by re_extract
   // (description and cache key re-keyed to the new symbol_path), so it resolves as a content-hash cache
-  // hit here. Skipped for the singleton-stub overflow above the per-turn cap (AC#8).
-  let descriptions: Awaited<ReturnType<typeof resolve_descriptions>> = [];
+  // hit here. Skipped for the singleton-stub overflow above the per-turn cap (AC#8). Agent-authored
+  // text lands later through `--apply-descriptions`, never through this path.
+  let descriptions: ReturnType<typeof resolve_descriptions> = [];
   if (options.describe !== false) {
     const member_files = new Set<string>();
     for (const id of members) {
@@ -126,7 +127,7 @@ export async function hydrate_code_flow(
     const anchored = deps.adapter
       .anchored_symbols([...member_files])
       .filter((a) => members.has(a.symbol_id));
-    descriptions = await resolve_descriptions(deps.store, anchored, deps.describe);
+    descriptions = resolve_descriptions(deps.store, anchored);
   }
 
   const last_synced_at = deps.now();

@@ -15,8 +15,28 @@ export { read_persisted_flow, read_persisted_flows, write_flow } from "./flow_st
 export type { PersistedFlow, WriteFlowArgs } from "./flow_store";
 export { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
 export type { CodeUmbrella, SkillUmbrella, Umbrella } from "./hydrate";
-export { resolve_descriptions, null_describe_executor } from "./describe";
+export { existing_descriptions, resolve_descriptions } from "./describe";
+export {
+  apply_descriptions,
+  apply_stitch,
+  build_entrypoint_inventory,
+  parse_apply_descriptions,
+  parse_apply_stitch,
+  STITCH_EXTRACTOR_ID,
+  STITCH_EXTRACTOR_VERSION,
+} from "./agentic_modes";
+export type {
+  ApplyDescriptionsInput,
+  ApplyDescriptionsResult,
+  ApplyStitchFlow,
+  ApplyStitchInput,
+  ApplyStitchResult,
+  EntrypointInventory,
+  InventoryEntrypoint,
+  StitchBridgeInput,
+  StitchUmbrellaInput,
+  UnresolvedSite,
+} from "./agentic_modes";
 export { to_abs, to_repo_relative } from "./paths";
 export { read_only_store } from "./dry_run_store";
-export type { DescribeBatchExecutor } from "./describe";
 export type { DeferredRetirement, DetectionGoal, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";

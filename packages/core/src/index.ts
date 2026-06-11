@@ -106,24 +106,9 @@ export type { DriftFinding, ReExtractDeps, ReExtractOrigin, ReExtractResult } fr
 export { compute_symbol_delta } from "./reextract/symbol_delta";
 export type { RelocatedSymbol, SymbolDelta } from "./reextract/symbol_delta";
 
-// task-27.1.4 AC#1/#4 — deterministic gap-detection + candidate flow seeds
-export {
-  DEFAULT_GAP_OPTIONS,
-  derive_candidate_seeds,
-  detect_gaps,
-  find_disconnected_components,
-  find_orphan_entrypoints,
-  find_unresolved_shapes,
-} from "./agentic/gap_detection";
-export type {
-  CandidateSeed,
-  DisconnectedComponent,
-  GapDetectionOptions,
-  GapReport,
-  GapTruncation,
-  OrphanEntrypoint,
-  UnresolvedShape,
-} from "./agentic/gap_detection";
+// Deterministic orphan-entrypoint detection (the --list-entrypoints inventory substrate)
+export { DEFAULT_GAP_OPTIONS, find_orphan_entrypoints } from "./agentic/gap_detection";
+export type { GapDetectionOptions, OrphanEntrypoint } from "./agentic/gap_detection";
 
 // task-27.1.4 AC#2 — agentic bridge builder + registry-shaped detector
 export { BRIDGE_CONFIDENCE_INFERRED, bridge_edge_key, build_bridge_edges } from "./agentic/bridge";
@@ -136,11 +121,8 @@ export {
 export type { MetaJsonRegistryInput } from "./agentic/registry_detector";
 
 // task-27.1.4 AC#3 — deterministic-first description policy + agentic-owned writer
-export { DEFAULT_DESCRIBE_CAP, null_describe_executor, plan_descriptions } from "./agentic/describe_policy";
+export { DEFAULT_DESCRIBE_CAP, plan_descriptions } from "./agentic/describe_policy";
 export type {
-  DescribeBatchExecutor,
-  DescribeBatchRequest,
-  DescribeBatchResult,
   DescribeMember,
   DescriptionPlan,
   DescriptionSource,
@@ -176,19 +158,3 @@ export {
   SKILL_TO_SUBAGENT_KIND,
 } from "./extractors";
 export type { MarkdownLink, SkillIngestDeps, SkillIngestResult, SubAgentDecl } from "./extractors";
-
-// task-27.1.6.6 — agentic entrypoint-stitch detector
-export {
-  MAX_STITCH_CANDIDATES,
-  null_stitch_executor,
-  STITCH_EXTRACTOR_ID,
-  STITCH_EXTRACTOR_VERSION,
-  build_candidate_stitches,
-} from "./agentic/stitch";
-export type {
-  ConfirmedStitch,
-  DetectionGoal,
-  EntrypointStitchExecutor,
-  StitchBatch,
-  StitchCandidate,
-} from "./agentic/stitch";

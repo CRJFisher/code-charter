@@ -42,6 +42,8 @@ export interface AriadneAdapter {
   file_of(symbol_id: SymbolId): string | undefined;
   /** Repo-relative files omitted from the graph by a read/index failure (the retirement guard input). */
   omitted_files(): ReadonlySet<string>;
+  /** The trimmed source text at `file:line` (1-based), or undefined when the file/line is unreadable. */
+  source_line(file: string, line: number): string | undefined;
 }
 
 /** Assemble the per-file Ariadne inputs (top-level definitions + source) for `rel_files`. */
@@ -115,5 +117,12 @@ export function make_ariadne_adapter(
     },
 
     omitted_files: () => project.omitted_files(),
+
+    source_line(file, line) {
+      const source = project.get_source(file);
+      if (source === undefined) return undefined;
+      const text = source.split(/\r?\n/)[line - 1];
+      return text === undefined ? undefined : text.trim();
+    },
   };
 }

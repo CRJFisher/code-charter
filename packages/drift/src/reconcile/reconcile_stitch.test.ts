@@ -1,240 +1,348 @@
 /**
- * AC#9: Stitch path integration — verifies that `reconcile` with a stitch executor merges two
- * entrypoints split by an unresolved call into a single multi-seed umbrella (with an agentic.bridge),
- * while without an executor the same fixture produces two separate singleton flows (byte-identical to
- * the deterministic path).
+ * AC#7 — the agentic stitch path, proven at the script boundary. The drift-sync skill orchestrates
+ * the agent over three bin modes; here golden wire JSON stands in for the agent's judgement and the
+ * built `drift-reconcile` bin is spawned over a real on-disk split-entrypoint fixture:
  *
- * Uses a synthetic in-process call graph (no Ariadne headless process) so the fixture is fully
- * deterministic and exercises exactly the right code paths.
+ *   handler.ts#dispatch calls `fn()` — the result of a registry lookup Ariadne cannot resolve — so
+ *   router.ts#handle_request (the registered target) is promoted to its own orphan entrypoint and the
+ *   functionality fragments into two singleton flows.
+ *
+ * No executor mock exists: feeding `--apply-stitch` a golden `umbrellas` JSON yields one multi-seed
+ * umbrella with the bridge over the missed call; feeding it no umbrellas (or running
+ * `--list-entrypoints` alone) leaves the orphans as singleton flows. Requires the package to be built
+ * (turbo `test` depends on it).
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type {
-  AnyDefinition,
-  CallGraph,
-  CallableNode,
-  CallReference,
-  FilePath,
-  Resolution,
-  ScopeId,
-  SymbolId,
-  SymbolName,
-} from "@ariadnejs/types";
-import {
-  BRIDGE_EDGE_KIND,
-  build_resolver_index,
-  FLOW_NODE_KIND,
-  open_graph_store,
-  type EntrypointStitchExecutor,
-  type GraphStore,
-  type StitchCandidate,
-} from "@code-charter/core";
+import { BRIDGE_CONFIDENCE_INFERRED, BRIDGE_EDGE_KIND, FLOW_NODE_KIND, open_graph_store } from "@code-charter/core";
 
-import type { AriadneAdapter } from "./ariadne_adapter";
-import { read_persisted_flows } from "./flow_store";
-import { reconcile } from "./reconcile";
-import type { ReconcileDeps } from "./types";
+const BIN = path.resolve(__dirname, "..", "..", "dist", "bin", "drift_reconcile.js");
 
-// ---------------------------------------------------------------------------
-// Synthetic graph: handler.ts#dispatch calls two unresolved targets (100%
-// unresolved ratio, 2 call sites → qualifies as UnresolvedShape).
-// router.ts#handle_request is a second orphan entrypoint nobody calls.
-// ---------------------------------------------------------------------------
+const HANDLER_TS = [
+  'import { route } from "./registry";',
+  "",
+  "export function dispatch(key: string): number {",
+  "  const fn = route(key);",
+  "  return fn();",
+  "}",
+  "",
+].join("\n");
 
-const DISPATCH_ID = "dispatch:sym" as SymbolId;
-const HANDLE_REQUEST_ID = "handle_request:sym" as SymbolId;
+const REGISTRY_TS = [
+  "const table = new Map<string, () => number>();",
+  "export function route(key: string): () => number {",
+  "  return table.get(key)!;",
+  "}",
+  "",
+].join("\n");
 
-function make_location(file: string, line: number) {
-  return {
-    file_path: file as FilePath,
-    start_line: line,
-    start_column: 0,
-    end_line: line,
-    end_column: 50,
-  };
-}
+const ROUTER_TS = ["export function handle_request(): number {", "  return 42;", "}", ""].join("\n");
 
-function unresolved_call(name: string, file: string, line: number): CallReference {
-  return {
-    location: make_location(file, line),
-    name: name as SymbolName,
-    scope_id: "scope:0" as ScopeId,
-    call_type: "function",
-    resolutions: [] as Resolution[],
-  };
-}
+const FILES = "handler.ts,registry.ts,router.ts";
 
-function make_stitch_graph(): CallGraph {
-  const dispatch_def: AnyDefinition = {
-    kind: "function",
-    symbol_id: DISPATCH_ID,
-    name: "dispatch" as SymbolName,
-    defining_scope_id: "scope:0" as ScopeId,
-    location: make_location("handler.ts", 1),
-    is_exported: true,
-    signature: { parameters: [] },
-    body_scope_id: "scope:1" as ScopeId,
-  };
-  const handle_request_def: AnyDefinition = {
-    kind: "function",
-    symbol_id: HANDLE_REQUEST_ID,
-    name: "handle_request" as SymbolName,
-    defining_scope_id: "scope:0" as ScopeId,
-    location: make_location("router.ts", 1),
-    is_exported: true,
-    signature: { parameters: [] },
-    body_scope_id: "scope:1" as ScopeId,
-  };
-
-  const dispatch_node: CallableNode = {
-    symbol_id: DISPATCH_ID,
-    name: "dispatch" as SymbolName,
-    location: make_location("handler.ts", 1),
-    definition: dispatch_def,
-    is_test: false,
-    enclosed_calls: [
-      // 2 unresolved calls → 100% unresolved ratio, ≥2 call sites → UnresolvedShape
-      unresolved_call("handleRequest", "handler.ts", 2),
-      unresolved_call("processRequest", "handler.ts", 3),
-    ],
-  };
-  const handle_request_node: CallableNode = {
-    symbol_id: HANDLE_REQUEST_ID,
-    name: "handle_request" as SymbolName,
-    location: make_location("router.ts", 1),
-    definition: handle_request_def,
-    is_test: false,
-    enclosed_calls: [],
-  };
-
-  return {
-    nodes: new Map([
-      [DISPATCH_ID, dispatch_node],
-      [HANDLE_REQUEST_ID, handle_request_node],
-    ]),
-    entry_points: [DISPATCH_ID, HANDLE_REQUEST_ID],
-  };
-}
-
-function make_stub_adapter(graph: CallGraph): AriadneAdapter {
-  return {
-    call_graph: () => graph,
-    extract_raw: () => {},
-    build_index: () => build_resolver_index([]),
-    anchored_symbols: () => [],
-    file_of: (id) => graph.nodes.get(id)?.location.file_path ?? undefined,
-    omitted_files: () => new Set(),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Stitch executor: confirms the (dispatch → handle_request) candidate stitch.
-// ---------------------------------------------------------------------------
-
-const confirming_executor: EntrypointStitchExecutor = async (
-  candidates: readonly StitchCandidate[],
-) => {
-  const c = candidates.find(
-    (x) =>
-      x.source_seed.id.includes("dispatch") && x.target_seed.id.includes("handle_request"),
-  );
-  if (!c) return [];
-  const unresolved_sym = c.unresolved_shapes_in_source[0].symbol_id;
-  return [
+const GOLDEN_UMBRELLAS = {
+  umbrellas: [
     {
       label: "request dispatch flow",
-      inference_rationale: "dispatch() calls handleRequest via dynamic registry lookup",
-      merged_seeds: [...c.source_seed.seeds, ...c.target_seed.seeds],
-      bridge: {
-        src_symbol_id: unresolved_sym,
-        dst_symbol_id: c.target_seed.seeds[0],
-        source_file: "handler.ts",
-        source_range: "L2",
-      },
+      seeds: ["handler.ts#dispatch:function", "router.ts#handle_request:function"],
+      bridges: [
+        {
+          src_id: "handler.ts#dispatch:function",
+          dst_id: "router.ts#handle_request:function",
+          file: "handler.ts",
+          line: 5,
+          rationale: "fn() is the registry-looked-up handler; handle_request is the registered target",
+        },
+      ],
+      rationale: "dispatch reaches handle_request through the route() registry lookup",
     },
-  ];
+  ],
 };
 
-// ---------------------------------------------------------------------------
-// Test setup
-// ---------------------------------------------------------------------------
+let repo: string;
 
-let store: GraphStore;
-let clock: number;
-const CHANGED = ["handler.ts", "router.ts"];
+function run(args: string[]): { stdout: string; stderr: string; status: number | null } {
+  const result = spawnSync(
+    "node",
+    [BIN, ...args, "--store", path.join(repo, "graph.db"), "--repo-root", repo],
+    { encoding: "utf8" },
+  );
+  return { stdout: result.stdout, stderr: result.stderr, status: result.status };
+}
 
-function make_deps(overrides?: Partial<ReconcileDeps>): ReconcileDeps {
-  const graph = make_stitch_graph();
-  return {
-    store,
-    adapter: make_stub_adapter(graph),
-    repo_root_abs: "/repo",
-    analyzed_root: "",
-    now: () => new Date(2026, 0, 1, 0, 0, clock++).toISOString(),
-    log: () => {},
-    ...overrides,
-  };
+function write_payload(name: string, payload: unknown): string {
+  const file = path.join(repo, name);
+  fs.writeFileSync(file, JSON.stringify(payload));
+  return file;
+}
+
+/** Live flow ids + bridge edges read back from the store (the post-run ground truth). */
+function read_store(): { flow_ids: string[]; bridges: Array<{ src_id: string; dst_id: string; confidence: number }> } {
+  const store = open_graph_store(path.join(repo, "graph.db"));
+  try {
+    const flow_ids = store
+      .all_nodes()
+      .filter((n) => n.kind === FLOW_NODE_KIND && n.deleted_at === null)
+      .map((n) => n.id)
+      .sort();
+    const bridges = store
+      .all_edges()
+      .filter((e) => e.kind === BRIDGE_EDGE_KIND && e.deleted_at === null)
+      .map((e) => ({ src_id: e.src_id, dst_id: e.dst_id, confidence: e.confidence }));
+    return { flow_ids, bridges };
+  } finally {
+    store.close();
+  }
+}
+
+/** The full store contents with the wall-clock stamp normalized — the byte-identity comparand. */
+function dump_store(): { nodes: unknown[]; edges: unknown[] } {
+  const store = open_graph_store(path.join(repo, "graph.db"));
+  try {
+    const nodes = store
+      .all_nodes()
+      .map((n) => ({ ...n, attributes: { ...n.attributes, last_synced_at: n.attributes.last_synced_at == null ? null : "<t>" } }))
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    const edges = [...store.all_edges()].sort((a, b) => (a.key < b.key ? -1 : 1));
+    return { nodes, edges };
+  } finally {
+    store.close();
+  }
 }
 
 beforeEach(() => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stitch-"));
-  store = open_graph_store(path.join(tmp, "graph.db"));
-  clock = 0;
+  repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stitch-"));
+  fs.writeFileSync(path.join(repo, "handler.ts"), HANDLER_TS);
+  fs.writeFileSync(path.join(repo, "registry.ts"), REGISTRY_TS);
+  fs.writeFileSync(path.join(repo, "router.ts"), ROUTER_TS);
 });
 
 afterEach(() => {
-  store.close();
+  fs.rmSync(repo, { recursive: true, force: true });
 });
 
-describe("reconcile — agentic entrypoint stitch (AC#9)", () => {
-  it("without a stitch executor: two orphan entrypoints produce two singleton flows (deterministic default)", async () => {
-    await reconcile(CHANGED, make_deps());
+describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
+  it("--list-entrypoints alone: emits the golden inventory and leaves the orphans as singleton flows", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
 
-    const flows = read_persisted_flows(store);
-    expect(flows).toHaveLength(2);
-    const ids = flows.map((f) => f.node.id).sort();
-    expect(ids).toEqual(["handler.ts#dispatch:function", "router.ts#handle_request:function"]);
-    // No bridge edges written
-    const bridges = store.all_edges().filter((e) => e.kind === BRIDGE_EDGE_KIND);
+    expect(JSON.parse(result.stdout)).toEqual({
+      entrypoints: [
+        {
+          symbol_path: "handler.ts#dispatch:function",
+          name: "dispatch",
+          file: "handler.ts",
+          line: 3,
+          is_orphan: true,
+          unresolved_sites: [{ file: "handler.ts", line: 5, source_line: "return fn();" }],
+        },
+        {
+          symbol_path: "router.ts#handle_request:function",
+          name: "handle_request",
+          file: "router.ts",
+          line: 1,
+          is_orphan: true,
+          unresolved_sites: [],
+        },
+      ],
+    });
+
+    // The deterministic reconcile rode the list pass: both fragments hydrated as singleton flows.
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function", "router.ts#handle_request:function"]);
     expect(bridges).toHaveLength(0);
   });
 
-  it("with a stitch executor: two orphan entrypoints merge into one multi-seed umbrella with an agentic.bridge", async () => {
-    await reconcile(CHANGED, make_deps({ stitch_entrypoints: confirming_executor }));
+  it("--list-entrypoints is byte-identical to the default deterministic reconcile (AC#5)", () => {
+    const from_list = run(["--list-entrypoints", "--files", FILES]);
+    expect(from_list.status).toBe(0);
+    const list_store = dump_store();
 
-    const flows = read_persisted_flows(store);
-    expect(flows).toHaveLength(1);
+    fs.rmSync(path.join(repo, "graph.db"), { force: true });
+    const from_default = run(["--files", FILES, "--json"]);
+    expect(from_default.status).toBe(0);
 
-    const flow = flows[0];
-    expect(flow.node.kind).toBe(FLOW_NODE_KIND);
-    // Dominant id = alphabetically-first seed symbol_path
-    expect(flow.node.id).toBe("handler.ts#dispatch:function");
-    expect(flow.node.attributes.label).toBe("request dispatch flow");
-
-    // Multi-seed: entry_points carries both seeds
-    const entry_points = flow.node.attributes.entry_points as string[];
-    expect(entry_points).toHaveLength(2);
-    expect(entry_points).toContain("handler.ts#dispatch:function");
-    expect(entry_points).toContain("router.ts#handle_request:function");
-
-    // One agentic.bridge was written, with symbol_path endpoints (not raw SymbolIds)
-    const bridges = store.all_edges().filter((e) => e.kind === BRIDGE_EDGE_KIND);
-    expect(bridges).toHaveLength(1);
-    expect(bridges[0].src_id).toBe("handler.ts#dispatch:function");
-    expect(bridges[0].dst_id).toBe("router.ts#handle_request:function");
+    expect(dump_store()).toEqual(list_store);
   });
 
-  it("stitch executor that declines all candidates: falls back to two singleton flows", async () => {
-    const declining_executor: EntrypointStitchExecutor = async () => [];
-    await reconcile(CHANGED, make_deps({ stitch_entrypoints: declining_executor }));
+  it("golden umbrellas JSON: one multi-seed umbrella with the bridge over the missed call, absorbed singleton retired", () => {
+    expect(run(["--list-entrypoints", "--files", FILES]).status).toBe(0);
 
-    const flows = read_persisted_flows(store);
-    expect(flows).toHaveLength(2);
-    const ids = flows.map((f) => f.node.id).sort();
-    expect(ids).toEqual(["handler.ts#dispatch:function", "router.ts#handle_request:function"]);
+    const result = run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    expect(result.status).toBe(0);
+
+    // The returned flow shape feeds phase 2: dominant-seed id + the full induced member set.
+    expect(JSON.parse(result.stdout)).toEqual({
+      flows: [
+        {
+          id: "handler.ts#dispatch:function",
+          members: [
+            { symbol_path: "handler.ts#dispatch:function", name: "dispatch" },
+            { symbol_path: "registry.ts#route:function", name: "route" },
+            { symbol_path: "router.ts#handle_request:function", name: "handle_request" },
+          ],
+        },
+      ],
+    });
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function"]); // the absorbed singleton retired
+    expect(bridges).toEqual([
+      {
+        src_id: "handler.ts#dispatch:function",
+        dst_id: "router.ts#handle_request:function",
+        confidence: BRIDGE_CONFIDENCE_INFERRED,
+      },
+    ]);
+    expect(result.stderr).toContain("retired singleton flow router.ts#handle_request:function");
+  });
+
+  it("a stitched umbrella survives the next deterministic pass: the absorbed singleton stays retired", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    const stitched = read_store();
+    expect(stitched.flow_ids).toEqual(["handler.ts#dispatch:function"]);
+
+    // The next turn touches the absorbed fragment's file. Its entrypoint is still a live graph
+    // entrypoint (bridges never enter the syntactic graph), but it is a stored seed of the live
+    // umbrella — step 3c must not re-promote it to a singleton flow.
+    fs.appendFileSync(path.join(repo, "router.ts"), "// touched\n");
+    const next = run(["--list-entrypoints", "--files", "router.ts"]);
+    expect(next.status).toBe(0);
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function"]); // no resurrection
+    expect(bridges).toHaveLength(1); // the stitch's provenance record survives the resync
+  });
+
+  it("--apply-stitch rejects a bridge whose claimed call site the graph cannot corroborate", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+
+    const result = run([
+      "--apply-stitch",
+      write_payload("stitch.json", {
+        umbrellas: [
+          {
+            ...GOLDEN_UMBRELLAS.umbrellas[0],
+            bridges: [{ ...GOLDEN_UMBRELLAS.umbrellas[0].bridges[0], line: 2 }], // line 2 holds no unresolved call
+          },
+        ],
+      }),
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("no unresolved call at handler.ts:2, bridge skipped");
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function"]); // the umbrella still merges
+    expect(bridges).toHaveLength(0); // but the uncorroborated bridge never persists
+  });
+
+  it("--apply-stitch is idempotent: a re-run with identical input changes nothing", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const payload = write_payload("stitch.json", GOLDEN_UMBRELLAS);
+    expect(run(["--apply-stitch", payload]).status).toBe(0);
+    const first = read_store();
+
+    const second = run(["--apply-stitch", payload]);
+    expect(second.status).toBe(0);
+    expect(read_store()).toEqual(first);
+  });
+
+  it("no umbrellas: a clean no-op, the orphans stay singleton flows", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+
+    const result = run(["--apply-stitch", write_payload("stitch.json", { umbrellas: [] })]);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ flows: [] });
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function", "router.ts#handle_request:function"]);
+    expect(bridges).toHaveLength(0);
+  });
+
+  it("garbage content is skipped with a diagnostic, never a crash: unknown seeds drop, the rest apply", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+
+    const result = run([
+      "--apply-stitch",
+      write_payload("stitch.json", {
+        umbrellas: [
+          { label: "ghost", seeds: ["nowhere.ts#missing:function"], rationale: "hallucinated" },
+          ...GOLDEN_UMBRELLAS.umbrellas,
+        ],
+      }),
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("seed not in the live graph, skipped: nowhere.ts#missing:function");
+    expect(JSON.parse(result.stdout).flows).toHaveLength(1);
+    expect(read_store().flow_ids).toEqual(["handler.ts#dispatch:function"]);
+  });
+
+  it("malformed wire JSON is a contract error: exit 2, store untouched", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const before = read_store();
+
+    const result = run(["--apply-stitch", write_payload("stitch.json", { umbrellas: [{ label: 1 }] })]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("invalid --apply-stitch payload");
+    expect(read_store()).toEqual(before);
+  });
+
+  it("--apply-descriptions persists agent text through the scoped path and cache-skips an unchanged member", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+
+    const payload = write_payload("descriptions.json", {
+      descriptions: [
+        { symbol_path: "handler.ts#dispatch:function", text: "Looks up the registered handler for a key and runs it." },
+        { symbol_path: "ghost.ts#nope:function", text: "no anchor" },
+      ],
+    });
+    const first = run(["--apply-descriptions", payload]);
+    expect(first.status).toBe(0);
+    expect(JSON.parse(first.stdout)).toEqual({
+      written: ["handler.ts#dispatch:function"],
+      skipped: ["ghost.ts#nope:function"],
+    });
+
+    const store = open_graph_store(path.join(repo, "graph.db"));
+    try {
+      const node = store.all_nodes().find((n) => n.id === "agentic.description:handler.ts#dispatch:function");
+      expect(node?.attributes.description).toBe("Looks up the registered handler for a key and runs it.");
+      expect(node?.attributes.description_source).toBe("llm");
+    } finally {
+      store.close();
+    }
+
+    // Byte-identical re-submission at the same content hash → the description cache skips the re-write.
+    const second = run(["--apply-descriptions", payload]);
+    expect(second.status).toBe(0);
+    expect(JSON.parse(second.stdout)).toEqual({
+      written: [],
+      skipped: ["ghost.ts#nope:function", "handler.ts#dispatch:function"],
+    });
+
+    // A different text at the same content hash is a revision, not a cache hit — it writes.
+    const revised = run([
+      "--apply-descriptions",
+      write_payload("descriptions.json", {
+        descriptions: [{ symbol_path: "handler.ts#dispatch:function", text: "Routes a key to its registered handler." }],
+      }),
+    ]);
+    expect(revised.status).toBe(0);
+    expect(JSON.parse(revised.stdout)).toEqual({ written: ["handler.ts#dispatch:function"], skipped: [] });
+
+    const reread = open_graph_store(path.join(repo, "graph.db"));
+    try {
+      const node = reread.all_nodes().find((n) => n.id === "agentic.description:handler.ts#dispatch:function");
+      expect(node?.attributes.description).toBe("Routes a key to its registered handler.");
+    } finally {
+      reread.close();
+    }
   });
 });

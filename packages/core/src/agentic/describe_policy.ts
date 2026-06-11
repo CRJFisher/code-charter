@@ -3,16 +3,17 @@
  *
  * When task-27.1.6 hydrates a flow, its member nodes get behaviour descriptions, scoped to that flow.
  * This module owns the *policy* — what gets described, by what means, and what is skipped — purely and
- * deterministically. It makes no model call: the LLM batch is an injected dependency
- * ({@link DescribeBatchExecutor}) that task-27.1.6 fills inside the hydration sub-agent's own run.
+ * deterministically. It makes no model call: agent-authored text arrives through the drift-sync
+ * skill's `--apply-descriptions` pass, persisted by `write_descriptions`.
  *
  * Policy, in order:
  *   1. Content-hash cache — a member already described at its current `content_hash` is skipped.
- *   2. Docstring-first — a member with an Ariadne docstring uses it verbatim; no LLM call.
- *   3. Batched LLM — the remaining members, up to a per-run cap (default 200), are LLM candidates.
- *   4. Placeholder — members past the cap get the symbol name as a placeholder; no LLM call.
+ *   2. Docstring-first — a member with an Ariadne docstring uses it verbatim.
+ *   3. Agent candidates — the remaining members, up to a per-run cap (default 200), are the
+ *      `needs_llm` bucket the agent describes.
+ *   4. Placeholder — members past the cap get the symbol name as a placeholder.
  *
- * The cap counts LLM candidates only; docstring and cached members never consume it. Selection past
+ * The cap counts agent candidates only; docstring and cached members never consume it. Selection past
  * the cap is by sorted symbol_path so it is byte-stable, and the over-cap count is reported (never a
  * silent cap).
  */
@@ -54,7 +55,7 @@ export interface PlannedDescription {
   content_hash: string;
   name: string;
   source: DescriptionSource;
-  /** Docstring text for `docstring`; the name for `placeholder`; null for `llm` (the executor fills it). */
+  /** Docstring text for `docstring`; the name for `placeholder`; null for `llm` (the agent fills it via `--apply-descriptions`). */
   text: string | null;
 }
 
@@ -119,26 +120,3 @@ export function plan_descriptions(
   return plan;
 }
 
-/** One unit of LLM description work: identity plus the live definition to read source from. */
-export interface DescribeBatchRequest {
-  symbol_path: string;
-  content_hash: string;
-  name: string;
-  definition: AnyDefinition;
-}
-
-export interface DescribeBatchResult {
-  symbol_path: string;
-  text: string;
-}
-
-/**
- * The injected description executor. task-27.1.4 ships only this type and a no-op; the real batched,
- * cost-bounded model call lives in task-27.1.6's hydration sub-agent.
- */
-export type DescribeBatchExecutor = (
-  requests: readonly DescribeBatchRequest[],
-) => Promise<readonly DescribeBatchResult[]>;
-
-/** A typed no-op executor for tests and hosts without a model — returns no descriptions. */
-export const null_describe_executor: DescribeBatchExecutor = () => Promise.resolve([]);

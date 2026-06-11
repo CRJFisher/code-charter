@@ -225,11 +225,11 @@
         </div>
       </div>
       <div class="step">
-        <div class="badge">7</div>
+        <div class="badge todo">7</div>
         <div>
-          <span class="id">task-27.1.6.6 · Done</span>
+          <span class="id">task-27.1.6.6 · To Do</span>
           <h3>Agentic entrypoint stitching — reconnect the split call-graphs</h3>
-          <p>Ariadne resolves calls <em>syntactically</em>, so dynamic dispatch, registry lookups, re-exports, and callback wiring frequently fail to resolve — and a callee reached only through such a missed call has no in-graph caller, so it is promoted to its own entrypoint. One functionality fragments into several flows. This adds the agentic pass that <strong>stitches them back together</strong> by confirming the missing edge, through a new injected <code>stitch_entrypoints?</code> executor seam on <code>ReconcileDeps</code> — mirroring the existing <code>describe?</code> seam. Undefined ⇒ today's deterministic one-entrypoint-per-flow, byte-identical. Supplied ⇒ build candidate stitches from task-27.1.4's <code>find_unresolved_shapes</code> + <code>derive_candidate_seeds</code> (their first runtime caller) over the changed neighbourhood, let the agent confirm each — <em>does this unresolved call really link these two entrypoints?</em> — and assemble a multi-seed umbrella plus an <code>agentic.bridge</code> over the recovered edge. No new persistence; identity is purely deterministic — id = dominant seed's <code>symbol_path</code>, a re-stitch writes under its own id, and a superseded flow retires via the seed-gone soft-delete (task-27.1.15 stripped the overlap remap and user-pin apparatus). Doc-attachment-by-judgement is deferred.</p>
+          <p>Ariadne resolves calls <em>syntactically</em>, so dynamic dispatch, registry lookups, re-exports, and callback wiring frequently fail to resolve — and a callee reached only through such a missed call has no in-graph caller, so it is promoted to its own entrypoint. One functionality fragments into several flows. This adds the agentic pass that <strong>stitches them back together</strong>, with the intelligence owned by the <code>drift-sync</code> skill rather than any in-process function. The skill orchestrates the <code>drift-reconciler</code> sub-agent through two judgement phases over three thin store-facing bin modes. <strong>Phase 1 — stitch:</strong> <code>--list-entrypoints</code> emits the changed neighbourhood's orphan/unresolved inventory; the agent <em>explores the codebase itself</em> (grep/Read) to decide which orphans belong to one functionality, writes <code>stitch.json</code> (<code>umbrellas</code> = the existing <code>CodeUmbrella</code> shape), and <code>--apply-stitch</code> hydrates each multi-seed umbrella plus an <code>agentic.bridge</code> over the recovered edge. <strong>Phase 2 — describe:</strong> the agent reads each member and <code>--apply-descriptions</code> persists a short sentence apiece. Two whole TypeScript layers <strong>delete</strong> — the injected executor seams (<code>stitch_entrypoints?</code>/<code>describe?</code> + null defaults) <em>and</em> the candidate-pairing / union-find / agenda engine that fed them — because the agent, not the engine, now decides the flow shape. No orphans ⇒ both judgements skip and the deterministic resync/retire is byte-identical to today. Identity stays purely deterministic — id = dominant seed's <code>symbol_path</code> (<code>flow_id_of</code>); doc-attachment-by-judgement is deferred.</p>
         </div>
       </div>
       <div class="step">
@@ -237,7 +237,7 @@
         <div>
           <span class="id">task-27.1.6.7 · To Do</span>
           <h3>Eval harness for the stitcher — mini-codebase fixtures</h3>
-          <p>27.1.6.6's plumbing is proven on a synthetic in-process <code>CallGraph</code>; what is not yet measurable is the executor's <strong>semantic judgment</strong> — does it confirm only the stitches that are real? This task commits three mini TypeScript codebases (≤100 lines each) under <code>__fixtures__/stitch_eval/</code> — <code>registry_dispatch/</code> and <code>callback_wiring/</code> (Ariadne genuinely cannot resolve their dispatch/callback calls, so they must stitch) and <code>unrelated_pair/</code> (pure functions, no candidates, must <em>not</em> stitch) — parses them with the real Ariadne via <code>HeadlessProject</code>, and asserts at the <code>StitchBatch</code> boundary: structural well-formedness always, singletons under <code>null_stitch_executor</code>, correct merges under a confirming executor. Ground truth is authored into the fixtures, so the same harness evals stub executors now and the live agent later.</p>
+          <p>27.1.6.6's three bin modes are proven on a synthetic in-process <code>CallGraph</code>; what is not yet measurable is the agent's <strong>semantic judgment</strong> — does it stitch only what is real? This task commits three mini TypeScript codebases (≤100 lines each) under <code>__fixtures__/stitch_eval/</code> — <code>registry_dispatch/</code> and <code>callback_wiring/</code> (Ariadne genuinely cannot resolve their dispatch/callback calls, so they must stitch) and <code>unrelated_pair/</code> (pure functions, must <em>not</em> stitch) — parses them with the real Ariadne via <code>HeadlessProject</code>, and asserts at the <strong>three-mode boundary</strong>: <code>--list-entrypoints</code> over each fixture yields a well-formed inventory whose unresolved sites point at real lines (structural, always); a golden <code>stitch.json</code> through <code>--apply-stitch</code> yields the correct multi-seed umbrellas, and no umbrellas leaves singletons (replay). Ground truth is authored into the fixtures, so the same harness drives golden JSON now and a thin <code>claude -p</code> driver against the live agent later — both over the identical three modes production uses.</p>
         </div>
       </div>
     </div>
@@ -327,19 +327,14 @@
 
     <div class="doc-group">
       <div class="gh">
-        <span class="status-dot live"></span>
+        <span class="status-dot note"></span>
         <span class="id">task-27.1.6.6</span>
-        <span class="title">Agentic entrypoint stitching — reconnect the split call-graphs (Done)</span>
+        <span class="title">Agentic entrypoint stitching — reconnect the split call-graphs (To Do)</span>
       </div>
       <div class="doc-links">
-        <a class="doc-link" href="task-27.1.6.6 - Agentic-entrypoint-stitching-reconnect-the-call-graphs-Ariadnes-syntactic-analysis-leaves-split.approach.html">
-          <span class="status-dot live"></span>
-          <span class="lbl"><b>The approach</b><small>before/after of the graph gap &middot; what a candidate stitch is &middot; pipeline NEW vs REUSED &middot; the stitch_entrypoints seam next to describe &middot; deterministic identity on re-stitch &middot; AC × plan matrix</small></span>
-          <span class="arrow">→</span>
-        </a>
-        <a class="doc-link" href="task-27.1.6.6 - Agentic-entrypoint-stitching-disk-handoff.plan.html">
+        <a class="doc-link" href="task-27.1.6.6 - Agentic-entrypoint-stitching-reconnect-the-call-graphs-Ariadnes-syntactic-analysis-leaves-split.skill-orchestrated-reconcile.plan.html">
           <span class="status-dot note"></span>
-          <span class="lbl"><b>Disk-handoff plan</b><small>two-judgement skill orchestration before/after &middot; purge vs keep — seams + candidate engine &middot; three thin bin modes shared with the eval harness &middot; registry-dispatch worked example &middot; task A / task B batch checklist</small></span>
+          <span class="lbl"><b>Skill-orchestrated reconcile plan</b><small>current vs planned — executor-seam engine vs two judgements in the skill &middot; purge vs keep — both the seams and the candidate / union-find engine delete &middot; three thin bin modes (--list-entrypoints / --apply-stitch / --apply-descriptions) shared with the eval harness &middot; registry-dispatch worked example &middot; task A / task B batch checklist</small></span>
           <span class="arrow">→</span>
         </a>
       </div>
@@ -354,7 +349,7 @@
       <div class="doc-links">
         <a class="doc-link" href="task-27.1.6.7 - Eval-harness-for-agentic-entrypoint-stitching-mini-codebase-fixtures.plan.html">
           <span class="status-dot note"></span>
-          <span class="lbl"><b>Harness plan</b><small>pipeline-with-assertion-taps diagram &middot; three fixture call-graphs &middot; what counts as unresolved &middot; union-find merge &middot; fixture × executor outcome matrix &middot; AC map</small></span>
+          <span class="lbl"><b>Harness plan</b><small>pipeline-with-assertion-taps diagram &middot; three fixture call-graphs &middot; what counts as unresolved &middot; structural inventory assertions &middot; golden-JSON replay through --apply-stitch &middot; AC map</small></span>
           <span class="arrow">→</span>
         </a>
       </div>
@@ -362,12 +357,12 @@
 
     <div class="callout">
       <span class="k">Reading order</span>
-      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work in order: the <strong>drift.* surface review</strong> (the decision confirmed), the <strong>Stop-hook filter</strong> (the focused trigger change), the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read once you know what the loop preserves and where the bin sits), the <strong>recovery walkthrough</strong> (growing the three-case recovery toward a new target), then <strong>symbol-level change detection</strong> (27.1.6.4 — sharpens the trigger from file to symbol; read after the filter, since it replaces that same changed-file intersection inside the engine). Read <strong>27.1.6.6 · the approach</strong> next: it opens the agentic lane on top of everything the first five hardened, and its <em>most-is-reused</em> data flow — stitch the call-graphs Ariadne's syntactic resolution leaves split — only reads clearly once the live loop and its identity guarantees are familiar. Then <strong>27.1.6.6 · the disk-handoff plan</strong>: the drift-sync skill orchestrates two judgement phases — the sub-agent's own reasoning groups orphan entrypoints into umbrellas, then describes the flow members — around three thin store-facing bin modes, deleting both the executor seams and the candidate-pairing engine. Finish with <strong>27.1.6.7 · the harness plan</strong>: it evals the same three bin modes, so read it with the disk-handoff plan fresh.</p>
+      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work in order: the <strong>drift.* surface review</strong> (the decision confirmed), the <strong>Stop-hook filter</strong> (the focused trigger change), the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read once you know what the loop preserves and where the bin sits), the <strong>recovery walkthrough</strong> (growing the three-case recovery toward a new target), then <strong>symbol-level change detection</strong> (27.1.6.4 — sharpens the trigger from file to symbol; read after the filter, since it replaces that same changed-file intersection inside the engine). Read <strong>27.1.6.6 · the skill-orchestrated reconcile plan</strong> next: it opens the agentic lane on top of everything the first five hardened. The <code>drift-sync</code> skill orchestrates the sub-agent through two judgement phases — its own grep/Read reasoning groups orphan entrypoints into umbrellas, then describes the flow members — around three thin store-facing bin modes, deleting both the executor seams and the candidate-pairing engine; its current-vs-planned pair only reads clearly once the live loop and its identity guarantees are familiar. Finish with <strong>27.1.6.7 · the harness plan</strong>: it evals the same three bin modes, so read it with the reconcile plan fresh.</p>
     </div>
 
     <footer>
       task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation (2026-06-11).<br>
-      Companions present: 8 — two under task-27.1.6.1, two under task-27.1.6.6, one each under task-27.1.6.2, task-27.1.6.3, task-27.1.6.4, task-27.1.6.7 · task-27.1.6.5: none yet.
+      Companions present: 7 — two under task-27.1.6.1, one each under task-27.1.6.2, task-27.1.6.3, task-27.1.6.4, task-27.1.6.6, task-27.1.6.7 · task-27.1.6.5: none yet.
     </footer>
   </main>
 
