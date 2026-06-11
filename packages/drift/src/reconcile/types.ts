@@ -3,11 +3,12 @@
  * dispatch reports back (serialized to the `drift-sync` `--json` records).
  */
 
-import type { DescribeBatchExecutor, DetectionGoal, EntrypointStitchExecutor, GraphStore } from "@code-charter/core";
+import type { GraphStore } from "@code-charter/core";
 
 import type { AriadneAdapter } from "./ariadne_adapter";
 
-export type { DetectionGoal };
+/** v1's single detection goal. Open union so a later goal is an added value. */
+export type DetectionGoal = "orient-in-code-tree" | (string & {});
 
 export interface ReconcileDeps {
   store: GraphStore;
@@ -16,10 +17,6 @@ export interface ReconcileDeps {
   repo_root_abs: string;
   /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold. */
   analyzed_root: string;
-  /** The describe-step model call. Defaults to the deterministic `null_describe_executor`. */
-  describe?: DescribeBatchExecutor;
-  /** The entrypoint-stitch model call. Defaults to the deterministic `null_stitch_executor`. */
-  stitch_entrypoints?: EntrypointStitchExecutor;
   /** Detection goal. Defaults to `orient-in-code-tree`. */
   goal?: DetectionGoal;
   /** Injected clock → ISO-8601, so `last_synced_at` is deterministic in tests. */

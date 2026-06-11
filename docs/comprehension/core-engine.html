@@ -139,7 +139,7 @@
   </div>
   <div class="fig">
     <svg viewBox="0 0 1300 400" role="img"
-      aria-label="Pipeline. Ariadne CallGraph and skill bundles feed extractors and the reextract funnel. The resolver derives identity via the anchor verdict cascade. All write into the storage SqliteGraphStore which holds raw, agentic and user rows over a field ladder trust floor. The agentic substrate proposes gaps, bridges and descriptions onto the agentic tier. The model folds tiers via render and induces flows, emitting RenderedRows to the UI adapter. The LLM is an injected seam; core makes no model calls. Three role tiers: raw rank 0 disposable, agentic rank 1 preserved, user rank 2 irreplaceable.">
+      aria-label="Pipeline. Ariadne CallGraph and skill bundles feed extractors and the reextract funnel. The resolver derives identity via the anchor verdict cascade. All write into the storage SqliteGraphStore which holds raw, agentic and user rows over a field ladder trust floor. The agentic substrate proposes gaps, bridges and descriptions onto the agentic tier. The model folds tiers via render and induces flows, emitting RenderedRows to the UI adapter. Core makes no model calls; the model lives in the drift-reconciler sub-agent one package out. Three role tiers: raw rank 0 disposable, agentic rank 1 preserved, user rank 2 irreplaceable.">
       <defs>
         <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="ar-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -216,7 +216,7 @@
       </g>
     </svg>
   </div>
-  <p class="cap"><b>The LLM is an injected seam — core itself makes no model calls.</b> Tiers split by cost of regeneration: only raw is nuked and rebuilt; agentic and user are carried across edits.</p>
+  <p class="cap"><b>Core itself makes no model calls — the model lives in the drift-reconciler sub-agent, one package out.</b> Tiers split by cost of regeneration: only raw is nuked and rebuilt; agentic and user are carried across edits.</p>
 
   <h2 id="storage">storage — the SQLite GraphStore</h2>
   <p class="thesis">The single concrete persistence engine behind the engine-agnostic <code>GraphStore</code> contract; the three tiers are one <code>layer</code> column, and only <code>anchor_resolution</code> is disposable.</p>
@@ -500,20 +500,19 @@
   <p class="cap"><b><code>added</code> is relative to anchored knowledge</b> and correct only when <code>build_index</code> is scoped to changed files alone; a whole-repo index would flood it. A relocated symbol is never re-described — the anchor, defining path and description side-node re-key inline, authored content byte-for-byte. Verdicts apply in two phases (all soft-deletes, then all re-key upserts) so same-pass rename chains land cleanly. Consumed by the drift package's <code>reconcile.ts</code> and <code>affected_flows.ts</code>.</p>
 
   <h2 id="agentic">agentic — descriptions, gaps, stitches &amp; bridges</h2>
-  <p class="thesis">The agentic substrate deterministically proposes what static extraction cannot, then persists it on the agentic lane — making no model calls.</p>
+  <p class="thesis">The agentic substrate deterministically proposes what static extraction cannot — gaps, bridge candidates, the description ladder — and persists it on the agentic lane, making no model calls. The model lives one package out, in the drift-reconciler sub-agent, which refines this substrate through the skill's stitch and describe phases.</p>
   <table class="ledger">
     <tr><th>File</th><th>Role</th></tr>
-    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>detect_gaps</code> + <code>derive_candidate_seeds</code>: deterministic 3-category gap detector (orphan entrypoints, unresolved shapes, disconnected components) over the call graph; feeds the stitch seam. Pure.</td></tr>
-    <tr><td><code>agentic/stitch.ts</code></td><td><code>build_candidate_stitches</code> + <code>null_stitch_executor</code>: the <code>EntrypointStitchExecutor</code> injected seam; default confirms nothing (one-entrypoint-per-flow, deterministic). Consumed by drift/reconcile.</td></tr>
-    <tr><td><code>agentic/describe_policy.ts</code></td><td><b><code>plan_descriptions</code></b>: partitions members into cached / from_docstring / needs_llm / placeholder; defines injected <code>DescribeBatchExecutor</code> + <code>null_describe_executor</code>.</td></tr>
-    <tr><td><code>agentic/bridge.ts</code></td><td><code>build_bridge_edges</code>: collapses candidates into <code>agentic.bridge</code> EdgeRows (layer agentic, confidence 0.5, dashed render) with justifying provenance.</td></tr>
+    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>detect_gaps</code> + <code>find_orphan_entrypoints</code> + <code>derive_candidate_seeds</code>: deterministic 3-category gap detector (orphan entrypoints, unresolved shapes, disconnected components) over the call graph. Orphan flags drive the drift entrypoint inventory; unresolved shapes feed the bridge heuristics. Pure.</td></tr>
+    <tr><td><code>agentic/describe_policy.ts</code></td><td><b><code>plan_descriptions</code></b>: partitions members into cached / from_docstring / needs_llm / placeholder. The deterministic pass writes docstrings and name placeholders; the drift skill describe phase later upgrades the placeholders via <code>--apply-descriptions</code>.</td></tr>
+    <tr><td><code>agentic/bridge.ts</code></td><td><code>build_bridge_edges</code>: collapses candidates into <code>agentic.bridge</code> EdgeRows (layer agentic, confidence 0.5, dashed render) with justifying provenance. The drift skill stitch phase reuses this plumbing, stamping <code>extractor_id "agentic.stitch"</code> on an agent-confirmed bridge.</td></tr>
     <tr><td><code>agentic/registry_detector.ts</code></td><td><code>detect_meta_json_sub_agent_bridges</code>: reads <code>meta.json</code> <code>sub_agents[]</code>, emits <code>BridgeCandidate</code>s via an injected <code>resolve_target</code> seam.</td></tr>
     <tr><td><code>agentic/write_descriptions.ts</code></td><td>Persists descriptions as <code>agentic.description</code> side-nodes (one per symbol) via <code>write_fields(...,'agentic')</code>, honoring the ladder.</td></tr>
     <tr><td><code>agentic/agentic_writer.ts</code></td><td><code>write_agentic_substrate</code>: takes a <code>SubstrateProposal</code> (bridges + descriptions), persists both scoped, with count caps and a coarse deadline gate.</td></tr>
   </table>
   <div class="fig">
     <svg viewBox="0 0 1300 300" role="img"
-      aria-label="The substrate-versus-agent seam. On the left core proposes deterministically: gaps become seeds and feed the stitch seam, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then LLM up to 200, then placeholder. On the right are the injected seams: DescribeBatchExecutor, EntrypointStitchExecutor and resolve_target, filled by the drift sub-agent which assembles a SubstrateProposal. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
+      aria-label="The substrate-versus-agent boundary. On the left core proposes deterministically: gaps become seeds and orphan flags, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then placeholder. On the right is the drift-reconciler sub-agent in the drift package: it judges the entrypoint inventory and authors member descriptions, applying them through the drift-reconcile bin modes apply-stitch and apply-descriptions. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
       <defs>
         <marker id="ag-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="ag-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
@@ -524,25 +523,25 @@
         <text x="310" y="56" font-weight="600" font-size="14">core proposes — deterministic</text>
         <rect x="60" y="72" width="240" height="50" rx="8" fill="#ece5d6" stroke="#aaa492"/>
         <text x="180" y="92" font-weight="600">gaps &rarr; seeds</text>
-        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">detect_gaps · feeds stitch seam</text>
+        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">detect_gaps · orphan flags + bridge feed</text>
         <rect x="320" y="72" width="240" height="50" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-dasharray="5 4"/>
         <text x="440" y="92" font-weight="600">bridges @ conf 0.5</text>
         <text x="440" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">dashed render</text>
         <rect x="60" y="140" width="500" height="106" rx="8" fill="#fff" stroke="#6c6759"/>
         <text x="310" y="162" font-weight="600">plan_descriptions ladder</text>
-        <text x="310" y="186" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">1 cache &rarr; 2 docstring &rarr; 3 LLM(&le;200) &rarr; 4 placeholder</text>
-        <text x="310" y="210" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">DEFAULT_DESCRIBE_CAP = 200</text>
-        <text x="310" y="232" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">steps 1, 2, 4 make no model call</text>
+        <text x="310" y="186" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759">1 cache &rarr; 2 docstring &rarr; 3 placeholder</text>
+        <text x="310" y="210" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">resolve_descriptions · deterministic</text>
+        <text x="310" y="232" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">no model call · agent upgrades placeholders later</text>
 
-        <!-- injected seams -->
+        <!-- drift-reconciler sub-agent -->
         <rect x="690" y="40" width="300" height="134" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="6 4"/>
-        <text x="840" y="66" font-weight="600" font-size="14">injected seams</text>
-        <text x="840" y="90" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">DescribeBatchExecutor</text>
-        <text x="840" y="110" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">EntrypointStitchExecutor</text>
-        <text x="840" y="130" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">resolve_target</text>
-        <text x="840" y="154" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">filled by drift sub-agent (LLM)</text>
+        <text x="840" y="66" font-weight="600" font-size="14">drift-reconciler sub-agent</text>
+        <text x="840" y="90" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">judges entrypoint inventory</text>
+        <text x="840" y="110" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">stitch + describe phases</text>
+        <text x="840" y="130" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">--apply-stitch / --apply-descriptions</text>
+        <text x="840" y="154" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">the model · one package out</text>
         <path d="M690 100 L592 130" fill="none" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ag-o)"/>
-        <text x="640" y="112" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">SubstrateProposal</text>
+        <text x="640" y="112" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">apply-* modes</text>
 
         <!-- writes -->
         <rect x="690" y="190" width="300" height="80" rx="11" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
@@ -558,7 +557,7 @@
       </g>
     </svg>
   </div>
-  <p class="cap">Descriptions are <code>agentic.description</code> side-nodes (anchored to <code>symbol_path:content_hash</code>) so a raw re-parse leaves them to re-anchor through <code>re_extract</code>; reads use <b><code>include_deleted:true</code></b> to avoid resurrecting soft-deleted rows. Sole real consumer is the drift hydration sub-agent, which fills the seams.</p>
+  <p class="cap">Descriptions are <code>agentic.description</code> side-nodes (anchored to <code>symbol_path:content_hash</code>) so a raw re-parse leaves them to re-anchor through <code>re_extract</code>; reads use <b><code>include_deleted:true</code></b> to avoid resurrecting soft-deleted rows. Sole real consumer is the drift reconcile engine; the drift-reconciler sub-agent refines the substrate through the apply-stitch and apply-descriptions modes.</p>
 
   <footer>
     Generated comprehension doc for the Code Charter repo · "Core Engine" · one of five in the set.<br>

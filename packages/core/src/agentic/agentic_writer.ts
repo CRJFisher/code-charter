@@ -9,21 +9,20 @@
  * (the file-module scaffold and flow nodes are written by other mechanisms, so this writer never
  * issues the store-global nuke itself).
  *
- * How 27.1.6 assembles a {@link SubstrateProposal} (the substrate↔agent seam, AC#4):
- *   - bridges: `detect_meta_json_sub_agent_bridges` (and future registry detectors) →
- *     `build_bridge_edges` → `proposal.bridges`.
- *   - descriptions: `plan_descriptions` → run the injected `DescribeBatchExecutor` over `needs_llm` →
- *     combine its results with `from_docstring`/`placeholder` into `ResolvedDescription[]` →
- *     `proposal.descriptions`. (The combine step and the executor are 27.1.6's; this task ships the
- *     deterministic policy and the writer.)
+ * How a {@link SubstrateProposal} is assembled (the substrate↔agent seam, AC#4):
+ *   - bridges: `detect_meta_json_sub_agent_bridges` (and the drift-sync skill's agent-judged stitch
+ *     bridges) → `build_bridge_edges` → `proposal.bridges`.
+ *   - descriptions: `plan_descriptions` → combine `from_docstring`/`placeholder` into
+ *     `ResolvedDescription[]` → `proposal.descriptions`. Agent-authored text arrives through the
+ *     drift-reconcile `--apply-descriptions` pass as its own proposal.
  *
  * Preservation: descriptions are agent-generated and written unconditionally at the agentic tier
  * (resurrecting/overwriting; see `write_descriptions`). A bridge differs because its edge can carry a
  * user `adjudication` (a column, not a ladder field): a bridge whose edge is user-owned
  * (`layer='user'` or adjudicated) or soft-deleted is never re-clobbered or resurrected. Cost ceiling:
  * the bridge and description COUNTS are the hard cost bound; `deadline_ms` is a coarse wall-clock guard
- * that gates whether the already-resolved description rows are written — the expensive model-time
- * budget lives in 27.1.6's executor, not here. Every truncation is logged and reported (no silent cap).
+ * that gates whether the already-resolved description rows are written. Every truncation is logged and
+ * reported (no silent cap).
  */
 
 import type { EdgeRow, GraphStore, ProvenanceRow } from "@code-charter/types";

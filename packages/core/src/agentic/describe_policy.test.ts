@@ -1,7 +1,7 @@
 import type { AnyDefinition } from "@code-charter/types";
 
 import { make_node } from "../model/__fixtures__/call_graph";
-import { DEFAULT_DESCRIBE_CAP, null_describe_executor, plan_descriptions } from "./describe_policy";
+import { DEFAULT_DESCRIBE_CAP, plan_descriptions } from "./describe_policy";
 import type { DescribeMember, ExistingDescription } from "./describe_policy";
 
 /** A DescribeMember whose definition optionally carries a docstring. */
@@ -65,7 +65,4 @@ describe("plan_descriptions (AC#3)", () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  it("ships a null executor that returns no descriptions", async () => {
-    expect(await null_describe_executor([{ symbol_path: "a", content_hash: "h", name: "a", definition: member("a").definition }])).toEqual([]);
-  });
 });

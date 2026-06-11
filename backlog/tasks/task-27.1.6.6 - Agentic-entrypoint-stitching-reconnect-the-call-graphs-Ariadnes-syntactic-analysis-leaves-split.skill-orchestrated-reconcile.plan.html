@@ -4,7 +4,8 @@
      Sources read: packages/core/src/agentic/stitch.ts; packages/core/src/agentic/describe_policy.ts;
      packages/drift/src/reconcile/{reconcile,describe,types,hydrate}.ts; packages/drift/src/bin/drift_reconcile.ts;
      packages/drift/assets/skills/drift-sync/SKILL.md; docs/comprehension/flow-construction.html.
-     Revised 2026-06-11 after review: the two judgements are now the diagram's centerpiece; the agenda/prompt-builder layer is deleted from the design. -->
+     Revised 2026-06-11: renamed from the disk-handoff slug — the handoff is three thin bin modes (--list-entrypoints / --apply-stitch / --apply-descriptions),
+     not a disk agenda. The two judgements (stitch, then describe) are the diagram's centerpiece; the candidate-pairing / union-find / agenda layer is deleted. -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -154,12 +155,11 @@
   <a class="nv" href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↑ 27.1.6 family overview</a>
   <span class="sep">·</span>
   <a class="nv" href="task-27.1.6.4 - Fine-grained-change-detection-symbol-level-drift-sync.symbol-change-detection.html">27.1.6.4 symbol detection</a>
-  <a class="nv" href="task-27.1.6.6 - Agentic-entrypoint-stitching-reconnect-the-call-graphs-Ariadnes-syntactic-analysis-leaves-split.approach.html">27.1.6.6 approach</a>
-  <span class="nv here" aria-current="page">27.1.6.6 disk-handoff plan</span>
+  <span class="nv here" aria-current="page">27.1.6.6 skill-orchestrated reconcile</span>
   <a class="nv" href="task-27.1.6.7 - Eval-harness-for-agentic-entrypoint-stitching-mini-codebase-fixtures.plan.html">27.1.6.7 eval harness</a>
 </nav>
 <nav class="outline" aria-label="On this page">
-  <a href="#spine">the two judgements — before &amp; after</a>
+  <a href="#spine">the two judgements — current &amp; planned</a>
   <a href="#purge">purge vs keep — two layers delete</a>
   <a href="#modes">three thin bin modes · shared with eval</a>
   <a href="#example">worked example — registry dispatch</a>
@@ -336,7 +336,7 @@
     <div class="legend">
       <span class="li"><span class="star">★</span><span class="bx olive"></span> agent judgement — model reasoning, lives in SKILL.md</span>
       <span class="li"><span class="bx rust"></span> purged — engine + dead seams</span>
-      <span class="li"><span class="bx doc"></span> disk file (the handoff)</span>
+      <span class="li"><span class="bx doc"></span> JSON wire file between modes</span>
       <span class="li"><span class="sw clay"></span> store write</span>
       <span class="li"><span class="sw dash"></span> no-orphans skip</span>
     </div>
@@ -378,7 +378,7 @@
         <span class="chip olive">CodeUmbrella · BridgeCandidate <small>hydrate.ts:53 — <b>already</b> { id, label, seeds, bridges?, rationale? } · the apply-stitch wire format, no new type</small></span>
       </article>
     </div>
-    <figcaption>The previous plan kept the candidate engine and serialized it to disk; skill orchestration deletes it — the agent&#8217;s grep/Read exploration replaces pairwise candidate generation, and its final disjoint umbrellas make the union-find merge pointless.</figcaption>
+    <figcaption>Skill orchestration moves the grouping decision out of TypeScript entirely: the agent&#8217;s grep/Read exploration <b>is</b> the candidate generation, and the umbrellas it emits are already disjoint, so the union-find merge has nothing to merge — both layers delete.</figcaption>
   </figure>
 
   <div class="callout olive">

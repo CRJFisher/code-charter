@@ -99,6 +99,49 @@ describe("drift-sync script contract", () => {
     expect(JSON.parse(fs.readFileSync(pending, "utf8"))).toEqual({ files: ["src/staged.ts"] });
   });
 
+  it("forwards --list-entrypoints with the staged set and consumes it on success (the list pass is the mutating reconcile)", () => {
+    const { store, pending } = make_store_dir(["src/a.ts"]);
+    const result = run(["--list-entrypoints", "--store", store, "--repo-root", "/repo"], {
+      DRIFT_RECONCILE_BIN: fake_bin,
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(["--list-entrypoints", "--files", "src/a.ts", "--store", store, "--repo-root", "/repo"]);
+    expect(fs.existsSync(pending)).toBe(false);
+  });
+
+  it("no-ops --list-entrypoints with an empty inventory when nothing is staged", () => {
+    const { store } = make_store_dir(null);
+    const result = run(["--list-entrypoints", "--store", store, "--repo-root", "/repo"]);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ entrypoints: [] });
+  });
+
+  it("forwards --apply-stitch without touching the staged set (the judgement phases carry their own payload)", () => {
+    const { store, pending } = make_store_dir(["src/staged.ts"]);
+    const result = run(["--apply-stitch", "/tmp/stitch.json", "--store", store, "--repo-root", "/repo"], {
+      DRIFT_RECONCILE_BIN: fake_bin,
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(["--apply-stitch", "/tmp/stitch.json", "--store", store, "--repo-root", "/repo"]);
+    expect(fs.existsSync(pending)).toBe(true); // never read, never consumed
+  });
+
+  it("forwards --apply-descriptions without touching the staged set", () => {
+    const { store, pending } = make_store_dir(["src/staged.ts"]);
+    const result = run(["--apply-descriptions", "/tmp/d.json", "--store", store, "--repo-root", "/repo"], {
+      DRIFT_RECONCILE_BIN: fake_bin,
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(["--apply-descriptions", "/tmp/d.json", "--store", store, "--repo-root", "/repo"]);
+    expect(fs.existsSync(pending)).toBe(true);
+  });
+
+  it("rejects conflicting mode flags as a usage error", () => {
+    const result = run(["--list-entrypoints", "--apply-stitch", "/tmp/s.json", "--store", "/x", "--repo-root", "/r"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("at most one mode flag");
+  });
+
   it("no-ops cleanly when nothing is staged and no --files is given (exit 0)", () => {
     const { store } = make_store_dir(null);
     const result = run(["--store", store, "--repo-root", "/repo", "--json"]);

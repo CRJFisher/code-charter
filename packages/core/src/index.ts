@@ -136,11 +136,8 @@ export {
 export type { MetaJsonRegistryInput } from "./agentic/registry_detector";
 
 // task-27.1.4 AC#3 — deterministic-first description policy + agentic-owned writer
-export { DEFAULT_DESCRIBE_CAP, null_describe_executor, plan_descriptions } from "./agentic/describe_policy";
+export { DEFAULT_DESCRIBE_CAP, plan_descriptions } from "./agentic/describe_policy";
 export type {
-  DescribeBatchExecutor,
-  DescribeBatchRequest,
-  DescribeBatchResult,
   DescribeMember,
   DescriptionPlan,
   DescriptionSource,
@@ -176,19 +173,3 @@ export {
   SKILL_TO_SUBAGENT_KIND,
 } from "./extractors";
 export type { MarkdownLink, SkillIngestDeps, SkillIngestResult, SubAgentDecl } from "./extractors";
-
-// task-27.1.6.6 — agentic entrypoint-stitch detector
-export {
-  MAX_STITCH_CANDIDATES,
-  null_stitch_executor,
-  STITCH_EXTRACTOR_ID,
-  STITCH_EXTRACTOR_VERSION,
-  build_candidate_stitches,
-} from "./agentic/stitch";
-export type {
-  ConfirmedStitch,
-  DetectionGoal,
-  EntrypointStitchExecutor,
-  StitchBatch,
-  StitchCandidate,
-} from "./agentic/stitch";

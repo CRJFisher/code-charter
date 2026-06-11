@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- Comprehension doc: Flow Construction. How a flow is detected and constructed — the deterministic skeleton always available, the agentic hydration that enriches it, and the entrypoint stitching that repairs syntactic splits. Present-tense, canonical, self-contained. -->
+<!-- Comprehension doc: Flow Construction. How a flow is detected and constructed — the deterministic skeleton always available, the deterministic hydration that enriches it, and the skill-orchestrated entrypoint stitching that repairs syntactic splits. Present-tense, canonical, self-contained. -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -118,14 +118,14 @@
   <header>
     <p class="eyebrow">comprehension · code charter · 05</p>
     <h1>Flow Construction</h1>
-    <p class="deck">A flow is v1's unit of comprehension — an agent-detected functionality umbrella over one or more call graphs. It is constructed in two tiers: a deterministic skeleton that is always available, and an agentic hydration that enriches it.</p>
+    <p class="deck">A flow is the unit of comprehension — a functionality umbrella over one or more call graphs. It is constructed in two tiers: a deterministic skeleton that is always available, and a hydration that enriches it; a drift-reconciler sub-agent then judges which fragmented entrypoints are one functionality and what each member does.</p>
     <div class="meta">
       <span class="pill">unit <b>the flow</b></span>
       <span class="pill">source of truth <b>core/model/flow.ts</b></span>
       <span class="pill done">skeleton <b>always available</b></span>
       <span class="pill">hydration <b>lazy · per flow</b></span>
       <span class="pill">id <b>dominant seed symbol_path</b></span>
-      <span class="pill">stitch seam <b>always wired · null default</b></span>
+      <span class="pill">stitch <b>skill-orchestrated post-pass</b></span>
     </div>
     <div class="legend">
       <span class="sw"><i class="raw"></i> raw / call graph (deterministic)</span>
@@ -139,89 +139,103 @@
 
   <!-- ============================ 0 · RUNTIME CHAIN ============================ -->
   <h2 id="runtime">Where the agent runs</h2>
-  <p class="thesis">The drift-reconciler is Claude — a bounded sub-agent (tools: <code>Skill</code>, <code>Bash</code>) that runs in its own context so diagram work does not flood the main session. Its sole job: invoke the <code>drift-sync</code> skill, return one acknowledgement line. The skill shells into the headless <code>drift-reconcile</code> bin, which calls <code>reconcile()</code> with <b>no executors injected</b>. Both seams (<code>stitch_entrypoints</code>, <code>describe</code>) are optional fields in <code>ReconcileDeps</code> and are left <code>undefined</code> — they fall back to their null no-op implementations. <b>In v1, no model token is spent on flow content.</b> "Agentic" is the storage tier name, not a signal that a model generated the content.</p>
+  <p class="thesis">The drift-reconciler is Claude — a bounded sub-agent (tools: <code>Skill</code>, <code>Bash</code>, <code>Read</code>, <code>Grep</code>) that runs in its own context so reconciliation does not flood the main session. It invokes the <code>drift-sync</code> skill, which orchestrates it through <b>two judgement phases</b> over three thin <code>drift-reconcile</code> bin modes. The <code>--list-entrypoints</code> mode runs the full deterministic reconcile and emits the changed neighbourhood's entrypoint inventory; the agent Reads and Greps the unresolved call sites, decides which entrypoints are one functionality, and applies its judgement through <code>--apply-stitch</code> and <code>--apply-descriptions</code>. The deterministic list pass stands on its own — an agent-less host still gets one flow per entrypoint with docstring-or-placeholder descriptions.</p>
   <div class="fig">
-    <svg viewBox="0 0 1320 320" role="img"
-      aria-label="The runtime chain from left to right. Stage one: the Stop hook, a Claude Code event, fires and writes a pending_reconcile.json file beside the store. Stage two: the drift-reconciler sub-agent, running as the Claude model with tools Skill and Bash, invokes the drift-sync skill and returns only a one-line acknowledgement to the main session; it never writes the store and never inspects diagram internals. Stage three: the drift-sync skill, with allowed-tools Bash only, runs drift_sync.js via Bash. Stage four: drift_sync.js, a dependency-free Node script, reads the pending reconcile file and shells into the drift-reconcile bin via spawnSync. Stage five: the drift-reconcile bin imports at-code-charter-core, opens the store, builds the headless call graph, and calls reconcile with the file set and deps, injecting no executors. Below, the reconcile function receives undefined for both stitch_entrypoints and describe, falling back to null_stitch_executor and null_describe_executor respectively. The stitch seam confirms nothing; the describe seam returns docstrings and name placeholders. In v1 the entire pipeline is fully deterministic.">
+    <svg viewBox="0 0 1320 372" role="img"
+      aria-label="The runtime chain from left to right, then down into the three bin modes the skill drives the agent over. Stage one: the Stop hook, a Claude Code event, fires and writes a pending_reconcile.json file beside the store. Stage two: the drift-reconciler sub-agent, running as the Claude model with tools Skill, Bash, Read and Grep, invokes the drift-sync skill and follows its two-phase orchestration, returning only a one-line acknowledgement to the main session. Stage three: the drift-sync skill, with allowed-tools Bash, Read and Grep, drives drift_sync.js. Stage four: drift_sync.js, a dependency-free Node script, reads the pending reconcile file and shells into the drift-reconcile bin via spawnSync, passing the mode through. Stage five: the drift-reconcile bin imports at-code-charter-core, opens the store, builds the headless call graph, and runs one of three modes. Below the chain, the three modes the skill orchestrates the agent across. Mode one, list-entrypoints: runs the full deterministic reconcile — resync, retire, skill-dir, and one singleton flow per new entrypoint via detect_code_umbrellas — then emits the changed neighbourhood's entrypoint inventory on stdout, each entrypoint flagged orphan or not and carrying its unresolved call sites. Mode two, apply-stitch: consumes the agent's stitch.json, hydrates each judged umbrella as a multi-seed CodeUmbrella with agentic.bridge edges at confidence 0.5, retires the absorbed singleton flows, and returns the established flow shape. Mode three, apply-descriptions: persists the agent's one-sentence member descriptions through the scoped write path with a content-hash cache skip. The agent's two judgement phases are phase one, stitch by exploring with Read and Grep, and phase two, describe each member.">
       <defs>
         <marker id="rt-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="rt-olive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
       </defs>
       <g font-family="ui-sans-serif,system-ui">
         <!-- BOX 1: Stop hook -->
-        <rect x="20" y="20" width="155" height="110" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
-        <text x="97" y="44" text-anchor="middle" font-size="12.5" font-weight="700">Stop hook</text>
-        <text x="97" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">Claude Code event</text>
-        <text x="97" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">writes</text>
-        <text x="97" y="98" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">pending_reconcile.json</text>
-        <text x="97" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">drift_stop_hook.js</text>
+        <rect x="20" y="20" width="150" height="110" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="95" y="44" text-anchor="middle" font-size="12.5" font-weight="700">Stop hook</text>
+        <text x="95" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">Claude Code event</text>
+        <text x="95" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">writes</text>
+        <text x="95" y="98" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">pending_reconcile.json</text>
+        <text x="95" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">drift_stop_hook.js</text>
         <!-- BOX 2: drift-reconciler (Claude) — highlighted -->
-        <rect x="193" y="20" width="278" height="110" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="2.2"/>
+        <rect x="188" y="20" width="288" height="110" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="2.2"/>
         <text x="332" y="44" text-anchor="middle" font-size="13.5" font-weight="700" fill="#20242b">drift-reconciler</text>
-        <text x="332" y="61" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">Claude model · tools: Skill, Bash</text>
+        <text x="332" y="61" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">Claude · tools: Skill, Bash, Read, Grep</text>
         <text x="332" y="80" text-anchor="middle" font-size="11" fill="#2c3038">invokes drift-sync skill</text>
-        <text x="332" y="96" text-anchor="middle" font-size="11" fill="#2c3038">returns 1-line ack to main session</text>
-        <text x="332" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">never writes store · never inspects diagrams</text>
+        <text x="332" y="96" text-anchor="middle" font-size="11" fill="#2c3038">two judgement phases · 1-line ack</text>
+        <text x="332" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">never writes store directly</text>
         <!-- BOX 3: drift-sync skill -->
-        <rect x="489" y="20" width="193" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="585" y="44" text-anchor="middle" font-size="12.5" font-weight="700">drift-sync skill</text>
-        <text x="585" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">allowed-tools: Bash</text>
-        <text x="585" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">runs drift_sync.js</text>
-        <text x="585" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">via Bash</text>
-        <text x="585" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">SKILL.md</text>
+        <rect x="494" y="20" width="196" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="592" y="44" text-anchor="middle" font-size="12.5" font-weight="700">drift-sync skill</text>
+        <text x="592" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">allowed-tools: Bash, Read, Grep</text>
+        <text x="592" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">orchestrates the two phases</text>
+        <text x="592" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">runs drift_sync.js per mode</text>
+        <text x="592" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">SKILL.md</text>
         <!-- BOX 4: drift_sync.js -->
-        <rect x="700" y="20" width="178" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="789" y="44" text-anchor="middle" font-size="12.5" font-weight="700">drift_sync.js</text>
-        <text x="789" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">dependency-free Node</text>
-        <text x="789" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">reads pending file</text>
-        <text x="789" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">shells into bin</text>
-        <text x="789" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">spawnSync(node, bin)</text>
+        <rect x="708" y="20" width="178" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="797" y="44" text-anchor="middle" font-size="12.5" font-weight="700">drift_sync.js</text>
+        <text x="797" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">dependency-free Node</text>
+        <text x="797" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">mode passthrough</text>
+        <text x="797" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">shells into bin</text>
+        <text x="797" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">spawnSync(node, bin)</text>
         <!-- BOX 5: drift-reconcile bin -->
-        <rect x="896" y="20" width="214" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="1003" y="44" text-anchor="middle" font-size="12" font-weight="700">drift-reconcile bin</text>
-        <text x="1003" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">Node · @code-charter/core</text>
-        <text x="1003" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">opens store · builds call graph</text>
-        <text x="1003" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">calls reconcile(files, deps)</text>
-        <text x="1003" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">no executors injected</text>
+        <rect x="904" y="20" width="206" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="1007" y="44" text-anchor="middle" font-size="12" font-weight="700">drift-reconcile bin</text>
+        <text x="1007" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">Node · @code-charter/core</text>
+        <text x="1007" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">opens store · builds graph</text>
+        <text x="1007" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">dispatches by mode flag</text>
+        <text x="1007" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">at most one mode</text>
         <!-- ARROWS between top boxes at y=75 -->
-        <line x1="175" y1="75" x2="191" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
-        <line x1="471" y1="75" x2="487" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
-        <line x1="682" y1="75" x2="698" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
-        <line x1="878" y1="75" x2="894" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
-        <!-- Arrow from bin down to reconcile() box -->
-        <path d="M1003 130 L1003 151" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
-        <text x="1015" y="145" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">calls</text>
-        <!-- RECONCILE() box -->
-        <rect x="20" y="153" width="1280" height="152" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
-        <text x="44" y="176" font-size="13.5" font-weight="700" fill="#20242b">reconcile(files, deps)</text>
-        <text x="44" y="192" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">drift/reconcile/reconcile.ts · ReconcileDeps: both seams are optional — left undefined in the bin → null defaults</text>
-        <!-- Seam row 1: stitch -->
-        <rect x="44" y="200" width="580" height="42" rx="7" fill="#fbfaf5" stroke="#6c6759" stroke-width="1"/>
-        <text x="60" y="217" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">stitch_entrypoints:</text>
-        <text x="215" y="217" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">undefined  →  null_stitch_executor</text>
-        <text x="60" y="233" font-size="10.5" fill="#2c3038">boundary grouping — confirms nothing; one flow per entrypoint in v1</text>
-        <!-- Seam row 2: describe -->
-        <rect x="44" y="248" width="580" height="42" rx="7" fill="#fbfaf5" stroke="#6c6759" stroke-width="1"/>
-        <text x="60" y="265" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">describe:</text>
-        <text x="153" y="265" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">undefined  →  null_describe_executor</text>
-        <text x="60" y="281" font-size="10.5" fill="#2c3038">member descriptions — docstring first, then name placeholder in v1</text>
-        <!-- v1 summary on right -->
-        <rect x="660" y="200" width="620" height="90" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
-        <text x="680" y="224" font-size="14" font-weight="700" fill="#20242b">v1 · fully deterministic</text>
-        <text x="680" y="246" font-size="11" fill="#2c3038">The bin injects neither executor. Both are <tspan font-family="ui-monospace,monospace" font-size="10">undefined</tspan> in</text>
-        <text x="680" y="262" font-size="11" fill="#2c3038"><tspan font-family="ui-monospace,monospace" font-size="10">ReconcileDeps</tspan> and default to their null no-ops.</text>
-        <text x="680" y="278" font-size="11" fill="#2c3038">No model token is spent on flow content.</text>
+        <line x1="170" y1="75" x2="186" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <line x1="476" y1="75" x2="492" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <line x1="690" y1="75" x2="706" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <line x1="886" y1="75" x2="902" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <!-- Arrow from bin down to modes box -->
+        <path d="M1007 130 L1007 151" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <text x="1019" y="145" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">runs</text>
+        <!-- MODES box -->
+        <rect x="20" y="153" width="1280" height="204" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="44" y="176" font-size="13.5" font-weight="700" fill="#20242b">three drift-reconcile modes — the skill orchestrates the agent across all three</text>
+        <text x="44" y="192" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">drift/reconcile/agentic_modes.ts · drift/bin/drift_reconcile.ts · the judgement is the agent's, every write is a dumb read or scoped write</text>
+        <!-- Mode 1: list-entrypoints -->
+        <rect x="44" y="204" width="396" height="138" rx="8" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="62" y="226" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700" fill="#20242b">--list-entrypoints</text>
+        <text x="62" y="244" font-size="10.5" fill="#2c3038">runs the FULL deterministic reconcile:</text>
+        <text x="62" y="260" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">resync · retire · skill-dir · detect_code_umbrellas</text>
+        <text x="62" y="274" font-size="10" fill="#2c3038">one singleton flow per new entrypoint (hydrate-then-merge)</text>
+        <text x="62" y="294" font-size="10.5" fill="#2c3038">then emits the entrypoint inventory on stdout →</text>
+        <text x="62" y="310" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">{ entrypoints: [{ symbol_path, name, file, line,</text>
+        <text x="62" y="322" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">  is_orphan, unresolved_sites: [...] }] }</text>
+        <text x="62" y="337" font-size="9.5" fill="#5b6233">empty inventory → both judgement phases short-circuit</text>
+        <!-- Mode 2: apply-stitch -->
+        <rect x="452" y="204" width="396" height="138" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="470" y="226" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700" fill="#20242b">--apply-stitch stitch.json</text>
+        <text x="470" y="244" font-size="10.5" fill="#2c3038">consumes the agent's PHASE 1 judgement:</text>
+        <text x="470" y="260" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">{ umbrellas: [{ label, seeds, bridges, rationale }] }</text>
+        <text x="470" y="278" font-size="10" fill="#2c3038">hydrates each as a multi-seed CodeUmbrella</text>
+        <text x="470" y="293" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">id = alphabetically-first seed (deterministic, never agent-chosen)</text>
+        <text x="470" y="307" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">agentic.bridge @ 0.5 · extractor_id "agentic.stitch"</text>
+        <text x="470" y="321" font-size="10" fill="#2c3038">retires absorbed singleton flows → returns flow shape</text>
+        <text x="470" y="337" font-size="9.5" fill="#5b6233">garbage skipped + diagnosed · malformed payload exits 2</text>
+        <!-- Mode 3: apply-descriptions -->
+        <rect x="860" y="204" width="420" height="138" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="878" y="226" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#20242b">--apply-descriptions descriptions.json</text>
+        <text x="878" y="244" font-size="10.5" fill="#2c3038">persists the agent's PHASE 2 judgement:</text>
+        <text x="878" y="260" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">{ descriptions: [{ symbol_path, text }] }</text>
+        <text x="878" y="278" font-size="10" fill="#2c3038">one short-but-descriptive sentence per member</text>
+        <text x="878" y="294" font-size="10" fill="#2c3038">through the scoped substrate write path</text>
+        <text x="878" y="311" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">content-hash cache skip · upgrades placeholders/docstrings</text>
+        <text x="878" y="328" font-size="9.5" fill="#92522f">a member already agent-described at its hash is skipped</text>
       </g>
     </svg>
   </div>
-  <p class="cap">The drift-reconciler is Claude but is constrained to context isolation only — it orchestrates the skill and nothing more. The two seams are TypeScript functions injected into <code>ReconcileDeps</code>; the bin is a separate <code>spawnSync</code> child and cannot receive function types across the process boundary. <b>assets/agents/drift-reconciler.md · bin/drift_reconcile.ts</b></p>
+  <p class="cap">The judgement lives in the agent; every bin mode is a dumb read or a scoped write. The agent never writes the store directly — every mutation goes through the skill's bundled script. <b>assets/agents/drift-reconciler.md · drift/reconcile/agentic_modes.ts · bin/drift_reconcile.ts</b></p>
 
   <!-- ============================ 1 · THESIS: TWO TIERS ============================ -->
   <h2 id="thesis">Two tiers of one flow</h2>
-  <p class="thesis">The deterministic skeleton is recomputed each session from the call graph and costs nothing to regenerate; the agentic hydration is an expensive, non-deterministic upgrade persisted once and preserved thereafter. The line between them is the cost-of-regeneration seam.</p>
+  <p class="thesis">The deterministic skeleton is recomputed each session from the call graph and costs nothing to regenerate; the agentic hydration is a persisted upgrade written once and preserved thereafter. The line between them is the cost-of-regeneration seam.</p>
 
   <div class="fig">
     <svg viewBox="0 0 1280 340" role="img"
-      aria-label="Two construction tiers stacked over the call graph. The bottom band is the call graph, raw and disposable: functions, files and resolved call edges, rebuilt on every re-parse. The middle band is the deterministic skeleton: build_skeleton_flows turns the call graph into one flow per top-level entrypoint plus the unattributed bucket, recomputed each session, free to regenerate, always available even on a cold repo with no store. The top band is the agentic hydration: a persisted agentic.flow node carrying a label, description and bridges, built lazily per worked-on flow, expensive and non-deterministic, preserved across re-parses. A clay seam line separates the free deterministic tier below from the preserved expensive tier above.">
+      aria-label="Two construction tiers stacked over the call graph. The bottom band is the call graph, raw and disposable: functions, files and resolved call edges, rebuilt on every re-parse. The middle band is the deterministic skeleton: build_skeleton_flows turns the call graph into one flow per top-level entrypoint plus the unattributed bucket, recomputed each session, free to regenerate, always available even on a cold repo with no store. The top band is the agentic hydration: a persisted agentic.flow node carrying a label, descriptions and bridges, built lazily per worked-on flow and preserved across re-parses. A clay seam line separates the free deterministic tier below from the preserved tier above.">
       <defs>
         <marker id="t-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="t-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -230,7 +244,7 @@
         <!-- top: agentic hydration -->
         <rect x="40" y="22" width="1000" height="78" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
         <text x="60" y="48" font-size="14" font-weight="700" fill="#20242b">TIER 2 · agentic hydration</text>
-        <text x="60" y="68" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">persisted agentic.flow · built lazily, per worked-on flow · expensive · non-deterministic · PRESERVED</text>
+        <text x="60" y="68" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">persisted agentic.flow · built lazily, per worked-on flow · PRESERVED across re-parses</text>
         <g font-family="ui-monospace,monospace" font-size="10.5" fill="#20242b" text-anchor="middle">
           <rect x="640" y="58" width="78" height="26" rx="6" fill="#fbfaf5" stroke="#6c7a3b"/><text x="679" y="75">label</text>
           <rect x="728" y="58" width="118" height="26" rx="6" fill="#fbfaf5" stroke="#6c7a3b"/><text x="787" y="75">descriptions</text>
@@ -354,7 +368,7 @@
     <div class="r"><span class="n">1</span><div><b>Seeds.</b> <code>build_skeleton_flows</code> sorts <code>graph.entry_points</code> by id and walks them in that order, so output is byte-stable across runs. One <code>SkeletonFlow</code> per entrypoint. <code>build_skeleton_flows</code></div></div>
     <div class="r"><span class="n">2</span><div><b>Reachable.</b> <code>reachable_from(seed, graph)</code> forward-traverses resolved call edges, visiting children in sorted id order; cycles guard, external/unresolved targets skip. The reachable set is the flow's <code>member_count</code>. <code>reachable_from</code></div></div>
     <div class="r"><span class="n">3</span><div><b>Identity.</b> <code>flow_id_of(node)</code> = the entrypoint's enclosing-free <code>symbol_path</code> (entrypoints are top-level, so the enclosing scope is <code>[]</code>). The label is the entrypoint's <code>name</code>. <code>flow_id_of</code></div></div>
-    <div class="r"><span class="n">4</span><div><b>Rank + dedup.</b> Sort by <code>member_count</code> descending, id ascending to break ties; de-duplicate by id keeping the first (largest) — two same-named methods on different classes collapse to one v1 <code>symbol_path</code>.</div></div>
+    <div class="r"><span class="n">4</span><div><b>Rank + dedup.</b> Sort by <code>member_count</code> descending, id ascending to break ties; de-duplicate by id keeping the first (largest) — two same-named methods on different classes collapse to one <code>symbol_path</code>.</div></div>
     <div class="r"><span class="n">5</span><div><b>Unattributed.</b> Every node in no entrypoint's reachable set is gathered, sorted, into the single <code>UNATTRIBUTED_FLOW_ID</code> bucket, appended last — the catch-all for dead/unreachable code. <code>UNATTRIBUTED_FLOW_LABEL</code></div></div>
   </div>
   <p class="cap">Membership is never a stored leaf set — <code>induce_members</code> re-derives it on demand, so a leaf reachable from two entrypoints legitimately belongs to both flows. <b>core/model/flow.ts</b></p>
@@ -363,13 +377,13 @@
     A flow id is the dominant seed's <code>symbol_path</code> only — the <code>content_hash</code> is deliberately excluded. Editing an entrypoint's body never re-keys its flow; a rename moves the name segment, re-anchored by the resolver when the flow is persisted.
   </div>
 
-  <!-- ============================ 3 · AGENTIC HYDRATION ============================ -->
-  <h2 id="hydration">Agentic hydration &amp; induction</h2>
-  <p class="thesis">Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code> along a five-stage deterministic engine spine. A model can speak in exactly <b>two seams</b>: the <b>describe seam</b> supplies member descriptions (stage 4) and the <b>stitch seam</b> supplies boundary decisions (stage 1) — merging orphan entrypoints that syntactic analysis leaves split. Both default to headless null executors; in v1 the entire pipeline is deterministic (see <a href="#runtime">the runtime chain</a>).</p>
+  <!-- ============================ 3 · HYDRATION ============================ -->
+  <h2 id="hydration">Hydration &amp; induction</h2>
+  <p class="thesis">Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code> along a five-stage <b>deterministic</b> engine spine. Every stage runs headless: grouping is <code>detect_code_umbrellas</code> (one flow per entrypoint touching a changed file), bridges are deterministic heuristics, and descriptions follow the docstring-or-placeholder ladder. The drift-reconciler's judgement enters <em>after</em> this pass: the <a href="#stitching">stitch post-pass</a> (<code>--apply-stitch</code>) merges fragmented entrypoints into multi-seed umbrellas, and <code>--apply-descriptions</code> upgrades the placeholders.</p>
 
   <div class="fig">
-    <svg viewBox="0 0 1320 470" role="img"
-      aria-label="The hydration pipeline as a deterministic engine spine with two optional model seams. The spine runs left to right across the middle. Stage one, umbrella detection: detect_and_stitch_code_umbrellas runs on every HYDRATE turn — there is no conditional branch. Orphan entrypoints flow through the stitch seam: build_candidate_stitches proposes pairs, the executor — deps.stitch_entrypoints with null_stitch_executor as the default — judges them, and confirmed stitches merge into multi-seed CodeUmbrellas; unconfirmed orphans stay singleton flows; non-orphan skeleton flows take detect_code_umbrellas, one flow per entrypoint, kept when its induced members touch a changed file. Stage two, induce_members: re-derive the member node set from the umbrella's seeds by forward reachability, plus deterministic bridge endpoints. Stage three, build_bridge_edges and detect_meta_json_sub_agent_bridges: deterministic heuristics infer cross-call-graph and sub-agent links as agentic.bridge edges at confidence 0.5, rendered dashed; stitch bridges join the same plumbing. Stage four, plan_descriptions, the deterministic-first ladder: cache, then docstring, then optional LLM up to 200, then a name placeholder. Stage five, write_agentic_substrate plus write_flow: persist the agentic.flow node and its substrate via scoped write_fields on the agentic layer, stamping last_synced_at, never a store-global rebuild_layer. Above the spine, the describe seam feeds only stage four: a model MAY supply short member descriptions; the default is headless. Below the spine, the stitch seam feeds stage one: build_candidate_stitches pairs orphan entrypoints in the changed neighbourhood as source-target candidates, capped at fifty; the executor returns ConfirmedStitch records, each carrying merged seeds, a justifying bridge and an inference rationale; union-find merges confirmed groups into multi-seed umbrellas. Both seams are optional; the default null_stitch_executor confirms nothing, leaving the pipeline byte-identical to the fully deterministic path.">
+    <svg viewBox="0 0 1320 410" role="img"
+      aria-label="The hydration pipeline as a deterministic engine spine of five stages running left to right. Stage one, detect_code_umbrellas: every non-unattributed skeleton flow whose induced members touch a changed code file becomes a code umbrella — one flow per entrypoint, deterministic, no judgement. A functionality Ariadne fragmented across unresolved call sites hydrates here as several singleton flows. Stage two, induce_members: re-derive the member node set from the umbrella's seeds by forward reachability, plus any deterministic bridge endpoints; there is no stored leaf set. Stage three, build_bridge_edges and detect_meta_json_sub_agent_bridges: deterministic heuristics infer cross-call-graph and sub-agent links as agentic.bridge edges at confidence 0.5, rendered dashed; a pure code flow writes no bridges. Stage four, resolve_descriptions: the deterministic ladder of cache, then docstring, then name placeholder — no model in the loop. Stage five, write_agentic_substrate plus write_flow: persist the agentic.flow node and its substrate via scoped write_fields on the agentic layer, stamping last_synced_at, never a store-global rebuild_layer. Below the spine, an arrow shows the drift-reconciler's later judgement passes feeding back in: apply-stitch re-groups stage one's singletons into multi-seed umbrellas and apply-descriptions upgrades stage four's placeholders.">
       <defs>
         <marker id="hy-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="hy-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -379,109 +393,97 @@
 
         <!-- ============ LANE LABELS (left rail) ============ -->
         <g font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759" text-anchor="start">
-          <text x="14" y="92">DESCRIBE SEAM</text><text x="14" y="104" fill="#6c7a3b">optional · text</text>
-          <text x="14" y="232">ENGINE SPINE</text><text x="14" y="244" fill="#6c7a3b">deterministic · headless</text>
-          <text x="14" y="404">STITCH SEAM</text><text x="14" y="416" fill="#6c7a3b">always crossed · null default</text>
+          <text x="14" y="150">ENGINE SPINE</text><text x="14" y="162" fill="#6c7a3b">deterministic · headless</text>
+          <text x="14" y="330">AGENT JUDGEMENT</text><text x="14" y="342" fill="#6c7a3b">later post-passes</text>
         </g>
-
-        <!-- ============ DESCRIBE SEAM (top, side input) ============ -->
-        <rect x="470" y="64" width="380" height="78" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
-        <text x="660" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#20242b">describe seam — model MAY supply text</text>
-        <text x="660" y="110" text-anchor="middle" font-size="10.5" fill="#2c3038">short member <tspan font-weight="700">descriptions</tspan> only · default is headless</text>
-        <text x="660" y="128" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">SKILL.md: "you MAY supply descriptions … v1 never requires it"</text>
-        <!-- the describe seam feeds ONLY stage 4 -->
-        <path d="M660 142 L660 196" fill="none" stroke="#6c7a3b" stroke-width="1.6" marker-end="url(#hy-olive)"/>
-        <text x="672" y="172" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233" text-anchor="start">feeds ONLY descriptions →</text>
 
         <!-- ============ ENGINE SPINE (middle, 5 stages) ============ -->
         <!-- spine baseline -->
-        <line x1="40" y1="262" x2="1280" y2="262" stroke="#6c6759" stroke-width="1" stroke-dasharray="3 4"/>
+        <line x1="40" y1="186" x2="1280" y2="186" stroke="#6c6759" stroke-width="1" stroke-dasharray="3 4"/>
 
         <!-- stage 1 -->
-        <circle cx="58" cy="186" r="11" fill="#2c3038"/><text x="58" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
-        <rect x="40" y="200" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="156" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700">detect_and_stitch_</text>
-        <text x="156" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700">code_umbrellas</text>
-        <text x="156" y="257" text-anchor="middle" font-size="10.5" fill="#2c3038">every HYDRATE turn — no branch</text>
-        <text x="156" y="276" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c7a3b">orphans → stitch seam (1b)</text>
-        <text x="156" y="292" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">non-orphans → detect_code_umbrellas</text>
-        <text x="156" y="309" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">kept if members touch a changed file</text>
+        <circle cx="58" cy="110" r="11" fill="#2c3038"/><text x="58" y="114" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
+        <rect x="40" y="124" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="156" y="148" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700">detect_code_umbrellas</text>
+        <text x="156" y="170" text-anchor="middle" font-size="10.5" fill="#2c3038">one flow per entrypoint</text>
+        <text x="156" y="185" text-anchor="middle" font-size="10.5" fill="#2c3038">touching a changed file</text>
+        <text x="156" y="206" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">deterministic · no judgement</text>
+        <text x="156" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">fragments → several singletons (repaired later)</text>
+        <text x="156" y="238" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">first MAX_FULL_CODE_HYDRATIONS full · rest stubs</text>
 
         <!-- stage 2 -->
-        <circle cx="318" cy="186" r="11" fill="#2c3038"/><text x="318" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
-        <rect x="300" y="200" width="200" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="400" y="224" text-anchor="middle" font-size="12.5" font-weight="700">induce_members</text>
-        <text x="400" y="246" text-anchor="middle" font-size="10.5" fill="#2c3038">re-derive members from</text>
-        <text x="400" y="261" text-anchor="middle" font-size="10.5" fill="#2c3038">seeds by reachability</text>
-        <text x="400" y="284" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">+ bridge endpoints</text>
-        <text x="400" y="300" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">no stored leaf set</text>
-        <line x1="272" y1="262" x2="298" y2="262" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
+        <circle cx="318" cy="110" r="11" fill="#2c3038"/><text x="318" y="114" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <rect x="300" y="124" width="200" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="400" y="148" text-anchor="middle" font-size="12.5" font-weight="700">induce_members</text>
+        <text x="400" y="170" text-anchor="middle" font-size="10.5" fill="#2c3038">re-derive members from</text>
+        <text x="400" y="185" text-anchor="middle" font-size="10.5" fill="#2c3038">seeds by reachability</text>
+        <text x="400" y="208" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">+ bridge endpoints</text>
+        <text x="400" y="224" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">no stored leaf set</text>
+        <line x1="272" y1="186" x2="298" y2="186" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
 
         <!-- stage 3 -->
-        <circle cx="546" cy="186" r="11" fill="#2c3038"/><text x="546" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
-        <rect x="528" y="200" width="232" height="124" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
-        <text x="644" y="224" text-anchor="middle" font-size="12" font-weight="700">build_bridge_edges</text>
-        <text x="644" y="241" text-anchor="middle" font-size="10.5" fill="#2c3038">deterministic heuristics infer</text>
-        <text x="644" y="256" text-anchor="middle" font-size="10.5" fill="#2c3038">cross-graph + sub-agent links</text>
-        <text x="644" y="279" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5 · dashed</text>
-        <text x="644" y="295" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">detect_meta_json_sub_agent_bridges</text>
-        <text x="644" y="311" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">stitch bridges join the same plumbing</text>
-        <line x1="500" y1="262" x2="526" y2="262" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
+        <circle cx="546" cy="110" r="11" fill="#2c3038"/><text x="546" y="114" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
+        <rect x="528" y="124" width="232" height="124" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="644" y="148" text-anchor="middle" font-size="12" font-weight="700">build_bridge_edges</text>
+        <text x="644" y="165" text-anchor="middle" font-size="10.5" fill="#2c3038">deterministic heuristics infer</text>
+        <text x="644" y="180" text-anchor="middle" font-size="10.5" fill="#2c3038">cross-graph + sub-agent links</text>
+        <text x="644" y="203" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5 · dashed</text>
+        <text x="644" y="219" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">detect_meta_json_sub_agent_bridges</text>
+        <text x="644" y="235" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">pure code flow writes bridges: []</text>
+        <line x1="500" y1="186" x2="526" y2="186" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
 
         <!-- stage 4 -->
-        <circle cx="806" cy="186" r="11" fill="#2c3038"/><text x="806" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
-        <rect x="788" y="200" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="904" y="224" text-anchor="middle" font-size="12.5" font-weight="700">plan_descriptions</text>
-        <text x="904" y="244" text-anchor="middle" font-size="10.5" fill="#2c3038">deterministic-first ladder</text>
-        <text x="904" y="268" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">cache → docstring →</text>
-        <text x="904" y="282" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">LLM ≤200 → placeholder</text>
-        <text x="904" y="305" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">↑ only stage the describe seam touches</text>
-        <line x1="760" y1="262" x2="786" y2="262" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
+        <circle cx="806" cy="110" r="11" fill="#2c3038"/><text x="806" y="114" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
+        <rect x="788" y="124" width="232" height="124" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="904" y="148" text-anchor="middle" font-size="12.5" font-weight="700">resolve_descriptions</text>
+        <text x="904" y="168" text-anchor="middle" font-size="10.5" fill="#2c3038">deterministic ladder</text>
+        <text x="904" y="192" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">cache → docstring →</text>
+        <text x="904" y="206" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">name placeholder</text>
+        <text x="904" y="229" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">no model in the loop · agent upgrades later</text>
+        <line x1="760" y1="186" x2="786" y2="186" stroke="#6c6759" stroke-width="1.6" marker-end="url(#hy-g)"/>
 
         <!-- stage 5 -->
-        <circle cx="1066" cy="186" r="11" fill="#2c3038"/><text x="1066" y="190" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">5</text>
-        <rect x="1048" y="200" width="232" height="124" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
-        <text x="1164" y="224" text-anchor="middle" font-size="11.5" font-weight="700">write_agentic_substrate</text>
-        <text x="1164" y="240" text-anchor="middle" font-size="11.5" font-weight="700">+ write_flow</text>
-        <text x="1164" y="262" text-anchor="middle" font-size="10" fill="#2c3038">persist agentic.flow node</text>
-        <text x="1164" y="284" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">scoped write_fields('agentic')</text>
-        <text x="1164" y="299" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">stamp last_synced_at</text>
-        <text x="1164" y="314" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">NEVER rebuild_layer</text>
-        <line x1="1020" y1="262" x2="1046" y2="262" stroke="#b5683e" stroke-width="1.6" marker-end="url(#hy-clay)"/>
+        <circle cx="1066" cy="110" r="11" fill="#2c3038"/><text x="1066" y="114" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">5</text>
+        <rect x="1048" y="124" width="232" height="124" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="1164" y="148" text-anchor="middle" font-size="11.5" font-weight="700">write_agentic_substrate</text>
+        <text x="1164" y="164" text-anchor="middle" font-size="11.5" font-weight="700">+ write_flow</text>
+        <text x="1164" y="186" text-anchor="middle" font-size="10" fill="#2c3038">persist agentic.flow node</text>
+        <text x="1164" y="208" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">scoped write_fields('agentic')</text>
+        <text x="1164" y="223" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">stamp last_synced_at</text>
+        <text x="1164" y="238" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">NEVER rebuild_layer</text>
+        <line x1="1020" y1="186" x2="1046" y2="186" stroke="#b5683e" stroke-width="1.6" marker-end="url(#hy-clay)"/>
 
-        <!-- ============ STITCH SEAM (bottom, side input feeding stage 1) ============ -->
-        <circle cx="488" cy="332" r="11" fill="#2c3038"/><text x="488" y="336" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#fbfaf5">1b</text>
-        <rect x="470" y="346" width="380" height="86" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
-        <text x="660" y="372" text-anchor="middle" font-size="13" font-weight="700" fill="#20242b">stitch seam — model MAY merge entrypoints</text>
-        <text x="660" y="391" text-anchor="middle" font-size="10.5" fill="#2c3038">build_candidate_stitches → executor → <tspan font-weight="700">ConfirmedStitch[]</tspan></text>
-        <text x="660" y="409" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">orphan (source, target) pairs · changed neighbourhood · cap = 50</text>
-        <text x="660" y="424" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">executor = deps.stitch_entrypoints ?? null_stitch_executor — confirms nothing</text>
-        <!-- the stitch seam feeds ONLY stage 1's boundaries -->
-        <path d="M470 389 L156 389 L156 328" fill="none" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#hy-olive)"/>
-        <text x="180" y="382" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233" text-anchor="start">ConfirmedStitch[] → union-find → multi-seed</text>
+        <!-- ============ AGENT JUDGEMENT (bottom, later post-passes) ============ -->
+        <rect x="40" y="300" width="420" height="82" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="250" y="326" text-anchor="middle" font-size="12.5" font-weight="700" fill="#20242b">--apply-stitch — re-group stage 1's singletons</text>
+        <text x="250" y="345" text-anchor="middle" font-size="10.5" fill="#2c3038">agent-judged umbrellas → multi-seed flows</text>
+        <text x="250" y="362" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">hydrate_code_flow again · retire absorbed singletons</text>
+        <text x="250" y="376" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">see Entrypoint stitching →</text>
 
+        <rect x="788" y="300" width="492" height="82" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="1034" y="326" text-anchor="middle" font-size="12.5" font-weight="700" fill="#20242b">--apply-descriptions — upgrade stage 4's placeholders</text>
+        <text x="1034" y="345" text-anchor="middle" font-size="10.5" fill="#2c3038">one short sentence per member, persisted through the scoped writer</text>
+        <text x="1034" y="362" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">content-hash cache skip · placeholders/docstrings upgraded</text>
+
+        <!-- feedback arrows from judgement up to the stages they refine -->
+        <path d="M156 300 L156 250" fill="none" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#hy-olive)"/>
+        <path d="M904 300 L904 250" fill="none" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#hy-olive)"/>
       </g>
     </svg>
   </div>
   <div class="legend">
-    <span class="sw"><i class="engine"></i> deterministic · default path</span>
-    <span class="sw"><i class="agentic"></i> describe seam (optional · model supplies text)</span>
-    <span class="sw"><i class="agentic"></i> stitch seam (always crossed · executor fills ConfirmedStitch[])</span>
+    <span class="sw"><i class="engine"></i> deterministic engine spine (headless)</span>
+    <span class="sw"><i class="agentic"></i> drift-reconciler judgement (later post-passes)</span>
     <span class="sw"><i class="hook"></i> agentic-lane store write</span>
   </div>
   <div class="refs">
-    <div class="r"><span class="n">1</span><div><b>Grouping — always stitch-aware.</b> HYDRATE routes every turn through <code>detect_and_stitch_code_umbrellas</code> — there is no conditional branch. Orphan entrypoints enter the stitch seam (1b): confirmed groups become multi-seed umbrellas, unconfirmed/overflow orphans stay singletons. Non-orphan skeleton flows take <code>detect_code_umbrellas</code> — one flow per entrypoint, kept if its induced members touch a changed file. <code>drift/reconcile/reconcile.ts</code></div></div>
-    <div class="r"><span class="n">1b</span><div><b>Stitch seam.</b> <code>build_candidate_stitches</code> runs <code>detect_gaps</code>, keeps orphan entrypoints in the changed neighbourhood, and pairs each orphan whose reachable tree holds ≥1 unresolved shape with every other neighbourhood orphan as (source, target) candidates, capped at <code>MAX_STITCH_CANDIDATES = 50</code>. The executor — <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — returns <code>ConfirmedStitch[]</code>, union-found into multi-seed <code>CodeUmbrella</code>s whose id is the alphabetically-first seed's <code>symbol_path</code>; <code>bridges</code> and <code>rationale</code> flow through <code>hydrate_code_flow</code> unchanged. Full anatomy: <a href="#stitching">Entrypoint stitching</a>. <code>core/agentic/stitch.ts</code></div></div>
+    <div class="r"><span class="n">1</span><div><b>Grouping — deterministic.</b> <code>detect_code_umbrellas</code> walks <code>build_skeleton_flows</code> and keeps every non-unattributed flow whose induced members touch a changed code file — one flow per entrypoint, no judgement. The first <code>MAX_FULL_CODE_HYDRATIONS</code> get full (describe-bearing) hydration; the overflow lands as cheap singleton stubs, logged. <code>drift/reconcile/reconcile.ts</code></div></div>
     <div class="r"><span class="n">2</span><div><b>Induce.</b> <code>induce_members</code> re-derives the member set by forward reachability from the umbrella's seeds, plus any deterministic bridge endpoints — never a stored leaf set. <code>core/model/flow.ts</code></div></div>
-    <div class="r"><span class="n">3</span><div><b>Bridges = heuristics.</b> <code>build_bridge_edges</code> and <code>detect_meta_json_sub_agent_bridges</code> infer cross-graph and skill sub-agent links as <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> (dashed render); stitch bridges join the same plumbing. A pure code flow writes <code>bridges: []</code>. <code>core/agentic/bridge.ts · registry_detector.ts</code></div></div>
-    <div class="r"><span class="n">4</span><div><b>Descriptions — the describe seam.</b> <code>plan_descriptions</code> is deterministic-first: cache → docstring → optional batched LLM ≤ <code>DEFAULT_DESCRIBE_CAP = 200</code> → name placeholder. A flow hydrates headlessly with no model call; this seam supplies text only. <code>core/agentic/describe_policy.ts</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Bridges = heuristics.</b> <code>build_bridge_edges</code> and <code>detect_meta_json_sub_agent_bridges</code> infer cross-graph and skill sub-agent links as <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> (dashed render). A pure code flow writes <code>bridges: []</code>. <code>core/agentic/bridge.ts · registry_detector.ts</code></div></div>
+    <div class="r"><span class="n">4</span><div><b>Descriptions — deterministic.</b> <code>resolve_descriptions</code> runs <code>plan_descriptions</code> and combines its buckets: docstrings verbatim, the symbol name as a placeholder for the rest. No model call; the flow hydrates complete. The agent's <code>--apply-descriptions</code> later overwrites the placeholders. <code>drift/reconcile/describe.ts · core/agentic/describe_policy.ts</code></div></div>
     <div class="r"><span class="n">5</span><div><b>Persist.</b> <code>write_agentic_substrate</code> + <code>write_flow</code> write the <code>agentic.flow</code> node and substrate row-by-row through scoped <code>write_fields('agentic')</code>, stamping <code>last_synced_at</code>, never <code>rebuild_layer</code>. <code>drift/reconcile/hydrate.ts · flow_store.ts</code></div></div>
   </div>
-  <p class="cap">Both seams are null no-ops in v1 — see <a href="#runtime">the runtime chain</a>. <b>core/agentic/stitch.ts · drift/reconcile/reconcile.ts</b></p>
-  <div class="callout">
-    <span class="k">The stitch seam is always crossed — the default confirms nothing</span>
-    HYDRATE has no conditional branch: <code>detect_and_stitch_code_umbrellas</code> runs every turn and resolves the executor as <code>deps.stitch_entrypoints ?? null_stitch_executor</code>. In v1 the bin injects no live executor, so the null default runs — confirming nothing and keeping grouping byte-identical to one-entrypoint-per-flow. The seam is infrastructure; filling it with a live executor is a v2 concern.
-  </div>
+  <p class="cap">Hydrate-then-merge: stage 1 always writes a correct fragmented state first, so an agent crash mid-judgement leaves valid singleton flows and agent-less hosts still get flows. Stitching and re-describing are additive refinements on top. <b>drift/reconcile/reconcile.ts</b></p>
   <div class="callout invert">
     <span class="k">The single most load-bearing write rule</span>
     Persisting a flow must <b>never</b> call <code>rebuild_layer('agentic')</code> — that call is store-global and would delete every <em>other</em> flow's agentic content, defeating lazy per-flow hydration. Field writes go through <code>write_fields(..., 'agentic')</code>, so a user-promoted (renamed/pinned) flow node survives untouched.
@@ -489,132 +491,122 @@
 
   <!-- ============================ 3b · ENTRYPOINT STITCHING ============================ -->
   <h2 id="stitching">Entrypoint stitching</h2>
-  <p class="thesis">Ariadne's call-graph extraction is syntactic: dynamic dispatch, registry lookups and callback wiring frequently fail to resolve, and each unresolved callee is promoted to its own top-level entrypoint — one functionality fragments into several flows. Entrypoint stitching is hydration stage 1's repair pass, run on every HYDRATE turn: <b>Detect → Propose → Judge → Merge</b>, with the judging step the only place a model speaks.</p>
+  <p class="thesis">Ariadne's call-graph extraction is syntactic: dynamic dispatch, registry lookups and callback wiring frequently fail to resolve, and each unresolved callee is promoted to its own top-level entrypoint — one functionality fragments into several singleton flows. Stitching is the drift-reconciler's first judgement phase, a post-pass over the deterministic hydration: <b>List → Explore → Apply</b>. The list pass reports the evidence; the agent Reads and Greps the indirection; <code>--apply-stitch</code> merges the fragments it judges to be one functionality.</p>
 
   <div class="fig">
-    <svg viewBox="0 0 1320 570" role="img"
-      aria-label="The entrypoint-stitching pipeline in four numbered stages, followed by a before-and-after worked example. Stage one, detect: detect_gaps runs over the changed neighbourhood, finding orphan entrypoints and UnresolvedShapes — nodes where at least fifty percent of at least two call sites carry no resolution. Stage two, propose: build_candidate_stitches pairs each orphan entrypoint whose reachable tree holds at least one UnresolvedShape with every other neighbourhood orphan as a StitchCandidate, capped at fifty pairs with the truncation logged. Stage three, judge: the executor, deps.stitch_entrypoints defaulting to null_stitch_executor, judges each candidate and returns ConfirmedStitch records carrying a label, an inference rationale, merged seeds, and a justifying bridge with source file and range; the null default confirms nothing. Stage four, merge: build_stitch_groups union-finds confirmed seeds, groups sharing any seed collapse, each group becomes one multi-seed CodeUmbrella whose id is the alphabetically-first seed's symbol_path, build_bridge_edges writes recovered edges at confidence 0.5 with the call-site span as provenance, and unconfirmed seeds fall back to singleton flows. The worked example shows two split flows before stitching — process_order whose dispatch node has three of four call sites unresolved by a registry lookup, and send_invoice promoted to its own orphan entrypoint — and after stitching, one multi-seed umbrella containing both trees joined by a dashed agentic.bridge edge at confidence 0.5 with file-and-line provenance, the umbrella id being the alphabetically-first seed's symbol_path.">
+    <svg viewBox="0 0 1320 588" role="img"
+      aria-label="The entrypoint-stitching post-pass in three numbered stages, followed by a before-and-after worked example. Stage one, list: the drift-reconcile list-entrypoints mode runs the full deterministic reconcile, then build_entrypoint_inventory emits every entrypoint defined in a changed file, flagged orphan when no documentation edge touches it, each carrying its unresolved call sites — a call site whose resolutions none land on an in-graph node — with the source line as the agent's stitch evidence. Stage two, explore: the agent Reads the source line at each unresolved site and the enclosing definition, then Greps for the indirection that hides the edge, such as registry register calls, dispatch tables, re-exports and callback wiring, and decides which entrypoints belong to one functionality, never inventing a bridge whose call site it has not read. Stage three, apply: the agent writes stitch.json with umbrellas of label, seeds, bridges and rationale, and runs apply-stitch; each umbrella hydrates as one multi-seed CodeUmbrella whose id is the alphabetically-first resolved seed's symbol_path — deterministic, never agent-chosen — with agentic.bridge edges at confidence 0.5 stamped extractor_id agentic.stitch, and the absorbed singleton flows are retired; unknown seeds and duplicate claims are skipped with a diagnostic, a malformed payload exits 2. The worked example shows two split flows before stitching — process_order whose dispatch node calls registry.get(kind), a call site that resolves to no in-graph node, and send_invoice promoted to its own orphan entrypoint — and after stitching, one multi-seed umbrella containing both trees joined by a dashed agentic.bridge edge at confidence 0.5 with file-and-line provenance, the umbrella id being the alphabetically-first seed's symbol_path.">
       <defs>
         <marker id="st-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="st-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
         <marker id="st-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+        <marker id="st-olive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
       </defs>
       <g font-family="ui-sans-serif,system-ui">
 
-        <!-- ======= STAGE ROW ======= -->
-        <!-- stage 1 DETECT -->
+        <!-- ======= STAGE ROW (3 stages) ======= -->
+        <!-- stage 1 LIST -->
         <circle cx="58" cy="44" r="12" fill="#2c3038"/><text x="58" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
-        <rect x="40" y="60" width="290" height="140" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="185" y="86" text-anchor="middle" font-size="13.5" font-weight="700">detect</text>
-        <text x="185" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">detect_gaps(graph, doc_edges)</text>
-        <text x="185" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">orphan entrypoints in the</text>
-        <text x="185" y="141" text-anchor="middle" font-size="10.5" fill="#2c3038">changed neighbourhood files</text>
-        <text x="185" y="164" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">UnresolvedShape: ≥50% unresolved</text>
-        <text x="185" y="178" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">across ≥2 call sites</text>
+        <rect x="40" y="60" width="392" height="150" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="236" y="86" text-anchor="middle" font-size="13.5" font-weight="700">list</text>
+        <text x="236" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">drift-reconcile --list-entrypoints</text>
+        <text x="236" y="124" text-anchor="middle" font-size="10.5" fill="#2c3038">full deterministic reconcile, then</text>
+        <text x="236" y="139" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">build_entrypoint_inventory →</text>
+        <text x="236" y="159" text-anchor="middle" font-size="10" fill="#2c3038">every entrypoint in a changed file, orphan-flagged,</text>
+        <text x="236" y="173" text-anchor="middle" font-size="10" fill="#2c3038">each carrying its unresolved call sites</text>
+        <text x="236" y="193" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#9e3b2e">unresolved site = no resolution lands on an in-graph node</text>
 
-        <!-- stage 2 PROPOSE -->
-        <circle cx="378" cy="44" r="12" fill="#2c3038"/><text x="378" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
-        <rect x="360" y="60" width="290" height="140" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
-        <text x="505" y="86" text-anchor="middle" font-size="13.5" font-weight="700">propose</text>
-        <text x="505" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">build_candidate_stitches</text>
-        <text x="505" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">source: orphan with ≥1 unresolved</text>
-        <text x="505" y="141" text-anchor="middle" font-size="10.5" fill="#2c3038">shape in its reachable tree</text>
-        <text x="505" y="156" text-anchor="middle" font-size="10.5" fill="#2c3038">target: every other neighbourhood orphan</text>
-        <text x="505" y="178" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">StitchCandidate · cap 50 · overflow logged</text>
-        <line x1="330" y1="130" x2="358" y2="130" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
+        <!-- stage 2 EXPLORE -->
+        <circle cx="478" cy="44" r="12" fill="#2c3038"/><text x="478" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <rect x="460" y="60" width="392" height="150" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
+        <text x="656" y="86" text-anchor="middle" font-size="13.5" font-weight="700">explore</text>
+        <text x="656" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">the drift-reconciler · Read + Grep</text>
+        <text x="656" y="124" text-anchor="middle" font-size="10.5" fill="#2c3038">Read the source_line at each unresolved site;</text>
+        <text x="656" y="139" text-anchor="middle" font-size="10.5" fill="#2c3038">Grep for the hiding indirection</text>
+        <text x="656" y="159" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">registries · dispatch tables · re-exports · callbacks</text>
+        <text x="656" y="176" text-anchor="middle" font-size="10.5" fill="#2c3038">decide which entrypoints are one functionality</text>
+        <text x="656" y="195" text-anchor="middle" font-size="9.5" fill="#5b6233">never invent a bridge whose call site you have not read</text>
 
-        <!-- stage 3 JUDGE -->
-        <circle cx="698" cy="44" r="12" fill="#2c3038"/><text x="698" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
-        <rect x="680" y="60" width="290" height="140" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
-        <text x="825" y="86" text-anchor="middle" font-size="13.5" font-weight="700">judge</text>
-        <text x="825" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">deps.stitch_entrypoints ?? null_stitch_executor</text>
-        <text x="825" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">the executor judges each pair →</text>
-        <text x="825" y="143" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700" fill="#20242b">ConfirmedStitch[]</text>
-        <text x="825" y="163" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">label · inference_rationale · merged_seeds</text>
-        <text x="825" y="177" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">bridge{src, dst, source_file, source_range}</text>
-        <text x="825" y="192" text-anchor="middle" font-size="9.5" fill="#5b6233">default confirms nothing — deterministic</text>
-        <line x1="650" y1="130" x2="678" y2="130" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
-
-        <!-- stage 4 MERGE -->
-        <circle cx="1018" cy="44" r="12" fill="#2c3038"/><text x="1018" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">4</text>
-        <rect x="1000" y="60" width="290" height="140" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
-        <text x="1145" y="86" text-anchor="middle" font-size="13.5" font-weight="700">merge</text>
-        <text x="1145" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">build_stitch_groups → union-find</text>
-        <text x="1145" y="126" text-anchor="middle" font-size="10.5" fill="#2c3038">groups sharing any seed collapse;</text>
-        <text x="1145" y="141" text-anchor="middle" font-size="10.5" fill="#2c3038">each group → one multi-seed CodeUmbrella</text>
-        <text x="1145" y="163" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">id = alphabetically-first seed symbol_path</text>
-        <text x="1145" y="177" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">build_bridge_edges · conf 0.5 · span provenance</text>
-        <text x="1145" y="192" text-anchor="middle" font-size="9.5" fill="#6c6759">unconfirmed seeds → singleton flows</text>
-        <line x1="970" y1="130" x2="998" y2="130" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
+        <!-- stage 3 APPLY -->
+        <circle cx="898" cy="44" r="12" fill="#2c3038"/><text x="898" y="48" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">3</text>
+        <rect x="880" y="60" width="400" height="150" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+        <text x="1080" y="86" text-anchor="middle" font-size="13.5" font-weight="700">apply</text>
+        <text x="1080" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">write stitch.json → --apply-stitch</text>
+        <text x="1080" y="124" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">{ umbrellas: [{ label, seeds, bridges, rationale }] }</text>
+        <text x="1080" y="144" text-anchor="middle" font-size="10.5" fill="#2c3038">each → one multi-seed CodeUmbrella</text>
+        <text x="1080" y="162" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">id = alphabetically-first resolved seed · deterministic</text>
+        <text x="1080" y="178" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge @ 0.5 · extractor_id "agentic.stitch"</text>
+        <text x="1080" y="195" text-anchor="middle" font-size="9.5" fill="#6c6759">absorbed singletons retired · garbage skipped + diagnosed</text>
+        <line x1="432" y1="135" x2="458" y2="135" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
+        <line x1="852" y1="135" x2="878" y2="135" stroke="#6c7a3b" stroke-width="1.6" marker-end="url(#st-olive)"/>
 
         <!-- ======= WORKED EXAMPLE: BEFORE / AFTER ======= -->
-        <text x="40" y="242" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">EXAMPLE · a registry dispatch Ariadne cannot resolve, repaired into one umbrella</text>
+        <text x="40" y="252" font-family="ui-monospace,monospace" font-size="11" fill="#6c6759" text-anchor="start">EXAMPLE · a registry dispatch Ariadne cannot resolve, repaired into one umbrella</text>
 
         <!-- BEFORE panel -->
-        <rect x="40" y="256" width="560" height="296" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.4"/>
-        <text x="60" y="282" font-size="13" font-weight="700" fill="#20242b">BEFORE · syntactic split — two flows</text>
+        <rect x="40" y="266" width="560" height="296" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="60" y="292" font-size="13" font-weight="700" fill="#20242b">BEFORE · syntactic split — two singleton flows</text>
         <!-- flow A -->
-        <rect x="60" y="298" width="252" height="238" rx="10" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="6 4"/>
-        <text x="74" y="316" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">flow · process_order</text>
-        <rect x="80" y="326" width="212" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
-        <text x="186" y="344" text-anchor="middle" font-size="11.5" font-weight="600">process_order()</text>
-        <text x="186" y="359" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">entrypoint · seed</text>
-        <rect x="80" y="396" width="212" height="38" rx="8" fill="#fbfaf5" stroke="#aaa492"/>
-        <text x="186" y="419" text-anchor="middle" font-size="11.5">dispatch(order)</text>
-        <line x1="186" y1="368" x2="186" y2="394" stroke="#6c6759" stroke-width="1.4" marker-end="url(#st-g)"/>
-        <rect x="80" y="466" width="212" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="4 3"/>
-        <text x="186" y="486" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10">registry.get(kind)(…)</text>
-        <text x="186" y="502" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#9e3b2e">UnresolvedShape · 3 of 4 call sites unresolved</text>
-        <line x1="186" y1="434" x2="186" y2="464" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#st-rust)"/>
+        <rect x="60" y="308" width="252" height="238" rx="10" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <text x="74" y="326" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">flow · process_order</text>
+        <rect x="80" y="336" width="212" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="186" y="354" text-anchor="middle" font-size="11.5" font-weight="600">process_order()</text>
+        <text x="186" y="369" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">entrypoint · seed</text>
+        <rect x="80" y="406" width="212" height="38" rx="8" fill="#fbfaf5" stroke="#aaa492"/>
+        <text x="186" y="429" text-anchor="middle" font-size="11.5">dispatch(order)</text>
+        <line x1="186" y1="378" x2="186" y2="404" stroke="#6c6759" stroke-width="1.4" marker-end="url(#st-g)"/>
+        <rect x="80" y="476" width="212" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="4 3"/>
+        <text x="186" y="496" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10">registry.get(kind)(…)</text>
+        <text x="186" y="512" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#9e3b2e">unresolved site · resolves to no in-graph node</text>
+        <line x1="186" y1="444" x2="186" y2="474" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#st-rust)"/>
         <!-- flow B -->
-        <rect x="332" y="298" width="248" height="150" rx="10" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="6 4"/>
-        <text x="346" y="316" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">flow · send_invoice</text>
-        <rect x="352" y="326" width="208" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
-        <text x="456" y="344" text-anchor="middle" font-size="11.5" font-weight="600">send_invoice()</text>
-        <text x="456" y="359" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">promoted orphan entrypoint</text>
-        <text x="456" y="398" text-anchor="middle" font-size="10" fill="#6c6759">callee never resolved —</text>
-        <text x="456" y="413" text-anchor="middle" font-size="10" fill="#6c6759">its own top-level flow</text>
+        <rect x="332" y="308" width="248" height="150" rx="10" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <text x="346" y="326" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">flow · send_invoice</text>
+        <rect x="352" y="336" width="208" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="456" y="354" text-anchor="middle" font-size="11.5" font-weight="600">send_invoice()</text>
+        <text x="456" y="369" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">promoted orphan entrypoint</text>
+        <text x="456" y="408" text-anchor="middle" font-size="10" fill="#6c6759">callee never resolved —</text>
+        <text x="456" y="423" text-anchor="middle" font-size="10" fill="#6c6759">its own top-level flow</text>
 
         <!-- middle arrow -->
-        <line x1="606" y1="404" x2="714" y2="404" stroke="#b5683e" stroke-width="2.4" marker-end="url(#st-clay)"/>
-        <text x="660" y="392" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" font-weight="700" fill="#b5683e">ConfirmedStitch</text>
-        <text x="660" y="422" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">merged_seeds + bridge</text>
+        <line x1="606" y1="414" x2="714" y2="414" stroke="#b5683e" stroke-width="2.4" marker-end="url(#st-clay)"/>
+        <text x="660" y="402" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" font-weight="700" fill="#b5683e">--apply-stitch</text>
+        <text x="660" y="432" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">seeds + bridge</text>
 
         <!-- AFTER panel -->
-        <rect x="720" y="256" width="560" height="296" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.4"/>
-        <text x="740" y="282" font-size="13" font-weight="700" fill="#20242b">AFTER · one multi-seed umbrella</text>
-        <rect x="740" y="298" width="520" height="222" rx="12" fill="none" stroke="#6c7a3b" stroke-width="1.8" stroke-dasharray="7 5"/>
-        <text x="756" y="318" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">CodeUmbrella · id = …/process_order (alphabetically-first seed) · seeds = [process_order, send_invoice]</text>
-        <rect x="764" y="334" width="184" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
-        <text x="856" y="352" text-anchor="middle" font-size="11.5" font-weight="600">process_order()</text>
-        <text x="856" y="367" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
-        <rect x="764" y="412" width="184" height="38" rx="8" fill="#fbfaf5" stroke="#aaa492"/>
-        <text x="856" y="435" text-anchor="middle" font-size="11.5">dispatch(order)</text>
-        <line x1="856" y1="376" x2="856" y2="410" stroke="#6c6759" stroke-width="1.4" marker-end="url(#st-g)"/>
-        <rect x="1052" y="412" width="184" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
-        <text x="1144" y="430" text-anchor="middle" font-size="11.5" font-weight="600">send_invoice()</text>
-        <text x="1144" y="445" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
-        <line x1="948" y1="431" x2="1050" y2="431" stroke="#b5683e" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#st-clay)"/>
-        <text x="999" y="421" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5</text>
-        <text x="999" y="470" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">src/orders.ts · L42 (call-site span)</text>
-        <text x="756" y="504" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">endpoints persisted as symbol_paths — rename-stable store ids, not raw Ariadne SymbolIds</text>
+        <rect x="720" y="266" width="560" height="296" rx="10" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.4"/>
+        <text x="740" y="292" font-size="13" font-weight="700" fill="#20242b">AFTER · one multi-seed umbrella</text>
+        <rect x="740" y="308" width="520" height="222" rx="12" fill="none" stroke="#6c7a3b" stroke-width="1.8" stroke-dasharray="7 5"/>
+        <text x="756" y="328" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">CodeUmbrella · id = …/process_order (alphabetically-first seed) · seeds = [process_order, send_invoice]</text>
+        <rect x="764" y="344" width="184" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="856" y="362" text-anchor="middle" font-size="11.5" font-weight="600">process_order()</text>
+        <text x="856" y="377" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
+        <rect x="764" y="422" width="184" height="38" rx="8" fill="#fbfaf5" stroke="#aaa492"/>
+        <text x="856" y="445" text-anchor="middle" font-size="11.5">dispatch(order)</text>
+        <line x1="856" y1="386" x2="856" y2="420" stroke="#6c6759" stroke-width="1.4" marker-end="url(#st-g)"/>
+        <rect x="1052" y="422" width="184" height="42" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="1144" y="440" text-anchor="middle" font-size="11.5" font-weight="600">send_invoice()</text>
+        <text x="1144" y="455" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
+        <line x1="948" y1="441" x2="1050" y2="441" stroke="#b5683e" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#st-clay)"/>
+        <text x="999" y="431" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5</text>
+        <text x="999" y="480" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">src/orders.ts · L42 (unresolved call-site span)</text>
+        <text x="756" y="514" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">bridge endpoints persisted as symbol_paths — rename-stable store ids, not raw Ariadne SymbolIds</text>
       </g>
     </svg>
   </div>
   <div class="refs">
-    <div class="r"><span class="n">1</span><div><b>Detect.</b> <code>detect_gaps</code> runs over the changed neighbourhood: orphan entrypoints are the candidate seeds; an <code>UnresolvedShape</code> flags a node when ≥50% of its ≥2 call sites carry no resolution (<code>DEFAULT_GAP_OPTIONS</code>). <code>core/agentic/gap_detection.ts</code></div></div>
-    <div class="r"><span class="n">2</span><div><b>Propose.</b> <code>build_candidate_stitches</code> pairs each orphan whose reachable tree holds at least one <code>UnresolvedShape</code> — the evidence — with every other neighbourhood orphan as a <code>StitchCandidate{source_seed, target_seed, unresolved_shapes_in_source}</code>. Capped at <code>MAX_STITCH_CANDIDATES = 50</code>, truncation logged (never silent); overflow seeds remain in <code>StitchBatch.neighbourhood_seeds</code> as singleton fallbacks. <code>core/agentic/stitch.ts</code></div></div>
-    <div class="r"><span class="n">3</span><div><b>Judge.</b> The executor resolves as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> and returns <code>ConfirmedStitch[]</code> — <code>label</code>, <code>inference_rationale</code>, <code>merged_seeds</code>, and a justifying <code>bridge{src_symbol_id, dst_symbol_id, source_file, source_range}</code>. <code>null_stitch_executor</code> confirms nothing. <code>core/agentic/stitch.ts</code></div></div>
-    <div class="r"><span class="n">4</span><div><b>Merge.</b> <code>build_stitch_groups</code> union-finds confirmed seeds — groups sharing any seed collapse into one. Each group becomes one multi-seed <code>CodeUmbrella</code> whose id is the alphabetically-first seed's <code>symbol_path</code>; <code>build_bridge_edges</code> writes the recovered edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> with the call-site span as provenance; unconfirmed seeds fall back to singleton flows. <code>drift/reconcile/reconcile.ts</code></div></div>
+    <div class="r"><span class="n">1</span><div><b>List.</b> <code>--list-entrypoints</code> runs the full deterministic reconcile, then <code>build_entrypoint_inventory</code> emits every entrypoint defined in a changed file, flagged <code>is_orphan</code> when no documentation edge links it. Each carries its <code>unresolved_sites</code> — enclosed calls none of whose resolutions land on an in-graph node — with the trimmed <code>source_line</code> as evidence. <code>drift/reconcile/agentic_modes.ts</code></div></div>
+    <div class="r"><span class="n">2</span><div><b>Explore.</b> The drift-reconciler Reads the <code>source_line</code> at each unresolved <code>file:line</code> and the enclosing definition, then Greps for the indirection that hides the edge — registry <code>register(...)</code> calls, dispatch tables, re-exports, callback wiring — and decides which entrypoints are one functionality. The evidence bar: never stitch entrypoints whose connecting call site you have not read. <code>assets/skills/drift-sync/SKILL.md</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Apply.</b> <code>--apply-stitch stitch.json</code> hydrates each umbrella as one multi-seed <code>CodeUmbrella</code> whose id is the alphabetically-first <em>resolved</em> seed's <code>symbol_path</code> (deterministic, never agent-supplied), with <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> stamped <code>extractor_id: "agentic.stitch"</code>; absorbed singleton flows retire. Unknown seeds, duplicate claims, and unresolvable bridge endpoints are skipped with a diagnostic. <code>drift/reconcile/agentic_modes.ts · hydrate.ts</code></div></div>
   </div>
-  <p class="cap">Grouping is independent of bridge writes — a stitch whose bridge endpoints fail to resolve still merges its seeds; a malformed stitch resolving to fewer than two seeds is skipped. <b>drift/reconcile/reconcile.ts</b></p>
+  <p class="cap">Idempotent: a re-run with identical input upserts the same rows and finds nothing left to retire. An unstitched orphan stays a singleton flow — which is correct, not a gap. A malformed <em>contract</em> exits 2; garbage <em>content</em> is skipped so partial progress beats none. <b>drift/reconcile/agentic_modes.ts</b></p>
   <div class="callout">
-    <span class="k">The seam is always crossed — the default confirms nothing</span>
-    HYDRATE has no stitch branch: <code>detect_and_stitch_code_umbrellas</code> runs every turn and resolves its executor as <code>deps.stitch_entrypoints ?? null_stitch_executor</code>. The null default returns no confirmations — the result is byte-identical to one-entrypoint-per-flow, and the headless <code>drift-reconcile</code> bin stays fully deterministic. The seam is infrastructure for v2.
+    <span class="k">Hydrate-then-merge — the deterministic floor stands first</span>
+    The list pass writes one singleton flow per entrypoint <em>before</em> any judgement. If the agent crashes mid-phase, the store is left in a correct fragmented state; an agent-less host stops here and still renders flows. Stitching only ever merges and retires on top of that floor — it never gates the deterministic output.
   </div>
   <div class="callout olive">
     <span class="k">Bridge endpoints are symbol_paths, never raw SymbolIds</span>
-    A <code>ConfirmedStitch</code> carries Ariadne <code>SymbolId</code>s; <code>build_stitch_groups</code> converts both endpoints to rename-stable <code>symbol_path</code>s before persistence — <code>src</code> via <code>paths_of</code>, <code>dst</code> via the target seed's id (already a <code>symbol_path</code>) — so persisted <code>agentic.bridge</code> edges live in the store's id space and survive re-parses.
+    Stitch bridge <code>src_id</code>/<code>dst_id</code> are flow-layer <code>symbol_path</code>s validated against <code>build_symbol_path_index</code>; persisted <code>agentic.bridge</code> edges live in the store's id space and survive re-parses. The id space is shared with deterministic bridges, so a stitch bridge and a heuristic bridge are indistinguishable to the renderer apart from <code>extractor_id</code>.
   </div>
 
   <!-- ============================ 4 · SKELETON ↔ HYDRATED RECONCILIATION ============================ -->
@@ -687,7 +679,7 @@
 
   <!-- ============================ 5 · LEDGER ============================ -->
   <h2 id="ledger">The flow-truth ledger</h2>
-  <p class="thesis"><code>packages/core/src/model/flow.ts</code> is the single source of flow truth — pure, host-agnostic, derived from an in-memory call graph. These are its load-bearing exports.</p>
+  <p class="thesis"><code>packages/core/src/model/flow.ts</code> is the single source of flow truth — pure, host-agnostic, derived from an in-memory call graph. These are its load-bearing exports, with the drift-side modes that drive them.</p>
   <table class="ledger">
     <thead><tr><th>Export</th><th>Role</th><th>File</th></tr></thead>
     <tbody>
@@ -705,13 +697,15 @@
       <tr><td><code>build_flow_node</code></td><td>The <code>agentic.flow</code> <code>NodeRow</code> a hydrated flow persists as: open kind, <code>layer='agentic'</code>, seeds on <code>entry_points</code>.</td><td><code>model/flow.ts</code></td></tr>
       <tr><td><code>build_flow_member_edges</code></td><td>The <code>agentic.flow_member</code> edges from a flow to its seed roots + linked docs, with deterministic keys.</td><td><code>model/flow.ts</code></td></tr>
       <tr><td><code>build_symbol_path_index</code></td><td>The <code>symbol_path → SymbolId</code> index (inverse of <code>flow_id_of</code>), first-wins in sorted order — bridges the two id spaces.</td><td><code>model/flow.ts</code></td></tr>
-      <tr><td><code>detect_gaps · derive_candidate_seeds</code></td><td>Deterministic candidate boundaries: orphan entrypoints + disconnected components → seeds; unresolved shapes → bridge feed.</td><td><code>agentic/gap_detection.ts</code></td></tr>
-      <tr><td><code>build_candidate_stitches · null_stitch_executor</code></td><td><b>The stitch seam.</b> Pair orphan entrypoints in the changed neighbourhood as (source, target) candidates (cap <code>50</code>); an <code>EntrypointStitchExecutor</code> — wired as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — returns <code>ConfirmedStitch[]</code> (merged seeds + a justifying bridge), union-found into multi-seed umbrellas. The default confirms nothing.</td><td><code>agentic/stitch.ts</code></td></tr>
+      <tr><td><code>find_orphan_entrypoints · detect_gaps</code></td><td>Deterministic gap detection: orphan entrypoints (no documentation edge) are the inventory's <code>is_orphan</code> flag; unresolved shapes feed the bridge heuristics.</td><td><code>agentic/gap_detection.ts</code></td></tr>
+      <tr><td><code>build_entrypoint_inventory</code></td><td><b>The list mode.</b> The changed neighbourhood's entrypoint inventory — every entrypoint in a changed file, orphan-flagged, each with its unresolved call sites — the agent's phase-1 input.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
+      <tr><td><code>apply_stitch</code></td><td><b>The stitch mode.</b> Hydrate each agent-judged umbrella as a multi-seed <code>CodeUmbrella</code> (id = alphabetically-first resolved seed) with <code>agentic.bridge</code> edges; retire absorbed singletons. Garbage skipped + diagnosed.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
+      <tr><td><code>apply_descriptions</code></td><td><b>The describe mode.</b> Persist agent-authored member descriptions through the scoped substrate writer; a member already agent-described at its content hash is skipped.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
       <tr><td><code>build_bridge_edges</code></td><td>Candidates → <code>agentic.bridge</code> edges at confidence <code>0.5</code>, each with an <code>inference_rationale</code> + justifying span.</td><td><code>agentic/bridge.ts</code></td></tr>
-      <tr><td><code>plan_descriptions</code></td><td>The deterministic-first ladder: cache → docstring → LLM ≤ 200 → placeholder. No model call required.</td><td><code>agentic/describe_policy.ts</code></td></tr>
+      <tr><td><code>plan_descriptions · resolve_descriptions</code></td><td>The deterministic ladder: cache → docstring → placeholder. No model call; the agent upgrades placeholders later via <code>--apply-descriptions</code>.</td><td><code>agentic/describe_policy.ts · drift/reconcile/describe.ts</code></td></tr>
     </tbody>
   </table>
-  <p class="cap">Constants pin the substrate vocabulary: <code>FLOW_NODE_KIND='agentic.flow'</code>, <code>FLOW_MEMBER_EDGE_KIND='agentic.flow_member'</code>, <code>BRIDGE_EDGE_KIND='agentic.bridge'</code>. <b>core/model/flow.ts</b></p>
+  <p class="cap">Constants pin the substrate vocabulary: <code>FLOW_NODE_KIND='agentic.flow'</code>, <code>FLOW_MEMBER_EDGE_KIND='agentic.flow_member'</code>, <code>BRIDGE_EDGE_KIND='agentic.bridge'</code>; <code>STITCH_EXTRACTOR_ID='agentic.stitch'</code> stamps an agent-confirmed bridge. <b>core/model/flow.ts · drift/reconcile/agentic_modes.ts</b></p>
 
   <footer>
     Generated comprehension doc for the Code Charter repo · 05 · Flow Construction.<br>

@@ -286,6 +286,7 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
       anchored_symbols: () => [],
       file_of: () => undefined,
       omitted_files: () => new Set(),
+      source_line: () => undefined,
     };
     // Reconcile a non-code path so re_extract is skipped and only the flow-retirement path runs.
     const result = await run(["notes.md"], empty_adapter);
