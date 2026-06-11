@@ -270,88 +270,89 @@
     <div class="r"><span class="n">5</span><div><b>Skill.</b> Validates the pinned CLI contract <code>--files/--store/--repo-root/[--json]/[--dry-run]</code>, locates the bin via sidecar, shells in forwarding flags + exit code. <code>assets/skills/drift-sync · scripts/drift_sync.js</code></div></div>
     <div class="r"><span class="n">6</span><div><b>Engine.</b> Opens the store, builds the headless call graph, calls <code>reconcile(file_set, deps)</code>, emits one JSON outcome per flow. <code>bin/drift_reconcile.ts · reconcile/reconcile.ts</code></div></div>
   </div>
-  <p class="cap">The sub-agent writes the store only through the skill; the drift MCP surface is recovery and <b>never reconciles</b>.</p>
+  <p class="cap">The sub-agent writes the store only through the skill; reconcile is the only path to the store.</p>
   <div class="callout invert">
     <span class="k">The watermark is load-bearing</span>
     Reconcile writes the store, never the transcript — so without a per-turn cursor, <code>parse_worked_on_files</code> over the append-only transcript returns the cumulative edited set and the hook re-fires it forever (an unsatisfiable loop). The watermark scopes "this turn's edits" precisely.
   </div>
 
   <h2 id="pipeline">The reconcile pipeline</h2>
-  <p class="thesis">reconcile() runs a fixed sequence of deterministic stages, all sorted for byte-stable output, all writes scoped row-by-row.</p>
+  <p class="thesis">reconcile() partitions the turn's files, refreshes the raw substrate once, then dispatches three branches in order — skills, re-sync, hydrate — returning one FlowOutcome per flow.</p>
   <div class="fig">
-    <svg viewBox="0 0 1320 280" role="img"
-      aria-label="Numbered A through F spine. A partition: skill bundles versus code_files, drop the rest. B refresh raw substrate: re_extract returns a SymbolDelta, ingest_skill_dir writes skill docs. C affected flows via affected_flows.ts with body-drift and membership-drift triggers. D hydrate-versus-resync decision keyed on EXISTS agentic.flow. E reconcile delta and write: a HYDRATE chain versus a RE-SYNC re-induce, carry, and redescribe of added union modified. F edit preservation: scoped write_fields stamping last_synced_at. A clay write arrow targets the store.">
+    <svg viewBox="0 0 1320 360" role="img"
+      aria-label="Three-branch dispatch tree. Stage one partitions changed files into skill bundles versus code_files, dropping the rest. Stage two refreshes the raw substrate: re_extract on the code files returns a SymbolDelta and ingest_skill_dir rewrites each touched bundle's doc tier. The flow then fans into three branches that all run, in order. Branch 3a, skills: each touched bundle hydrates if no flow exists yet or re-syncs in place if one does. Branch 3b, re-sync: affected_persisted_flows selects persisted code flows by body and membership drift; each re-syncs in place, then retire_flows_subsumed_by runs on it; a seed-gone flow retires, and an untrustworthy graph defers the retirement to a later turn. Branch 3c, hydrate: detect_and_stitch_code_umbrellas runs the stitch pipeline; new skeleton flows touching the changed files hydrate, bounded to fifty full hydrations with the overflow written as singleton stubs, and retire_flows_subsumed_by runs on each new flow. All branches converge on a ReconcileResult of one FlowOutcome per flow — hydrate, resync, or retire — plus deferred_retirements.">
       <defs>
         <marker id="pl-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
-        <marker id="pl-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
       </defs>
-      <g font-family="ui-sans-serif,system-ui" text-anchor="middle">
-        <!-- six stages -->
-        <g>
-          <circle cx="48" cy="58" r="11" fill="#2c3038"/><text x="48" y="62" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">A</text>
-          <rect x="40" y="72" width="186" height="78" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
-          <text x="133" y="100" font-size="13" font-weight="600">Partition</text>
-          <text x="133" y="120" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">skill bundles vs</text>
-          <text x="133" y="133" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">code_files · drop rest</text>
-        </g>
-        <g>
-          <circle cx="258" cy="58" r="11" fill="#2c3038"/><text x="258" y="62" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">B</text>
-          <rect x="250" y="72" width="186" height="78" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
-          <text x="343" y="96" font-size="13" font-weight="600">Refresh raw</text>
-          <text x="343" y="116" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">re_extract → SymbolDelta</text>
-          <text x="343" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">ingest_skill_dir</text>
-        </g>
-        <g>
-          <circle cx="468" cy="58" r="11" fill="#2c3038"/><text x="468" y="62" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">C</text>
-          <rect x="460" y="72" width="186" height="78" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
-          <text x="553" y="96" font-size="13" font-weight="600">Affected flows</text>
-          <text x="553" y="116" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">affected_flows.ts</text>
-          <text x="553" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">body- + membership-drift</text>
-        </g>
-        <g>
-          <circle cx="678" cy="58" r="11" fill="#2c3038"/><text x="678" y="62" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">D</text>
-          <rect x="670" y="72" width="186" height="78" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
-          <text x="763" y="96" font-size="13" font-weight="600">Hydrate / re-sync</text>
-          <text x="763" y="116" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">key on</text>
-          <text x="763" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">EXISTS(agentic.flow)</text>
-        </g>
-        <g>
-          <circle cx="888" cy="58" r="11" fill="#2c3038"/><text x="888" y="62" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">E</text>
-          <rect x="880" y="72" width="200" height="78" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
-          <text x="980" y="94" font-size="13" font-weight="600">Reconcile + write</text>
-          <text x="980" y="114" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">HYDRATE chain vs RE-SYNC</text>
-          <text x="980" y="128" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">redescribe added∪modified</text>
-        </g>
-        <g>
-          <circle cx="1110" cy="58" r="11" fill="#2c3038"/><text x="1110" y="62" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">F</text>
-          <rect x="1102" y="72" width="186" height="78" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
-          <text x="1195" y="96" font-size="13" font-weight="600">Edit preservation</text>
-          <text x="1195" y="116" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">scoped write_fields</text>
-          <text x="1195" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">stamp last_synced_at</text>
-        </g>
-        <!-- arrows -->
-        <line x1="226" y1="111" x2="248" y2="111" stroke="#6c6759" stroke-width="1.5" marker-end="url(#pl-g)"/>
-        <line x1="436" y1="111" x2="458" y2="111" stroke="#6c6759" stroke-width="1.5" marker-end="url(#pl-g)"/>
-        <line x1="646" y1="111" x2="668" y2="111" stroke="#6c6759" stroke-width="1.5" marker-end="url(#pl-g)"/>
-        <line x1="856" y1="111" x2="878" y2="111" stroke="#6c6759" stroke-width="1.5" marker-end="url(#pl-g)"/>
-        <line x1="1080" y1="111" x2="1100" y2="111" stroke="#6c6759" stroke-width="1.5" marker-end="url(#pl-g)"/>
-        <!-- store write -->
-        <rect x="1040" y="208" width="250" height="48" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
-        <text x="1165" y="230" font-size="12.5" font-weight="600">row-by-row upsert → store</text>
-        <text x="1165" y="247" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">reconcile/flow_store.ts · never rebuild_layer</text>
-        <path d="M1195 150 L1195 206" fill="none" stroke="#b5683e" stroke-width="1.8" marker-end="url(#pl-clay)"/>
+      <g font-family="ui-sans-serif,system-ui">
+        <!-- stage 1: partition -->
+        <circle cx="338" cy="16" r="11" fill="#2c3038"/><text x="338" y="20" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">1</text>
+        <rect x="330" y="30" width="250" height="52" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+        <text x="455" y="52" text-anchor="middle" font-size="13" font-weight="600">Partition</text>
+        <text x="455" y="70" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">skill bundles vs code_files · drop rest</text>
+        <!-- stage 2: refresh raw -->
+        <circle cx="698" cy="16" r="11" fill="#2c3038"/><text x="698" y="20" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#fbfaf5">2</text>
+        <rect x="690" y="30" width="300" height="52" rx="9" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="840" y="52" text-anchor="middle" font-size="13" font-weight="600">Refresh raw</text>
+        <text x="840" y="70" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">re_extract → SymbolDelta · ingest_skill_dir</text>
+        <line x1="580" y1="56" x2="688" y2="56" stroke="#6c6759" stroke-width="1.5" marker-end="url(#pl-g)"/>
+        <!-- fan bus -->
+        <line x1="840" y1="82" x2="840" y2="100" stroke="#6c6759" stroke-width="1.6"/>
+        <line x1="224" y1="100" x2="1096" y2="100" stroke="#6c6759" stroke-width="1.6"/>
+        <line x1="224" y1="100" x2="224" y2="116" stroke="#6c6759" stroke-width="1.6" marker-end="url(#pl-g)"/>
+        <line x1="660" y1="100" x2="660" y2="116" stroke="#6c6759" stroke-width="1.6" marker-end="url(#pl-g)"/>
+        <line x1="1096" y1="100" x2="1096" y2="116" stroke="#6c6759" stroke-width="1.6" marker-end="url(#pl-g)"/>
+        <text x="1296" y="96" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">all three run · in order 3a → 3b → 3c</text>
+        <!-- branch 3a: skills (olive) -->
+        <rect x="24" y="120" width="400" height="160" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <circle cx="34" cy="120" r="11" fill="#2c3038"/><text x="34" y="123.5" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="700" fill="#fbfaf5">3a</text>
+        <text x="52" y="148" font-size="13.5" font-weight="700" fill="#20242b">Skills — touched bundles</text>
+        <text x="52" y="166" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">build_skill_umbrella · hydrate_skill_flow</text>
+        <text x="52" y="194" font-size="11.5" fill="#2c3038">no flow yet → <tspan font-weight="600">HYDRATE</tspan></text>
+        <text x="52" y="214" font-size="11.5" fill="#2c3038">flow exists → <tspan font-weight="600">RE-SYNC in place</tspan></text>
+        <text x="52" y="244" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">detected from the touched SKILL.md root,</text>
+        <text x="52" y="258" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">not the changed-file intersection</text>
+        <!-- branch 3b: re-sync (clay) -->
+        <rect x="460" y="120" width="400" height="160" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <circle cx="470" cy="120" r="11" fill="#2c3038"/><text x="470" y="123.5" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="700" fill="#fbfaf5">3b</text>
+        <text x="488" y="148" font-size="13.5" font-weight="700" fill="#20242b">RE-SYNC — drifted persisted flows</text>
+        <text x="488" y="166" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">affected_persisted_flows · body ∪ membership drift</text>
+        <text x="488" y="194" font-size="11.5" fill="#2c3038">re-sync each affected code flow <tspan font-weight="600">in place</tspan></text>
+        <rect x="476" y="210" width="368" height="56" rx="7" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.2"/>
+        <text x="488" y="231" font-size="11" fill="#7a2c22">retirement: <tspan font-family="ui-monospace,monospace" font-size="10">retire_flows_subsumed_by</tspan> on each</text>
+        <text x="488" y="251" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">seed gone → retire · untrustworthy graph → deferred</text>
+        <!-- branch 3c: hydrate (green) -->
+        <rect x="896" y="120" width="400" height="160" rx="10" fill="#e6efe4" stroke="#4f7a4a" stroke-width="1.6"/>
+        <circle cx="906" cy="120" r="11" fill="#2c3038"/><text x="906" y="123.5" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" font-weight="700" fill="#fbfaf5">3c</text>
+        <text x="924" y="148" font-size="13.5" font-weight="700" fill="#20242b">HYDRATE — new code flows</text>
+        <text x="924" y="166" font-family="ui-monospace,monospace" font-size="9.5" fill="#3f5e3b">detect_and_stitch_code_umbrellas · stitch pipeline</text>
+        <text x="924" y="194" font-size="11.5" fill="#2c3038">new skeleton flows touching changed files → <tspan font-weight="600">hydrate</tspan></text>
+        <rect x="912" y="204" width="368" height="28" rx="7" fill="#f3ece2" stroke="#b5683e" stroke-width="1.2"/>
+        <text x="924" y="222" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">bounded: first 50 full · overflow → singleton stub (logged)</text>
+        <rect x="912" y="240" width="368" height="28" rx="7" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.2"/>
+        <text x="924" y="258" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">retire_flows_subsumed_by on each new flow</text>
+        <!-- converge -->
+        <line x1="224" y1="280" x2="224" y2="302" stroke="#6c6759" stroke-width="1.6" marker-end="url(#pl-g)"/>
+        <line x1="660" y1="280" x2="660" y2="302" stroke="#6c6759" stroke-width="1.6" marker-end="url(#pl-g)"/>
+        <line x1="1096" y1="280" x2="1096" y2="302" stroke="#6c6759" stroke-width="1.6" marker-end="url(#pl-g)"/>
+        <!-- stage 4: result -->
+        <rect x="24" y="306" width="1272" height="46" rx="9" fill="#2c3038"/>
+        <circle cx="48" cy="329" r="11" fill="#fbfaf5"/><text x="48" y="333" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="#2c3038">4</text>
+        <text x="70" y="326" font-size="13" font-weight="600" fill="#f7f4ec">ReconcileResult — one FlowOutcome per flow: hydrate · resync · retire</text>
+        <text x="70" y="343" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">+ deferred_retirements (retried on the next turn that touches the seed's file) · file_set echoed back</text>
+        <text x="1284" y="334" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">reconcile/types.ts</text>
       </g>
     </svg>
   </div>
   <div class="refs">
-    <div class="r"><span class="n">A</span><div><b>Partition.</b> Normalize to repo-relative, dedupe, drop empties/out-of-repo; files under a <code>SKILL.md</code> ancestor → skill bundle, Ariadne sources → <code>code_files</code>, rest dropped.</div></div>
-    <div class="r"><span class="n">B</span><div><b>Refresh raw.</b> <code>re_extract(code_files,'code-change',deps)</code> re-extracts raw tier + returns aggregate <code>SymbolDelta</code>; <code>ingest_skill_dir</code> writes literal doc nodes. <code>core/src/reextract/re_extract.ts</code></div></div>
-    <div class="r"><span class="n">C</span><div><b>Affected flows.</b> <code>affected_persisted_flows</code> selects via body drift (a modified member's live id in induced membership) + membership drift (induced set ≠ stored <code>anchor_set</code>). <code>reconcile/affected_flows.ts</code></div></div>
-    <div class="r"><span class="n">D</span><div><b>Decision.</b> Per flow, dispatch on <code>EXISTS(agentic.flow node)</code> — none → HYDRATE, exists → RE-SYNC.</div></div>
-    <div class="r"><span class="n">E</span><div><b>Reconcile.</b> HYDRATE chain; RE-SYNC re-induces, carries descriptions via resolver, re-describes only <code>added ∪ modified</code>. <code>reconcile/reconcile.ts</code></div></div>
-    <div class="r"><span class="n">F</span><div><b>Preserve.</b> Scoped <code>write_fields('agentic')</code> stamping <code>last_synced_at</code>; miss → re-attachment bin, relocation → staged <code>drift_*</code>.</div></div>
+    <div class="r"><span class="n">1</span><div><b>Partition.</b> Normalize to repo-relative, dedupe, drop empties/out-of-repo; files under a <code>SKILL.md</code> ancestor → skill bundle, supported Ariadne sources → <code>code_files</code>, rest dropped. <code>reconcile/reconcile.ts · reconcile/skill_dir.ts</code></div></div>
+    <div class="r"><span class="n">2</span><div><b>Refresh raw.</b> <code>re_extract(code_files,'code-change')</code> is the single funnel — relocations re-anchor inline — and returns the turn's aggregate <code>SymbolDelta</code>; <code>ingest_skill_dir</code> rewrites each bundle's literal doc tier. <code>core/src/reextract/re_extract.ts</code></div></div>
+    <div class="r"><span class="n">3a</span><div><b>Skills.</b> Each touched bundle is detected from its root (doc members are bundle-relative, invisible to the changed-file intersection) and always written: no persisted flow → HYDRATE, one exists → RE-SYNC in place. <code>reconcile/hydrate.ts</code></div></div>
+    <div class="r"><span class="n">3b</span><div><b>RE-SYNC.</b> <code>affected_persisted_flows(body_modified_ids, persisted, graph, changed)</code> selects persisted code flows by body drift (a modified member) + membership drift (induced set reshaped); each re-syncs in place, then <code>retire_flows_subsumed_by</code> runs on it. Seed gone → retire; empty/omitted/symbol-less graph → <code>deferred_retirements</code>. <code>reconcile/affected_flows.ts</code></div></div>
+    <div class="r"><span class="n">3c</span><div><b>HYDRATE.</b> <code>detect_and_stitch_code_umbrellas</code> stitches orphan entrypoints into multi-seed umbrellas (unconfirmed → singletons); new skeleton flows touching the changed files hydrate — first <code>50</code> fully, overflow as logged stubs — then <code>retire_flows_subsumed_by</code> runs on each. <code>reconcile/reconcile.ts · reconcile/hydrate.ts</code></div></div>
+    <div class="r"><span class="n">4</span><div><b>Outcome.</b> One <code>FlowOutcome</code> per flow (<code>hydrate</code> / <code>resync</code> / <code>retire</code>) plus <code>deferred_retirements</code>, returned as the <code>ReconcileResult</code>; no new drift → empty list, a clean no-op. <code>reconcile/types.ts</code></div></div>
   </div>
-  <p class="cap">Writes are row-by-row upsert + stale-edge retirement honoring the agentic ladder, so a user-promoted flow node survives.</p>
+  <p class="cap">All three branches run in order inside one <code>reconcile()</code> pass, sharing a <b>handled</b> set so each flow gets exactly one record; writes are scoped and idempotent, so a re-fired hook is safe. <code>reconcile/reconcile.ts</code></p>
   <div class="callout invert">
     <span class="k">The single most load-bearing rule</span>
     <code>write_flow</code> must <b>never</b> call <code>rebuild_layer('agentic')</code> — that call is store-global and would delete every <em>other</em> flow's agentic content, defeating lazy per-flow hydration.
@@ -361,7 +362,7 @@
   <p class="thesis">Exactly two branches per flow, keyed on whether a persisted agentic.flow node exists; both always update the diagram, neither ever gates.</p>
   <div class="fig">
     <svg viewBox="0 0 1320 380" role="img"
-      aria-label="A decision fork. An affected flow from the SymbolDelta reaches a diamond asking does EXISTS agentic.flow. The NO branch enters the HYDRATE lane: detect flow, group umbrella, infer agentic.bridge edges, attach docs, plan and describe, write flow node, members and descriptions, with a Jaccard greater-or-equal 0.5 identity remap carrying a user label across an id change. The YES branch enters the RE-SYNC lane: re-induce subgraph from stored seeds, bridges and docs, carry descriptions via the resolver, re-describe only added union modified, and soft-delete a seed-gone flow to the bin. Both lanes converge on a single clay store-write arrow marked never rebuild_layer. Beneath sits the always-available deterministic skeleton flow.">
+      aria-label="A decision fork. An affected flow from the SymbolDelta reaches a diamond asking does EXISTS agentic.flow. The NO branch enters the HYDRATE lane: detect flow, group umbrella, infer agentic.bridge edges, attach docs, plan and describe, write flow node, members and descriptions. The YES branch enters the RE-SYNC lane: re-induce subgraph from stored seeds, bridges and docs, carry descriptions via the resolver, re-describe only added union modified, and retire a seed-gone flow. Both lanes converge on a single clay store-write arrow marked never rebuild_layer. Beneath sits the always-available deterministic skeleton flow.">
       <defs>
         <marker id="hr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="hr-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -387,13 +388,13 @@
         <text x="576" y="48" font-size="13.5" font-weight="700" fill="#20242b">HYDRATE</text>
         <text x="576" y="65" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">hydrate.ts · first work on a flow</text>
         <text x="576" y="84" font-size="11" fill="#2c3038">detect flow → umbrella → infer bridge edges → attach docs → plan+describe → write</text>
-        <text x="576" y="101" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">Jaccard≥0.5 identity remap carries a user label across an id change</text>
+        <text x="576" y="101" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">detect_and_stitch_code_umbrellas · bounded to MAX_FULL_CODE_HYDRATIONS</text>
         <!-- RE-SYNC lane -->
         <rect x="560" y="216" width="600" height="86" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
         <text x="576" y="240" font-size="13.5" font-weight="700" fill="#20242b">RE-SYNC</text>
         <text x="576" y="257" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">resync_persisted_flow · later edits</text>
         <text x="576" y="276" font-size="11" fill="#2c3038">re-induce from stored seeds/bridges/docs → carry descriptions via resolver</text>
-        <text x="576" y="293" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">re-describe only added∪modified · seed-gone flow soft-deleted to bin</text>
+        <text x="576" y="293" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">re-describe only added∪modified · seed-gone flow retires (deferred if graph untrustworthy)</text>
         <!-- converge to store -->
         <rect x="1182" y="120" width="110" height="86" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
         <text x="1237" y="156" text-anchor="middle" font-size="12" font-weight="600">store</text>
@@ -440,8 +441,8 @@
     <thead><tr><th>Class</th><th>Resolver verdict</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr><td><code>modified</code></td><td>body-changed (same path, new hash)</td><td>Body changed in place. Triggers re-sync of flows it reaches; <b>re-described</b>.</td></tr>
-      <tr><td><code>relocated</code></td><td>relocated (same body, new path)</td><td>Rename / cross-file move. Staged as <code>drift_*</code>, <b>not</b> re-described — description carries across.</td></tr>
-      <tr><td><code>removed</code></td><td>miss (resolves nowhere)</td><td>Symbol is gone. Preserved content soft-deletes into the re-attachment bin.</td></tr>
+      <tr><td><code>relocated</code></td><td>relocated (same body, new path)</td><td>Rename / cross-file move. <b>Not</b> re-described — description carries automatically via the resolver to the new anchor on re-sync.</td></tr>
+      <tr><td><code>removed</code></td><td>miss (resolves nowhere)</td><td>Symbol is gone. Flow retires on the next reconcile turn that touches the seed's file.</td></tr>
       <tr><td><code>added</code></td><td>fresh path absent from baseline</td><td>No persisted anchor. Harmless alone; the membership-diff trigger (not <code>added</code>) pulls a new member into a flow.</td></tr>
     </tbody>
   </table>
@@ -455,127 +456,65 @@
   <p class="thesis">Preservation is the trust floor — a cheap re-parse must never clobber an expensive description or an irreplaceable hand edit.</p>
   <div class="fig">
     <svg viewBox="0 0 1320 300" role="img"
-      aria-label="Three preservation mechanisms. One: the watermark ladder user over agentic over raw, with a one-directional structural-layer promotion arrow so rebuild_layer can never destroy user content. Two: descriptions live on agentic.description side-nodes, so a raw re-parse deletes only layer raw rows and the description survives to re-anchor. Three: recall and re-apply via the resolver — a hit or body-changed verdict is no drift, a relocated verdict stages drift_star for a one-click accept where reanchor_node rewrites only the anchor column, and a miss goes to the rust re-attachment bin.">
-      <g font-family="ui-sans-serif,system-ui">
-        <!-- 1 ladder -->
-        <rect x="24" y="24" width="400" height="252" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
-        <text x="44" y="52" font-size="13.5" font-weight="700" fill="#20242b">1 · Watermark ladder</text>
-        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">a write at tier T lands iff owner ≤ T</text>
-        <rect x="120" y="92" width="208" height="38" rx="7" fill="#f3ece2" stroke="#b5683e"/><text x="224" y="116" text-anchor="middle" font-size="12.5" font-weight="600">user</text>
-        <rect x="120" y="146" width="208" height="38" rx="7" fill="#eef0e3" stroke="#6c7a3b"/><text x="224" y="170" text-anchor="middle" font-size="12.5" font-weight="600">agentic</text>
-        <rect x="120" y="200" width="208" height="38" rx="7" fill="#ece5d6" stroke="#aaa492"/><text x="224" y="224" text-anchor="middle" font-size="12.5" font-weight="600">raw</text>
-        <path d="M224 200 L224 132" fill="none" stroke="#b5683e" stroke-width="1.6" marker-end="url(#pr-clay)"/>
-        <text x="236" y="170" font-family="ui-monospace,monospace" font-size="8.5" fill="#b5683e">structural promotion</text>
-        <text x="44" y="262" font-size="10.5" fill="#2c3038">user write promotes the row's layer → rebuild_layer can't delete it</text>
-        <!-- 2 side-nodes -->
-        <rect x="448" y="24" width="400" height="252" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
-        <text x="468" y="52" font-size="13.5" font-weight="700" fill="#20242b">2 · Descriptions on side-nodes</text>
-        <text x="468" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">agentic.description, anchored symbol_path:content_hash</text>
-        <rect x="500" y="100" width="120" height="56" rx="8" fill="#ece5d6" stroke="#aaa492" stroke-dasharray="5 4"/>
-        <text x="560" y="124" text-anchor="middle" font-size="11.5" font-weight="600">code.function</text>
-        <text x="560" y="142" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">layer='raw' (deletable)</text>
-        <rect x="676" y="100" width="140" height="56" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
-        <text x="746" y="124" text-anchor="middle" font-size="11.5" font-weight="600">description</text>
-        <text x="746" y="142" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">survives re-parse</text>
-        <line x1="620" y1="128" x2="674" y2="128" stroke="#6c6759" stroke-width="1.4" marker-end="url(#pr-g)"/>
-        <text x="468" y="196" font-size="11" fill="#2c3038">raw re-parse deletes only layer='raw' rows;</text>
-        <text x="468" y="214" font-size="11" fill="#2c3038">the description re-anchors via re_extract on rename/move.</text>
-        <!-- 3 recall -->
-        <rect x="872" y="24" width="424" height="252" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
-        <text x="892" y="52" font-size="13.5" font-weight="700" fill="#20242b">3 · Recall &amp; re-apply (resolver)</text>
-        <text x="892" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">resolve each preserved node vs fresh index</text>
-        <rect x="892" y="90" width="384" height="34" rx="7" fill="#eef0e3" stroke="#6c7a3b"/>
-        <text x="900" y="111" font-size="11" fill="#2c3038"><tspan font-weight="600">hit / body-changed</tspan> → no drift</text>
-        <rect x="892" y="134" width="384" height="48" rx="7" fill="#f3ece2" stroke="#b5683e"/>
-        <text x="900" y="153" font-size="11" fill="#2c3038"><tspan font-weight="600">relocated</tspan> → stage drift_* · one-click accept</text>
-        <text x="900" y="171" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">reanchor_node rewrites only the anchor column</text>
-        <rect x="892" y="192" width="384" height="34" rx="7" fill="#f4e6e2" stroke="#9e3b2e"/>
-        <text x="900" y="213" font-size="11" fill="#2c3038"><tspan font-weight="600">miss</tspan> → re-attachment bin</text>
-        <text x="892" y="252" font-size="10.5" fill="#2c3038">reanchor_node · core/src/reextract/reanchor.ts</text>
-      </g>
+      aria-label="Two preservation mechanisms. One: the watermark ladder user over agentic over raw, with a one-directional structural-layer promotion arrow so rebuild_layer can never destroy user content. Two: descriptions live on agentic.description side-nodes anchored by symbol_path:content_hash, so a raw re-parse deletes only layer raw rows and the description survives; on relocation the re-sync re-induces the subgraph and the resolver carries the description automatically to the new anchor.">
       <defs>
         <marker id="pr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="pr-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
       </defs>
-    </svg>
-  </div>
-  <p class="cap"><code>reanchor_node</code> strips the <code>drift_*</code> staging and leaves the authored description byte-for-byte intact.</p>
-
-  <h2 id="mcp">The drift MCP surface</h2>
-  <p class="thesis">Reconciliation is automatic and silent; a genuine miss whose authored description is stranded needs human recovery — the only job of the drift MCP.</p>
-  <table class="ledger">
-    <thead><tr><th>Tool</th><th>Does</th></tr></thead>
-    <tbody>
-      <tr><td><code>drift_list</code></td><td>Enumerate the re-attachment bin — soft-deleted preserved content whose anchor missed; each carries the stranded description + ranked <code>candidates[]</code>.</td></tr>
-      <tr><td><code>drift_next</code></td><td>Return the oldest bin entry or <code>null</code>; a stateless resolve-next loop, the bin shrinks as entries resolve.</td></tr>
-      <tr><td><code>drift_resolve</code></td><td><b>reanchor</b> a staged relocation · <b>reattach</b> a bin entry (bare or onto a chosen target) · <b>delete</b> (keep as tombstone). Takes explicit <code>kind:'node'|'edge'</code>.</td></tr>
-    </tbody>
-  </table>
-  <div class="fig">
-    <svg viewBox="0 0 1320 240" role="img"
-      aria-label="Two distinct populations feed the MCP. Left: a clean relocation stays live with staged drift_star attributes and is committed via reanchor, sourced from core's outstanding_drift. Right: the re-attachment bin is a query over soft-deleted rows, never a new table, holding unrecoverable misses; reattach offers ranked candidates scored plus 100 for content-hash, plus 10 for same file, plus 5 for same leaf-name and kind, and validates the target before any write.">
       <g font-family="ui-sans-serif,system-ui">
-        <!-- left: clean relocation -->
-        <rect x="24" y="24" width="620" height="190" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
-        <text x="44" y="52" font-size="13.5" font-weight="700" fill="#20242b">Clean relocation — live</text>
-        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">source: outstanding_drift</text>
-        <text x="44" y="100" font-size="12" fill="#2c3038">Stays live with staged <tspan font-family="ui-monospace,monospace" font-size="11" fill="#92522f">drift_*</tspan> attributes.</text>
-        <text x="44" y="122" font-size="12" fill="#2c3038">Committed via <tspan font-weight="600">reanchor</tspan> — rewrites only the anchor column.</text>
-        <text x="44" y="158" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">NOT in the bin · description preserved · awaiting accept</text>
-        <!-- right: bin -->
-        <rect x="676" y="24" width="620" height="190" rx="10" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4"/>
-        <text x="696" y="52" font-size="13.5" font-weight="700" fill="#7a2c22">Re-attachment bin — lost</text>
-        <text x="696" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">query over soft-deleted rows · never a new table</text>
-        <text x="696" y="100" font-size="12" fill="#2c3038">Unrecoverable misses. <tspan font-weight="600">reattach</tspan> with ranked candidates:</text>
-        <text x="716" y="124" font-family="ui-monospace,monospace" font-size="10" fill="#2c3038">+100 content-hash · +10 same file · +5 same leaf+kind</text>
-        <text x="696" y="156" font-size="11.5" fill="#2c3038">Gaps sized so the strongest signal outranks any sum of weaker.</text>
-        <text x="696" y="178" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">validates target against live anchored set BEFORE any write</text>
-        <text x="696" y="198" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">mcp/re_attachment_bin.ts</text>
+        <!-- 1 watermark ladder -->
+        <rect x="24" y="24" width="620" height="252" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
+        <text x="44" y="52" font-size="13.5" font-weight="700" fill="#20242b">1 · Watermark ladder</text>
+        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">a write at tier T lands iff TIER_RANK[owner] ≤ TIER_RANK[T]</text>
+        <rect x="208" y="92" width="208" height="38" rx="7" fill="#f3ece2" stroke="#b5683e"/><text x="312" y="116" text-anchor="middle" font-size="12.5" font-weight="600">user</text>
+        <rect x="208" y="146" width="208" height="38" rx="7" fill="#eef0e3" stroke="#6c7a3b"/><text x="312" y="170" text-anchor="middle" font-size="12.5" font-weight="600">agentic</text>
+        <rect x="208" y="200" width="208" height="38" rx="7" fill="#ece5d6" stroke="#aaa492"/><text x="312" y="224" text-anchor="middle" font-size="12.5" font-weight="600">raw</text>
+        <path d="M312 200 L312 132" fill="none" stroke="#b5683e" stroke-width="1.6" marker-end="url(#pr-clay)"/>
+        <text x="324" y="170" font-family="ui-monospace,monospace" font-size="8.5" fill="#b5683e">structural promotion</text>
+        <text x="44" y="262" font-size="10.5" fill="#2c3038">user write promotes the row's layer → <code>rebuild_layer</code> can't delete it</text>
+        <!-- 2 descriptions on side-nodes -->
+        <rect x="676" y="24" width="620" height="252" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
+        <text x="696" y="52" font-size="13.5" font-weight="700" fill="#20242b">2 · Descriptions on side-nodes</text>
+        <text x="696" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">agentic.description · anchor: symbol_path:content_hash</text>
+        <rect x="728" y="100" width="140" height="56" rx="8" fill="#ece5d6" stroke="#aaa492" stroke-dasharray="5 4"/>
+        <text x="798" y="124" text-anchor="middle" font-size="11.5" font-weight="600">code.function</text>
+        <text x="798" y="142" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">layer='raw' (deletable)</text>
+        <rect x="916" y="100" width="152" height="56" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
+        <text x="992" y="124" text-anchor="middle" font-size="11.5" font-weight="600">description</text>
+        <text x="992" y="142" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">survives re-parse</text>
+        <line x1="868" y1="128" x2="914" y2="128" stroke="#6c6759" stroke-width="1.4" marker-end="url(#pr-g)"/>
+        <text x="696" y="192" font-size="11" fill="#2c3038">raw re-parse deletes only <code>layer='raw'</code> rows — the description survives.</text>
+        <text x="696" y="214" font-size="11" fill="#2c3038">On relocation: re-sync re-induces the subgraph; the resolver carries</text>
+        <text x="696" y="232" font-size="11" fill="#2c3038">the description to its new anchor automatically.</text>
+        <text x="696" y="258" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">core/src/reextract/symbol_delta.ts · reconcile/resync_persisted_flow</text>
       </g>
     </svg>
   </div>
-  <p class="cap">MCP is user-facing recovery only, <b>never reconciles</b>. <code>reanchor</code> and <code>reattach</code> read from two different sources. <code>bin/drift_mcp.ts</code> serves over stdio.</p>
+  <p class="cap">Together the two mechanisms ensure that re-parse, rename, and cross-file move are all lossless with respect to authored content.</p>
 
-  <h2 id="banner-installer">SessionStart banner &amp; installer</h2>
-  <p class="thesis">The banner is the backstop for a declined reconcile; the installer wires every surface through one portable .claude tree, idempotently.</p>
+  <h2 id="installer">Installer</h2>
+  <p class="thesis">The installer wires every surface through one portable .claude tree, idempotently — re-running is safe.</p>
   <div class="fig">
-    <svg viewBox="0 0 1320 320" role="img"
-      aria-label="Two regions. Left: the SessionStart banner — drift_session_start.ts reads two read-only populations, outstanding_drift staged relocations and re_attachment_bin_size, and injects a banner pointing at drift_list, drift_next and drift_resolve; empty plus empty yields no banner; it is strictly read-only and never reconciles, blocks, or mutates, and every hook degrades any failure to a silent exit zero. Right: the installer spine — install_drift asserts all four bins are built before writing config, merges Stop and SessionStart hooks non-destructively, registers the drift MCP with CODE_CHARTER_DB, copies the assets bundle and writes the .drift_reconcile_bin sidecar.">
+    <svg viewBox="0 0 1320 240" role="img"
+      aria-label="The installer spine. install_drift runs four steps in order: assert both drift_stop_hook and drift_reconcile bins are built before writing config (fail loudly on missing bin); merge the Stop hook entry non-destructively so one entry per event is guaranteed; copy the assets bundle of agents, skills, and commands; and write the dot-drift-reconcile-bin sidecar beside the drift-sync skill so the dependency-free script can locate the reconcile bin portably with no node_modules.">
       <defs>
-        <marker id="bi-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="inst-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
       </defs>
       <g font-family="ui-sans-serif,system-ui">
-        <!-- LEFT banner -->
-        <rect x="24" y="24" width="560" height="272" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
-        <text x="44" y="52" font-size="14" font-weight="700" fill="#20242b">SessionStart banner</text>
-        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">bin/drift_session_start.ts · read-only</text>
-        <rect x="44" y="92" width="240" height="56" rx="8" fill="#f3ece2" stroke="#b5683e"/>
-        <text x="164" y="114" text-anchor="middle" font-size="11.5" font-weight="600">outstanding_drift</text>
-        <text x="164" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">staged relocations</text>
-        <rect x="320" y="92" width="240" height="56" rx="8" fill="#f4e6e2" stroke="#9e3b2e"/>
-        <text x="440" y="114" text-anchor="middle" font-size="11.5" font-weight="600">re_attachment_bin_size</text>
-        <text x="440" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">stranded descriptions</text>
-        <rect x="160" y="180" width="288" height="44" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
-        <text x="304" y="207" text-anchor="middle" font-size="12" font-weight="600">banner → drift_list / next / resolve</text>
-        <path d="M164 148 L290 178" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#bi-g)"/>
-        <path d="M440 148 L318 178" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#bi-g)"/>
-        <text x="44" y="256" font-size="11" fill="#2c3038">empty + empty = no banner · never reconciles / blocks / mutates</text>
-        <text x="44" y="278" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">every hook degrades any failure to a silent exit-0</text>
-        <!-- RIGHT installer -->
-        <rect x="616" y="24" width="680" height="272" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
-        <text x="636" y="52" font-size="14" font-weight="700" fill="#20242b">Installer spine</text>
-        <text x="636" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">install_drift · installer/install.ts</text>
+        <rect x="24" y="24" width="1272" height="192" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
+        <text x="44" y="52" font-size="14" font-weight="700" fill="#20242b">Installer spine</text>
+        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">install_drift · installer/install.ts</text>
         <g font-size="11.5" fill="#2c3038">
-          <rect x="636" y="86" width="640" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
-          <text x="650" y="108">1 · assert all four bins built <tspan font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">BEFORE writing config (fail loudly)</tspan></text>
-          <rect x="636" y="128" width="640" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
-          <text x="650" y="150">2 · merge Stop + SessionStart hooks <tspan font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">non-destructive · one entry/event</tspan></text>
-          <rect x="636" y="170" width="640" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
-          <text x="650" y="192">3 · register drift MCP <tspan font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">CODE_CHARTER_DB=.code-charter/graph.db</tspan></text>
-          <rect x="636" y="212" width="640" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
-          <text x="650" y="234">4 · copy assets bundle + write <tspan font-family="ui-monospace,monospace" font-size="9" fill="#92522f">.drift_reconcile_bin sidecar</tspan></text>
+          <rect x="44" y="86" width="590" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
+          <text x="58" y="108">1 · assert both bins built <tspan font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">drift_stop_hook.js + drift_reconcile.js · BEFORE writing config</tspan></text>
+          <rect x="44" y="128" width="590" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
+          <text x="58" y="150">2 · merge Stop hook <tspan font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">non-destructive · one entry per event</tspan></text>
+          <rect x="660" y="86" width="612" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
+          <text x="674" y="108">3 · copy assets bundle <tspan font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">agents / skills / commands → .claude/</tspan></text>
+          <rect x="660" y="128" width="612" height="36" rx="7" fill="#fbfaf5" stroke="#6c6759"/>
+          <text x="674" y="150">4 · write <tspan font-family="ui-monospace,monospace" font-size="9" fill="#92522f">.drift_reconcile_bin</tspan><tspan font-size="11.5"> sidecar beside drift-sync skill</tspan></text>
         </g>
-        <text x="636" y="276" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">canonical source: packages/drift/assets/{agents,skills,commands}</text>
+        <text x="44" y="200" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">canonical source: packages/drift/assets/{agents,skills,commands}</text>
       </g>
     </svg>
   </div>

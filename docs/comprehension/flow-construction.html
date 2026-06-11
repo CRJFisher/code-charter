@@ -137,6 +137,84 @@
     </div>
   </header>
 
+  <!-- ============================ 0 · RUNTIME CHAIN ============================ -->
+  <h2 id="runtime">Where the agent runs</h2>
+  <p class="thesis">The drift-reconciler is Claude — a bounded sub-agent (tools: <code>Skill</code>, <code>Bash</code>) that runs in its own context so diagram work does not flood the main session. Its sole job: invoke the <code>drift-sync</code> skill, return one acknowledgement line. The skill shells into the headless <code>drift-reconcile</code> bin, which calls <code>reconcile()</code> with <b>no executors injected</b>. Both seams (<code>stitch_entrypoints</code>, <code>describe</code>) are optional fields in <code>ReconcileDeps</code> and are left <code>undefined</code> — they fall back to their null no-op implementations. <b>In v1, no model token is spent on flow content.</b> "Agentic" is the storage tier name, not a signal that a model generated the content.</p>
+  <div class="fig">
+    <svg viewBox="0 0 1320 320" role="img"
+      aria-label="The runtime chain from left to right. Stage one: the Stop hook, a Claude Code event, fires and writes a pending_reconcile.json file beside the store. Stage two: the drift-reconciler sub-agent, running as the Claude model with tools Skill and Bash, invokes the drift-sync skill and returns only a one-line acknowledgement to the main session; it never writes the store and never inspects diagram internals. Stage three: the drift-sync skill, with allowed-tools Bash only, runs drift_sync.js via Bash. Stage four: drift_sync.js, a dependency-free Node script, reads the pending reconcile file and shells into the drift-reconcile bin via spawnSync. Stage five: the drift-reconcile bin imports at-code-charter-core, opens the store, builds the headless call graph, and calls reconcile with the file set and deps, injecting no executors. Below, the reconcile function receives undefined for both stitch_entrypoints and describe, falling back to null_stitch_executor and null_describe_executor respectively. The stitch seam confirms nothing; the describe seam returns docstrings and name placeholders. In v1 the entire pipeline is fully deterministic.">
+      <defs>
+        <marker id="rt-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui">
+        <!-- BOX 1: Stop hook -->
+        <rect x="20" y="20" width="155" height="110" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.6"/>
+        <text x="97" y="44" text-anchor="middle" font-size="12.5" font-weight="700">Stop hook</text>
+        <text x="97" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">Claude Code event</text>
+        <text x="97" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">writes</text>
+        <text x="97" y="98" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">pending_reconcile.json</text>
+        <text x="97" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">drift_stop_hook.js</text>
+        <!-- BOX 2: drift-reconciler (Claude) — highlighted -->
+        <rect x="193" y="20" width="278" height="110" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="2.2"/>
+        <text x="332" y="44" text-anchor="middle" font-size="13.5" font-weight="700" fill="#20242b">drift-reconciler</text>
+        <text x="332" y="61" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">Claude model · tools: Skill, Bash</text>
+        <text x="332" y="80" text-anchor="middle" font-size="11" fill="#2c3038">invokes drift-sync skill</text>
+        <text x="332" y="96" text-anchor="middle" font-size="11" fill="#2c3038">returns 1-line ack to main session</text>
+        <text x="332" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">never writes store · never inspects diagrams</text>
+        <!-- BOX 3: drift-sync skill -->
+        <rect x="489" y="20" width="193" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="585" y="44" text-anchor="middle" font-size="12.5" font-weight="700">drift-sync skill</text>
+        <text x="585" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">allowed-tools: Bash</text>
+        <text x="585" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">runs drift_sync.js</text>
+        <text x="585" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">via Bash</text>
+        <text x="585" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">SKILL.md</text>
+        <!-- BOX 4: drift_sync.js -->
+        <rect x="700" y="20" width="178" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="789" y="44" text-anchor="middle" font-size="12.5" font-weight="700">drift_sync.js</text>
+        <text x="789" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">dependency-free Node</text>
+        <text x="789" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">reads pending file</text>
+        <text x="789" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">shells into bin</text>
+        <text x="789" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">spawnSync(node, bin)</text>
+        <!-- BOX 5: drift-reconcile bin -->
+        <rect x="896" y="20" width="214" height="110" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="1003" y="44" text-anchor="middle" font-size="12" font-weight="700">drift-reconcile bin</text>
+        <text x="1003" y="62" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">Node · @code-charter/core</text>
+        <text x="1003" y="82" text-anchor="middle" font-size="10.5" fill="#2c3038">opens store · builds call graph</text>
+        <text x="1003" y="98" text-anchor="middle" font-size="10.5" fill="#2c3038">calls reconcile(files, deps)</text>
+        <text x="1003" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">no executors injected</text>
+        <!-- ARROWS between top boxes at y=75 -->
+        <line x1="175" y1="75" x2="191" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <line x1="471" y1="75" x2="487" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <line x1="682" y1="75" x2="698" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <line x1="878" y1="75" x2="894" y2="75" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <!-- Arrow from bin down to reconcile() box -->
+        <path d="M1003 130 L1003 151" fill="none" stroke="#6c6759" stroke-width="1.6" marker-end="url(#rt-g)"/>
+        <text x="1015" y="145" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">calls</text>
+        <!-- RECONCILE() box -->
+        <rect x="20" y="153" width="1280" height="152" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.6"/>
+        <text x="44" y="176" font-size="13.5" font-weight="700" fill="#20242b">reconcile(files, deps)</text>
+        <text x="44" y="192" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">drift/reconcile/reconcile.ts · ReconcileDeps: both seams are optional — left undefined in the bin → null defaults</text>
+        <!-- Seam row 1: stitch -->
+        <rect x="44" y="200" width="580" height="42" rx="7" fill="#fbfaf5" stroke="#6c6759" stroke-width="1"/>
+        <text x="60" y="217" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">stitch_entrypoints:</text>
+        <text x="215" y="217" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">undefined  →  null_stitch_executor</text>
+        <text x="60" y="233" font-size="10.5" fill="#2c3038">boundary grouping — confirms nothing; one flow per entrypoint in v1</text>
+        <!-- Seam row 2: describe -->
+        <rect x="44" y="248" width="580" height="42" rx="7" fill="#fbfaf5" stroke="#6c6759" stroke-width="1"/>
+        <text x="60" y="265" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e">describe:</text>
+        <text x="153" y="265" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">undefined  →  null_describe_executor</text>
+        <text x="60" y="281" font-size="10.5" fill="#2c3038">member descriptions — docstring first, then name placeholder in v1</text>
+        <!-- v1 summary on right -->
+        <rect x="660" y="200" width="620" height="90" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
+        <text x="680" y="224" font-size="14" font-weight="700" fill="#20242b">v1 · fully deterministic</text>
+        <text x="680" y="246" font-size="11" fill="#2c3038">The bin injects neither executor. Both are <tspan font-family="ui-monospace,monospace" font-size="10">undefined</tspan> in</text>
+        <text x="680" y="262" font-size="11" fill="#2c3038"><tspan font-family="ui-monospace,monospace" font-size="10">ReconcileDeps</tspan> and default to their null no-ops.</text>
+        <text x="680" y="278" font-size="11" fill="#2c3038">No model token is spent on flow content.</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">The drift-reconciler is Claude but is constrained to context isolation only — it orchestrates the skill and nothing more. The two seams are TypeScript functions injected into <code>ReconcileDeps</code>; the bin is a separate <code>spawnSync</code> child and cannot receive function types across the process boundary. <b>assets/agents/drift-reconciler.md · bin/drift_reconcile.ts</b></p>
+
   <!-- ============================ 1 · THESIS: TWO TIERS ============================ -->
   <h2 id="thesis">Two tiers of one flow</h2>
   <p class="thesis">The deterministic skeleton is recomputed each session from the call graph and costs nothing to regenerate; the agentic hydration is an expensive, non-deterministic upgrade persisted once and preserved thereafter. The line between them is the cost-of-regeneration seam.</p>
@@ -287,7 +365,7 @@
 
   <!-- ============================ 3 · AGENTIC HYDRATION ============================ -->
   <h2 id="hydration">Agentic hydration &amp; induction</h2>
-  <p class="thesis"><b>Does an agent search the repo and connect Ariadne's entrypoints into logical groupings? Only through the stitch seam.</b> Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code> along a deterministic engine spine, and a model can speak in exactly <b>two optional seams</b>: the <b>describe seam</b> supplies member <em>descriptions</em>, and the <b>stitch seam</b> supplies <em>boundary decisions</em> — merging orphan entrypoints that syntactic analysis leaves split into one multi-seed umbrella. Both default to deterministic and headless: the stitch seam is crossed on every HYDRATE turn, but its executor resolves as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> and the default confirms nothing, so a flow's grouping <em>is</em> reachability, already computed by <code>build_skeleton_flows</code> — one entrypoint plus its reachable subgraph — and the engine induces members, infers bridges with deterministic heuristics, runs a deterministic-first describe ladder, and writes the result. "Agentic" names the storage <em>lane</em> the result is written to (lower-confidence, judgement-tier), not a runtime AI.</p>
+  <p class="thesis">Hydration upgrades a skeleton stub into a persisted <code>agentic.flow</code> along a five-stage deterministic engine spine. A model can speak in exactly <b>two seams</b>: the <b>describe seam</b> supplies member descriptions (stage 4) and the <b>stitch seam</b> supplies boundary decisions (stage 1) — merging orphan entrypoints that syntactic analysis leaves split. Both default to headless null executors; in v1 the entire pipeline is deterministic (see <a href="#runtime">the runtime chain</a>).</p>
 
   <div class="fig">
     <svg viewBox="0 0 1320 470" role="img"
@@ -399,10 +477,10 @@
     <div class="r"><span class="n">4</span><div><b>Descriptions — the describe seam.</b> <code>plan_descriptions</code> is deterministic-first: cache → docstring → optional batched LLM ≤ <code>DEFAULT_DESCRIBE_CAP = 200</code> → name placeholder. A flow hydrates headlessly with no model call; this seam supplies text only. <code>core/agentic/describe_policy.ts</code></div></div>
     <div class="r"><span class="n">5</span><div><b>Persist.</b> <code>write_agentic_substrate</code> + <code>write_flow</code> write the <code>agentic.flow</code> node and substrate row-by-row through scoped <code>write_fields('agentic')</code>, stamping <code>last_synced_at</code>, never <code>rebuild_layer</code>. <code>drift/reconcile/hydrate.ts · flow_store.ts</code></div></div>
   </div>
-  <p class="cap"><b>"Agentic" is the storage lane, not a runtime AI.</b> Two model seams exist and both are optional: the describe seam supplies text, the stitch seam supplies boundary decisions. Both are filled in-process — the drift-reconciler sub-agent acts as the stitch executor, judging which orphan entrypoints belong together. The headless <code>drift-reconcile</code> bin that the drift-sync script shells into injects neither: it runs the deterministic defaults. <b>core/agentic/stitch.ts · drift/reconcile/reconcile.ts</b></p>
+  <p class="cap">Both seams are null no-ops in v1 — see <a href="#runtime">the runtime chain</a>. <b>core/agentic/stitch.ts · drift/reconcile/reconcile.ts</b></p>
   <div class="callout">
-    <span class="k">Does an agent group entrypoints? — Only through the stitch seam</span>
-    The deterministic default never does: an umbrella <em>is</em> a skeleton flow (one entrypoint + its reachable subgraph) and <code>build_bridge_edges</code> is a heuristic. The seam is always crossed — the executor resolves as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — and the default confirms nothing, keeping hydration byte-identical to one-entrypoint-per-flow. A live executor (the drift-reconciler sub-agent, in-process) judges candidate orphan pairs and its <code>ConfirmedStitch[]</code> merges them into multi-seed umbrellas, each stitch carrying a justifying <code>bridge</code> span and an <code>inference_rationale</code>. The describe seam supplies text; the stitch seam supplies boundaries.
+    <span class="k">The stitch seam is always crossed — the default confirms nothing</span>
+    HYDRATE has no conditional branch: <code>detect_and_stitch_code_umbrellas</code> runs every turn and resolves the executor as <code>deps.stitch_entrypoints ?? null_stitch_executor</code>. In v1 the bin injects no live executor, so the null default runs — confirming nothing and keeping grouping byte-identical to one-entrypoint-per-flow. The seam is infrastructure; filling it with a live executor is a v2 concern.
   </div>
   <div class="callout invert">
     <span class="k">The single most load-bearing write rule</span>
@@ -532,7 +610,7 @@
   <p class="cap">Grouping is independent of bridge writes — a stitch whose bridge endpoints fail to resolve still merges its seeds; a malformed stitch resolving to fewer than two seeds is skipped. <b>drift/reconcile/reconcile.ts</b></p>
   <div class="callout">
     <span class="k">The seam is always crossed — the default confirms nothing</span>
-    HYDRATE has no stitch branch: <code>detect_and_stitch_code_umbrellas</code> runs every turn and resolves its executor as <code>deps.stitch_entrypoints ?? null_stitch_executor</code>. The null default returns no confirmations, leaving the result byte-identical to one-entrypoint-per-flow — so the <code>drift-sync</code> script's headless reconcile, which injects no live executor, stays deterministic. The seam is filled by in-process hosts: the drift-reconciler sub-agent supplies the real executor.
+    HYDRATE has no stitch branch: <code>detect_and_stitch_code_umbrellas</code> runs every turn and resolves its executor as <code>deps.stitch_entrypoints ?? null_stitch_executor</code>. The null default returns no confirmations — the result is byte-identical to one-entrypoint-per-flow, and the headless <code>drift-reconcile</code> bin stays fully deterministic. The seam is infrastructure for v2.
   </div>
   <div class="callout olive">
     <span class="k">Bridge endpoints are symbol_paths, never raw SymbolIds</span>
@@ -541,11 +619,11 @@
 
   <!-- ============================ 4 · SKELETON ↔ HYDRATED RECONCILIATION ============================ -->
   <h2 id="reconcile">Skeleton ↔ hydrated reconciliation</h2>
-  <p class="thesis">The selector merges two populations: persisted hydrated flows take precedence, and the deterministic skeleton fills the rest. Membership re-induces from rename-stable seeds; when a re-detection moves a flow's id, a ≥50% member overlap carries the user's label across the change.</p>
+  <p class="thesis">The selector merges two populations: persisted hydrated flows take precedence, the deterministic skeleton fills the rest. Membership re-induces from rename-stable seeds. A superseded flow (dominant seed gone or renamed) is retired by the seed-gone soft-delete in reconcile.</p>
 
   <div class="fig">
-    <svg viewBox="0 0 1320 400" role="img"
-      aria-label="Three reconciliation mechanisms in parallel panels. Panel one, order_flows: hydrated flows ranked by last_synced_at most recent first with nulls last, then the deterministic skeleton in its own order; a skeleton flow whose id is already hydrated is dropped, so the hydrated entry supersedes the stub. Panel two, reconstruct_flow_membership: a persisted flow stores its seeds and bridges as symbol_path strings; build_symbol_path_index maps each back to a live SymbolId; a candidate that resolves to a SymbolId is a call-graph seed, one that does not is a linked doc; then induce_members re-derives the member set from the live graph. Panel three, the Jaccard identity remap: when a freshly detected flow's id differs from a persisted one but their member sets overlap by at least 0.5, it is the same flow under a new id, so match_existing_flow carries the user-owned label across and strands the superseded flow into the re-attachment bin; weaker overlap is a genuine split or merge and is never silently dropped.">
+    <svg viewBox="0 0 880 404" role="img"
+      aria-label="Two reconciliation mechanisms in parallel panels. Panel one, order_flows: hydrated flows ranked by last_synced_at most recent first with nulls last, then the deterministic skeleton in its own order; a skeleton flow whose id is already hydrated is dropped, so the hydrated entry supersedes the stub. Panel two, reconstruct_flow_membership: a persisted flow stores its seeds and bridges as symbol_path strings; build_symbol_path_index maps each back to a live SymbolId; a candidate that resolves to a SymbolId is a call-graph seed, one that does not is a linked doc; then induce_members re-derives the member set from the live graph. There is no identity remap: a superseded flow whose dominant seed is renamed or removed is retired by the seed-gone soft-delete in reconcile.">
       <defs>
         <marker id="rc-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="rc-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -602,41 +680,10 @@
         <line x1="748" y1="264" x2="748" y2="286" stroke="#b5683e" stroke-width="1.4" marker-end="url(#rc-clay)"/>
         <text x="472" y="366" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">core/model/flow.ts</text>
 
-        <!-- PANEL 3: Jaccard remap -->
-        <rect x="880" y="24" width="416" height="356" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.4"/>
-        <text x="900" y="52" font-size="13.5" font-weight="700" fill="#20242b">3 · Jaccard ≥ 0.5 identity remap</text>
-        <text x="900" y="70" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">match_existing_flow · a moved dominant seed</text>
-        <!-- two flows -->
-        <rect x="900" y="92" width="180" height="52" rx="8" fill="#ece5d6" stroke="#aaa492"/>
-        <text x="990" y="113" text-anchor="middle" font-size="11.5" font-weight="600">persisted flow</text>
-        <text x="990" y="130" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">old id · user label</text>
-        <rect x="1096" y="92" width="180" height="52" rx="8" fill="#eef0e3" stroke="#6c7a3b"/>
-        <text x="1186" y="113" text-anchor="middle" font-size="11.5" font-weight="600">freshly detected</text>
-        <text x="1186" y="130" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">new id (seed renamed)</text>
-        <!-- overlap test -->
-        <polygon points="1088,178 1140,154 1192,178 1140,202" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
-        <text x="1140" y="176" text-anchor="middle" font-size="10.5" font-weight="600">overlap</text>
-        <text x="1140" y="191" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">≥ 0.5 ?</text>
-        <line x1="990" y1="144" x2="1100" y2="172" stroke="#6c6759" stroke-width="1.3" marker-end="url(#rc-g)"/>
-        <line x1="1186" y1="144" x2="1180" y2="172" stroke="#6c6759" stroke-width="1.3" marker-end="url(#rc-g)"/>
-        <!-- YES carry -->
-        <rect x="900" y="226" width="396" height="64" rx="8" fill="#f3ece2" stroke="#b5683e"/>
-        <text x="916" y="248" font-size="11.5" font-weight="600" fill="#20242b"><tspan font-family="ui-monospace,monospace" fill="#6c7a3b">YES</tspan> — same flow, new id</text>
-        <text x="916" y="266" font-size="11" fill="#2c3038">carry the user-owned label across · soft-delete old node</text>
-        <text x="916" y="282" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">restamp label as user-owned · stranded flow → re-attachment bin</text>
-        <line x1="1110" y1="202" x2="1060" y2="224" stroke="#b5683e" stroke-width="1.4" marker-end="url(#rc-clay)"/>
-        <text x="1052" y="220" text-anchor="end" font-family="ui-monospace,monospace" font-size="9" fill="#6c7a3b">≥0.5</text>
-        <!-- NO split -->
-        <rect x="900" y="306" width="396" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e"/>
-        <text x="916" y="328" font-size="11.5" font-weight="600" fill="#7a2c22"><tspan font-family="ui-monospace,monospace">NO</tspan> — genuine split / merge</text>
-        <text x="916" y="345" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">a new flow · stranded flow surfaced, never silently dropped</text>
-        <line x1="1170" y1="202" x2="1180" y2="304" stroke="#9e3b2e" stroke-width="1.4" marker-end="url(#rc-g)"/>
-        <text x="1196" y="250" text-anchor="start" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">&lt;0.5</text>
-        <text x="900" y="372" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">drift/reconcile/flow_identity.ts</text>
       </g>
     </svg>
   </div>
-  <p class="cap">Re-sync re-induces a flow from its stored seeds with the identity remap disabled — the id is unchanged by construction; only a genuine first-hydrate (a new id) runs the ≥0.5 overlap carry. <b>drift/reconcile/hydrate.ts · flow_identity.ts</b></p>
+  <p class="cap">Re-sync re-induces a flow from its stored seeds — the id is unchanged by construction; there is no identity remap. A flow whose dominant seed no longer resolves is retired by the seed-gone soft-delete in <code>resync_persisted_flow</code> (the orphaned row is harmless); a renamed seed re-hydrates as a fresh flow, and a freshly hydrated umbrella retires persisted flows whose seeds it subsumes via <code>retire_flows_subsumed_by</code>. <b>drift/reconcile/reconcile.ts</b></p>
 
   <!-- ============================ 5 · LEDGER ============================ -->
   <h2 id="ledger">The flow-truth ledger</h2>
@@ -662,7 +709,6 @@
       <tr><td><code>build_candidate_stitches · null_stitch_executor</code></td><td><b>The stitch seam.</b> Pair orphan entrypoints in the changed neighbourhood as (source, target) candidates (cap <code>50</code>); an <code>EntrypointStitchExecutor</code> — wired as <code>deps.stitch_entrypoints ?? null_stitch_executor</code> — returns <code>ConfirmedStitch[]</code> (merged seeds + a justifying bridge), union-found into multi-seed umbrellas. The default confirms nothing.</td><td><code>agentic/stitch.ts</code></td></tr>
       <tr><td><code>build_bridge_edges</code></td><td>Candidates → <code>agentic.bridge</code> edges at confidence <code>0.5</code>, each with an <code>inference_rationale</code> + justifying span.</td><td><code>agentic/bridge.ts</code></td></tr>
       <tr><td><code>plan_descriptions</code></td><td>The deterministic-first ladder: cache → docstring → LLM ≤ 200 → placeholder. No model call required.</td><td><code>agentic/describe_policy.ts</code></td></tr>
-      <tr><td><code>match_existing_flow · anchor_set_hash</code></td><td>The ≥0.5 Jaccard identity remap that carries a user label across an id change; weak overlap → re-attachment bin.</td><td><code>drift/reconcile/flow_identity.ts</code></td></tr>
     </tbody>
   </table>
   <p class="cap">Constants pin the substrate vocabulary: <code>FLOW_NODE_KIND='agentic.flow'</code>, <code>FLOW_MEMBER_EDGE_KIND='agentic.flow_member'</code>, <code>BRIDGE_EDGE_KIND='agentic.bridge'</code>. <b>core/model/flow.ts</b></p>

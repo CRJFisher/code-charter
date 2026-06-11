@@ -1,20 +1,13 @@
 ---
 name: drift-sync
 description: >-
-  Reconcile code-to-diagram drift for the changed-file set the Stop hook staged: hydrate a flow's
-  diagram the first time its code is worked on, or re-sync an existing flow. Invoked by the
-  drift-reconciler sub-agent; the bundled script fetches the staged set itself. It always updates
-  the diagram and never asks permission; agentic content is regenerated each sync.
+  Reconcile code-to-diagram drift
 allowed-tools: Bash
 ---
 
 # drift-sync
 
 Reconcile the diagram store for the changed-file set staged for this turn.
-
-This skill is the single store-mutation path for drift reconciliation. The work is performed by the
-bundled script `scripts/drift_sync.js`, which you run directly. You do not write the store through any
-other tool.
 
 ## Run the reconciler
 
@@ -73,8 +66,7 @@ hydrating one flow never disturbs another.
 
 Descriptions are deterministic-first: a member with a docstring or frontmatter uses it; the rest get a
 name placeholder. No model call is required, so a flow hydrates headlessly. The describe step is an
-injectable seam — you MAY supply short descriptions for the members being described — but v1 never
-requires it; the default is the deterministic path.
+injectable seam — you can supply short descriptions for the members being described to improve their readability.
 
 ## Contract
 

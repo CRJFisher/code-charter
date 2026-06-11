@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Companion for task-27.1.6.7 — eval harness for agentic entrypoint stitching (mini-codebase fixtures).
+     Sources read: the task doc; packages/core/src/agentic/stitch.ts; packages/core/src/agentic/gap_detection.ts;
+     packages/drift/src/reconcile/reconcile.ts (detect_and_stitch_code_umbrellas, build_stitch_groups);
+     packages/drift/src/reconcile/reconcile_stitch.test.ts; packages/drift/src/reconcile/ariadne_adapter.test.ts;
+     packages/drift/src/reconcile/headless_project.ts. Generated 2026-06-10. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>task-27.1.6.7 — eval harness for entrypoint stitching: mini-codebase fixtures</title>
+<style>
+  :root {
+    --ivory: #f7f4ec; --oat: #ece5d6; --slate: #2c3038; --ink: #20242b;
+    --clay: #b5683e; --olive: #6c7a3b; --rust: #9e3b2e;
+    --g1: #fbfaf5; --g2: #efeadd; --g3: #d9d2c1; --g4: #aaa492; --g5: #6c6759;
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --r: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ivory); color: var(--slate); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  /* sticky cross-doc nav */
+  .docnav { position: sticky; top: 0; z-index: 10; background: var(--ivory); border-bottom: 1px solid var(--g3);
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 9px 5%; font-family: var(--mono); font-size: 11.5px; }
+  .docnav .lab { text-transform: uppercase; letter-spacing: .12em; font-size: 9.5px; color: var(--g5); margin-right: 4px; }
+  .docnav a { text-decoration: none; color: var(--slate); background: var(--g1); border: 1px solid var(--g3);
+    border-radius: 999px; padding: 4px 12px; }
+  .docnav a:hover { border-color: var(--clay); color: var(--clay); }
+  .docnav .here { background: var(--slate); color: var(--ivory); border: 1px solid var(--slate); border-radius: 999px; padding: 4px 12px; }
+
+  /* sticky section rail */
+  .secnav { position: sticky; top: 41px; z-index: 9; background: var(--ivory); border-bottom: 1px solid var(--g2);
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 7px 5%; font-family: var(--mono); font-size: 11px; }
+  .secnav a { text-decoration: none; color: var(--g5); border: 1px solid transparent; border-radius: 999px; padding: 3px 10px; }
+  .secnav a:hover { color: var(--clay); border-color: var(--g3); background: var(--g1); }
+  html { scroll-behavior: smooth; }
+  section h2 { scroll-margin-top: 96px; }
+
+  main { width: 90%; max-width: 1600px; margin: 0 auto; padding: 34px 0 90px; }
+  .eyebrow { font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; font-size: 11px; color: var(--g5); margin: 0 0 10px; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 32px; line-height: 1.13; margin: 0 0 12px; color: var(--ink); }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 48px 0 12px; color: var(--ink); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; font-family: var(--mono); font-size: 11px; }
+  .pill { background: var(--oat); border: 1px solid var(--g3); border-radius: 999px; padding: 3px 11px; color: var(--g5); }
+  .pill strong { color: var(--slate); font-weight: 600; }
+  code { font-family: var(--mono); }
+  .cap code, .callout code, .pill code, td code, .gcell code { font-size: 11.5px; background: var(--oat); border: 1px solid var(--g3); border-radius: 5px; padding: 0 4px; color: var(--ink); }
+
+  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1); border-radius: var(--r); padding: 12px 16px; margin: 20px 0; max-width: 68ch; }
+  .prompt-box .label { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 6px; }
+  .prompt-box ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .prompt-box li { margin: 2px 0; font-family: var(--mono); font-size: 11.5px; color: var(--g5); }
+
+  .callout { border-radius: var(--r); padding: 13px 18px; margin: 18px 0; border-left: 4px solid var(--clay); background: #f3ece2; max-width: 78ch; }
+  .callout.invert { background: var(--slate); color: var(--ivory); }
+  .callout.olive { border-left-color: var(--olive); background: #eef0e3; }
+  .callout .k { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); display: block; margin-bottom: 5px; }
+  .callout.invert .k { color: var(--g4); }
+  .callout.invert code { background: #3a3f49; border-color: #4a505c; color: #e7c3a6; }
+  .callout p { margin: 0; font-size: 14px; }
+
+  figure { margin: 16px 0 28px; }
+  .canvas { border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); padding: 10px; }
+  .canvas svg { display: block; width: 100%; height: auto; }
+  figcaption, .cap { font-size: 12.5px; color: var(--g5); margin-top: 8px; max-width: 90ch; }
+  figcaption b, .cap b { color: var(--slate); }
+
+  /* fixture trio */
+  .trio { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; margin: 16px 0 6px; }
+  .trio article { display: flex; flex-direction: column; border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); overflow: hidden; }
+  .trio .ph { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--g2); background: #fdfcf8; }
+  .trio .ph .tag { font-family: var(--mono); font-weight: 700; font-size: 11px; color: #fff; background: var(--clay); border-radius: 6px; padding: 2px 8px; }
+  .trio .ph .tag.neg { background: var(--g5); }
+  .trio .ph code { font-size: 12px; background: none; border: none; padding: 0; color: var(--ink); font-weight: 600; }
+  .trio svg { display: block; width: 100%; height: auto; }
+  .trio .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 6px; font-family: var(--mono); font-size: 10.5px; }
+  .chip { border-radius: 999px; padding: 3px 10px; border: 1px solid var(--g3); background: #fff; color: var(--g5); }
+  .chip.olive { border-color: var(--olive); color: var(--olive); background: #eef0e3; }
+  .chip.gray { background: var(--g2); }
+  .chip.rust { border-color: var(--rust); color: var(--rust); background: #f4e6e2; }
+  .trio .cap { padding: 0 14px 12px; margin-top: 4px; }
+
+  /* legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono); font-size: 10.5px; color: var(--g5); margin: 10px 2px 0; align-items: center; }
+  .legend .sw { display: inline-block; width: 26px; height: 0; border-top: 2.5px solid var(--olive); vertical-align: middle; margin-right: 5px; }
+  .legend .sw.rust { border-top-style: dashed; border-top-color: var(--rust); }
+  .legend .sw.clay { border-top-style: dotted; border-top-color: var(--clay); border-top-width: 3px; }
+  .legend .bx { display: inline-block; width: 14px; height: 11px; border-radius: 3px; background: var(--oat); border: 2px solid var(--g5); vertical-align: middle; margin-right: 5px; }
+  .legend .bx.plain { background: #fff; border-width: 1.5px; border-color: var(--g4); }
+
+  /* counting pair */
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; margin: 16px 0; }
+  .pair article { border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); overflow: hidden; display: flex; flex-direction: column; }
+  .pair article.counts { border-top: 4px solid var(--clay); }
+  .pair article.excluded { border-top: 4px solid var(--g4); }
+  .pair .ph { padding: 10px 14px 0; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .pair .counts .ph { color: var(--clay); } .pair .excluded .ph { color: var(--g5); }
+  .pair .cap { padding: 0 14px 12px; }
+  .code { background: #23262c; color: #d8d3c6; border-radius: 8px; margin: 10px 14px; padding: 12px 14px; overflow-x: auto; }
+  .code pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.55; white-space: pre; }
+  .code .fl { display: block; font-size: 10px; color: #8d8775; margin-bottom: 6px; font-family: var(--mono); }
+  .code .kw { color: #c9905e; } .code .str { color: #a7b07a; } .code .cm { color: #767e8c; } .code .fn { color: #e0d9a8; }
+  .code .hl { background: #4a3326; display: inline-block; width: 100%; }
+
+  /* matrix */
+  .matrix { display: grid; grid-template-columns: 1.1fr 1.5fr 1fr 1.4fr; border: 1px solid var(--g3); border-radius: var(--r); overflow: hidden; background: var(--g1); font-size: 12.5px; margin: 16px 0 6px; }
+  .matrix .h { background: #fdfcf8; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--g5); padding: 9px 12px; border-bottom: 1px solid var(--g3); }
+  .gcell { padding: 10px 12px; border-bottom: 1px solid var(--g2); display: flex; flex-wrap: wrap; gap: 5px; align-items: center; align-content: center; }
+  .matrix > .gcell:nth-last-child(-n+4) { border-bottom: none; }
+  .gcell .fx { font-family: var(--mono); font-weight: 600; font-size: 12px; color: var(--ink); }
+
+  /* AC map */
+  .acmap { border: 1px solid var(--g3); border-radius: var(--r); overflow: hidden; background: var(--g1); margin: 16px 0 6px; }
+  .acrow { display: grid; grid-template-columns: 70px 1.7fr 1fr; gap: 0; border-bottom: 1px solid var(--g2); }
+  .acrow:last-child { border-bottom: none; }
+  .acrow .acb { font-family: var(--mono); font-weight: 700; font-size: 11.5px; color: #fff; background: var(--clay); border-radius: 6px; padding: 2px 0; text-align: center; margin: 11px 0 0 12px; height: fit-content; }
+  .acrow .acb.neg { background: var(--g5); }
+  .acrow .what { padding: 10px 14px; font-size: 13px; }
+  .acrow .what code { font-size: 11.5px; }
+  .acrow .why { padding: 10px 14px; font-family: var(--mono); font-size: 10.5px; color: var(--g5); border-left: 1px solid var(--g2); display: flex; gap: 5px; flex-wrap: wrap; align-items: center; align-content: center; }
+
+  /* test structure */
+  .duo { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin: 16px 0; align-items: start; }
+  .steps { border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); padding: 6px 16px; }
+  .step { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--g2); }
+  .step:last-child { border-bottom: none; }
+  .badge { width: 26px; height: 26px; border-radius: 50%; background: var(--clay); color: #fff; font-family: var(--mono); font-weight: 700; font-size: 11.5px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .step .t { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+  .step .d { font-size: 12.5px; color: var(--g5); margin-top: 2px; }
+  .step .d code { font-size: 11px; }
+
+  footer { margin-top: 60px; padding-top: 14px; border-top: 1px solid var(--g3); font-family: var(--mono); font-size: 11px; color: var(--g4); }
+
+  @media (max-width: 980px) {
+    .trio, .pair, .duo { grid-template-columns: 1fr; }
+    .matrix { grid-template-columns: 1fr; }
+    .matrix .h { display: none; }
+    .acrow { grid-template-columns: 70px 1fr; }
+    .acrow .why { grid-column: 2; border-left: none; border-top: 1px dashed var(--g2); }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="docnav" aria-label="Companion documents">
+  <span class="lab">task-27.1.6 family</span>
+  <a href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↑ family overview</a>
+  <a href="task-27.1.6.6 - Agentic-entrypoint-stitching-reconnect-the-call-graphs-Ariadnes-syntactic-analysis-leaves-split.approach.html">27.1.6.6 · stitching approach</a>
+  <span class="here" aria-current="page">27.1.6.7 · eval harness plan</span>
+</nav>
+<nav class="secnav" aria-label="Sections">
+  <a href="#pipeline">pipeline</a>
+  <a href="#fixtures">the three fixtures</a>
+  <a href="#counting">what counts as unresolved</a>
+  <a href="#merge">union-find merge</a>
+  <a href="#matrix">expected outcomes</a>
+  <a href="#ac">acceptance criteria</a>
+  <a href="#test">test structure</a>
+</nav>
+
+<main>
+  <header>
+    <p class="eyebrow">task-27.1.6.7 · eval · stitch · fixtures</p>
+    <h1>Eval harness for entrypoint stitching — mini-codebase fixtures</h1>
+    <div class="meta">
+      <span class="pill">status <strong>To Do</strong></span>
+      <span class="pill">depends on <strong>27.1.6.6 (Done)</strong></span>
+      <span class="pill">fixtures <strong>3 dirs · ≤100 lines each</strong></span>
+      <span class="pill">test file <strong><code>reconcile_stitch_eval.test.ts</code></strong></span>
+      <span class="pill">parser <strong>real Ariadne via HeadlessProject</strong></span>
+    </div>
+  </header>
+
+  <div class="prompt-box">
+    <p class="label">Source files this page maps</p>
+    <ul>
+      <li>packages/core/src/agentic/stitch.ts — build_candidate_stitches · StitchBatch · executor seam</li>
+      <li>packages/core/src/agentic/gap_detection.ts — find_unresolved_shapes · derive_candidate_seeds</li>
+      <li>packages/drift/src/reconcile/reconcile.ts — detect_and_stitch_code_umbrellas · build_stitch_groups</li>
+      <li>packages/drift/src/reconcile/reconcile_stitch.test.ts — AC#9 synthetic-graph precedent</li>
+      <li>packages/drift/src/reconcile/headless_project.ts · ariadne_adapter.test.ts — fixture-parse precedent</li>
+    </ul>
+  </div>
+
+  <div class="callout invert">
+    <span class="k">The crux</span>
+    <p>The existing stitch test hand-builds a synthetic <code>CallGraph</code> — it proves the plumbing but gives an executor nothing real to read. This harness instead commits three mini TypeScript codebases, parses them with <strong>real Ariadne</strong>, and asserts at the <code>StitchBatch</code> boundary: ground truth is authored into the fixtures (stitchable or not), so the same tests eval stub executors now and the live agent's judgment later.</p>
+  </div>
+
+  <section id="pipeline">
+    <h2>The detection pipeline under test</h2>
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 1240 330" role="img" aria-label="Pipeline: fixture directory parsed by HeadlessProject into a CallGraph, fed to build_candidate_stitches producing a StitchBatch, judged by an executor, assembled by reconcile into stored flows, verified via read_persisted_flows. Structural assertions tap the StitchBatch; flow assertions tap the store.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+            <marker id="ar-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+          </defs>
+          <g font-family="ui-sans-serif,system-ui" font-size="12.5" fill="#2c3038" text-anchor="middle">
+            <!-- executor branch chips -->
+            <rect x="700" y="26" width="225" height="32" rx="16" fill="#efeadd" stroke="#aaa492" stroke-width="1.2"/>
+            <text x="812" y="46" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">null_stitch_executor → []</text>
+            <rect x="940" y="26" width="262" height="32" rx="16" fill="#f3ece2" stroke="#b5683e" stroke-width="1.2"/>
+            <text x="1071" y="46" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">confirming stub → ConfirmedStitch[]</text>
+            <line x1="800" y1="58" x2="830" y2="116" stroke="#aaa492" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+            <line x1="1000" y1="58" x2="880" y2="116" stroke="#b5683e" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar-c)"/>
+
+            <!-- main row -->
+            <rect x="16" y="120" width="158" height="66" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+            <text x="95" y="146" font-weight="600" font-size="12">fixture dir</text>
+            <text x="95" y="163" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">__fixtures__/stitch_eval/*</text>
+            <text x="95" y="176" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">≤100 lines of real TS</text>
+            <line x1="174" y1="153" x2="198" y2="153" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ar)"/>
+
+            <rect x="200" y="120" width="172" height="66" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+            <text x="286" y="146" font-weight="600" font-size="12">HeadlessProject</text>
+            <text x="286" y="163" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">.initialize(fixture_root)</text>
+            <text x="286" y="176" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">real Ariadne parse</text>
+            <line x1="372" y1="153" x2="396" y2="153" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ar)"/>
+
+            <rect x="398" y="120" width="118" height="66" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+            <text x="457" y="150" font-weight="600" font-size="12">CallGraph</text>
+            <text x="457" y="168" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">real unresolved sites</text>
+            <line x1="516" y1="153" x2="540" y2="153" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ar)"/>
+
+            <rect x="542" y="120" width="196" height="66" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+            <text x="640" y="143" font-weight="600" font-size="12">build_candidate_stitches</text>
+            <text x="640" y="160" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">(neighbourhood, graph, doc_edges)</text>
+            <text x="640" y="174" font-family="ui-monospace,monospace" font-size="9.5" font-weight="700" fill="#92522f">→ StitchBatch</text>
+            <line x1="738" y1="153" x2="762" y2="153" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ar)"/>
+
+            <rect x="764" y="120" width="150" height="66" rx="10" fill="#fbfaf5" stroke="#b5683e" stroke-width="1.8" stroke-dasharray="6 4"/>
+            <text x="839" y="143" font-weight="600" font-size="12">executor seam</text>
+            <text x="839" y="160" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">candidates judged,</text>
+            <text x="839" y="173" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">pairwise</text>
+            <line x1="914" y1="153" x2="938" y2="153" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ar)"/>
+
+            <rect x="940" y="120" width="284" height="66" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
+            <text x="1082" y="143" font-weight="600" font-size="12">reconcile(files, deps)</text>
+            <text x="1082" y="160" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">build_stitch_groups (union-find) → umbrellas</text>
+            <text x="1082" y="174" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">+ agentic.bridge edges → store</text>
+
+            <!-- assertion taps -->
+            <line x1="640" y1="186" x2="640" y2="232" stroke="#aaa492" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+            <rect x="470" y="234" width="340" height="62" rx="10" fill="#fdfcf8" stroke="#aaa492" stroke-width="1.3"/>
+            <text x="640" y="255" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#6c6759">STRUCTURAL ASSERTS · AC#2–#3 · every executor</text>
+            <text x="640" y="271" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">find_unresolved_shapes ≠ [] · bridge endpoints = real spans</text>
+            <text x="640" y="285" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">candidate seeds ⊆ orphan entrypoints</text>
+
+            <line x1="1082" y1="186" x2="1082" y2="232" stroke="#6c7a3b" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+            <rect x="900" y="234" width="324" height="62" rx="10" fill="#fdfcf8" stroke="#6c7a3b" stroke-width="1.3"/>
+            <text x="1062" y="255" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#5b6233">FLOW ASSERTS · AC#4–#5 · per executor</text>
+            <text x="1062" y="271" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">read_persisted_flows(store): singleton vs multi-seed</text>
+            <text x="1062" y="285" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">entry_points length · agentic.bridge count</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>One pipeline, two assertion taps.</b> Structural properties are checked on the <code>StitchBatch</code> before any executor runs; flow properties are checked in the store after <code>reconcile</code>, once with <code>null_stitch_executor</code> and once with a confirm-everything stub injected on <code>deps.stitch_entrypoints</code>.</figcaption>
+    </figure>
+  </section>
+
+  <section id="fixtures">
+    <h2>The three fixture patterns</h2>
+    <div class="trio">
+      <article>
+        <div class="ph"><span class="tag">1</span><code>registry_dispatch/</code></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="dispatch(key) has two unresolved calls fn() and after(); handle_a and handle_b are separate orphan entrypoints; candidate pairs run from dispatch to each handler.">
+          <defs><marker id="f1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+          <marker id="f1c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker></defs>
+          <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
+            <rect x="18" y="22" width="158" height="52" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="97" y="43" font-weight="600">dispatch(key)</text>
+            <text x="97" y="59" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">dispatcher.ts · SEED · unresolved 2/2</text>
+
+            <circle cx="288" cy="34" r="17" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="288" y="38" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">?</text>
+            <text x="288" y="66" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">fn()</text>
+            <line x1="176" y1="38" x2="268" y2="34" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f1r)"/>
+
+            <circle cx="338" cy="92" r="17" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="338" y="96" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">?</text>
+            <text x="338" y="124" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">after()</text>
+            <line x1="176" y1="60" x2="318" y2="88" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f1r)"/>
+
+            <rect x="18" y="120" width="158" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="97" y="139" font-weight="600">handle_a()</text>
+            <text x="97" y="155" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">handler_a.ts · SEED · no calls</text>
+
+            <rect x="18" y="182" width="158" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="97" y="201" font-weight="600">handle_b()</text>
+            <text x="97" y="217" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">handler_b.ts · SEED · no calls</text>
+
+            <path d="M190 74 C 215 95, 215 115, 190 130" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f1c)"/>
+            <path d="M196 74 C 240 110, 240 160, 190 196" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f1c)"/>
+            <text x="250" y="160" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">2 candidates</text>
+            <text x="250" y="173" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">(dispatch → each)</text>
+          </g>
+        </svg>
+        <div class="chips">
+          <span class="chip gray">null → 3 singletons</span>
+          <span class="chip olive">confirm → 1 umbrella · seeds 3</span>
+        </div>
+        <p class="cap"><code>dispatch</code> looks handlers up by key, so both its calls are unresolved (2/2 ≥ the 0.5 ratio over ≥2 sites) — it is the only candidate <em>source</em>; the pure handlers are targets.</p>
+      </article>
+
+      <article>
+        <div class="ph"><span class="tag">2</span><code>callback_wiring/</code></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="task_a and task_b each call schedule with resolved edges; schedule invokes its before and after parameters, which are unresolved; the candidate pair runs between task_a and task_b.">
+          <defs><marker id="f2o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+          <marker id="f2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
+          <marker id="f2c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker></defs>
+          <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
+            <rect x="14" y="22" width="142" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="85" y="41" font-weight="600">run_task_a()</text>
+            <text x="85" y="57" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">task_a.ts · SEED</text>
+
+            <rect x="14" y="184" width="142" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="85" y="203" font-weight="600">run_task_b()</text>
+            <text x="85" y="219" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">task_b.ts · SEED</text>
+
+            <rect x="118" y="100" width="170" height="52" rx="9" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.5"/>
+            <text x="203" y="121" font-weight="600">schedule(before, after)</text>
+            <text x="203" y="137" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">scheduler.ts · not a seed · unresolved 2/2</text>
+
+            <line x1="100" y1="68" x2="160" y2="98" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f2o)"/>
+            <line x1="100" y1="184" x2="160" y2="154" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f2o)"/>
+
+            <circle cx="338" cy="98" r="16" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="338" y="102" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">?</text>
+            <text x="338" y="76" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">before()</text>
+            <line x1="288" y1="112" x2="320" y2="102" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f2r)"/>
+
+            <circle cx="338" cy="156" r="16" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="338" y="160" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">?</text>
+            <text x="338" y="186" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">after()</text>
+            <line x1="288" y1="142" x2="320" y2="152" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f2r)"/>
+
+            <path d="M30 68 C 4 105, 4 150, 30 184" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f2c)"/>
+            <text x="34" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#92522f" transform="rotate(-90 34 130)">candidates ×2</text>
+          </g>
+        </svg>
+        <div class="chips">
+          <span class="chip gray">null → 2 singletons</span>
+          <span class="chip olive">confirm → 1 umbrella · seeds 2</span>
+        </div>
+        <p class="cap"><code>schedule</code> is no entrypoint — but <code>reachable_from(task_a)</code> contains it, so its unresolved shapes become task_a's evidence and the (task_a, task_b) pair is proposed.</p>
+      </article>
+
+      <article>
+        <div class="ph"><span class="tag neg">3</span><code>unrelated_pair/</code></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="Two pure functions in separate files with no calls at all; no unresolved shapes exist, so the candidate list is empty and two singleton flows persist under any executor.">
+          <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
+            <rect x="40" y="30" width="190" height="48" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="135" y="50" font-weight="600">process_invoice()</text>
+            <text x="135" y="66" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">invoice_processor.ts · SEED · pure, no calls</text>
+
+            <rect x="150" y="174" width="200" height="48" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="250" y="194" font-weight="600">send_notification()</text>
+            <text x="250" y="210" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">notification_sender.ts · SEED · pure, no calls</text>
+
+            <text x="195" y="122" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#6c6759">candidates: []</text>
+            <text x="195" y="140" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">no unresolved shapes → no source orphan → no pairs</text>
+            <text x="195" y="154" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">executor is never called (guard: candidates.length &gt; 0)</text>
+          </g>
+        </svg>
+        <div class="chips">
+          <span class="chip gray">null → 2 singletons</span>
+          <span class="chip rust">confirm → 2 singletons (false-positive guard)</span>
+        </div>
+        <p class="cap">Two genuinely independent domains: with zero unresolved shapes the batch is empty by construction, so even a confirm-everything stub cannot merge them.</p>
+      </article>
+    </div>
+    <div class="legend">
+      <span><span class="sw"></span>resolved call</span>
+      <span><span class="sw rust"></span>unresolved call site (?)</span>
+      <span><span class="sw clay"></span>candidate stitch pair</span>
+      <span><span class="bx"></span>orphan entrypoint = candidate seed</span>
+      <span><span class="bx plain"></span>reachable member, not a seed</span>
+    </div>
+  </section>
+
+  <section id="counting">
+    <h2>What counts as an unresolved shape</h2>
+    <div class="pair">
+      <article class="counts">
+        <p class="ph">Counts — parameter call, resolutions: []</p>
+        <div class="code"><span class="fl">callback_wiring/scheduler.ts (fixture)</span><pre><span class="kw">export function</span> <span class="fn">schedule</span>(before: () =&gt; <span class="kw">void</span>, after: () =&gt; <span class="kw">void</span>) {
+<span class="hl">  before();  <span class="cm">// call ref, resolutions: [] → unresolved</span></span>
+<span class="hl">  after();   <span class="cm">// call ref, resolutions: [] → unresolved</span></span>
+}            <span class="cm">// 2/2 unresolved · ≥2 sites → UnresolvedShape</span></pre></div>
+        <p class="cap">Calling a <b>function-typed parameter</b> is an ordinary call reference whose resolution list is empty — Ariadne does not mark it <code>is_callback_invocation</code> — so it counts toward the unresolved ratio and produces the shape AC#2 asserts on.</p>
+      </article>
+      <article class="excluded">
+        <p class="ph">Excluded — synthetic callback edge</p>
+        <div class="code"><span class="fl">gap_detection.ts · find_unresolved_shapes</span><pre><span class="kw">for</span> (<span class="kw">const</span> call <span class="kw">of</span> node.enclosed_calls) {
+<span class="hl">  <span class="kw">if</span> (call.is_callback_invocation) <span class="kw">continue</span>;</span>
+  <span class="cm">// synthetic edges Ariadne adds for RESOLVED</span>
+  <span class="cm">// callback patterns are not comprehension gaps</span>
+  call_site_count += 1; …</pre></div>
+        <p class="cap">When Ariadne <b>does</b> resolve a callback pattern it adds a synthetic <code>is_callback_invocation</code> edge; the gate skips those, so fixtures must rely on genuinely unresolved sites, never on resolved callback plumbing.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="merge">
+    <h2>How confirmed stitches collapse into one umbrella</h2>
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 1240 230" role="img" aria-label="Two confirmed stitches sharing the dispatch seed enter union-find; the shared seed collapses them into one group whose dominant id is the alphabetically smallest seed id; output is one CodeUmbrella with three entry points and two bridges.">
+          <defs><marker id="uar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker></defs>
+          <g font-family="ui-sans-serif,system-ui" font-size="12" fill="#2c3038" text-anchor="middle">
+            <rect x="20" y="36" width="290" height="56" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+            <text x="165" y="59" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700" fill="#92522f">ConfirmedStitch ①</text>
+            <text x="165" y="77" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">merged_seeds {dispatch, handle_a} + bridge</text>
+            <rect x="20" y="124" width="290" height="56" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
+            <text x="165" y="147" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700" fill="#92522f">ConfirmedStitch ②</text>
+            <text x="165" y="165" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">merged_seeds {dispatch, handle_b} + bridge</text>
+
+            <line x1="310" y1="64" x2="392" y2="96" stroke="#6c6759" stroke-width="1.6" marker-end="url(#uar)"/>
+            <line x1="310" y1="152" x2="392" y2="120" stroke="#6c6759" stroke-width="1.6" marker-end="url(#uar)"/>
+
+            <rect x="394" y="62" width="330" height="92" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.8"/>
+            <text x="559" y="86" font-weight="600">union-find over CandidateSeed.ids</text>
+            <text x="559" y="106" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">union(dispatch, handle_a) · union(dispatch, handle_b)</text>
+            <text x="559" y="122" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">shared seed ⇒ one root · smaller id becomes root</text>
+            <text x="559" y="140" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">seeds resolving to &lt;2 ids ⇒ malformed, skipped</text>
+
+            <line x1="724" y1="108" x2="806" y2="108" stroke="#6c6759" stroke-width="1.6" marker-end="url(#uar)"/>
+
+            <rect x="808" y="50" width="412" height="116" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
+            <text x="1014" y="76" font-weight="600">one StitchGroup → one CodeUmbrella</text>
+            <text x="1014" y="97" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">id = dominant = alphabetically-first seed id</text>
+            <text x="1014" y="113" font-family="ui-monospace,monospace" font-size="10" font-weight="700" fill="#5b6233">"dispatcher.ts#dispatch:function"</text>
+            <text x="1014" y="133" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">entry_points ×3 · bridges ×2 (symbol_path endpoints)</text>
+            <text x="1014" y="150" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">handlers leave the singleton fallback set</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>Why registry_dispatch asserts exactly one flow.</b> <code>build_stitch_groups</code> unions any stitches sharing a seed, picks the alphabetically smallest seed id as the stable umbrella id, and converts bridge endpoints from Ariadne <code>SymbolId</code>s to rename-stable <code>symbol_path</code>s before the store write.</figcaption>
+    </figure>
+  </section>
+
+  <section id="matrix">
+    <h2>Expected outcomes — fixture × executor</h2>
+    <div class="matrix">
+      <div class="h">fixture</div>
+      <div class="h">structural (always · AC#2–#3)</div>
+      <div class="h">null_stitch_executor (AC#4)</div>
+      <div class="h">confirming stub (AC#5)</div>
+
+      <div class="gcell"><span class="fx">registry_dispatch/</span></div>
+      <div class="gcell"><span class="chip clay">unresolved shapes ≥1</span><span class="chip">3 orphan seeds</span><span class="chip">candidates = 2</span></div>
+      <div class="gcell"><span class="chip gray">3 singletons · 0 bridges</span></div>
+      <div class="gcell"><span class="chip olive">1 umbrella · seeds = 3</span><span class="chip olive">≥1 agentic.bridge</span></div>
+
+      <div class="gcell"><span class="fx">callback_wiring/</span></div>
+      <div class="gcell"><span class="chip clay">unresolved shapes ≥1 (on schedule)</span><span class="chip">2 orphan seeds</span><span class="chip">candidates = 2</span></div>
+      <div class="gcell"><span class="chip gray">2 singletons · 0 bridges</span></div>
+      <div class="gcell"><span class="chip olive">1 umbrella · seeds = 2</span><span class="chip olive">≥1 agentic.bridge</span></div>
+
+      <div class="gcell"><span class="fx">unrelated_pair/</span></div>
+      <div class="gcell"><span class="chip">no unresolved shapes</span><span class="chip">2 orphan seeds</span><span class="chip rust">candidates = []</span></div>
+      <div class="gcell"><span class="chip gray">2 singletons</span></div>
+      <div class="gcell"><span class="chip rust">2 singletons — stub never invoked</span></div>
+    </div>
+    <p class="cap">The third column is the regression guard for the deterministic default; the fourth proves the merge path end-to-end on positives and that an over-eager executor still cannot create a false merge where no candidates exist.</p>
+  </section>
+
+  <section id="ac">
+    <h2>Acceptance-criteria coverage</h2>
+    <div class="acmap">
+      <div class="acrow">
+        <span class="acb">AC#1</span>
+        <div class="what">Three fixture dirs under <code>packages/drift/src/reconcile/__fixtures__/stitch_eval/</code>, each ≤100 lines of TypeScript expressing its named pattern.</div>
+        <div class="why"><span class="chip">substrate</span><span class="chip">committed ground truth</span></div>
+      </div>
+      <div class="acrow">
+        <span class="acb">AC#2</span>
+        <div class="what"><code>find_unresolved_shapes</code> returns non-empty for <code>registry_dispatch</code> and <code>callback_wiring</code> — the fixtures really trip Ariadne's resolver, independent of any stitch code.</div>
+        <div class="why"><span class="chip">structural</span><span class="chip olive">positive</span></div>
+      </div>
+      <div class="acrow">
+        <span class="acb">AC#3</span>
+        <div class="what"><code>build_candidate_stitches</code> on each fixture graph yields a well-formed <code>StitchBatch</code>: bridge endpoints resolve to real spans, candidate seeds ⊆ orphan entrypoints.</div>
+        <div class="why"><span class="chip">structural</span><span class="chip olive">positive</span></div>
+      </div>
+      <div class="acrow">
+        <span class="acb neg">AC#4</span>
+        <div class="what">With <code>null_stitch_executor</code>: all three fixtures persist only singleton flows, zero multi-seed umbrellas — byte-faithful deterministic default.</div>
+        <div class="why"><span class="chip">semantic</span><span class="chip rust">negative · regression guard</span></div>
+      </div>
+      <div class="acrow">
+        <span class="acb">AC#5</span>
+        <div class="what">With a confirming executor: <code>registry_dispatch</code> and <code>callback_wiring</code> each persist exactly one multi-seed umbrella (seeds ≥ 2) with ≥1 <code>agentic.bridge</code>; <code>unrelated_pair</code> stays two singletons.</div>
+        <div class="why"><span class="chip">semantic</span><span class="chip olive">positive</span><span class="chip rust">+ false-positive guard</span></div>
+      </div>
+      <div class="acrow">
+        <span class="acb">AC#6</span>
+        <div class="what">Every <code>describe</code> block carries an inline comment naming the property it guards: structural vs semantic, positive vs negative.</div>
+        <div class="why"><span class="chip">legibility</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="test">
+    <h2>Test-file structure</h2>
+    <div class="duo">
+      <div class="code" style="margin:0;"><span class="fl">packages/drift/src/reconcile/ — layout</span><pre>__fixtures__/stitch_eval/
+├── registry_dispatch/     <span class="cm">dispatcher.ts · handler_a.ts · handler_b.ts</span>
+├── callback_wiring/       <span class="cm">scheduler.ts · task_a.ts · task_b.ts</span>
+└── unrelated_pair/        <span class="cm">invoice_processor.ts · notification_sender.ts</span>
+
+reconcile_stitch_eval.test.ts
+├── <span class="kw">beforeAll</span>   <span class="cm">3× HeadlessProject(fixture_root).initialize()</span>
+│              <span class="cm">shared per file — parser state accumulates per process</span>
+├── <span class="kw">beforeEach</span>  <span class="cm">fresh tmp GraphStore per test</span>
+├── <span class="kw">describe</span> <span class="str">"registry_dispatch — structural"</span>   <span class="cm">// AC#2–#3</span>
+├── <span class="kw">describe</span> <span class="str">"callback_wiring — structural"</span>    <span class="cm">// AC#2–#3</span>
+├── <span class="kw">describe</span> <span class="str">"unrelated_pair — structural"</span>     <span class="cm">// AC#3: candidates []</span>
+├── <span class="kw">describe</span> <span class="str">"null executor — singletons"</span>      <span class="cm">// AC#4 · negative</span>
+└── <span class="kw">describe</span> <span class="str">"confirming stub — merges"</span>        <span class="cm">// AC#5 · positive + guard</span></pre></div>
+      <div class="steps">
+        <div class="step"><div class="badge">1</div><div><div class="t">Parse each fixture once</div><div class="d">One <code>HeadlessProject</code> per fixture in <code>beforeAll</code>, mirroring <code>ariadne_adapter.test.ts</code> — re-initializing per test accumulates Ariadne parser state in the worker.</div></div></div>
+        <div class="step"><div class="badge">2</div><div><div class="t">Fresh store per test</div><div class="d"><code>open_graph_store</code> in a tmp dir per test, as in <code>reconcile_stitch.test.ts</code>, so flow-persistence asserts never see a neighbour's writes.</div></div></div>
+        <div class="step"><div class="badge">3</div><div><div class="t">Assert the batch, then the flows</div><div class="d">Structural blocks read the <code>StitchBatch</code> directly; executor blocks run full <code>reconcile</code> with <code>stitch_entrypoints</code> injected and read back via <code>read_persisted_flows</code>.</div></div></div>
+        <div class="step"><div class="badge">4</div><div><div class="t">Confirming stub = confirm every candidate</div><div class="d">Returns one <code>ConfirmedStitch</code> per candidate (merged seeds + bridge from the first unresolved shape) — union-find collapses the overlaps, per the merge figure above.</div></div></div>
+      </div>
+    </div>
+    <div class="callout olive">
+      <span class="k">Deferred</span>
+      <p>Captured-batch fixtures from a live run against aider@fixed-commit wait until at least one production reconcile with the live executor has been observed; the mini-codebase harness is the iteration loop until then.</p>
+    </div>
+  </section>
+
+  <footer>
+    task-27.1.6.7 companion · generated 2026-06-10 from the task doc + stitch.ts · gap_detection.ts · reconcile.ts · reconcile_stitch.test.ts · headless_project.ts<br>
+    family: <a href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html" style="color:var(--g5)">task-27.1.6 overview</a>
+  </footer>
+</main>
+</body>
+</html>
