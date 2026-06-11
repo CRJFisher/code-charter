@@ -1,7 +1,7 @@
 /**
- * The reconcile engine entry — the body of the `drift-sync` skill (AC#1). For the files worked on this
- * turn it refreshes the raw substrate, then for each affected flow dispatches HYDRATE (no `agentic.flow`
- * yet) or RE-SYNC (one exists), always updating, never gating on the user.
+ * The reconcile engine entry — the deterministic body of the `drift-sync` skill. For the files worked
+ * on this turn it refreshes the raw substrate, then for each affected flow dispatches HYDRATE (no
+ * `agentic.flow` yet) or RE-SYNC (one exists), always updating, never gating on the user.
  *
  * Pipeline:
  *   1. Partition changed files into skill bundles (a `SKILL.md` ancestor) and plain code.
@@ -43,7 +43,7 @@ import type { DeferredRetirement, FlowOutcome, ReconcileDeps, ReconcileResult } 
 const SKILL_FILE = "SKILL.md";
 const META_FILE = "meta.json";
 
-/** Per-turn ceiling on full (describe-bearing) code hydrations; the overflow is written as cheap stubs (AC#8). */
+/** Per-turn ceiling on full (describe-bearing) code hydrations; the overflow is written as cheap stubs. */
 const MAX_FULL_CODE_HYDRATIONS = 50;
 
 /** Reconcile the diagram store for `file_set` (absolute or repo-relative paths). */
@@ -132,11 +132,17 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   //     deterministic. A functionality Ariadne fragmented across unresolved call sites hydrates as
   //     several singleton flows here; the drift-sync skill's stitch phase (`--apply-stitch`) later
   //     merges those fragments into one multi-seed umbrella and retires the absorbed singletons.
-  //     Bounded: the first N get the full (describe-bearing) hydration; the overflow is written as
-  //     cheap singleton stubs. The truncation is logged — never a silent cap.
+  //     A skeleton flow whose entrypoint is already a stored seed of a live flow is not new — its
+  //     fragment was absorbed by a stitched umbrella, and re-hydrating it would resurrect the
+  //     retired singleton (the seed stays a live graph entrypoint forever, so the demotion-based
+  //     retire in retire_flows_subsumed_by can never reclaim it). Bounded: the first N get the
+  //     full (describe-bearing) hydration; the overflow is written as cheap singleton stubs. The
+  //     truncation is logged — never a silent cap.
+  const claimed_seed_paths = new Set(persisted.flatMap((flow) => stored_seed_paths(flow)));
   const all_new_code = detect_code_umbrellas(changed, code_files, graph);
   const new_code = all_new_code.filter(
-    (umbrella) => !persisted_ids.has(umbrella.id) && !handled.has(umbrella.id),
+    (umbrella) =>
+      !persisted_ids.has(umbrella.id) && !claimed_seed_paths.has(umbrella.id) && !handled.has(umbrella.id),
   );
   for (const [index, umbrella] of new_code.entries()) {
     const full = index < MAX_FULL_CODE_HYDRATIONS;
@@ -175,6 +181,10 @@ interface TurnState {
  * On-demand by construction: it runs only when a flow was hydrated or re-synced this turn, against
  * the persisted list already in memory — never as a sweep over untouched flows. A candidate whose
  * seeds no longer resolve at all is the seed-gone path's case and is skipped here.
+ *
+ * This is one of two retirement mechanisms: `apply_stitch` (agentic_modes.ts) retires the singleton
+ * flows an agent-judged umbrella absorbs, directly by seed id — those seeds stay live entrypoints,
+ * so the demotion conjunction here can never fire for them.
  */
 function retire_flows_subsumed_by(
   deps: ReconcileDeps,

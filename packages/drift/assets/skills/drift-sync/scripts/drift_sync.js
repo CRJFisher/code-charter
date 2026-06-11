@@ -10,7 +10,7 @@
 // `DRIFT_RECONCILE_BIN` env var, or the `.drift_reconcile_bin` sidecar the installer writes next to this
 // skill.
 //
-// Three invocation modes, mirroring the bin:
+// One headless default mode plus the three agentic modes, mirroring the bin:
 //   - default / `--list-entrypoints`: the deterministic reconcile over the changed-file set (list mode
 //     additionally emits the entrypoint inventory JSON the agent's stitch judgement reads). The file
 //     set comes from the pending-reconcile file the Stop hook stages beside the store

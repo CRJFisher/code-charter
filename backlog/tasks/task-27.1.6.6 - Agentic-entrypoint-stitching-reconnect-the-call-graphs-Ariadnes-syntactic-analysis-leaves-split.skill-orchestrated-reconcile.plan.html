@@ -127,6 +127,8 @@
   .check i { width: 13px; height: 13px; border: 1.5px solid var(--g4); border-radius: 4px; background: #fff; position: relative; top: 1px; }
   .check.defer i { border-style: dashed; }
   .check.defer { color: var(--g5); }
+  .check.done i { background: var(--olive); border-color: var(--olive); }
+  .check.done i::after { content: ""; position: absolute; left: 3px; top: 0px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(40deg); }
   .check b { color: var(--ink); font-weight: 600; }
 
   .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-family: var(--mono); font-size: 10.5px; color: var(--g5); align-items: center; }
@@ -168,10 +170,10 @@
 
 <main>
 <header>
-  <p class="eyebrow">task-27.1.6.6 · drift reconciler · plan — supersedes the executor seams and the candidate-pairing engine</p>
-  <h1>The skill orchestrates two judgements; the bin shrinks to three store-facing verbs</h1>
+  <p class="eyebrow">task-27.1.6.6 · drift reconciler · built + review-hardened — the executor seams and the candidate-pairing engine are gone</p>
+  <h1>The skill orchestrates two judgements; the bin is three store-facing verbs</h1>
   <div class="meta">
-    <span class="pill clay">scope <strong>task A (27.1.6.6) + task B (27.1.6.7) · one batch</strong></span>
+    <span class="pill clay">status <strong>done · review-hardened · 10 stitch tests pass</strong></span>
     <span class="pill">judge <strong>drift-reconciler sub-agent · tools +Read +Grep</strong></span>
     <span class="pill">wire <strong>stitch.json = CodeUmbrella shape · descriptions.json</strong></span>
     <span class="pill">guarantee <strong>no orphans → judgements skipped · deterministic path</strong></span>
@@ -185,7 +187,7 @@
   <figure>
     <div class="ba">
       <div class="side cur">
-        <div class="t">Current — a reconcile engine with judgement injectable, never injected</div>
+        <div class="t">Before — a reconcile engine with judgement injectable, never injected</div>
         <svg viewBox="0 0 560 862" role="img" aria-label="The current chain: Stop hook fires the drift-reconciler sub-agent, which invokes the drift-sync skill, which runs drift_sync.js, which spawns the drift-reconcile bin. The bin is a reconcile engine containing build_candidate_stitches pairwise candidate generation, the StitchCandidate and StitchBatch types with the MAX_STITCH_CANDIDATES cap, the build_stitch_groups union-find merge, and detect_and_stitch_code_umbrellas — all feeding two dead seams: stitch_entrypoints falls back to null_stitch_executor and describe falls back to null_describe_executor. Model judgement appears nowhere; the whole engine and both seams are planned for deletion.">
           <defs>
             <marker id="ar-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
@@ -245,13 +247,13 @@
             <rect x="40" y="716" width="480" height="70" rx="10" fill="#2c3038"/>
             <text x="280" y="744" fill="#f7f4ec" font-weight="600" font-size="12">model judgement: nowhere</text>
             <text x="280" y="764" fill="#aaa492" font-family="ui-monospace,monospace" font-size="9.5">the only real executors ever supplied live in test files</text>
-            <text x="280" y="826" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e" font-weight="700">planned: the whole engine — pairing · cap · union-find · both seams — deletes</text>
+            <text x="280" y="826" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e" font-weight="700">deleted: the whole engine — pairing · cap · union-find · both seams</text>
           </g>
         </svg>
       </div>
-      <div class="mid"><span class="arr">→</span><span class="w">move the judgement into the skill</span></div>
+      <div class="mid"><span class="arr">→</span><span class="w">judgement moved into the skill</span></div>
       <div class="side plan">
-        <div class="t">Planned — SKILL.md orchestrates · two judgements between three script calls</div>
+        <div class="t">Built — SKILL.md orchestrates · two judgements between three script calls</div>
         <svg viewBox="0 0 560 862" role="img" aria-label="The planned chain: the same Stop hook and sub-agent, but the drift-sync skill now orchestrates two phases. Phase 1, stitch: drift-reconcile list-entrypoints emits the entrypoint inventory as JSON; then JUDGEMENT 1 — the agent's own reasoning — sees the entrypoints, explores the codebase with grep and Read, and decides which orphans belong to one functionality, writing stitch.json with umbrellas of label, seeds, bridges and rationale; then drift-reconcile apply-stitch hydrates the multi-seed umbrellas and agentic.bridge edges and returns the flow members. Phase 2, describe: JUDGEMENT 2 — the agent reads each member and writes one short descriptive sentence into descriptions.json; then drift-reconcile apply-descriptions persists the node descriptions. With no orphans, both judgements are skipped and the deterministic resync and retire from the first call is all that runs.">
           <defs>
             <marker id="ar-s2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
@@ -281,7 +283,7 @@
             <!-- mode 1 -->
             <rect x="90" y="236" width="380" height="50" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.8"/>
             <text x="280" y="254" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700">drift-reconcile --list-entrypoints</text>
-            <text x="280" y="270" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">deterministic · also runs resync / retire · no new-flow write</text>
+            <text x="280" y="270" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">FULL deterministic reconcile: resync · retire · one singleton flow per entrypoint</text>
             <line x1="280" y1="286" x2="280" y2="300" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ar-s2)"/>
             <!-- inventory doc -->
             <path d="M134 302 h268 l24 14 v22 a8 8 0 0 1 -8 8 h-284 a8 8 0 0 1 -8 -8 v-28 a8 8 0 0 1 8 -8 z" fill="#fff" stroke="#6c6759" stroke-width="1.5"/>
@@ -371,10 +373,10 @@
       </article>
       <article class="keep">
         <div class="col-h"><span class="tag olive">keep</span><h3>The genuine substrate — already the right shapes</h3></div>
-        <span class="chip olive">find_orphan_entrypoints · find_unresolved_shapes <small><b>becomes</b> the --list-entrypoints inventory the agent sees in phase 1</small></span>
+        <span class="chip olive">find_orphan_entrypoints <small><b>becomes</b> the --list-entrypoints inventory's is_orphan flag · unresolved-site detection moved inline to agentic_modes.ts (is_unresolved_call)</small></span>
         <span class="chip olive">induce_members · build_bridge_edges · hydrate_code_flow · write_flow <small>the store-write substrate behind --apply-stitch</small></span>
         <span class="chip olive">deterministic resync / retire / skill-dir reconcile <small><b>unchanged</b> · stays headless · rides the --list-entrypoints pass</small></span>
-        <span class="chip olive">description-cache skip (content-hash) <small>unchanged nodes aren&#8217;t re-described every sync</small></span>
+        <span class="chip olive">description-cache (content-hash, byte-identity) <small>a byte-identical re-submission at the current hash skips · a different text at the same hash is a revision and writes</small></span>
         <span class="chip olive">CodeUmbrella · BridgeCandidate <small>hydrate.ts:53 — <b>already</b> { id, label, seeds, bridges?, rationale? } · the apply-stitch wire format, no new type</small></span>
       </article>
     </div>
@@ -395,8 +397,9 @@
     <div class="grid3">
       <div class="code">
         <div class="file-label"><span>--list-entrypoints → stdout</span><em>mode 1 · enumerate</em></div>
-<pre><span class="cm">// also runs deterministic resync/retire</span>
-<span class="cm">// no new-flow mutation</span>
+<pre><span class="cm">// runs the FULL deterministic reconcile:</span>
+<span class="cm">// resync · retire · skill-dir ·</span>
+<span class="cm">// one singleton flow per new entrypoint</span>
 { <span class="str">"entrypoints"</span>: [
   { <span class="str">"symbol_path"</span>:
       <span class="str">"src/handlers/export.ts#handle_export"</span>,
@@ -416,10 +419,17 @@
 { <span class="str">"umbrellas"</span>: [
   { <span class="str">"label"</span>: <span class="str">"CLI command dispatch"</span>,
     <span class="str">"seeds"</span>: [ … ],
-    <span class="str">"bridges"</span>: [ … ],
+    <span class="str">"bridges"</span>: [
+      { <span class="str">"src_id"</span>: <span class="str">"…#run_cli"</span>,
+        <span class="str">"dst_id"</span>: <span class="str">"…#handle_export"</span>,
+        <span class="str">"file"</span>: <span class="str">"src/cli.ts"</span>,
+        <span class="str">"line"</span>: 42 } ],
     <span class="str">"rationale"</span>: <span class="str">"handlers[key]() reads
       the registry built at cli.ts:18"</span> } ] }
 
+<span class="cm">// bin corroborates each file:line vs the</span>
+<span class="cm">// live graph, derives the span — drops a</span>
+<span class="cm">// bridge it cannot corroborate</span>
 <span class="cm">// hydrate_code_flow → out</span>
 { <span class="str">"flows"</span>: [
   { <span class="str">"id"</span>: <span class="str">"…"</span>,
@@ -534,7 +544,12 @@
 
   <div class="callout olive">
     <span class="k">the deterministic floor</span>
-    <code>--list-entrypoints</code> always runs the deterministic resync / retire / skill-dir reconcile — headless, unchanged. No orphan entrypoints → the skill stops after mode 1: neither judgement runs, no new-flow mutation, and the store output is identical to today&#8217;s deterministic path. The agent only ever adds flows and descriptions; it cannot subtract.
+    <code>--list-entrypoints</code> always runs the FULL deterministic reconcile — resync, retire, skill-dir, and one singleton flow per new entrypoint (the inventory lists ALL changed-neighbourhood entrypoints, each flagged <code>is_orphan</code>) — headless, hydrate-then-merge. No orphan entrypoints → the skill stops after mode 1: neither judgement runs, and the store output is identical to the plain deterministic path. The agent only ever merges those singletons into umbrellas and adds descriptions on top; it never subtracts the deterministic floor.
+  </div>
+
+  <div class="callout olive">
+    <span class="k">apply-stitch retires the absorbed singletons — and the merge is durable</span>
+    Each umbrella hydrates as one multi-seed flow (id = its alphabetically-first seed&#8217;s <code>symbol_path</code>) with <code>agentic.bridge</code> edges; every singleton flow it absorbs is retired by seed id. That retirement survives later passes: an absorbed seed stays a live graph entrypoint forever (a bridge never enters the syntactic graph), so a <code>claimed_seed_paths</code> filter in step 3c stops the next deterministic reconcile from re-promoting it to a fresh singleton. The umbrella, once stitched, persists.
   </div>
 </section>
 
@@ -648,14 +663,14 @@
   <figure>
     <div class="tasks">
       <article>
-        <div class="th"><span class="id">task A</span><h3>Purge the two layers, wire the skill orchestration <span style="font-family:var(--mono);font-size:10px;color:var(--g5)">— supersedes 27.1.6.6</span></h3></div>
-        <div class="check"><i></i><span><b>Delete both executor seams</b> — <code>EntrypointStitchExecutor</code> · null executors · <code>ReconcileDeps</code> fields · <code>reconcile.ts:327</code> fallback · re-exports · test executor mocks</span></div>
-        <div class="check"><i></i><span><b>Delete the candidate engine</b> — <code>build_candidate_stitches</code> · <code>StitchCandidate</code> · <code>StitchBatch</code> · <code>MAX_STITCH_CANDIDATES</code> · <code>build_stitch_groups</code> · <code>detect_and_stitch_code_umbrellas</code>; <code>stitch.ts</code> likely deletes entirely</span></div>
-        <div class="check"><i></i><span><b>Reduce <code>drift-reconcile</code> to three modes</b> — <code>--list-entrypoints</code> · <code>--apply-stitch</code> · <code>--apply-descriptions</code>, with <code>CodeUmbrella</code> + <code>BridgeCandidate</code> as the stitch wire format</span></div>
-        <div class="check"><i></i><span><b>Rewrite SKILL.md to the two-phase orchestration</b> — list → judge-stitch → apply-stitch → judge-describe → apply-descriptions</span></div>
-        <div class="check"><i></i><span><b>Grant the drift-reconciler sub-agent <code>Read</code> + <code>Grep</code></b> — the exploration tools both judgements need</span></div>
-        <div class="check"><i></i><span><b>Rewrite <code>reconcile_stitch.test.ts</code></b> — golden-JSON apply assertions on the three modes</span></div>
-        <div class="check"><i></i><span><b>Update <code>docs/comprehension/flow-construction.html</code></b> — the runtime chain + the engine&#8217;s removal</span></div>
+        <div class="th"><span class="id">task A · done</span><h3>Purged the two layers, wired the skill orchestration <span style="font-family:var(--mono);font-size:10px;color:var(--g5)">— built &amp; review-hardened</span></h3></div>
+        <div class="check done"><i></i><span><b>Delete both executor seams</b> — <code>EntrypointStitchExecutor</code> · null executors · <code>ReconcileDeps</code> fields · <code>reconcile.ts:327</code> fallback · re-exports · test executor mocks</span></div>
+        <div class="check done"><i></i><span><b>Delete the candidate engine</b> — <code>build_candidate_stitches</code> · <code>StitchCandidate</code> · <code>StitchBatch</code> · <code>MAX_STITCH_CANDIDATES</code> · <code>build_stitch_groups</code> · <code>detect_and_stitch_code_umbrellas</code>; <code>stitch.ts</code> likely deletes entirely</span></div>
+        <div class="check done"><i></i><span><b>Reduce <code>drift-reconcile</code> to three modes</b> — <code>--list-entrypoints</code> · <code>--apply-stitch</code> · <code>--apply-descriptions</code>, with <code>CodeUmbrella</code> + <code>BridgeCandidate</code> as the stitch wire format</span></div>
+        <div class="check done"><i></i><span><b>Rewrite SKILL.md to the two-phase orchestration</b> — list → judge-stitch → apply-stitch → judge-describe → apply-descriptions</span></div>
+        <div class="check done"><i></i><span><b>Grant the drift-reconciler sub-agent <code>Read</code> + <code>Grep</code></b> — the exploration tools both judgements need</span></div>
+        <div class="check done"><i></i><span><b>Rewrite <code>reconcile_stitch.test.ts</code></b> — golden-JSON apply assertions on the three modes</span></div>
+        <div class="check done"><i></i><span><b>Refresh the comprehension docs</b> — <code>flow-construction.html</code> (runtime chain, the engine&#8217;s removal, the bridge evidence-bar, stitch durability) and <code>core-engine.html</code> (the trimmed <code>gap_detection.ts</code>)</span></div>
       </article>
       <article>
         <div class="th"><span class="id b">task B</span><h3>Eval harness <span style="font-family:var(--mono);font-size:10px;color:var(--g5)">— 27.1.6.7 · same batch</span></h3></div>
@@ -671,8 +686,8 @@
 </section>
 
 <footer>
-  plan companion · task-27.1.6.6 (skill-orchestrated stitching) + task-27.1.6.7 (eval harness) · revised 2026-06-11<br/>
-  sources: packages/core/src/agentic/stitch.ts · packages/core/src/agentic/describe_policy.ts · packages/drift/src/reconcile/{reconcile, describe, types, hydrate}.ts · packages/drift/src/bin/drift_reconcile.ts · packages/drift/assets/skills/drift-sync/SKILL.md · docs/comprehension/flow-construction.html
+  plan companion · task-27.1.6.6 (skill-orchestrated stitching) DONE + review-hardened · task-27.1.6.7 (eval harness) still to do · record refreshed 2026-06-11<br/>
+  ground truth: packages/drift/src/reconcile/{agentic_modes, reconcile, describe}.ts · packages/core/src/agentic/gap_detection.ts · packages/drift/assets/skills/drift-sync/SKILL.md · packages/drift/src/reconcile/reconcile_stitch.test.ts (10 passing) · packages/drift/src/bin/drift_reconcile.ts
 </footer>
 </main>
 </body>

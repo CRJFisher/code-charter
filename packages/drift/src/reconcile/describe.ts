@@ -14,22 +14,22 @@ import { DESCRIPTION_NODE_KIND, plan_descriptions } from "@code-charter/core";
 
 /**
  * What is already persisted for each symbol_path, so unchanged members skip re-description and the
- * `--apply-descriptions` mode can tell an agent-authored description from a placeholder.
+ * `--apply-descriptions` mode can tell an identical re-submission (a cache hit) from a revision.
  */
 export function existing_descriptions(
   store: GraphStore,
-): Map<string, { described_at_content_hash: string; source: string | undefined }> {
-  const existing = new Map<string, { described_at_content_hash: string; source: string | undefined }>();
+): Map<string, { described_at_content_hash: string; text: string | undefined }> {
+  const existing = new Map<string, { described_at_content_hash: string; text: string | undefined }>();
   for (const node of store.all_nodes()) {
     if (node.kind !== DESCRIPTION_NODE_KIND) continue;
     const hash = node.attributes.description_hash;
     if (typeof hash !== "string") continue;
-    const source = node.attributes.description_source;
+    const text = node.attributes.description;
     // id is `${DESCRIPTION_NODE_KIND}:${symbol_path}`; recover the symbol_path suffix.
     const symbol_path = node.id.slice(DESCRIPTION_NODE_KIND.length + 1);
     existing.set(symbol_path, {
       described_at_content_hash: hash,
-      source: typeof source === "string" ? source : undefined,
+      text: typeof text === "string" ? text : undefined,
     });
   }
   return existing;

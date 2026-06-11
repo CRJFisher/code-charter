@@ -47,8 +47,10 @@ is consumed on success — pass no file list. On the manual `/drift` path (no St
 staged) add `--files "<comma-separated repo-relative paths>"`; the staged set, if any, is left
 untouched. The inventory is
 `{ entrypoints: [{ symbol_path, name, file, line, is_orphan, unresolved_sites: [{ file, line, source_line }] }] }`
-— every entrypoint in the changed files, flagged orphan when no documentation edge links it, each
-carrying the unresolved call sites in its reachable tree.
+— every entrypoint in the changed files, each carrying the unresolved call sites in its reachable
+tree. `is_orphan: true` means no documentation edge links the entrypoint — the
+spuriously-promoted-fragment signal; weight your stitching toward orphans, since a doc-linked
+entrypoint is usually a genuine flow root.
 
 **2. Short-circuit on an empty inventory.** No entrypoints, or no entrypoint with unresolved sites
 and no plausible grouping → the deterministic output already stands. Report the one-line
@@ -68,12 +70,16 @@ to the seed it actually reaches.
   "umbrellas": [
     {
       "label": "request dispatch flow",
-      "seeds": ["handler.ts#dispatch:function", "router.ts#handle_request:function"],
+      "seeds": [
+        "handler.ts#dispatch:function",
+        "router.ts#handle_request:function"
+      ],
       "bridges": [
         {
           "src_id": "handler.ts#dispatch:function",
           "dst_id": "router.ts#handle_request:function",
-          "source_range": "L5",
+          "file": "handler.ts",
+          "line": 5,
           "rationale": "fn() is the registry-looked-up handler; handle_request is the registered target"
         }
       ],
@@ -83,8 +89,12 @@ to the seed it actually reaches.
 }
 ```
 
-`seeds` are inventory `symbol_path`s; `source_range` is the unresolved call-site span (`"L<line>"`)
-so click-through lands on the real missed call. Then apply:
+`seeds` are inventory `symbol_path`s. A bridge's `file`/`line` name the unresolved call site,
+copied verbatim from the inventory's `unresolved_sites` (`file` defaults to `src_id`'s file); the
+bin resolves them to the call's exact span so click-through lands on the real missed call, and
+skips a bridge whose site the graph cannot corroborate. `dst_id` is one of the umbrella's seeds —
+membership derives from the seed union; the bridge is the provenance record of the missed call.
+Then apply:
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/drift_sync.js" \
@@ -103,7 +113,14 @@ enough to explain what is going on**, not a name restatement and not a paragraph
 `descriptions.json` beside the store:
 
 ```json
-{ "descriptions": [{ "symbol_path": "handler.ts#dispatch:function", "text": "Looks up the registered handler for a key and runs it." }] }
+{
+  "descriptions": [
+    {
+      "symbol_path": "handler.ts#dispatch:function",
+      "text": "Looks up the registered handler for a key and runs it."
+    }
+  ]
+}
 ```
 
 Then apply:
@@ -113,9 +130,10 @@ node "${CLAUDE_SKILL_DIR}/scripts/drift_sync.js" \
   --apply-descriptions "$(dirname "$STORE")/descriptions.json" --store "$STORE" --repo-root "$PWD"
 ```
 
-Descriptions persist through the scoped write path, upgrading the deterministic placeholders. A
-member already agent-described at its current content hash is skipped (the description cache), so
-unchanged nodes are never re-described — you needn't author for them.
+Author for every member of the returned flows; descriptions persist through the scoped write path,
+upgrading the deterministic placeholders. The description cache makes a byte-identical
+re-submission at an unchanged content hash a no-op, and a different text is a revision — so
+re-describing costs nothing and correcting a stale sentence always lands.
 
 ## What it does, per flow
 
@@ -143,8 +161,10 @@ scoped (per-row upserts + field writes), so hydrating one flow never disturbs an
   over-large inventory is reported on stderr — never a silent cap. Stitch only what you can judge
   from the call sites you read; an unstitched orphan stays a singleton flow, which is correct, not
   a gap.
-- **Evidence bar.** A bridge requires a read unresolved call site as its `source_range`. If you
-  cannot find the indirection that connects two entrypoints, do not stitch them.
+- **Evidence bar.** A bridge requires a read unresolved call site, named by its inventory
+  `file`/`line` — the bin verifies the site against the live graph and drops a bridge it cannot
+  corroborate. If you cannot find the indirection that connects two entrypoints, do not stitch
+  them.
 - **Description bar.** Short but descriptive — what the member does in the flow, one sentence.
 - **Identity.** A flow's id is always its dominant seed's `symbol_path`. You choose the grouping
   and the label, never the id.
@@ -158,13 +178,14 @@ scoped (per-row upserts + field writes), so hydrating one flow never disturbs an
   for the manual path and leaves the staged set untouched. An empty set or nothing staged no-ops
   with `{ "entrypoints": [] }`.
 - **Apply**: `--apply-stitch <json_path>` consumes `{ umbrellas: [{ label, seeds, bridges,
-  rationale }] }` and returns the flow shape; `--apply-descriptions <json_path>` consumes
+rationale }] }` and returns the flow shape; `--apply-descriptions <json_path>` consumes
   `{ descriptions: [{ symbol_path, text }] }` and returns `{ written, skipped }`. Neither touches
   the staged set. Unknown seeds, duplicate seed claims, and anchorless descriptions are skipped
   with a stderr diagnostic; a malformed payload is a contract error.
 - `--dry-run` runs any mode against a read-only store and never consumes the staged set.
-- Exit 0 = success or no-op. Exit 2 = usage/contract error. Mode JSON goes to stdout; diagnostics
-  go to stderr.
+- Exit 0 = success or no-op. Exit 2 = usage/contract error. Exit 1 = fatal (reconcile bin not
+  located, spawn failure, or an uncaught engine error). Mode JSON goes to stdout; diagnostics go
+  to stderr.
 - Hosts without the Skill tool run `scripts/drift_sync.js` directly with the same arguments — the
   deterministic list pass is complete on its own (singleton flows, docstring/placeholder
   descriptions); the judgement phases are the agent's refinement on top.

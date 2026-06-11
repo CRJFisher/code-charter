@@ -222,8 +222,8 @@
         <text x="878" y="260" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">{ descriptions: [{ symbol_path, text }] }</text>
         <text x="878" y="278" font-size="10" fill="#2c3038">one short-but-descriptive sentence per member</text>
         <text x="878" y="294" font-size="10" fill="#2c3038">through the scoped substrate write path</text>
-        <text x="878" y="311" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">content-hash cache skip · upgrades placeholders/docstrings</text>
-        <text x="878" y="328" font-size="9.5" fill="#92522f">a member already agent-described at its hash is skipped</text>
+        <text x="878" y="311" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">byte-identical re-submission at current hash → skipped (cache)</text>
+        <text x="878" y="328" font-size="9.5" fill="#92522f">different text at same hash = a revision, writes · dup paths last-wins</text>
       </g>
     </svg>
   </div>
@@ -532,11 +532,12 @@
         <rect x="880" y="60" width="400" height="150" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
         <text x="1080" y="86" text-anchor="middle" font-size="13.5" font-weight="700">apply</text>
         <text x="1080" y="104" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">write stitch.json → --apply-stitch</text>
-        <text x="1080" y="124" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233">{ umbrellas: [{ label, seeds, bridges, rationale }] }</text>
-        <text x="1080" y="144" text-anchor="middle" font-size="10.5" fill="#2c3038">each → one multi-seed CodeUmbrella</text>
-        <text x="1080" y="162" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">id = alphabetically-first resolved seed · deterministic</text>
-        <text x="1080" y="178" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge @ 0.5 · extractor_id "agentic.stitch"</text>
-        <text x="1080" y="195" text-anchor="middle" font-size="9.5" fill="#6c6759">absorbed singletons retired · garbage skipped + diagnosed</text>
+        <text x="1080" y="123" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">bridge = { src_id, dst_id, file?, line, rationale? }</text>
+        <text x="1080" y="137" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">bin corroborates file:line vs the graph → derives the span</text>
+        <text x="1080" y="151" text-anchor="middle" font-size="10" fill="#2c3038">each → one multi-seed CodeUmbrella</text>
+        <text x="1080" y="166" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">id = alphabetically-first resolved seed · deterministic</text>
+        <text x="1080" y="180" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">agentic.bridge @ 0.5 · extractor_id "agentic.stitch"</text>
+        <text x="1080" y="195" text-anchor="middle" font-size="9.5" fill="#6c6759">absorbed singletons retired · uncorroborated bridge skipped</text>
         <line x1="432" y1="135" x2="458" y2="135" stroke="#6c6759" stroke-width="1.6" marker-end="url(#st-g)"/>
         <line x1="852" y1="135" x2="878" y2="135" stroke="#6c7a3b" stroke-width="1.6" marker-end="url(#st-olive)"/>
 
@@ -589,7 +590,8 @@
         <text x="1144" y="455" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#5b6233">seed</text>
         <line x1="948" y1="441" x2="1050" y2="441" stroke="#b5683e" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#st-clay)"/>
         <text x="999" y="431" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">agentic.bridge · conf 0.5</text>
-        <text x="999" y="480" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">src/orders.ts · L42 (unresolved call-site span)</text>
+        <text x="999" y="476" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">agent named src/orders.ts:42 · bin corroborates</text>
+        <text x="999" y="488" text-anchor="middle" font-family="ui-monospace,monospace" font-size="8" fill="#92522f">→ derived span = source_range provenance</text>
         <text x="756" y="514" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">bridge endpoints persisted as symbol_paths — rename-stable store ids, not raw Ariadne SymbolIds</text>
       </g>
     </svg>
@@ -597,7 +599,7 @@
   <div class="refs">
     <div class="r"><span class="n">1</span><div><b>List.</b> <code>--list-entrypoints</code> runs the full deterministic reconcile, then <code>build_entrypoint_inventory</code> emits every entrypoint defined in a changed file, flagged <code>is_orphan</code> when no documentation edge links it. Each carries its <code>unresolved_sites</code> — enclosed calls none of whose resolutions land on an in-graph node — with the trimmed <code>source_line</code> as evidence. <code>drift/reconcile/agentic_modes.ts</code></div></div>
     <div class="r"><span class="n">2</span><div><b>Explore.</b> The drift-reconciler Reads the <code>source_line</code> at each unresolved <code>file:line</code> and the enclosing definition, then Greps for the indirection that hides the edge — registry <code>register(...)</code> calls, dispatch tables, re-exports, callback wiring — and decides which entrypoints are one functionality. The evidence bar: never stitch entrypoints whose connecting call site you have not read. <code>assets/skills/drift-sync/SKILL.md</code></div></div>
-    <div class="r"><span class="n">3</span><div><b>Apply.</b> <code>--apply-stitch stitch.json</code> hydrates each umbrella as one multi-seed <code>CodeUmbrella</code> whose id is the alphabetically-first <em>resolved</em> seed's <code>symbol_path</code> (deterministic, never agent-supplied), with <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> stamped <code>extractor_id: "agentic.stitch"</code>; absorbed singleton flows retire. Unknown seeds, duplicate claims, and unresolvable bridge endpoints are skipped with a diagnostic. <code>drift/reconcile/agentic_modes.ts · hydrate.ts</code></div></div>
+    <div class="r"><span class="n">3</span><div><b>Apply.</b> <code>--apply-stitch stitch.json</code> hydrates each umbrella as one multi-seed <code>CodeUmbrella</code> whose id is the alphabetically-first <em>resolved</em> seed's <code>symbol_path</code> (deterministic, never agent-supplied), with <code>agentic.bridge</code> edges at <code>BRIDGE_CONFIDENCE_INFERRED = 0.5</code> stamped <code>extractor_id: "agentic.stitch"</code>; absorbed singleton flows retire. Each bridge is <code>{ src_id, dst_id, file?, line, rationale? }</code> — the agent names the unresolved call site by <code>file</code>/<code>line</code> (copied verbatim from the inventory; <code>file</code> defaults to <code>src_id</code>'s file), never the span. Unknown seeds, duplicate claims, and bridge endpoints absent from the graph are skipped with a diagnostic. <code>drift/reconcile/agentic_modes.ts · hydrate.ts</code></div></div>
   </div>
   <p class="cap">Idempotent: a re-run with identical input upserts the same rows and finds nothing left to retire. An unstitched orphan stays a singleton flow — which is correct, not a gap. A malformed <em>contract</em> exits 2; garbage <em>content</em> is skipped so partial progress beats none. <b>drift/reconcile/agentic_modes.ts</b></p>
   <div class="callout">
@@ -607,6 +609,10 @@
   <div class="callout olive">
     <span class="k">Bridge endpoints are symbol_paths, never raw SymbolIds</span>
     Stitch bridge <code>src_id</code>/<code>dst_id</code> are flow-layer <code>symbol_path</code>s validated against <code>build_symbol_path_index</code>; persisted <code>agentic.bridge</code> edges live in the store's id space and survive re-parses. The id space is shared with deterministic bridges, so a stitch bridge and a heuristic bridge are indistinguishable to the renderer apart from <code>extractor_id</code>.
+  </div>
+  <div class="callout">
+    <span class="k">The evidence bar, enforced — the agent names the site, the graph proves it</span>
+    A bridge carries the unresolved call site as a plain <code>file</code>/<code>line</code>, copied from the inventory — never an agent-authored span. The bin runs <code>unresolved_call_span</code>: it finds the unresolved call at that <code>file:line</code> in the live graph and derives the canonical provenance span (<code>start_line:start_col-end_line:end_col</code>, 1-indexed lines, 0-indexed columns), so click-through lands on the real missed call. A bridge whose site the graph cannot corroborate is an invented bridge — skipped with a stderr diagnostic, never persisted; the umbrella still merges.
   </div>
 
   <!-- ============================ 4 · SKELETON ↔ HYDRATED RECONCILIATION ============================ -->
@@ -676,6 +682,10 @@
     </svg>
   </div>
   <p class="cap">Re-sync re-induces a flow from its stored seeds — the id is unchanged by construction; there is no identity remap. A flow whose dominant seed no longer resolves is retired by the seed-gone soft-delete in <code>resync_persisted_flow</code> (the orphaned row is harmless); a renamed seed re-hydrates as a fresh flow, and a freshly hydrated umbrella retires persisted flows whose seeds it subsumes via <code>retire_flows_subsumed_by</code>. <b>drift/reconcile/reconcile.ts</b></p>
+  <div class="callout">
+    <span class="k">Stitch durability — the absorbed fragment never resurrects</span>
+    A stitched umbrella's non-dominant seed stays a live graph entrypoint forever (a bridge never enters the syntactic call graph), so the demotion-based <code>retire_flows_subsumed_by</code> could never reclaim it. The next deterministic pass (step 3c) would re-promote that entrypoint to a fresh singleton flow — resurrecting the very fragment the stitch absorbed. The <code>claimed_seed_paths</code> filter prevents it: any skeleton flow whose entrypoint is already a stored seed of a live persisted flow is not new and is skipped, so an umbrella survives every later pass that touches its members. <b>drift/reconcile/reconcile.ts · step 3c</b>
+  </div>
 
   <!-- ============================ 5 · LEDGER ============================ -->
   <h2 id="ledger">The flow-truth ledger</h2>
@@ -697,10 +707,10 @@
       <tr><td><code>build_flow_node</code></td><td>The <code>agentic.flow</code> <code>NodeRow</code> a hydrated flow persists as: open kind, <code>layer='agentic'</code>, seeds on <code>entry_points</code>.</td><td><code>model/flow.ts</code></td></tr>
       <tr><td><code>build_flow_member_edges</code></td><td>The <code>agentic.flow_member</code> edges from a flow to its seed roots + linked docs, with deterministic keys.</td><td><code>model/flow.ts</code></td></tr>
       <tr><td><code>build_symbol_path_index</code></td><td>The <code>symbol_path → SymbolId</code> index (inverse of <code>flow_id_of</code>), first-wins in sorted order — bridges the two id spaces.</td><td><code>model/flow.ts</code></td></tr>
-      <tr><td><code>find_orphan_entrypoints · detect_gaps</code></td><td>Deterministic gap detection: orphan entrypoints (no documentation edge) are the inventory's <code>is_orphan</code> flag; unresolved shapes feed the bridge heuristics.</td><td><code>agentic/gap_detection.ts</code></td></tr>
+      <tr><td><code>find_orphan_entrypoints</code></td><td>Deterministic orphan-entrypoint detection: an entrypoint with no incident documentation edge is the inventory's <code>is_orphan</code> flag. Unresolved-site detection lives inline in <code>agentic_modes.ts</code> (<code>is_unresolved_call</code>).</td><td><code>agentic/gap_detection.ts</code></td></tr>
       <tr><td><code>build_entrypoint_inventory</code></td><td><b>The list mode.</b> The changed neighbourhood's entrypoint inventory — every entrypoint in a changed file, orphan-flagged, each with its unresolved call sites — the agent's phase-1 input.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
       <tr><td><code>apply_stitch</code></td><td><b>The stitch mode.</b> Hydrate each agent-judged umbrella as a multi-seed <code>CodeUmbrella</code> (id = alphabetically-first resolved seed) with <code>agentic.bridge</code> edges; retire absorbed singletons. Garbage skipped + diagnosed.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
-      <tr><td><code>apply_descriptions</code></td><td><b>The describe mode.</b> Persist agent-authored member descriptions through the scoped substrate writer; a member already agent-described at its content hash is skipped.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
+      <tr><td><code>apply_descriptions</code></td><td><b>The describe mode.</b> Persist agent-authored member descriptions through the scoped substrate writer. A byte-identical re-submission at the member's current content hash is a cache skip; a different text at the same hash is a revision and writes; duplicate <code>symbol_path</code>s in one payload collapse last-wins.</td><td><code>drift/reconcile/agentic_modes.ts</code></td></tr>
       <tr><td><code>build_bridge_edges</code></td><td>Candidates → <code>agentic.bridge</code> edges at confidence <code>0.5</code>, each with an <code>inference_rationale</code> + justifying span.</td><td><code>agentic/bridge.ts</code></td></tr>
       <tr><td><code>plan_descriptions · resolve_descriptions</code></td><td>The deterministic ladder: cache → docstring → placeholder. No model call; the agent upgrades placeholders later via <code>--apply-descriptions</code>.</td><td><code>agentic/describe_policy.ts · drift/reconcile/describe.ts</code></td></tr>
     </tbody>

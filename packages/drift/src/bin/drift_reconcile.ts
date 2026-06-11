@@ -4,7 +4,8 @@
  * The skill script is dependency-free and cannot import `@code-charter/core`, so it spawns this built
  * bin with a pinned contract.
  *
- * Four modes, dispatched by flag (at most one):
+ * One headless default mode plus the three agentic modes the drift-sync skill orchestrates,
+ * dispatched by flag (at most one):
  *  - default — the deterministic reconcile: resync/retire/skill-dir plus one-singleton-flow-per-new-
  *    entrypoint hydration. The complete path for hosts without an agent.
  *  - `--list-entrypoints` — runs the same deterministic reconcile, then emits the changed
@@ -41,7 +42,7 @@ import type { ReconcileDeps, ReconcileResult } from "../reconcile/types";
 const USAGE = [
   "usage: drift-reconcile --files <a,b,...> --store <db_path> --repo-root <abs> [--goal <name>] [--json] [--dry-run]",
   "       drift-reconcile --list-entrypoints --files <a,b,...> --store <db_path> --repo-root <abs> [--goal <name>] [--dry-run]",
-  "       drift-reconcile --apply-stitch <json_path> --store <db_path> --repo-root <abs> [--goal <name>] [--dry-run]",
+  "       drift-reconcile --apply-stitch <json_path> --store <db_path> --repo-root <abs> [--dry-run]",
   "       drift-reconcile --apply-descriptions <json_path> --store <db_path> --repo-root <abs> [--dry-run]",
 ].join("\n");
 

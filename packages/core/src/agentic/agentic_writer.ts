@@ -31,7 +31,7 @@ import { DEFAULT_DESCRIBE_CAP } from "./describe_policy";
 import type { ResolvedDescription } from "./write_descriptions";
 import { write_descriptions } from "./write_descriptions";
 
-/** Everything the writer persists in one pass. task-27.1.6 assembles this after running the executor. */
+/** Everything the writer persists in one pass — assembled by the reconcile engine and the agentic apply modes. */
 export interface SubstrateProposal {
   bridges: ReadonlyArray<{ edge: EdgeRow; provenance: ProvenanceRow[] }>;
   descriptions: readonly ResolvedDescription[];

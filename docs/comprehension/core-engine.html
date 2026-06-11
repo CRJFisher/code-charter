@@ -503,7 +503,7 @@
   <p class="thesis">The agentic substrate deterministically proposes what static extraction cannot — gaps, bridge candidates, the description ladder — and persists it on the agentic lane, making no model calls. The model lives one package out, in the drift-reconciler sub-agent, which refines this substrate through the skill's stitch and describe phases.</p>
   <table class="ledger">
     <tr><th>File</th><th>Role</th></tr>
-    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>detect_gaps</code> + <code>find_orphan_entrypoints</code> + <code>derive_candidate_seeds</code>: deterministic 3-category gap detector (orphan entrypoints, unresolved shapes, disconnected components) over the call graph. Orphan flags drive the drift entrypoint inventory; unresolved shapes feed the bridge heuristics. Pure.</td></tr>
+    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>find_orphan_entrypoints</code> + <code>OrphanEntrypoint</code> + <code>GapDetectionOptions</code>/<code>DEFAULT_GAP_OPTIONS</code>: a deterministic detector of orphan entrypoints &mdash; entrypoints with no incident documentation edge &mdash; over the call graph. The orphan flag drives the drift entrypoint inventory's <code>is_orphan</code>. Pure and byte-stable. Unresolved-site detection lives inline in the drift package's <code>agentic_modes.ts</code> (<code>is_unresolved_call</code>).</td></tr>
     <tr><td><code>agentic/describe_policy.ts</code></td><td><b><code>plan_descriptions</code></b>: partitions members into cached / from_docstring / needs_llm / placeholder. The deterministic pass writes docstrings and name placeholders; the drift skill describe phase later upgrades the placeholders via <code>--apply-descriptions</code>.</td></tr>
     <tr><td><code>agentic/bridge.ts</code></td><td><code>build_bridge_edges</code>: collapses candidates into <code>agentic.bridge</code> EdgeRows (layer agentic, confidence 0.5, dashed render) with justifying provenance. The drift skill stitch phase reuses this plumbing, stamping <code>extractor_id "agentic.stitch"</code> on an agent-confirmed bridge.</td></tr>
     <tr><td><code>agentic/registry_detector.ts</code></td><td><code>detect_meta_json_sub_agent_bridges</code>: reads <code>meta.json</code> <code>sub_agents[]</code>, emits <code>BridgeCandidate</code>s via an injected <code>resolve_target</code> seam.</td></tr>
@@ -512,7 +512,7 @@
   </table>
   <div class="fig">
     <svg viewBox="0 0 1300 300" role="img"
-      aria-label="The substrate-versus-agent boundary. On the left core proposes deterministically: gaps become seeds and orphan flags, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then placeholder. On the right is the drift-reconciler sub-agent in the drift package: it judges the entrypoint inventory and authors member descriptions, applying them through the drift-reconcile bin modes apply-stitch and apply-descriptions. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
+      aria-label="The substrate-versus-agent boundary. On the left core proposes deterministically: orphan entrypoints are flagged via find_orphan_entrypoints, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then placeholder. On the right is the drift-reconciler sub-agent in the drift package: it judges the entrypoint inventory and authors member descriptions, applying them through the drift-reconcile bin modes apply-stitch and apply-descriptions. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
       <defs>
         <marker id="ag-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="ag-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
@@ -522,8 +522,8 @@
         <rect x="30" y="30" width="560" height="240" rx="11" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
         <text x="310" y="56" font-weight="600" font-size="14">core proposes — deterministic</text>
         <rect x="60" y="72" width="240" height="50" rx="8" fill="#ece5d6" stroke="#aaa492"/>
-        <text x="180" y="92" font-weight="600">gaps &rarr; seeds</text>
-        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">detect_gaps · orphan flags + bridge feed</text>
+        <text x="180" y="92" font-weight="600">orphan entrypoints</text>
+        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">find_orphan_entrypoints · is_orphan flag</text>
         <rect x="320" y="72" width="240" height="50" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-dasharray="5 4"/>
         <text x="440" y="92" font-weight="600">bridges @ conf 0.5</text>
         <text x="440" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">dashed render</text>

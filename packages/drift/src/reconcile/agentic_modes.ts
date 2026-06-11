@@ -11,15 +11,16 @@
  *    `CodeUmbrella`s with `agentic.bridge` edges over the missed calls; singleton flows absorbed into
  *    an umbrella are retired. Returns the established flow shape for the describe phase.
  *  - `--apply-descriptions` → {@link apply_descriptions}: agent-authored member descriptions persist
- *    through the scoped substrate writer, upgrading the deterministic placeholders. A member already
- *    agent-described at its current content hash is skipped (the description cache).
+ *    through the scoped substrate writer, upgrading the deterministic placeholders. A byte-identical
+ *    re-submission at the member's current content hash is skipped (the description cache); a
+ *    different text is a revision and writes.
  *
  * Garbage *content* (an unknown symbol_path, overlapping seeds) is skipped with a stderr diagnostic —
  * the agent is fallible and partial progress beats none. A malformed *contract* (wrong JSON shape) is
  * rejected by the parse helpers and exits 2 in the bin.
  */
 
-import type { CallGraph, SymbolId } from "@ariadnejs/types";
+import type { CallGraph, CallableNode, SymbolId } from "@ariadnejs/types";
 import type { BridgeCandidate } from "@code-charter/core";
 import {
   build_symbol_path_index,
@@ -42,6 +43,36 @@ import type { ReconcileDeps } from "./types";
 /** Provenance identity for agent-confirmed stitch bridges. */
 export const STITCH_EXTRACTOR_ID = "agentic.stitch";
 export const STITCH_EXTRACTOR_VERSION = "1";
+
+/**
+ * Unresolved = the call contributes no in-graph edge: either Ariadne found no resolution at all, or
+ * every resolution lands outside the call graph (e.g. a local variable holding a registry-lookup
+ * result) — the same predicate `reachable_from` traverses by. Callback invocations are synthetic,
+ * not comprehension gaps.
+ */
+function is_unresolved_call(call: CallableNode["enclosed_calls"][number], graph: CallGraph): boolean {
+  if (call.is_callback_invocation) return false;
+  return !call.resolutions.some((r) => graph.nodes.has(r.symbol_id));
+}
+
+/**
+ * The canonical provenance span (`start_line:start_col-end_line:end_col`, 1-indexed lines,
+ * 0-indexed columns) of the unresolved call at `file:line`, or undefined when no unresolved call
+ * sits there — the graph-corroboration gate for agent-claimed bridge sites.
+ */
+function unresolved_call_span(graph: CallGraph, file: string, line: number): string | undefined {
+  for (const id of [...graph.nodes.keys()].sort()) {
+    const node = graph.nodes.get(id)!;
+    if (node.location.file_path !== file) continue;
+    for (const call of node.enclosed_calls) {
+      if (!is_unresolved_call(call, graph)) continue;
+      const loc = call.location;
+      if (loc.file_path !== file || loc.start_line !== line) continue;
+      return `${loc.start_line}:${loc.start_column}-${loc.end_line}:${loc.end_column}`;
+    }
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // --list-entrypoints
@@ -100,11 +131,7 @@ export function build_entrypoint_inventory(
       const member_node = graph.nodes.get(member);
       if (!member_node) continue;
       for (const call of member_node.enclosed_calls) {
-        if (call.is_callback_invocation) continue;
-        // Unresolved = the call contributes no in-graph edge: either Ariadne found no resolution at
-        // all, or every resolution lands outside the call graph (e.g. a local variable holding a
-        // registry-lookup result) — the same predicate `reachable_from` traverses by.
-        if (call.resolutions.some((r) => graph.nodes.has(r.symbol_id))) continue;
+        if (!is_unresolved_call(call, graph)) continue;
         const file = call.location.file_path;
         const line = call.location.start_line;
         sites.push({ file, line, source_line: deps.adapter.source_line(file, line) ?? call.name });
@@ -136,14 +163,20 @@ export function build_entrypoint_inventory(
 // --apply-stitch
 // ---------------------------------------------------------------------------
 
-/** One agent-inferred bridge over a missed call. `src_id`/`dst_id` are flow-layer symbol_paths. */
+/**
+ * One agent-inferred bridge over a missed call. `src_id`/`dst_id` are flow-layer symbol_paths
+ * (`dst_id` is by construction one of the umbrella's seeds — membership derives from the seed
+ * union; the bridge is the provenance record of the missed call). `file`/`line` name the
+ * unresolved call site, copied verbatim from the inventory's `unresolved_sites`; the bin resolves
+ * them to the call's exact span so click-through lands on the real missed call.
+ */
 export interface StitchBridgeInput {
   src_id: string;
   dst_id: string;
-  /** Defaults to the file embedded in `src_id`. */
-  source_file?: string;
-  /** The unresolved call-site span (e.g. `"L42"`) — click-through lands on the real missed call. */
-  source_range: string;
+  /** The unresolved call site's file. Defaults to the file embedded in `src_id`. */
+  file?: string;
+  /** The unresolved call site's 1-indexed line, from the inventory. */
+  line: number;
   /** Defaults to the umbrella's rationale. */
   rationale?: string;
 }
@@ -187,14 +220,14 @@ export function parse_apply_stitch(raw: unknown): { input: ApplyStitchInput } | 
     for (const [j, b] of (Array.isArray(bridges) ? bridges : []).entries()) {
       if (typeof b !== "object" || b === null) return { error: `umbrellas[${i}].bridges[${j}] is not an object` };
       const bridge = b as Record<string, unknown>;
-      if (typeof bridge.src_id !== "string" || typeof bridge.dst_id !== "string" || typeof bridge.source_range !== "string") {
-        return { error: `umbrellas[${i}].bridges[${j}] needs string src_id, dst_id, source_range` };
+      if (typeof bridge.src_id !== "string" || typeof bridge.dst_id !== "string" || typeof bridge.line !== "number") {
+        return { error: `umbrellas[${i}].bridges[${j}] needs string src_id, dst_id and number line` };
       }
       parsed_bridges.push({
         src_id: bridge.src_id,
         dst_id: bridge.dst_id,
-        source_range: bridge.source_range,
-        ...(typeof bridge.source_file === "string" ? { source_file: bridge.source_file } : {}),
+        line: bridge.line,
+        ...(typeof bridge.file === "string" ? { file: bridge.file } : {}),
         ...(typeof bridge.rationale === "string" ? { rationale: bridge.rationale } : {}),
       });
     }
@@ -246,13 +279,23 @@ export async function apply_stitch(
         deps.log(`apply-stitch: bridge endpoint not in the live graph, skipped: ${bridge.src_id} -> ${bridge.dst_id}`);
         continue;
       }
+      // The evidence bar, enforced: the named file:line must hold a real unresolved call. Its exact
+      // span becomes the provenance `source_range` (canonical `start_line:start_col-end_line:end_col`),
+      // so click-through lands on the real missed call. A site the graph cannot corroborate is an
+      // invented bridge — skipped, never persisted.
+      const file = bridge.file ?? file_of_symbol_path(bridge.src_id);
+      const span = unresolved_call_span(graph, file, bridge.line);
+      if (span === undefined) {
+        deps.log(`apply-stitch: no unresolved call at ${file}:${bridge.line}, bridge skipped: ${bridge.src_id} -> ${bridge.dst_id}`);
+        continue;
+      }
       bridges.push({
         src_id: bridge.src_id,
         dst_id: bridge.dst_id,
         inference_rationale: bridge.rationale ?? umbrella.rationale,
         provenance: {
-          source_file: bridge.source_file ?? file_of_symbol_path(bridge.src_id),
-          source_range: bridge.source_range,
+          source_file: file,
+          source_range: span,
           extractor_id: STITCH_EXTRACTOR_ID,
           extractor_version: STITCH_EXTRACTOR_VERSION,
         },
@@ -304,7 +347,7 @@ export interface ApplyDescriptionsInput {
 
 export interface ApplyDescriptionsResult {
   written: string[];
-  /** symbol_paths skipped: already agent-described at the current content hash, or no live anchor. */
+  /** symbol_paths skipped: a byte-identical re-submission at the current content hash, or no live anchor. */
   skipped: string[];
 }
 
@@ -326,16 +369,17 @@ export function parse_apply_descriptions(raw: unknown): { input: ApplyDescriptio
 }
 
 /**
- * Persist agent-authored member descriptions through the scoped substrate writer. The content-hash
- * cache skips a member already agent-described at its current hash (unchanged nodes are not
- * re-described every sync); deterministic placeholders and docstrings are upgraded, not preserved.
- * A symbol_path with no live anchor is skipped with a diagnostic.
+ * Persist agent-authored member descriptions through the scoped substrate writer. The cache skips a
+ * byte-identical re-submission at the member's current content hash (unchanged nodes are not
+ * re-described every sync); a different text at the same hash is a revision and writes. A
+ * symbol_path with no live anchor is skipped with a diagnostic; duplicate symbol_paths in one
+ * payload collapse last-wins.
  */
 export function apply_descriptions(deps: ReconcileDeps, input: ApplyDescriptionsInput): ApplyDescriptionsResult {
+  const by_path = new Map(input.descriptions.map((d) => [d.symbol_path, d]));
   const files = [
     ...new Set(
-      input.descriptions
-        .map((d) => d.symbol_path)
+      [...by_path.keys()]
         .filter((p) => p.includes("#"))
         .map((p) => file_of_symbol_path(p)),
     ),
@@ -345,7 +389,7 @@ export function apply_descriptions(deps: ReconcileDeps, input: ApplyDescriptions
 
   const resolved: ResolvedDescription[] = [];
   const skipped: string[] = [];
-  for (const item of input.descriptions) {
+  for (const item of by_path.values()) {
     const anchor = anchor_by_path.get(item.symbol_path);
     if (anchor === undefined) {
       deps.log(`apply-descriptions: no live anchor for ${item.symbol_path}, skipped`);
@@ -353,7 +397,7 @@ export function apply_descriptions(deps: ReconcileDeps, input: ApplyDescriptions
       continue;
     }
     const prior = existing.get(item.symbol_path);
-    if (prior?.described_at_content_hash === anchor.content_hash && prior.source === "llm") {
+    if (prior?.described_at_content_hash === anchor.content_hash && prior.text === item.text) {
       skipped.push(item.symbol_path);
       continue;
     }

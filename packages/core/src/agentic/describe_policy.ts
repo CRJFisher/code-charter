@@ -55,7 +55,7 @@ export interface PlannedDescription {
   content_hash: string;
   name: string;
   source: DescriptionSource;
-  /** Docstring text for `docstring`; the name for `placeholder`; null for `llm` (the executor fills it). */
+  /** Docstring text for `docstring`; the name for `placeholder`; null for `llm` (the agent fills it via `--apply-descriptions`). */
   text: string | null;
 }
 

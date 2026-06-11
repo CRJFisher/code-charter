@@ -54,7 +54,8 @@ const GOLDEN_UMBRELLAS = {
         {
           src_id: "handler.ts#dispatch:function",
           dst_id: "router.ts#handle_request:function",
-          source_range: "L5",
+          file: "handler.ts",
+          line: 5,
           rationale: "fn() is the registry-looked-up handler; handle_request is the registered target",
         },
       ],
@@ -201,6 +202,46 @@ describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
     expect(result.stderr).toContain("retired singleton flow router.ts#handle_request:function");
   });
 
+  it("a stitched umbrella survives the next deterministic pass: the absorbed singleton stays retired", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    const stitched = read_store();
+    expect(stitched.flow_ids).toEqual(["handler.ts#dispatch:function"]);
+
+    // The next turn touches the absorbed fragment's file. Its entrypoint is still a live graph
+    // entrypoint (bridges never enter the syntactic graph), but it is a stored seed of the live
+    // umbrella — step 3c must not re-promote it to a singleton flow.
+    fs.appendFileSync(path.join(repo, "router.ts"), "// touched\n");
+    const next = run(["--list-entrypoints", "--files", "router.ts"]);
+    expect(next.status).toBe(0);
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function"]); // no resurrection
+    expect(bridges).toHaveLength(1); // the stitch's provenance record survives the resync
+  });
+
+  it("--apply-stitch rejects a bridge whose claimed call site the graph cannot corroborate", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+
+    const result = run([
+      "--apply-stitch",
+      write_payload("stitch.json", {
+        umbrellas: [
+          {
+            ...GOLDEN_UMBRELLAS.umbrellas[0],
+            bridges: [{ ...GOLDEN_UMBRELLAS.umbrellas[0].bridges[0], line: 2 }], // line 2 holds no unresolved call
+          },
+        ],
+      }),
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("no unresolved call at handler.ts:2, bridge skipped");
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler.ts#dispatch:function"]); // the umbrella still merges
+    expect(bridges).toHaveLength(0); // but the uncorroborated bridge never persists
+  });
+
   it("--apply-stitch is idempotent: a re-run with identical input changes nothing", () => {
     run(["--list-entrypoints", "--files", FILES]);
     const payload = write_payload("stitch.json", GOLDEN_UMBRELLAS);
@@ -278,12 +319,30 @@ describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
       store.close();
     }
 
-    // Unchanged node at the same content hash → the description cache skips the re-write.
+    // Byte-identical re-submission at the same content hash → the description cache skips the re-write.
     const second = run(["--apply-descriptions", payload]);
     expect(second.status).toBe(0);
     expect(JSON.parse(second.stdout)).toEqual({
       written: [],
       skipped: ["ghost.ts#nope:function", "handler.ts#dispatch:function"],
     });
+
+    // A different text at the same content hash is a revision, not a cache hit — it writes.
+    const revised = run([
+      "--apply-descriptions",
+      write_payload("descriptions.json", {
+        descriptions: [{ symbol_path: "handler.ts#dispatch:function", text: "Routes a key to its registered handler." }],
+      }),
+    ]);
+    expect(revised.status).toBe(0);
+    expect(JSON.parse(revised.stdout)).toEqual({ written: ["handler.ts#dispatch:function"], skipped: [] });
+
+    const reread = open_graph_store(path.join(repo, "graph.db"));
+    try {
+      const node = reread.all_nodes().find((n) => n.id === "agentic.description:handler.ts#dispatch:function");
+      expect(node?.attributes.description).toBe("Routes a key to its registered handler.");
+    } finally {
+      reread.close();
+    }
   });
 });
