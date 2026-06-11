@@ -184,7 +184,7 @@
         <!-- agentic -->
         <rect x="560" y="260" width="230" height="60" rx="9" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
         <text x="675" y="286" font-weight="600">agentic</text>
-        <text x="675" y="306" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">gaps · bridges · describe</text>
+        <text x="675" y="306" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">gaps · stitch · bridges · describe</text>
         <path d="M675 216 L675 258" fill="none" stroke="#b5683e" stroke-width="1.4" marker-end="url(#ar-clay)"/>
         <path d="M695 260 L695 218" fill="none" stroke="#b5683e" stroke-width="1.2" stroke-dasharray="5 4"/>
 
@@ -334,7 +334,6 @@
     <tr><td><code>resolver/resolver_index.ts</code></td><td><code>build_resolver_index</code>: one <code>CodeState</code> per symbol, indexed <code>by_symbol_path</code> &amp; <code>by_content_hash</code>; <b>throws on duplicate symbol_path</b>.</td></tr>
     <tr><td><code>resolver/from_ariadne.ts</code></td><td>Ariadne seam: walks per-file defs, slices bodies from <code>body_scope_id</code>, bridges SymbolId&harr;symbol_path. Skips the <code>&lt;anonymous&gt;</code> sentinel.</td></tr>
     <tr><td><code>resolver/anchor_string.ts</code></td><td><code>format_anchor</code>/<code>parse_anchor</code> round-trip <code>symbol_path:content_hash</code>, splitting on the last colon (hash is 64 hex chars).</td></tr>
-    <tr><td><code>resolver/rank_candidates.ts</code></td><td><code>rank_candidates</code>: scores live anchors as re-attachment targets (content +100, same file +10, name+kind +5). Pure.</td></tr>
   </table>
   <div class="fig">
     <svg viewBox="0 0 1300 240" role="img"
@@ -350,19 +349,19 @@
 
         <rect x="320" y="24" width="280" height="50" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
         <text x="460" y="46" font-weight="600">hit</text>
-        <text x="460" y="64" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">① path + hash match</text>
+        <text x="460" y="64" font-family="ui-monospace,monospace" font-size="10.5" fill="#5b6233">&#9312; path + hash match</text>
 
         <rect x="320" y="92" width="280" height="50" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
         <text x="460" y="114" font-weight="600">downgrade · body-changed</text>
-        <text x="460" y="132" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">② same path, hash differs</text>
+        <text x="460" y="132" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">&#9313; same path, hash differs</text>
 
         <rect x="320" y="160" width="280" height="50" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.5"/>
         <text x="460" y="182" font-weight="600">downgrade · relocated</text>
-        <text x="460" y="200" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">③ hash at a different path</text>
+        <text x="460" y="200" font-family="ui-monospace,monospace" font-size="10.5" fill="#92522f">&#9314; hash at a different path</text>
 
         <rect x="700" y="92" width="220" height="50" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.5"/>
         <text x="810" y="114" font-weight="600">miss</text>
-        <text x="810" y="132" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">④ renamed AND re-bodied</text>
+        <text x="810" y="132" font-family="ui-monospace,monospace" font-size="10.5" fill="#8a3528">&#9315; renamed AND re-bodied</text>
 
         <path d="M210 108 L318 50" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rs-g)"/>
         <path d="M210 117 L318 117" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#rs-g)"/>
@@ -442,39 +441,38 @@
   <p class="thesis">The funnel that turns a turn's file edits into a precise symbol-granular <code>SymbolDelta</code>, so drift follows the code change, not the file save.</p>
   <table class="ledger">
     <tr><th>File</th><th>Role</th></tr>
-    <tr><td><code>reextract/re_extract.ts</code></td><td>Single entry point <b><code>re_extract(file_set, origin, deps)</code></b>: invalidate+re-extract raw, rebuild file-module scaffold, reconcile each preserved anchored node (stage drift / bin a miss), accumulate baseline, return <code>SymbolDelta</code>. Host supplies <code>extract_raw</code>/<code>build_index</code>.</td></tr>
+    <tr><td><code>reextract/re_extract.ts</code></td><td>Single entry point <b><code>re_extract(file_set, origin, deps)</code></b>: invalidate+re-extract raw, rebuild file-module scaffold, resolve each preserved anchored node (re-anchor a relocation inline / soft-delete a miss), accumulate baseline, return <code>SymbolDelta</code>. Host supplies <code>extract_raw</code>/<code>build_index</code>.</td></tr>
     <tr><td><code>reextract/symbol_delta.ts</code></td><td><code>compute_symbol_delta(baseline, index)</code>: diffs fresh index vs persisted-anchor baseline into <code>{added, removed, modified, relocated}</code> by symbol_path. Pure.</td></tr>
-    <tr><td><code>reextract/drift_observation.ts</code></td><td>Reserved <code>drift_*</code> staging keys + <code>outstanding_drift(store, scope?)</code> — extractor-free read of staged relocations for the banner and resolve handler.</td></tr>
-    <tr><td><code>reextract/reanchor.ts</code></td><td><code>reanchor_node(store, node, target)</code>: rewrites only the anchor column and strips <code>drift_*</code> staging, leaving every authored field byte-for-byte intact.</td></tr>
   </table>
   <div class="fig">
     <svg viewBox="0 0 1300 290" role="img"
-      aria-label="Per preserved anchored node, reconcile_node runs the resolver cascade against the fresh index. A relocated verdict is staged as drift attributes for explicit accept. A miss soft-deletes the node into the re-attachment bin. A hit or body-changed produces no drift. The same loop accumulates the persisted-anchor baseline, which compute_symbol_delta diffs into added, removed, modified and relocated. The delta scopes which flows re-sync and which symbols re-describe.">
+      aria-label="Per preserved anchored node, resolve_node runs the resolver cascade against the fresh index. A relocated verdict re-anchors the node inline — the anchor and defining path follow the symbol, the description side-node re-keys, authored content rides across byte-for-byte; no human accept. A miss soft-deletes the node; agentic content is regenerated on the next sync. A hit or body-changed produces no drift. Verdicts apply in two phases — all soft-deletes, then all re-key upserts — so same-pass rename chains land cleanly. The same loop accumulates the persisted-anchor baseline, which compute_symbol_delta diffs into added, removed, modified and relocated. The delta scopes which flows re-sync and which symbols re-describe.">
       <defs>
         <marker id="re-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="re-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
         <marker id="re-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
       </defs>
       <g font-family="ui-sans-serif,system-ui" font-size="13" fill="#2c3038" text-anchor="middle">
         <rect x="20" y="100" width="200" height="64" rx="9" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.5"/>
         <text x="120" y="128" font-weight="600">preserved anchored node</text>
-        <text x="120" y="148" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">layer≠raw · in file set</text>
+        <text x="120" y="148" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">layer&ne;raw · in file set</text>
 
         <rect x="300" y="100" width="180" height="64" rx="9" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
-        <text x="390" y="128" font-weight="600">reconcile_node</text>
+        <text x="390" y="128" font-weight="600">resolve_node</text>
         <text x="390" y="148" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">runs resolver cascade</text>
         <path d="M220 132 L298 132" fill="none" stroke="#6c6759" stroke-width="1.5" marker-end="url(#re-g)"/>
 
         <!-- branches -->
         <rect x="560" y="20" width="230" height="48" rx="8" fill="#f3ece2" stroke="#b5683e" stroke-width="1.4"/>
-        <text x="675" y="40" font-weight="600">relocated &rarr; staged drift_*</text>
-        <text x="675" y="58" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">explicit accept; never re-described</text>
+        <text x="675" y="40" font-weight="600">relocated &rarr; re-anchor inline</text>
+        <text x="675" y="58" font-family="ui-monospace,monospace" font-size="10" fill="#92522f">no human accept · content rides across</text>
         <rect x="560" y="108" width="230" height="48" rx="8" fill="#f4e6e2" stroke="#9e3b2e" stroke-width="1.4"/>
-        <text x="675" y="128" font-weight="600">miss &rarr; soft-delete to bin</text>
-        <text x="675" y="146" font-family="ui-monospace,monospace" font-size="10" fill="#8a3528">re-attachment bin</text>
+        <text x="675" y="128" font-weight="600">miss &rarr; soft-delete</text>
+        <text x="675" y="146" font-family="ui-monospace,monospace" font-size="10" fill="#8a3528">regenerated on next sync</text>
         <rect x="560" y="196" width="230" height="48" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.4"/>
         <text x="675" y="216" font-weight="600">hit / body-changed</text>
         <text x="675" y="234" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">no drift</text>
-        <path d="M480 120 L558 50" fill="none" stroke="#9e3b2e" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#re-r)"/>
+        <path d="M480 120 L558 50" fill="none" stroke="#b5683e" stroke-width="1.4" marker-end="url(#re-c)"/>
         <path d="M480 132 L558 132" fill="none" stroke="#9e3b2e" stroke-width="1.4" marker-end="url(#re-r)"/>
         <path d="M480 144 L558 214" fill="none" stroke="#6c6759" stroke-width="1.4" marker-end="url(#re-g)"/>
 
@@ -499,13 +497,14 @@
       </g>
     </svg>
   </div>
-  <p class="cap"><b><code>added</code> is relative to anchored knowledge</b> and correct only when <code>build_index</code> is scoped to changed files alone; a whole-repo index would flood it. A relocated symbol is never re-described — the description carries across via the staged re-anchor. Consumed by the drift package's <code>reconcile.ts</code> and <code>affected_flows.ts</code>.</p>
+  <p class="cap"><b><code>added</code> is relative to anchored knowledge</b> and correct only when <code>build_index</code> is scoped to changed files alone; a whole-repo index would flood it. A relocated symbol is never re-described — the anchor, defining path and description side-node re-key inline, authored content byte-for-byte. Verdicts apply in two phases (all soft-deletes, then all re-key upserts) so same-pass rename chains land cleanly. Consumed by the drift package's <code>reconcile.ts</code> and <code>affected_flows.ts</code>.</p>
 
-  <h2 id="agentic">agentic — descriptions, gaps &amp; bridges</h2>
+  <h2 id="agentic">agentic — descriptions, gaps, stitches &amp; bridges</h2>
   <p class="thesis">The agentic substrate deterministically proposes what static extraction cannot, then persists it on the agentic lane — making no model calls.</p>
   <table class="ledger">
     <tr><th>File</th><th>Role</th></tr>
-    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>detect_gaps</code> + <code>derive_candidate_seeds</code>: orphan entrypoints, unresolved/dynamic-dispatch shapes, disconnected components &rarr; candidate flow seeds.</td></tr>
+    <tr><td><code>agentic/gap_detection.ts</code></td><td><code>detect_gaps</code> + <code>derive_candidate_seeds</code>: deterministic 3-category gap detector (orphan entrypoints, unresolved shapes, disconnected components) over the call graph; feeds the stitch seam. Pure.</td></tr>
+    <tr><td><code>agentic/stitch.ts</code></td><td><code>build_candidate_stitches</code> + <code>null_stitch_executor</code>: the <code>EntrypointStitchExecutor</code> injected seam; default confirms nothing (one-entrypoint-per-flow, deterministic). Consumed by drift/reconcile.</td></tr>
     <tr><td><code>agentic/describe_policy.ts</code></td><td><b><code>plan_descriptions</code></b>: partitions members into cached / from_docstring / needs_llm / placeholder; defines injected <code>DescribeBatchExecutor</code> + <code>null_describe_executor</code>.</td></tr>
     <tr><td><code>agentic/bridge.ts</code></td><td><code>build_bridge_edges</code>: collapses candidates into <code>agentic.bridge</code> EdgeRows (layer agentic, confidence 0.5, dashed render) with justifying provenance.</td></tr>
     <tr><td><code>agentic/registry_detector.ts</code></td><td><code>detect_meta_json_sub_agent_bridges</code>: reads <code>meta.json</code> <code>sub_agents[]</code>, emits <code>BridgeCandidate</code>s via an injected <code>resolve_target</code> seam.</td></tr>
@@ -514,7 +513,7 @@
   </table>
   <div class="fig">
     <svg viewBox="0 0 1300 300" role="img"
-      aria-label="The substrate-versus-agent seam. On the left core proposes deterministically: gaps become seeds, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then LLM up to 200, then placeholder. On the right are the injected seams: DescribeBatchExecutor and resolve_target, filled by the drift sub-agent which assembles a SubstrateProposal. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
+      aria-label="The substrate-versus-agent seam. On the left core proposes deterministically: gaps become seeds and feed the stitch seam, bridges are emitted at confidence 0.5 with a dashed render, and plan_descriptions follows a ladder of cache, then docstring, then LLM up to 200, then placeholder. On the right are the injected seams: DescribeBatchExecutor, EntrypointStitchExecutor and resolve_target, filled by the drift sub-agent which assembles a SubstrateProposal. Writes are scoped write_fields on the agentic lane, never a store-global rebuild_layer of agentic.">
       <defs>
         <marker id="ag-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="ag-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
@@ -525,7 +524,7 @@
         <text x="310" y="56" font-weight="600" font-size="14">core proposes — deterministic</text>
         <rect x="60" y="72" width="240" height="50" rx="8" fill="#ece5d6" stroke="#aaa492"/>
         <text x="180" y="92" font-weight="600">gaps &rarr; seeds</text>
-        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">detect_gaps</text>
+        <text x="180" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#6c6759">detect_gaps · feeds stitch seam</text>
         <rect x="320" y="72" width="240" height="50" rx="8" fill="#eef0e3" stroke="#6c7a3b" stroke-dasharray="5 4"/>
         <text x="440" y="92" font-weight="600">bridges @ conf 0.5</text>
         <text x="440" y="110" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">dashed render</text>
@@ -536,11 +535,12 @@
         <text x="310" y="232" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">steps 1, 2, 4 make no model call</text>
 
         <!-- injected seams -->
-        <rect x="690" y="40" width="300" height="120" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <rect x="690" y="40" width="300" height="134" rx="11" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6" stroke-dasharray="6 4"/>
         <text x="840" y="66" font-weight="600" font-size="14">injected seams</text>
-        <text x="840" y="92" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">DescribeBatchExecutor</text>
-        <text x="840" y="114" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">resolve_target</text>
-        <text x="840" y="140" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">filled by drift sub-agent (LLM)</text>
+        <text x="840" y="90" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">DescribeBatchExecutor</text>
+        <text x="840" y="110" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">EntrypointStitchExecutor</text>
+        <text x="840" y="130" font-family="ui-monospace,monospace" font-size="11" fill="#5b6233">resolve_target</text>
+        <text x="840" y="154" font-family="ui-monospace,monospace" font-size="10.5" fill="#6c6759">filled by drift sub-agent (LLM)</text>
         <path d="M690 100 L592 130" fill="none" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ag-o)"/>
         <text x="640" y="112" font-family="ui-monospace,monospace" font-size="10" fill="#5b6233">SubstrateProposal</text>
 
@@ -558,7 +558,7 @@
       </g>
     </svg>
   </div>
-  <p class="cap">Descriptions are <code>agentic.description</code> side-nodes (anchored to <code>symbol_path:content_hash</code>) so a raw re-parse leaves them to re-anchor through <code>re_extract</code>; reads use <b><code>include_deleted:true</code></b> to avoid resurrecting binned rows. Sole real consumer is the drift hydration sub-agent, which fills the seams.</p>
+  <p class="cap">Descriptions are <code>agentic.description</code> side-nodes (anchored to <code>symbol_path:content_hash</code>) so a raw re-parse leaves them to re-anchor through <code>re_extract</code>; reads use <b><code>include_deleted:true</code></b> to avoid resurrecting soft-deleted rows. Sole real consumer is the drift hydration sub-agent, which fills the seams.</p>
 
   <footer>
     Generated comprehension doc for the Code Charter repo · "Core Engine" · one of five in the set.<br>
