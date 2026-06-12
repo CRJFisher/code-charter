@@ -85,14 +85,14 @@ describe("stitch eval fixture: dynamic_key_dispatch (TypeScript)", () => {
             src_id: "dispatcher.ts#dispatch:function",
             dst_id: "create_handler.ts#handle_create:function",
             file: "dispatcher.ts",
-            line: 12,
+            line: 14,
             rationale: "fn() is the registry-looked-up handler; handle_create is registered under the create key",
           },
           {
             src_id: "dispatcher.ts#dispatch:function",
             dst_id: "delete_handler.ts#handle_delete:function",
             file: "dispatcher.ts",
-            line: 12,
+            line: 14,
             rationale: "fn() is the registry-looked-up handler; handle_delete is registered under the delete key",
           },
         ],
@@ -130,9 +130,9 @@ describe("stitch eval fixture: dynamic_key_dispatch (TypeScript)", () => {
           symbol_path: "dispatcher.ts#dispatch:function",
           name: "dispatch",
           file: "dispatcher.ts",
-          line: 10,
+          line: 12,
           is_orphan: true,
-          unresolved_sites: [{ file: "dispatcher.ts", line: 12, source_line: "return fn();" }],
+          unresolved_sites: [{ file: "dispatcher.ts", line: 14, source_line: "return fn();" }],
         },
       ],
     });
@@ -207,7 +207,7 @@ describe("stitch eval fixture: untyped_callback_invocation (TypeScript)", () => 
             src_id: "boot_caller.ts#boot:function",
             dst_id: "shutdown_caller.ts#shutdown:function",
             file: "scheduler.ts",
-            line: 9,
+            line: 11,
             rationale: "run() invokes the callbacks both callers pass to the shared scheduler",
           },
         ],
@@ -231,7 +231,7 @@ describe("stitch eval fixture: untyped_callback_invocation (TypeScript)", () => 
           file: "boot_caller.ts",
           line: 7,
           is_orphan: true,
-          unresolved_sites: [{ file: "scheduler.ts", line: 9, source_line: "run();" }],
+          unresolved_sites: [{ file: "scheduler.ts", line: 11, source_line: "run();" }],
         },
         {
           symbol_path: "shutdown_caller.ts#shutdown:function",
@@ -239,7 +239,7 @@ describe("stitch eval fixture: untyped_callback_invocation (TypeScript)", () => 
           file: "shutdown_caller.ts",
           line: 7,
           is_orphan: true,
-          unresolved_sites: [{ file: "scheduler.ts", line: 9, source_line: "run();" }],
+          unresolved_sites: [{ file: "scheduler.ts", line: 11, source_line: "run();" }],
         },
       ],
     });
@@ -325,7 +325,7 @@ describe("stitch eval fixture: untyped_receiver_method (Python)", () => {
           symbol_path: "processor.py#process:method",
           name: "process",
           file: "processor.py",
-          line: 9,
+          line: 13,
           is_orphan: true,
           unresolved_sites: [],
         },
@@ -402,6 +402,31 @@ describe("stitch eval fixture: untyped_receiver_method (Python)", () => {
     } finally {
       store.close();
     }
+
+    // The description cache must find the method's prior under its ANCHOR path even though the
+    // wire path differs: a byte-identical re-submission cache-skips, a revised text writes.
+    const resubmit = run(["--apply-descriptions", path.join(repo, "descriptions.json")]);
+    expect(resubmit.status).toBe(0);
+    expect(JSON.parse(resubmit.stdout)).toEqual({ written: [], skipped: Object.keys(texts).sort() });
+
+    const revised = run([
+      "--apply-descriptions",
+      write_payload("descriptions.json", {
+        descriptions: [
+          { symbol_path: "processor.py#process:method", text: "Runs the item's single processing step." },
+        ],
+      }),
+    ]);
+    expect(revised.status).toBe(0);
+    expect(JSON.parse(revised.stdout)).toEqual({ written: ["processor.py#process:method"], skipped: [] });
+
+    const reread = open_graph_store(path.join(repo, "graph.db"));
+    try {
+      const node = reread.all_nodes().find((n) => n.id === "agentic.description:processor.py#Item.process:method");
+      expect(node?.attributes.description).toBe("Runs the item's single processing step.");
+    } finally {
+      reread.close();
+    }
   });
 });
 
@@ -429,7 +454,7 @@ describe("stitch eval fixture: control_unrelated_pair (TypeScript)", () => {
           symbol_path: "temperature.ts#to_fahrenheit:function",
           name: "to_fahrenheit",
           file: "temperature.ts",
-          line: 8,
+          line: 10,
           is_orphan: true,
           unresolved_sites: [],
         },

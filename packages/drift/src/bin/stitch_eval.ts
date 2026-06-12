@@ -30,6 +30,7 @@ import * as path from "node:path";
 import { BRIDGE_EDGE_KIND, DESCRIPTION_NODE_KIND, FLOW_NODE_KIND, open_graph_store } from "@code-charter/core";
 
 import { serialize_pending_reconcile } from "../hooks/pending_reconcile";
+import { build_reconcile_instruction } from "../hooks/stop_decision";
 import { CLAUDE_CODE_LAYOUT } from "../installer/host_layout";
 import { install_drift } from "../installer/install";
 
@@ -37,9 +38,6 @@ const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const FIXTURES = path.join(PACKAGE_ROOT, "src", "reconcile", "__fixtures__", "stitch_eval");
 const RECONCILE_BIN = path.join(PACKAGE_ROOT, "dist", "bin", "drift_reconcile.js");
 const RUNS_DIR = path.join(PACKAGE_ROOT, ".stitch_eval_runs");
-
-/** The Stop hook's verbatim instruction (stop_decision.ts) — the production trigger reproduced. */
-const AGENT_PROMPT = "Launch the `drift-reconciler` sub-agent.";
 
 const AGENT_TIMEOUT_MS = 15 * 60_000;
 
@@ -191,13 +189,21 @@ function scaffold_repo(fixture: string): string {
   return repo;
 }
 
-function run_agent(repo: string): { output: string; status: number | null } {
+interface AgentRun {
+  output: string;
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  error: Error | undefined;
+}
+
+function run_agent(repo: string): AgentRun {
   // haiku by default: the eval runs often (every prompt iteration) and the judgement task is
   // small; STITCH_EVAL_MODEL overrides when fidelity to the production session model matters.
+  // The prompt is the Stop hook's verbatim instruction — the production trigger reproduced.
   const model = process.env.STITCH_EVAL_MODEL ?? "haiku";
   const result = spawnSync(
     "claude",
-    ["-p", AGENT_PROMPT, "--permission-mode", "bypassPermissions", "--model", model],
+    ["-p", build_reconcile_instruction(), "--permission-mode", "bypassPermissions", "--model", model],
     {
       cwd: repo,
       encoding: "utf8",
@@ -209,7 +215,21 @@ function run_agent(repo: string): { output: string; status: number | null } {
       },
     },
   );
-  return { output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim(), status: result.status };
+  return {
+    output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim(),
+    status: result.status,
+    signal: result.signal,
+    error: result.error,
+  };
+}
+
+/** A spawn failure, a timeout kill, and a non-zero exit are different problems — name them apart. */
+function describe_agent_failure(agent: AgentRun): string {
+  if (agent.error !== undefined) return `claude -p failed to spawn: ${agent.error.message}`;
+  if (agent.status === null) {
+    return `claude -p killed (signal ${agent.signal ?? "?"}) — likely the ${AGENT_TIMEOUT_MS / 60_000}min timeout`;
+  }
+  return `claude -p exited ${agent.status}`;
 }
 
 interface FixtureReport {
@@ -237,7 +257,7 @@ function score_fixture(expectation: FixtureExpectation, repo: string, agent_outp
     if (observed.bridges.length === 0) failures.push("no agentic.bridge persisted (uncorroborated or missing stitch)");
     for (const anchor of expectation.expected_description_anchors) {
       const description = observed.descriptions.get(anchor);
-      if (description === undefined || description.source !== "llm") {
+      if (description === undefined || description.source !== "llm" || description.text.trim().length === 0) {
         failures.push(`member ${anchor} has no agent-authored description (${description?.source ?? "absent"})`);
       }
     }
@@ -317,21 +337,33 @@ function main(): void {
   const results: FixtureReport[] = [];
   for (const expectation of selected) {
     process.stdout.write(`stitch_eval: running ${expectation.fixture} (live agent)...\n`);
-    const repo = scaffold_repo(expectation.fixture);
+    // One fixture's failure — a scaffold throw, a hung agent, a corrupt store — degrades to a FAIL
+    // entry; the rest of the batch still runs and the report still lands.
+    let repo: string | undefined;
     try {
+      repo = scaffold_repo(expectation.fixture);
       const agent = run_agent(repo);
       if (agent.status !== 0) {
         results.push({
           fixture: expectation.fixture,
           passed: false,
-          failures: [`claude -p exited ${agent.status}`],
-          lines: [agent.output],
+          failures: [describe_agent_failure(agent)],
+          lines: agent.output.length > 0 ? [agent.output] : [],
         });
       } else {
         results.push(score_fixture(expectation, repo, agent.output));
       }
+    } catch (error: unknown) {
+      results.push({
+        fixture: expectation.fixture,
+        passed: false,
+        failures: [`harness error: ${String(error)}`],
+        lines: [],
+      });
     } finally {
-      if (process.env.STITCH_EVAL_KEEP === "1") process.stdout.write(`stitch_eval: kept ${repo}\n`);
+      if (repo === undefined) {
+        /* scaffold never produced a dir */
+      } else if (process.env.STITCH_EVAL_KEEP === "1") process.stdout.write(`stitch_eval: kept ${repo}\n`);
       else fs.rmSync(repo, { recursive: true, force: true });
     }
   }
@@ -344,6 +376,9 @@ function main(): void {
   }
   const passed = results.filter((r) => r.passed);
   report.push(`summary: ${passed.length}/${results.length} PASS${passed.length < results.length ? `  — FAIL: ${results.filter((r) => !r.passed).map((r) => r.fixture).join(", ")}` : ""}`);
+  if (passed.length < results.length) {
+    report.push("tune: edit assets/skills/drift-sync/SKILL.md or assets/agents/drift-reconciler.md, then re-run");
+  }
 
   const text = report.join("\n") + "\n";
   process.stdout.write(text);

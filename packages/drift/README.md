@@ -51,6 +51,25 @@ directory to the repo's `.gitignore` if it is not already ignored.
   skill bundle, and the `/drift` fallback command, behind a host-keyed layout. v1 ships only the
   Claude-Code target.
 
+## Tuning the stitching prompts
+
+The agent's stitch/describe judgement is authored in `assets/agents/drift-reconciler.md` and
+`assets/skills/drift-sync/SKILL.md`. Measure a prose edit with the two-tier stitch eval over the
+mini-codebase fixtures in `src/reconcile/__fixtures__/stitch_eval/` (each named by the Ariadne
+resolution weakness it contains):
+
+- **Tier 1** (`src/reconcile/reconcile_stitch_eval.test.ts`, runs in CI) — the deterministic
+  contract: the built bin's three agentic modes replayed with golden JSON per fixture.
+- **Tier 2** (`src/bin/stitch_eval.ts`) — the live loop: per fixture, a throwaway repo gets the
+  installed bundle and the real `drift-reconciler` runs via `claude -p`; the store is scored and a
+  per-fixture report lands in `.stitch_eval_runs/`. Build first, then:
+
+```bash
+STITCH_EVAL_LIVE=1 npm run stitch_eval            # all fixtures; one fixture: append its name
+```
+
+`STITCH_EVAL_MODEL` overrides the haiku default; `STITCH_EVAL_KEEP=1` keeps the temp repos.
+
 ## Host × surface degradation matrix
 
 Reconciliation degrades gracefully where a host lacks a primitive.

@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- Companion for task-27.1.6.7 — eval harness for agentic entrypoint stitching (mini-codebase fixtures).
-     Refined 2026-06-12 against the landed task-27.1.6.6 implementation (merged to main). The earlier draft
-     was written before 27.1.6.6 shipped and described a deleted architecture (build_candidate_stitches /
-     StitchBatch / null_stitch_executor / an injected confirming stub). That model is gone. Sources re-read:
-       the task doc; packages/drift/src/bin/drift_reconcile.ts (the three modes dispatched by flag);
-       packages/drift/src/reconcile/agentic_modes.ts (inventory / umbrella+bridge / descriptions contracts);
-       packages/drift/src/reconcile/reconcile_stitch.test.ts (the golden-JSON-through-the-built-bin boundary this
-         Tier 1 test mirrors); .claude/skills/drift-sync/SKILL.md and .claude/agents/drift-reconciler.md (the
-         prose judgement Tier 2 measures);
-       sibling task-27.1.6.6 ....skill-orchestrated-reconcile.plan.html (visual/structural consistency). -->
+     Refreshed 2026-06-12 against WHAT WAS BUILT (task-27.1.6.7 status Done; first live run 4/4 PASS at haiku).
+     Earlier revisions described a three-fixture pre-build plan with the wrong directory names; the built
+     suite is FOUR weakness-named fixtures (one of them Python), and the build surfaced a product fix in
+     apply_descriptions (the two-id-space join) that this page now carries. Sources re-read:
+       the task doc (Implementation Notes · High-level summary);
+       packages/drift/src/reconcile/__fixtures__/stitch_eval/{dynamic_key_dispatch,untyped_callback_invocation,
+         untyped_receiver_method,control_unrelated_pair}/ (the four committed fixtures + manifest comments);
+       packages/drift/src/reconcile/reconcile_stitch_eval.test.ts (Tier 1, 13 tests, spawns the built bin);
+       packages/drift/src/bin/stitch_eval.ts (Tier 2, STITCH_EVAL_LIVE=1 npm run stitch_eval, claude -p, haiku);
+       packages/drift/src/reconcile/agentic_modes.ts (apply_descriptions: symbol_path → symbol_id → anchor);
+       packages/drift/README.md ("Tuning the stitching prompts"). -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>task-27.1.6.7 — two tiers over the three drift-reconcile modes</title>
+<title>task-27.1.6.7 — two tiers over four weakness fixtures</title>
 <style>
   :root {
     --ivory: #f7f4ec; --oat: #ece5d6; --slate: #2c3038; --ink: #20242b;
@@ -53,11 +55,13 @@
   .pill strong { color: var(--slate); font-weight: 600; }
   .pill.clay { background: var(--clay); color: #fff; border-color: var(--clay); }
   .pill.clay strong { color: #fff; }
+  .pill.olive { background: var(--olive); color: #fff; border-color: var(--olive); }
+  .pill.olive strong { color: #fff; }
   code { font-family: var(--mono); }
   .thesis { font-size: 15px; color: var(--ink); font-weight: 500; margin: 8px 0 12px; max-width: 104ch; }
   .thesis code, figcaption code, .callout code, .cap code, td code, .gcell code, .pill code { font-family: var(--mono); font-size: 11.5px; background: var(--oat); border: 1px solid var(--g3); border-radius: 5px; padding: 0 4px; color: var(--ink); }
 
-  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1); border-radius: var(--r); padding: 12px 16px; margin: 20px 0; max-width: 92ch; }
+  .prompt-box { border: 1px solid var(--g3); border-left: 4px solid var(--g4); background: var(--g1); border-radius: var(--r); padding: 12px 16px; margin: 20px 0; max-width: 96ch; }
   .prompt-box .label { font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--g5); margin: 0 0 6px; }
   .prompt-box ul { margin: 0; padding-left: 18px; }
   .prompt-box li { margin: 2px 0; font-family: var(--mono); font-size: 11px; color: var(--g5); }
@@ -94,21 +98,23 @@
   .tiers li b { color: var(--ink); font-weight: 600; }
   .tiers li code { font-size: 11px; }
 
-  /* fixture trio */
-  .trio { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; margin: 16px 0 6px; }
-  .trio article { display: flex; flex-direction: column; border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); overflow: hidden; }
-  .trio .ph { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--g2); background: #fdfcf8; }
-  .trio .ph .tag { font-family: var(--mono); font-weight: 700; font-size: 11px; color: #fff; background: var(--clay); border-radius: 6px; padding: 2px 8px; }
-  .trio .ph .tag.neg { background: var(--g5); }
-  .trio .ph code { font-size: 12px; background: none; border: none; padding: 0; color: var(--ink); font-weight: 600; }
-  .trio svg { display: block; width: 100%; height: auto; }
-  .trio .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 6px; font-family: var(--mono); font-size: 10.5px; }
+  /* fixture quad */
+  .quad { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; margin: 16px 0 6px; }
+  .quad article { display: flex; flex-direction: column; border: 1px solid var(--g3); border-radius: var(--r); background: var(--g1); overflow: hidden; }
+  .quad .ph { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--g2); background: #fdfcf8; flex-wrap: wrap; }
+  .quad .ph .tag { font-family: var(--mono); font-weight: 700; font-size: 11px; color: #fff; background: var(--clay); border-radius: 6px; padding: 2px 8px; }
+  .quad .ph .tag.neg { background: var(--g5); }
+  .quad .ph .lang { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--g5); border: 1px solid var(--g3); border-radius: 999px; padding: 1px 7px; margin-left: auto; }
+  .quad .ph .lang.py { color: #3a6ea5; border-color: #9bb6d2; background: #eaf1f8; }
+  .quad .ph code { font-size: 12px; background: none; border: none; padding: 0; color: var(--ink); font-weight: 600; }
+  .quad svg { display: block; width: 100%; height: auto; }
+  .quad .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 6px; font-family: var(--mono); font-size: 10.5px; }
   .chip { border-radius: 999px; padding: 3px 10px; border: 1px solid var(--g3); background: #fff; color: var(--g5); }
   .chip.olive { border-color: var(--olive); color: var(--olive); background: #eef0e3; }
   .chip.gray { background: var(--g2); }
   .chip.clay { border-color: var(--clay); color: var(--clay); background: #f3ece2; }
   .chip.rust { border-color: var(--rust); color: var(--rust); background: #f4e6e2; }
-  .trio .cap { padding: 0 14px 12px; margin-top: 4px; }
+  .quad .cap { padding: 0 14px 12px; margin-top: 4px; }
 
   /* legend */
   .legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono); font-size: 10.5px; color: var(--g5); margin: 10px 2px 0; align-items: center; }
@@ -128,11 +134,11 @@
   .code .kw { color: #c79a6b; } .code .str { color: #a3b076; } .code .cm { color: #777264; } .code .fn { color: #d9b88a; } .code .hl { background: #3a2c1f; display: inline-block; width: 100%; }
 
   /* matrix */
-  .matrix { display: grid; grid-template-columns: 1.05fr 1.5fr 1.2fr 1.2fr; border: 1px solid var(--g3); border-radius: var(--r); overflow: hidden; background: var(--g1); font-size: 12.5px; margin: 16px 0 6px; }
+  .matrix { display: grid; grid-template-columns: 1.15fr 1.4fr 1.2fr 1.2fr; border: 1px solid var(--g3); border-radius: var(--r); overflow: hidden; background: var(--g1); font-size: 12.5px; margin: 16px 0 6px; }
   .matrix .h { background: #fdfcf8; font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--g5); padding: 9px 12px; border-bottom: 1px solid var(--g3); }
   .gcell { padding: 10px 12px; border-bottom: 1px solid var(--g2); display: flex; flex-wrap: wrap; gap: 5px; align-items: center; align-content: center; }
   .matrix > .gcell:nth-last-child(-n+4) { border-bottom: none; }
-  .gcell .fx { font-family: var(--mono); font-weight: 600; font-size: 12px; color: var(--ink); }
+  .gcell .fx { font-family: var(--mono); font-weight: 600; font-size: 11.5px; color: var(--ink); }
 
   /* AC map */
   .acmap { border: 1px solid var(--g3); border-radius: var(--r); overflow: hidden; background: var(--g1); margin: 16px 0 6px; }
@@ -148,7 +154,7 @@
   footer a { color: var(--g5); }
 
   @media (max-width: 980px) {
-    .tiers, .trio, .grid3 { grid-template-columns: 1fr; }
+    .tiers, .quad, .grid3 { grid-template-columns: 1fr; }
     .matrix { grid-template-columns: 1fr; }
     .matrix .h { display: none; }
     .acrow { grid-template-columns: 64px 1fr; }
@@ -160,15 +166,16 @@
 <body>
 
 <nav class="family" aria-label="Task family">
-  <a class="nv" href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">↑ 27.1.6 family overview</a>
+  <a class="nv" href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">&uarr; 27.1.6 family overview</a>
   <span class="sep">·</span>
   <a class="nv" href="task-27.1.6.6 - Agentic-entrypoint-stitching-reconnect-the-call-graphs-Ariadnes-syntactic-analysis-leaves-split.skill-orchestrated-reconcile.plan.html">27.1.6.6 skill-orchestrated reconcile</a>
   <span class="nv here" aria-current="page">27.1.6.7 eval harness</span>
 </nav>
 <nav class="outline" aria-label="On this page">
-  <a href="#spine">two tiers over the three modes</a>
-  <a href="#fixtures">the three fixtures</a>
+  <a href="#spine">two tiers, the same three modes</a>
+  <a href="#fixtures">the four weakness fixtures</a>
   <a href="#tier1">tier 1 — golden replay</a>
+  <a href="#join">the two-id-space join</a>
   <a href="#tier2">tier 2 — the live loop</a>
   <a href="#matrix">expected outcomes</a>
   <a href="#ac">acceptance criteria</a>
@@ -177,38 +184,41 @@
 <main>
   <header>
     <p class="eyebrow">task-27.1.6.7 · eval · stitch · fixtures</p>
-    <h1>Two evaluation tiers over the three <code>drift-reconcile</code> modes</h1>
+    <h1>Two evaluation tiers over four weakness fixtures</h1>
     <div class="meta">
-      <span class="pill">status <strong>To Do</strong></span>
-      <span class="pill clay">depends on <strong>27.1.6.6 · Done</strong></span>
-      <span class="pill">fixtures <strong>3 dirs · ≤100 lines each</strong></span>
-      <span class="pill">tier 1 <strong><code>reconcile_stitch_eval.test.ts</code> · jest · CI</strong></span>
-      <span class="pill">tier 2 <strong><code>stitch_eval</code> · <code>claude -p</code> · env-gated</strong></span>
+      <span class="pill olive">status <strong>Done</strong></span>
+      <span class="pill">depends on <strong>27.1.6.6 · Done</strong></span>
+      <span class="pill">fixtures <strong>4 dirs · 3 TS + 1 Python · &le;100 lines each</strong></span>
+      <span class="pill">tier 1 <strong><code>reconcile_stitch_eval.test.ts</code> · 13 tests · CI</strong></span>
+      <span class="pill">tier 2 <strong><code>stitch_eval.ts</code> · <code>claude -p</code> · haiku</strong></span>
+      <span class="pill clay">first live run <strong>4/4 PASS</strong></span>
     </div>
   </header>
 
   <div class="prompt-box">
-    <p class="label">Landed implementation this harness measures (re-read on refinement · 27.1.6.6 merged to main)</p>
+    <p class="label">Landed implementation this harness measures (27.1.6.6 + 27.1.6.7, merged to main)</p>
     <ul>
-      <li>packages/drift/src/bin/drift_reconcile.ts — the bin: default + three modes dispatched by flag</li>
-      <li>packages/drift/src/reconcile/agentic_modes.ts — build_entrypoint_inventory · apply_stitch · apply_descriptions + the parse_* contracts</li>
-      <li>packages/drift/src/reconcile/reconcile_stitch.test.ts — the golden-JSON-through-the-built-bin boundary Tier 1 mirrors</li>
-      <li>.claude/skills/drift-sync/SKILL.md · .claude/agents/drift-reconciler.md — the prose judgement Tier 2 scores</li>
+      <li>packages/drift/src/reconcile/__fixtures__/stitch_eval/{dynamic_key_dispatch, untyped_callback_invocation, untyped_receiver_method (Python), control_unrelated_pair}/</li>
+      <li>packages/drift/src/reconcile/reconcile_stitch_eval.test.ts — Tier 1: 13 tests, spawns dist/bin/drift_reconcile.js per fixture</li>
+      <li>packages/drift/src/bin/stitch_eval.ts — Tier 2: STITCH_EVAL_LIVE=1 npm run stitch_eval [fixture] · claude -p · haiku default</li>
+      <li>packages/drift/src/reconcile/agentic_modes.ts — apply_descriptions: the symbol_path → symbol_id → anchor join the build surfaced</li>
+      <li>packages/drift/README.md — "Tuning the stitching prompts" (the front door)</li>
+      <li>assets/skills/drift-sync/SKILL.md · assets/agents/drift-reconciler.md — the prose judgement Tier 2 scores</li>
     </ul>
   </div>
 
   <div class="callout invert">
     <span class="k">The crux — two tiers, one shared seam</span>
-    <p>27.1.6.6 made the <code>drift-sync</code> skill orchestrate the agent over three thin bin modes. The bin is now <b>deterministic and dumb</b>; the judgement is <b>prose</b> in SKILL.md and the sub-agent. So the harness splits in two: <b>Tier 1</b> pins the deterministic plumbing by feeding <b>golden JSON</b> through the same three modes — fast, no model, runs in CI. <b>Tier 2</b> measures the only part that needs a model — does the real agent stitch what is real and decline what is not — by driving the actual skill via <code>claude -p</code>, then scoring the store. Both tiers exercise the <em>identical</em> three modes production uses; only the judgement slot differs: golden JSON, or the live agent.</p>
+    <p>27.1.6.6 made the <code>drift-sync</code> skill orchestrate the agent over three thin bin modes. The bin is <b>deterministic and dumb</b>; the judgement is <b>prose</b> in <code>SKILL.md</code> and the sub-agent. So the harness splits in two over the same three modes. <b>Tier 1</b> pins the deterministic plumbing by feeding <b>golden JSON</b> through the modes — fast, no model, in CI. <b>Tier 2</b> measures the only part that needs a model — does the real agent stitch what is real and decline what is not — by driving the actual skill via <code>claude -p</code> against four committed mini-codebases, then scoring the store. Only the judgement slot differs: golden JSON, or the live agent. The first live run scored <b>4/4 PASS at haiku</b>.</p>
   </div>
 
   <!-- ════════════════════ 1 · THE SPINE ════════════════════ -->
   <section id="spine">
     <h2>The spine — the same three modes, two ways to fill the judgement slots</h2>
-    <p class="thesis">A single vertical chain runs through every fixture: <b>list</b> → judgement-1 → <b>apply-stitch</b> → judgement-2 → <b>apply-descriptions</b>. Tier 1 fills both judgement slots with committed golden JSON and asserts the store. Tier 2 fills them with the live <code>drift-reconciler</code> agent and scores the store against authored ground truth.</p>
+    <p class="thesis">A single vertical chain runs through every fixture: <b>list</b> &rarr; judgement-1 &rarr; <b>apply-stitch</b> &rarr; judgement-2 &rarr; <b>apply-descriptions</b>. Tier 1 fills both judgement slots with committed golden JSON and asserts the store. Tier 2 fills them with the live <code>drift-reconciler</code> agent — driven by the Stop hook's verbatim instruction over the installed <code>.claude</code> bundle — and scores the store against authored ground truth.</p>
     <figure>
       <div class="panel">
-        <svg viewBox="0 0 1320 600" role="img" aria-label="A central vertical chain of the three drift-reconcile modes runs: list-entrypoints emits the entrypoints inventory JSON, judgement slot 1 produces stitch.json, apply-stitch hydrates flows and returns members, judgement slot 2 produces descriptions.json, apply-descriptions persists descriptions. On the left, Tier 1 (jest, deterministic, CI) feeds three fixture directories in, fills both judgement slots with committed golden stitch.json and descriptions.json, and asserts the resulting store structurally and by replay with no model. On the right, Tier 2 (the live loop, env-gated STITCH_EVAL_LIVE=1, costs tokens) scaffolds a temp repo and graph store per fixture, runs the real drift-sync skill via claude -p so the agent itself drives the three modes, then inspects and scores the store and emits a readable report that a SKILL.md edit re-runs.">
+        <svg viewBox="0 0 1320 600" role="img" aria-label="A central vertical chain of the three drift-reconcile modes runs: list-entrypoints emits the entrypoints inventory JSON, judgement slot 1 produces stitch.json, apply-stitch hydrates flows and returns members, judgement slot 2 produces descriptions.json, apply-descriptions persists descriptions. On the left, Tier 1 (jest, deterministic, CI, 13 tests) feeds four fixture directories in, fills both judgement slots with committed golden stitch.json and descriptions.json, and asserts the resulting store structurally and by replay with no model. On the right, Tier 2 (the live loop, STITCH_EVAL_LIVE=1, haiku, 4/4 PASS) scaffolds a temp repo and graph store per fixture, installs the production .claude bundle via install_drift, drives the real drift-reconciler via claude -p with the Stop hook's verbatim instruction so the agent itself drives the three modes, then inspects and scores the store and writes a per-fixture report to .stitch_eval_runs that a SKILL.md edit re-runs.">
           <defs>
             <marker id="ar-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
             <marker id="ar-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
@@ -216,9 +226,9 @@
           </defs>
           <g font-family="ui-sans-serif,system-ui" font-size="12" fill="#2c3038" text-anchor="middle">
             <!-- lane headers -->
-            <text x="230" y="24" font-family="ui-monospace,monospace" font-size="10.5" letter-spacing="2" fill="#6c7a3b" font-weight="700">TIER 1 · JEST · CI · NO MODEL</text>
+            <text x="230" y="24" font-family="ui-monospace,monospace" font-size="10.5" letter-spacing="2" fill="#6c7a3b" font-weight="700">TIER 1 · JEST · CI · 13 TESTS · NO MODEL</text>
             <text x="660" y="24" font-family="ui-monospace,monospace" font-size="10.5" letter-spacing="2" fill="#20242b" font-weight="700">THE THREE MODES</text>
-            <text x="1095" y="24" font-family="ui-monospace,monospace" font-size="10.5" letter-spacing="2" fill="#b5683e" font-weight="700">TIER 2 · LIVE · ENV-GATED</text>
+            <text x="1095" y="24" font-family="ui-monospace,monospace" font-size="10.5" letter-spacing="2" fill="#b5683e" font-weight="700">TIER 2 · LIVE · HAIKU · 4/4 PASS</text>
 
             <!-- center chain -->
             <rect x="540" y="40" width="240" height="42" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.8"/>
@@ -230,7 +240,7 @@
             <text x="660" y="138" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">{ symbol_path, is_orphan, unresolved_sites: [{file,line,source_line}] }</text>
             <line x1="660" y1="148" x2="660" y2="162" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#ar-o)"/>
             <rect x="540" y="164" width="240" height="46" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="2.5" stroke-dasharray="7 5"/>
-            <text x="660" y="184" font-weight="700" fill="#3e4622">★ judgement 1 — which orphans merge</text>
+            <text x="660" y="184" font-weight="700" fill="#3e4622">&#9733; judgement 1 — which orphans merge</text>
             <text x="660" y="200" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">inventory in · stitch.json out</text>
             <line x1="660" y1="210" x2="660" y2="224" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ar-s)"/>
             <path d="M576 226 h148 l24 14 v22 a8 8 0 0 1 -8 8 h-164 a8 8 0 0 1 -8 -8 v-28 a8 8 0 0 1 8 -8 z" fill="#fff" stroke="#6c6759" stroke-width="1.5"/>
@@ -242,7 +252,7 @@
             <text x="660" y="326" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">multi-seed umbrella + agentic.bridge · returns members</text>
             <line x1="660" y1="336" x2="660" y2="350" stroke="#6c7a3b" stroke-width="1.8" marker-end="url(#ar-o)"/>
             <rect x="540" y="352" width="240" height="46" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="2.5" stroke-dasharray="7 5"/>
-            <text x="660" y="372" font-weight="700" fill="#3e4622">★ judgement 2 — describe each member</text>
+            <text x="660" y="372" font-weight="700" fill="#3e4622">&#9733; judgement 2 — describe each member</text>
             <text x="660" y="388" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">members in · descriptions.json out</text>
             <line x1="660" y1="398" x2="660" y2="412" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ar-s)"/>
             <path d="M566 414 h168 l24 14 v22 a8 8 0 0 1 -8 8 h-184 a8 8 0 0 1 -8 -8 v-28 a8 8 0 0 1 8 -8 z" fill="#fff" stroke="#6c6759" stroke-width="1.5"/>
@@ -250,17 +260,17 @@
             <text x="660" y="454" font-family="ui-monospace,monospace" font-size="8" fill="#6c6759">{ descriptions: [{ symbol_path, text }] }</text>
             <line x1="660" y1="464" x2="660" y2="478" stroke="#6c6759" stroke-width="1.5" marker-end="url(#ar-s)"/>
             <rect x="540" y="480" width="240" height="42" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.8"/>
-            <text x="660" y="500" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700">drift-reconcile --apply-descriptions</text>
-            <text x="660" y="514" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">scoped write · content-hash cache</text>
+            <text x="660" y="498" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700">drift-reconcile --apply-descriptions</text>
+            <text x="660" y="512" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">symbol_path&rarr;symbol_id&rarr;anchor · content-hash cache</text>
             <line x1="660" y1="522" x2="660" y2="540" stroke="#b5683e" stroke-width="1.6" marker-end="url(#ar-c)"/>
             <rect x="560" y="542" width="200" height="38" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
             <text x="660" y="566" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700">graph store (SQLite)</text>
 
             <!-- TIER 1 left lane -->
             <rect x="30" y="92" width="280" height="60" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
-            <text x="170" y="114" font-weight="600">3 fixture dirs → HeadlessProject</text>
+            <text x="170" y="114" font-weight="600">4 fixture dirs → built bin, tmp copy</text>
             <text x="170" y="131" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">real Ariadne parse · real unresolved sites</text>
-            <text x="170" y="145" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">fresh tmp store per test</text>
+            <text x="170" y="145" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">fresh tmp repo per test · graph.db beside it</text>
             <path d="M310 122 H400 V61 H538" fill="none" stroke="#6c7a3b" stroke-width="1.5" marker-end="url(#ar-o)"/>
             <rect x="30" y="180" width="280" height="54" rx="10" fill="#fbfaf5" stroke="#6c7a3b" stroke-width="1.8" stroke-dasharray="6 4"/>
             <text x="170" y="201" font-weight="600" fill="#3e4622">golden stitch.json fills slot 1</text>
@@ -268,39 +278,40 @@
             <path d="M310 207 H440 V187 H538" fill="none" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ar-o)"/>
             <rect x="30" y="362" width="280" height="54" rx="10" fill="#fbfaf5" stroke="#6c7a3b" stroke-width="1.8" stroke-dasharray="6 4"/>
             <text x="170" y="383" font-weight="600" fill="#3e4622">golden descriptions.json fills slot 2</text>
-            <text x="170" y="400" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">replay-stable · persists on the right paths</text>
+            <text x="170" y="400" font-family="ui-monospace,monospace" font-size="9" fill="#5b6233">persists on the anchor symbol_path</text>
             <path d="M310 389 H440 V375 H538" fill="none" stroke="#6c7a3b" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ar-o)"/>
             <rect x="30" y="460" width="280" height="74" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.8"/>
             <text x="170" y="481" font-weight="600">assert the store</text>
             <text x="170" y="498" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">no umbrellas → singletons stay</text>
             <text x="170" y="512" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">golden → 1 multi-seed umbrella · ≥1 bridge</text>
-            <text x="170" y="526" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">bridge span = real call site</text>
+            <text x="170" y="526" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">cache-skip + revision branches guarded</text>
             <path d="M660 581 V592 H170 V536" fill="none" stroke="#6c6759" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ar-s)"/>
 
             <!-- TIER 2 right lane -->
             <rect x="1010" y="92" width="280" height="60" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
-            <text x="1150" y="114" font-weight="600">temp repo + graph store per fixture</text>
-            <text x="1150" y="131" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">fixture staged as the pending-reconcile set</text>
-            <text x="1150" y="145" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">CODE_CHARTER_DB → the throwaway store</text>
+            <text x="1150" y="113" font-weight="600">scaffold temp repo per fixture</text>
+            <text x="1150" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">install_drift copies the assets/ .claude bundle</text>
+            <text x="1150" y="144" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">stage pending-reconcile · CODE_CHARTER_DB</text>
             <rect x="1010" y="172" width="280" height="234" rx="12" fill="#eef0e3" stroke="#6c7a3b" stroke-width="2.5"/>
-            <text x="1150" y="194" font-weight="700" fill="#3e4622">real drift-sync skill via claude -p</text>
-            <text x="1150" y="211" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">the agent itself drives the three modes:</text>
-            <text x="1150" y="231" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622" font-weight="700">it runs --list-entrypoints</text>
-            <text x="1150" y="251" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">★ reads source · greps for the indirection</text>
-            <text x="1150" y="271" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622" font-weight="700">writes stitch.json → --apply-stitch</text>
-            <text x="1150" y="291" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622" font-weight="700">writes descriptions.json → --apply-descriptions</text>
-            <text x="1150" y="318" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">SKILL.md + drift-reconciler.md = the measured prompt</text>
-            <text x="1150" y="338" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">STITCH_EVAL_LIVE=1 + API key · excluded from CI</text>
-            <text x="1150" y="362" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">claude -p chosen for fidelity to the production</text>
-            <text x="1150" y="376" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">sub-agent run (vs Agents SDK) — documented inline</text>
+            <text x="1150" y="194" font-weight="700" fill="#3e4622">real drift-reconciler via claude -p</text>
+            <text x="1150" y="211" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">prompt = build_reconcile_instruction()</text>
+            <text x="1150" y="225" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">(the Stop hook's verbatim instruction)</text>
+            <text x="1150" y="245" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622" font-weight="700">it runs --list-entrypoints</text>
+            <text x="1150" y="263" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">&#9733; reads source · greps for the indirection</text>
+            <text x="1150" y="283" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622" font-weight="700">writes stitch.json → --apply-stitch</text>
+            <text x="1150" y="301" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622" font-weight="700">writes descriptions.json → --apply-descriptions</text>
+            <text x="1150" y="324" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">SKILL.md + drift-reconciler.md = the measured prompt</text>
+            <text x="1150" y="340" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">haiku default · STITCH_EVAL_MODEL overrides</text>
+            <text x="1150" y="362" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">claude -p over the Agents SDK: print mode loads</text>
+            <text x="1150" y="376" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">the exact installed prose under measurement</text>
             <path d="M782 61 H880 V210 H1008" fill="none" stroke="#6c7a3b" stroke-width="1.5" marker-end="url(#ar-o)"/>
             <path d="M782 314 H900 V300 H1008" fill="none" stroke="#b5683e" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ar-c)"/>
             <rect x="1010" y="426" width="280" height="108" rx="10" fill="#fbfaf5" stroke="#b5683e" stroke-width="1.8"/>
-            <text x="1150" y="447" font-weight="600">inspect the store · score · report</text>
-            <text x="1150" y="464" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">registry/callback → 1 multi-seed umbrella, ≥1 bridge</text>
-            <text x="1150" y="478" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">unrelated → 2 singletons (false-positive guard)</text>
-            <text x="1150" y="492" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">each member has a non-placeholder description</text>
-            <text x="1150" y="510" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">per-fixture pass/fail · chosen umbrellas · rationale</text>
+            <text x="1150" y="447" font-weight="600">read store · score · report</text>
+            <text x="1150" y="464" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">3 weaknesses → 1 multi-seed umbrella, ≥1 bridge</text>
+            <text x="1150" y="478" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">control → 2 singletons (false-positive guard)</text>
+            <text x="1150" y="492" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">each member has an llm-source description</text>
+            <text x="1150" y="510" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">→ .stitch_eval_runs/&lt;stamp&gt;.txt · per-fixture pass/fail</text>
             <text x="1150" y="524" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">edit SKILL.md → re-run in one command → re-score</text>
             <path d="M660 581 V592 H1150 V536" fill="none" stroke="#b5683e" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ar-c)"/>
             <path d="M1150 426 C 1290 400, 1300 250, 1240 174" fill="none" stroke="#b5683e" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ar-c)"/>
@@ -308,77 +319,77 @@
           </g>
         </svg>
       </div>
-      <figcaption><b>One seam, two judgement sources.</b> The three modes are 27.1.6.6's landed bin surface, unchanged. Tier 1 (left) substitutes <b>golden JSON</b> for the agent and asserts a deterministic store — so it runs in CI with no key. Tier 2 (right) keeps the <b>real agent</b> in the loop via <code>claude -p</code> and scores its semantic judgement — gated behind <code>STITCH_EVAL_LIVE=1</code>, the actual feedback loop a <code>SKILL.md</code> edit re-runs.</figcaption>
+      <figcaption><b>One seam, two judgement sources.</b> The three modes are 27.1.6.6's landed bin surface, unchanged. Tier 1 (left) substitutes <b>golden JSON</b> for the agent and asserts a deterministic store — 13 tests over the four fixtures, no key. Tier 2 (right) keeps the <b>real agent</b> in the loop via <code>claude -p</code> with the Stop hook's verbatim instruction, scoring its semantic judgement — gated behind <code>STITCH_EVAL_LIVE=1</code>, the actual feedback loop a <code>SKILL.md</code> edit re-runs. First live run: <b>4/4 PASS at haiku</b>.</figcaption>
     </figure>
   </section>
 
   <!-- ════════════════════ 2 · THE FIXTURES ════════════════════ -->
   <section id="fixtures">
-    <h2>The three fixtures — two must stitch, one must decline</h2>
-    <p class="thesis">Each fixture is a subdirectory of real TypeScript (≤100 lines) under <code>packages/drift/src/reconcile/__fixtures__/stitch_eval/</code>, parsed by real Ariadne. The pattern dictates the ground truth: a dispatch/registry or callback indirection Ariadne cannot resolve <b>must</b> stitch; two independent domains <b>must not</b>.</p>
-    <div class="trio">
+    <h2>The four fixtures — three must stitch, one must decline</h2>
+    <p class="thesis">Each fixture is a subdirectory of real source (&le;100 lines) under <code>packages/drift/src/reconcile/__fixtures__/stitch_eval/</code>, <b>named by the Ariadne resolution weakness it contains</b>, parsed by real Ariadne. Every shape is empirically pinned by running <code>--list-entrypoints</code> over the candidate before any golden JSON is written. The pattern dictates the ground truth: a dispatch/registry, callback, or untyped-receiver indirection Ariadne cannot resolve <b>must</b> stitch; two independent domains <b>must not</b>.</p>
+    <div class="quad">
       <article>
-        <div class="ph"><span class="tag">1</span><code>registry_dispatch/</code></div>
-        <svg viewBox="0 0 380 252" role="img" aria-label="dispatch(key) looks a handler up by string key and calls handlers[key]() — Ariadne cannot resolve it, so the call site is unresolved; handle_a and handle_b each register a handler and become their own orphan entrypoints. The agent must stitch dispatcher plus both handlers into one umbrella.">
+        <div class="ph"><span class="tag">1</span><code>dynamic_key_dispatch/</code><span class="lang">TS</span></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="dispatch(key) looks a handler up through lookup_handler over a Map registry and calls fn() — Ariadne cannot resolve it, so the call site is unresolved; handle_create and handle_delete are registered out of band and become their own orphan entrypoints. The agent must stitch dispatcher plus both handlers into one umbrella.">
           <defs><marker id="f1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
           <marker id="f1c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker></defs>
           <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
-            <rect x="18" y="22" width="160" height="52" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="98" y="43" font-weight="600">dispatch(key)</text>
-            <text x="98" y="59" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">dispatcher.ts · orphan · unresolved</text>
+            <rect x="16" y="22" width="166" height="52" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="99" y="43" font-weight="600">dispatch(key)</text>
+            <text x="99" y="59" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">dispatcher.ts · orphan · unresolved</text>
 
             <circle cx="300" cy="48" r="18" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="4 3"/>
             <text x="300" y="52" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">?</text>
-            <text x="300" y="22" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">handlers[key]()</text>
-            <line x1="178" y1="48" x2="280" y2="48" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f1r)"/>
+            <text x="300" y="22" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">return fn();</text>
+            <line x1="182" y1="48" x2="280" y2="48" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f1r)"/>
 
-            <rect x="18" y="120" width="160" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="98" y="139" font-weight="600">handle_a()</text>
-            <text x="98" y="155" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">handler_a.ts · orphan seed</text>
+            <rect x="16" y="120" width="166" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="99" y="139" font-weight="600">handle_create()</text>
+            <text x="99" y="155" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">create_handler.ts · orphan seed</text>
 
-            <rect x="18" y="182" width="160" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="98" y="201" font-weight="600">handle_b()</text>
-            <text x="98" y="217" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">handler_b.ts · orphan seed</text>
+            <rect x="16" y="182" width="166" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="99" y="201" font-weight="600">handle_delete()</text>
+            <text x="99" y="217" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">delete_handler.ts · orphan seed</text>
 
-            <path d="M192 74 C 240 95, 240 120, 192 134" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f1c)"/>
-            <path d="M198 74 C 270 115, 270 165, 192 198" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f1c)"/>
-            <text x="262" y="148" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">register(key, fn)</text>
-            <text x="262" y="161" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">the hidden edge</text>
+            <path d="M196 74 C 244 95, 244 120, 196 134" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f1c)"/>
+            <path d="M202 74 C 274 115, 274 165, 196 198" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f1c)"/>
+            <text x="266" y="148" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">register(key,fn)</text>
+            <text x="266" y="161" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">out of band — hidden</text>
           </g>
         </svg>
         <div class="chips">
           <span class="chip clay">expected · STITCH</span>
-          <span class="chip olive">1 umbrella · seeds ≥ 2</span>
+          <span class="chip olive">1 umbrella · seeds 3</span>
         </div>
-        <p class="cap"><code>dispatch</code> calls <code>handlers[key]()</code> — a registry lookup Ariadne cannot resolve — so each registered handler is its own orphan entrypoint. <b>The agent must stitch the dispatcher + handlers into one umbrella.</b></p>
+        <p class="cap"><code>dispatch</code> runs <code>return fn();</code> where <code>fn</code> came from <code>lookup_handler(key)</code> over a <code>Map</code> registry — a lookup Ariadne cannot resolve. Registration is deliberately <b>out of band</b> (in-code registration would let Ariadne track the reference, and nothing would fragment), so each handler is its own orphan entrypoint. <b>The agent must stitch the dispatcher + both handlers into one umbrella.</b></p>
       </article>
 
       <article>
-        <div class="ph"><span class="tag">2</span><code>callback_wiring/</code></div>
-        <svg viewBox="0 0 380 252" role="img" aria-label="run_task_a and run_task_b each pass a function to schedule, which invokes its run parameter — an unresolved call. The agent must recognise the callback contract and stitch the two callers with the scheduler.">
+        <div class="ph"><span class="tag">2</span><code>untyped_callback_invocation/</code><span class="lang">TS</span></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="boot and shutdown each pass a function to run_scheduled, which invokes its run parameter — an unresolved call. The agent must recognise the callback contract and stitch the two callers with the scheduler.">
           <defs><marker id="f2o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
           <marker id="f2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9e3b2e"/></marker>
           <marker id="f2c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker></defs>
           <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
             <rect x="14" y="22" width="142" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="85" y="41" font-weight="600">run_task_a()</text>
-            <text x="85" y="57" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">task_a.ts · orphan seed</text>
+            <text x="85" y="41" font-weight="600">boot()</text>
+            <text x="85" y="57" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">boot_caller.ts · orphan seed</text>
 
             <rect x="14" y="184" width="142" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="85" y="203" font-weight="600">run_task_b()</text>
-            <text x="85" y="219" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">task_b.ts · orphan seed</text>
+            <text x="85" y="203" font-weight="600">shutdown()</text>
+            <text x="85" y="219" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">shutdown_caller.ts · orphan seed</text>
 
-            <rect x="118" y="100" width="172" height="52" rx="9" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.5"/>
-            <text x="204" y="121" font-weight="600">schedule(run)</text>
+            <rect x="116" y="100" width="176" height="52" rx="9" fill="#fbfaf5" stroke="#aaa492" stroke-width="1.5"/>
+            <text x="204" y="121" font-weight="600">run_scheduled(run)</text>
             <text x="204" y="137" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">scheduler.ts · invokes run()</text>
 
-            <line x1="100" y1="68" x2="160" y2="98" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f2o)"/>
-            <line x1="100" y1="184" x2="160" y2="154" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f2o)"/>
+            <line x1="100" y1="68" x2="158" y2="98" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f2o)"/>
+            <line x1="100" y1="184" x2="158" y2="154" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f2o)"/>
 
             <circle cx="338" cy="126" r="17" fill="#fbfaf5" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="4 3"/>
             <text x="338" y="130" font-family="ui-monospace,monospace" font-size="10" fill="#9e3b2e">?</text>
             <text x="338" y="100" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">run()</text>
-            <line x1="290" y1="126" x2="318" y2="126" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f2r)"/>
+            <line x1="292" y1="126" x2="318" y2="126" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f2r)"/>
 
             <path d="M30 68 C 4 105, 4 150, 30 184" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f2c)"/>
             <text x="34" y="130" font-family="ui-monospace,monospace" font-size="9" fill="#92522f" transform="rotate(-90 34 130)">one callback contract</text>
@@ -386,25 +397,64 @@
         </svg>
         <div class="chips">
           <span class="chip clay">expected · STITCH</span>
-          <span class="chip olive">1 umbrella · seeds ≥ 2</span>
+          <span class="chip olive">1 umbrella · seeds 2</span>
         </div>
-        <p class="cap">Both callers pass a function into <code>schedule(run)</code>, which invokes <code>run()</code> — unresolved. <b>The agent must recognise the callback contract and stitch the callers with the scheduler.</b></p>
+        <p class="cap"><code>boot</code> and <code>shutdown</code> each pass a named callback into <code>run_scheduled(run)</code>, which invokes <code>run()</code> — unresolved, so each caller orphans. Both trees carry the shared <code>scheduler.ts:11 run();</code> site as evidence. <b>The agent must recognise the callback contract and stitch the callers with the scheduler.</b></p>
       </article>
 
       <article>
-        <div class="ph"><span class="tag neg">3</span><code>unrelated_pair/</code></div>
-        <svg viewBox="0 0 380 252" role="img" aria-label="process_invoice and send_notification are two genuinely independent entrypoints in different domains with no shared unresolved call site. The agent must decline to stitch them — the false-positive guard.">
+        <div class="ph"><span class="tag">3</span><code>untyped_receiver_method/</code><span class="lang py">Python</span></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="main builds an Item and calls run_item(Item()); run_item calls item.process() on an unannotated parameter. Ariadne emits no call node for item.process() so the method orphans; the corroborable bridge site is the run_item(Item()) constructor line in main's tree. The agent must stitch main, run_item, and the method into one umbrella.">
+          <defs><marker id="f3o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c7a3b"/></marker>
+          <marker id="f3c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker></defs>
           <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
-            <rect x="40" y="30" width="190" height="48" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="135" y="50" font-weight="600">process_invoice()</text>
-            <text x="135" y="66" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">invoice_processor.ts · own domain</text>
+            <rect x="14" y="20" width="150" height="46" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="89" y="39" font-weight="600">main()</text>
+            <text x="89" y="55" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">caller.py · orphan seed</text>
+
+            <rect x="14" y="103" width="150" height="46" rx="9" fill="#fff" stroke="#aaa492" stroke-width="1.5"/>
+            <text x="89" y="122" font-weight="600">run_item(item)</text>
+            <text x="89" y="138" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">caller.py · member, not seed</text>
+
+            <rect x="208" y="186" width="158" height="48" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="287" y="205" font-weight="600">Item.process()</text>
+            <text x="287" y="221" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">processor.py · orphan method</text>
+
+            <line x1="89" y1="66" x2="89" y2="101" stroke="#6c7a3b" stroke-width="2" marker-end="url(#f3o)"/>
+            <text x="150" y="88" font-family="ui-monospace,monospace" font-size="8.5" fill="#5b6233" text-anchor="start">run_item(Item())</text>
+
+            <!-- the missing edge: no call node at all -->
+            <line x1="120" y1="149" x2="232" y2="190" stroke="#9e3b2e" stroke-width="1.6" stroke-dasharray="3 5"/>
+            <text x="196" y="160" font-family="ui-monospace,monospace" font-size="9" fill="#9e3b2e">item.process()</text>
+            <text x="196" y="173" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">no call node emitted</text>
+
+            <!-- bridge evidence = constructor line in main's tree -->
+            <path d="M164 40 C 280 36, 320 90, 300 184" fill="none" stroke="#b5683e" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#f3c)"/>
+            <text x="300" y="86" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">bridge evidence:</text>
+            <text x="300" y="98" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">run_item(Item()) line</text>
+          </g>
+        </svg>
+        <div class="chips">
+          <span class="chip clay">expected · STITCH</span>
+          <span class="chip olive">1 umbrella · seeds 2</span>
+        </div>
+        <p class="cap"><code>run_item</code> calls <code>item.process()</code> on a parameter with no type annotation, so Ariadne <b>emits no call node at all</b> and <code>Item.process</code> orphans. The corroborable bridge site is therefore the <code>run_item(Item())</code> constructor line in <code>main</code>'s tree — the unresolved-site evidence the inventory offers, repeated once per parsed call node on that line. <b>The agent must stitch <code>main</code>, <code>run_item</code>, and the method into one umbrella.</b></p>
+      </article>
+
+      <article>
+        <div class="ph"><span class="tag neg">4</span><code>control_unrelated_pair/</code><span class="lang">TS</span></div>
+        <svg viewBox="0 0 380 252" role="img" aria-label="to_fahrenheit and clamp_percent are two genuinely independent entrypoints in different domains with no shared unresolved call site. The agent must decline to stitch them — the false-positive guard.">
+          <g font-family="ui-sans-serif,system-ui" font-size="11.5" fill="#2c3038" text-anchor="middle">
+            <rect x="36" y="30" width="200" height="48" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
+            <text x="136" y="50" font-weight="600">to_fahrenheit()</text>
+            <text x="136" y="66" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">temperature.ts · own domain</text>
 
             <rect x="150" y="174" width="200" height="48" rx="9" fill="#ece5d6" stroke="#6c6759" stroke-width="2"/>
-            <text x="250" y="194" font-weight="600">send_notification()</text>
-            <text x="250" y="210" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">notification_sender.ts · own domain</text>
+            <text x="250" y="194" font-weight="600">clamp_percent()</text>
+            <text x="250" y="210" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">percent.ts · own domain</text>
 
             <text x="195" y="118" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#9e3b2e">no shared unresolved link</text>
-            <text x="195" y="136" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">different domains · the agent finds no indirection</text>
+            <text x="195" y="136" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">different domains · no indirection</text>
             <text x="195" y="150" font-family="ui-monospace,monospace" font-size="9" fill="#aaa492">connecting them — so it declines</text>
           </g>
         </svg>
@@ -412,12 +462,12 @@
           <span class="chip rust">expected · DECLINE</span>
           <span class="chip gray">2 singleton flows</span>
         </div>
-        <p class="cap">Two independent domains with no shared unresolved call site. <b>The agent must decline to stitch</b> — the false-positive guard that proves it does not merge whatever sits nearby.</p>
+        <p class="cap">Two independent domains with no shared unresolved call site — neither carries any <code>unresolved_sites</code>. <b>The agent must decline to stitch</b> — the false-positive guard that proves it does not merge whatever sits nearby.</p>
       </article>
     </div>
     <div class="legend">
       <span><span class="sw"></span>resolved call</span>
-      <span><span class="sw rust"></span>unresolved call site (?)</span>
+      <span><span class="sw rust"></span>unresolved / missing call site (?)</span>
       <span><span class="sw clay"></span>the hidden edge the agent recovers</span>
       <span><span class="bx"></span>orphan entrypoint = stitch seed</span>
       <span><span class="bx plain"></span>reachable member, not a seed</span>
@@ -427,65 +477,65 @@
   <!-- ════════════════════ 3 · TIER 1 ════════════════════ -->
   <section id="tier1">
     <h2>Tier 1 — golden JSON through the three modes, in CI</h2>
-    <p class="thesis"><code>reconcile_stitch_eval.test.ts</code> spawns the built <code>drift-reconcile</code> bin over each fixture — exactly the boundary 27.1.6.6's <code>reconcile_stitch.test.ts</code> already proves on its own dispatch fixture. No model; golden wire JSON stands in for the agent's judgement. It guards the <b>deterministic contract the live agent depends on.</b></p>
+    <p class="thesis"><code>reconcile_stitch_eval.test.ts</code> spawns the built <code>dist/bin/drift_reconcile.js</code> over a tmp copy of each fixture — per-process Ariadne isolation, the full CLI contract for free — and replays golden wire JSON through the three modes. 13 tests, in the package's serial chain. No model. It guards the <b>deterministic contract the live agent depends on.</b></p>
     <figure>
       <div class="grid3">
         <div class="code">
           <div class="file-label"><span>--list-entrypoints → stdout</span><em>structural · AC#2–#3</em></div>
-<pre><span class="cm">// reconcile rides this pass; then the</span>
-<span class="cm">// inventory the agent would judge from</span>
+<pre><span class="cm">// dynamic_key_dispatch: reconcile rides</span>
+<span class="cm">// this pass; then the inventory to judge</span>
 { <span class="str">"entrypoints"</span>: [
   { <span class="str">"symbol_path"</span>:
       <span class="str">"dispatcher.ts#dispatch:function"</span>,
     <span class="str">"name"</span>: <span class="str">"dispatch"</span>,
-    <span class="str">"file"</span>: <span class="str">"dispatcher.ts"</span>,
-    <span class="str">"line"</span>: 4,
+    <span class="str">"file"</span>: <span class="str">"dispatcher.ts"</span>, <span class="str">"line"</span>: 12,
     <span class="str">"is_orphan"</span>: <span class="kw">true</span>,
     <span class="hl"><span class="str">"unresolved_sites"</span>: [</span>
 <span class="hl">      { <span class="str">"file"</span>: <span class="str">"dispatcher.ts"</span>,</span>
-<span class="hl">        <span class="str">"line"</span>: 5,</span>
-<span class="hl">        <span class="str">"source_line"</span>: <span class="str">"handlers[key]();"</span> } ] },</span>
-  … ] }
-<span class="cm">// AC#2: unresolved_sites non-empty</span>
-<span class="cm">// for registry_dispatch + callback_wiring</span></pre>
+<span class="hl">        <span class="str">"line"</span>: 14,</span>
+<span class="hl">        <span class="str">"source_line"</span>: <span class="str">"return fn();"</span> } ] },</span>
+  <span class="cm">// handle_create / handle_delete: orphan,</span>
+  <span class="cm">// unresolved_sites [] (registered off-band)</span>
+  … ] }</pre>
         </div>
         <div class="code">
           <div class="file-label"><span>--apply-stitch stitch.json</span><em class="w">replay · AC#3 + AC#5</em></div>
 <pre><span class="cm">// GOLDEN — stands in for judgement 1</span>
 { <span class="str">"umbrellas"</span>: [
-  { <span class="str">"label"</span>: <span class="str">"key dispatch flow"</span>,
-    <span class="str">"seeds"</span>: [ <span class="str">"dispatcher.ts#dispatch:function"</span>,
-              <span class="str">"handler_a.ts#handle_a:function"</span>,
-              <span class="str">"handler_b.ts#handle_b:function"</span> ],
+  { <span class="str">"label"</span>: <span class="str">"action dispatch flow"</span>,
+    <span class="str">"seeds"</span>: [ <span class="str">"create_handler.ts#handle_create:function"</span>,
+              <span class="str">"delete_handler.ts#handle_delete:function"</span>,
+              <span class="str">"dispatcher.ts#dispatch:function"</span> ],
     <span class="str">"bridges"</span>: [
       { <span class="str">"src_id"</span>: <span class="str">"dispatcher.ts#dispatch:function"</span>,
-        <span class="str">"dst_id"</span>: <span class="str">"handler_a.ts#handle_a:function"</span>,
-        <span class="str">"file"</span>: <span class="str">"dispatcher.ts"</span>, <span class="str">"line"</span>: 5 } ],
-    <span class="str">"rationale"</span>: <span class="str">"…"</span> } ] }
+        <span class="str">"dst_id"</span>: <span class="str">"create_handler.ts#handle_create:function"</span>,
+        <span class="str">"file"</span>: <span class="str">"dispatcher.ts"</span>, <span class="str">"line"</span>: 14 }, … ] } ] }
 
-<span class="cm">// out → one multi-seed flow, bridge span</span>
-<span class="cm">// resolves to the real call site</span>
-{ <span class="str">"flows"</span>: [ { <span class="str">"id"</span>: <span class="str">"dispatcher.ts#dispatch:function"</span>,
-    <span class="str">"members"</span>: [ … ] } ] }
+<span class="cm">// out → one flow whose members include the</span>
+<span class="cm">// pulled-in registry.ts#lookup_handler too;</span>
+<span class="cm">// both bridges resolve to dispatcher.ts:14.</span>
 <span class="cm">// no umbrellas → orphans stay singletons</span></pre>
         </div>
         <div class="code">
           <div class="file-label"><span>--apply-descriptions descriptions.json</span><em class="w">persistence · AC#3</em></div>
-<pre><span class="cm">// GOLDEN — stands in for judgement 2</span>
+<pre><span class="cm">// untyped_receiver_method (Python):</span>
+<span class="cm">// submit under the FLOW-LAYER member path</span>
 { <span class="str">"descriptions"</span>: [
   { <span class="str">"symbol_path"</span>:
-      <span class="str">"dispatcher.ts#dispatch:function"</span>,
-    <span class="str">"text"</span>: <span class="str">"Looks the handler up by key
-      and runs it."</span> } ] }
+      <span class="str">"processor.py#process:method"</span>,
+    <span class="str">"text"</span>: <span class="str">"Performs the item's
+      processing step."</span> } ] }
 
-<span class="cm">// persists at node id:</span>
+<span class="cm">// persists at the ANCHOR's enclosing-</span>
+<span class="cm">// qualified path — note the two differ:</span>
 <span class="cm">// agentic.description:</span>
-<span class="cm">//   dispatcher.ts#dispatch:function</span>
-<span class="cm">// → { written: […], skipped: […] }</span>
-<span class="cm">// re-submit unchanged → cache-skipped</span></pre>
+<span class="cm">//   processor.py#Item.process:method</span>
+<span class="cm">// → { written: [...], skipped: [] }</span>
+<span class="cm">// re-submit unchanged → cache-skipped;</span>
+<span class="cm">// revised text → written. Both guarded.</span></pre>
         </div>
       </div>
-      <figcaption>Tier 1 mirrors <code>reconcile_stitch.test.ts</code>: spawn the built bin, feed golden wire JSON, read the store back. <b>No umbrellas → singletons stay</b> (the deterministic default); <b>golden umbrellas → exactly one multi-seed umbrella whose <code>agentic.bridge</code> endpoints resolve to real spans</b>, the absorbed singleton retired; golden descriptions persist on the right <code>symbol_path</code>s. The fixtures are real source, so the unresolved sites are real lines, not synthetic graph metadata.</figcaption>
+      <figcaption>Tier 1 spawns the built bin, feeds golden wire JSON, reads the store back. <b>No umbrellas → singletons stay</b> (the deterministic default, and the Tier-1 mirror of the control's decline); <b>golden umbrellas → exactly one multi-seed umbrella whose <code>agentic.bridge</code> endpoints resolve to real spans</b>, absorbed singletons retired. The fixtures are real source, so the unresolved sites are real lines, not synthetic graph metadata.</figcaption>
     </figure>
     <div class="callout olive">
       <span class="k">golden JSON enters exactly where the agent's would</span>
@@ -493,34 +543,102 @@
     </div>
   </section>
 
+  <!-- ════════════════════ 3.5 · THE JOIN ════════════════════ -->
+  <section id="join">
+    <h2>The two-id-space join — what the Python fixture surfaced</h2>
+    <p class="thesis">Building <code>untyped_receiver_method</code> exposed a real product seam in <code>apply_descriptions</code>: the agent submits a description under the <b>flow-layer</b> <code>symbol_path</code> the stitch returned (<code>processor.py#process:method</code>), but the description row must persist under the <b>anchor's</b> enclosing-qualified, rename-stable path (<code>processor.py#Item.process:method</code>). Those two id-spaces only line up by joining through the graph index on <code>symbol_id</code> — the same join hydration's describe step uses. Without it, a stitched method's description silently skipped.</p>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 1180 300" role="img" aria-label="The agent submits a description under the flow-layer symbol_path processor.py#process:method. apply_descriptions resolves it through build_symbol_path_index to a symbol_id, then through anchored_symbols by symbol_id to the anchor, whose symbol_path is the enclosing-qualified processor.py#Item.process:method. The row persists under that anchor path. The flow-layer path drops the enclosing Item scope; only the symbol_id join reconciles the two spaces. The content-hash cache then keys off the anchor path: a byte-identical re-submit skips, a revised text writes.">
+          <defs>
+            <marker id="j-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+            <marker id="j-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+          </defs>
+          <g font-family="ui-sans-serif,system-ui" font-size="12" fill="#2c3038" text-anchor="middle">
+            <!-- space labels -->
+            <text x="150" y="22" font-family="ui-monospace,monospace" font-size="10" letter-spacing="1.5" fill="#6c7a3b" font-weight="700">FLOW-LAYER ID SPACE</text>
+            <text x="1000" y="22" font-family="ui-monospace,monospace" font-size="10" letter-spacing="1.5" fill="#b5683e" font-weight="700">ANCHOR ID SPACE</text>
+
+            <!-- agent wire path -->
+            <rect x="20" y="44" width="260" height="56" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.8"/>
+            <text x="150" y="66" font-weight="600">agent submits</text>
+            <text x="150" y="84" font-family="ui-monospace,monospace" font-size="9.5" fill="#3e4622">processor.py#process:method</text>
+            <text x="150" y="116" font-family="ui-monospace,monospace" font-size="8.5" fill="#9e3b2e">↑ enclosing scope dropped</text>
+
+            <!-- index -->
+            <line x1="280" y1="72" x2="356" y2="72" stroke="#6c6759" stroke-width="1.5" marker-end="url(#j-s)"/>
+            <rect x="358" y="42" width="220" height="60" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.8"/>
+            <text x="468" y="64" font-weight="600">build_symbol_path_index</text>
+            <text x="468" y="82" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">wire path → symbol_id</text>
+            <text x="468" y="95" font-family="ui-monospace,monospace" font-size="8.5" fill="#6c6759">(over the live graph)</text>
+
+            <!-- symbol_id -->
+            <line x1="578" y1="72" x2="654" y2="72" stroke="#6c6759" stroke-width="1.5" marker-end="url(#j-s)"/>
+            <rect x="656" y="48" width="140" height="48" rx="24" fill="#f3ece2" stroke="#b5683e" stroke-width="2"/>
+            <text x="726" y="69" font-weight="700" fill="#92522f">symbol_id</text>
+            <text x="726" y="85" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">the join key</text>
+
+            <!-- anchored_symbols -->
+            <line x1="796" y1="72" x2="872" y2="72" stroke="#b5683e" stroke-width="1.5" marker-end="url(#j-c)"/>
+            <rect x="874" y="42" width="288" height="60" rx="10" fill="#fbfaf5" stroke="#b5683e" stroke-width="1.8"/>
+            <text x="1018" y="64" font-weight="600">anchored_symbols → anchor</text>
+            <text x="1018" y="82" font-family="ui-monospace,monospace" font-size="9" fill="#92522f">by symbol_id · carries content_hash</text>
+            <text x="1018" y="95" font-family="ui-monospace,monospace" font-size="8.5" fill="#92522f">+ the enclosing-qualified symbol_path</text>
+
+            <!-- anchor path -->
+            <line x1="1018" y1="102" x2="1018" y2="150" stroke="#b5683e" stroke-width="1.5" marker-end="url(#j-c)"/>
+            <rect x="858" y="152" width="320" height="56" rx="10" fill="#f3ece2" stroke="#b5683e" stroke-width="1.8"/>
+            <text x="1018" y="174" font-weight="600">row persists under the anchor path</text>
+            <text x="1018" y="192" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f">agentic.description:processor.py#Item.process:method</text>
+
+            <!-- the two paths differ callout -->
+            <rect x="20" y="150" width="560" height="58" rx="10" fill="#fff" stroke="#9e3b2e" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text x="300" y="172" font-weight="700" fill="#9e3b2e">the two id-spaces differ for methods</text>
+            <text x="300" y="190" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">flow-layer  process:method   vs   anchor  Item.process:method</text>
+
+            <!-- cache row -->
+            <rect x="20" y="240" width="1142" height="44" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.5"/>
+            <text x="591" y="262" font-weight="600">content-hash cache keys off the ANCHOR path + content_hash</text>
+            <text x="591" y="278" font-family="ui-monospace,monospace" font-size="9" fill="#6c6759">byte-identical re-submit → skipped · revised text → written · both branches guarded in Tier 1</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>The trickiest part of the change.</b> The agent only ever sees flow-layer paths; the store only persists under anchor paths. <code>apply_descriptions</code> reconciles the two by resolving the wire <code>symbol_path</code> through <code>build_symbol_path_index</code> to a <code>symbol_id</code>, then through <code>anchored_symbols</code> to the anchor — and writes under the anchor's enclosing-qualified, rename-stable path. For a plain function the two paths coincide; for a method they diverge (<code>process</code> vs <code>Item.process</code>), which is exactly why the Python fixture caught it.</figcaption>
+    </figure>
+    <div class="callout">
+      <span class="k">sharp edge — left for a follow-up</span>
+      <p>Flow-layer symbol_paths drop the enclosing scope, so two same-named methods in one file collapse to one path and the first-sorted symbol wins the index — a latent, pre-existing ambiguity none of the four fixtures triggers, deferred.</p>
+    </div>
+  </section>
+
   <!-- ════════════════════ 4 · TIER 2 ════════════════════ -->
   <section id="tier2">
     <h2>Tier 2 — drive the real agent, score the store, tune the prompt</h2>
-    <p class="thesis">A runnable <code>stitch_eval</code> script — gated behind <code>STITCH_EVAL_LIVE=1</code> + an API key, excluded from default CI — runs the <em>actual</em> <code>drift-sync</code> skill / <code>drift-reconciler</code> sub-agent per fixture via <code>claude -p</code>. The agent itself runs the three modes; the harness only sets the stage, then inspects and scores. <b>This is the point of the task: the feedback loop a prompt edit re-runs.</b></p>
+    <p class="thesis"><code>src/bin/stitch_eval.ts</code> — gated behind <code>STITCH_EVAL_LIVE=1</code>, run as <code>npm run stitch_eval [fixture]</code>, excluded from default CI — runs the <em>actual</em> <code>drift-reconciler</code> sub-agent per fixture via <code>claude -p</code> at <b>haiku</b> by default. The agent itself runs the three modes; the harness only sets the stage, then inspects and scores. <b>This is the point of the task: the feedback loop a prompt edit re-runs. The first live run scored 4/4 PASS.</b></p>
     <div class="tiers">
       <article class="t1" style="border-top-color:var(--clay)">
         <div class="th"><span class="id" style="background:var(--clay)">the loop, per fixture</span></div>
         <ul>
-          <li><span class="m">1</span><span><b>Scaffold a throwaway repo + graph store</b> from the fixture; stage its files as the pending-reconcile set the skill fetches.</span></li>
-          <li><span class="m">2</span><span><b>Run the real flow via <code>claude -p</code></b> — the <code>drift-reconciler</code> sub-agent invokes <code>drift-sync</code> and follows <code>list → judge-stitch → apply-stitch → judge-describe → apply-descriptions</code>.</span></li>
+          <li><span class="m">1</span><span><b>Scaffold a throwaway repo</b> from the fixture; <code>install_drift</code> copies the production <code>.claude</code> bundle from <code>assets/</code> (an <code>assets/</code> prose edit reaches the next run with no copying); stage the fixture files as the pending-reconcile set.</span></li>
+          <li><span class="m">2</span><span><b>Run the real agent via <code>claude -p</code></b> with <code>build_reconcile_instruction()</code> — the Stop hook's <em>verbatim</em> instruction — pointing <code>CODE_CHARTER_DB</code> at the throwaway store. <code>STITCH_EVAL_MODEL</code> overrides the haiku default; <code>STITCH_EVAL_KEEP=1</code> keeps the temp repos.</span></li>
           <li><span class="m">3</span><span><b>The agent drives the three modes itself</b> — runs <code>--list-entrypoints</code>, Reads/Greps the source, writes <code>stitch.json</code> + <code>descriptions.json</code>, calls <code>--apply-stitch</code> / <code>--apply-descriptions</code>.</span></li>
-          <li><span class="m">4</span><span><b>Inspect the resulting store</b> — read back flows, bridges, and member descriptions.</span></li>
-          <li><span class="m">5</span><span><b>Score against authored ground truth</b> and emit a per-fixture report; <b>edit <code>SKILL.md</code> / the agent prompt and re-run in one command</b> to re-score.</span></li>
+          <li><span class="m">4</span><span><b>Inspect the resulting store</b> — read back live flows, bridges, and member descriptions.</span></li>
+          <li><span class="m">5</span><span><b>Score against authored ground truth</b> and write a per-fixture report to <code>packages/drift/.stitch_eval_runs/</code>; <b>edit <code>SKILL.md</code> / <code>drift-reconciler.md</code> in <code>assets/</code> and re-run in one command</b> to re-score.</span></li>
         </ul>
       </article>
       <article class="t2">
         <div class="th"><span class="id">what each tier is for</span></div>
         <ul>
-          <li><span class="m">T1</span><span><b>Guards the structural / replay contract.</b> Deterministic, no model, runs in CI on every push — catches a regression in the bin or the JSON contract the moment it lands.</span></li>
-          <li><span class="m">T2</span><span><b>Measures the live semantic judgement.</b> Does the agent stitch <code>registry_dispatch</code> / <code>callback_wiring</code> and decline <code>unrelated_pair</code>? Token-costing, key-gated — run when tuning the prompt.</span></li>
-          <li><span class="m">·</span><span><b>The score is a number you generate.</b> 2 stitches + 1 decline + all members described = pass; the report shows the agent's chosen umbrellas and rationale so a miss is diagnosable, not a bare red X.</span></li>
-          <li><span class="m">·</span><span><b><code>claude -p</code> over the Agents SDK</b> — whichever most faithfully reproduces the production sub-agent run; the choice is documented inline in the harness.</span></li>
+          <li><span class="m">T1</span><span><b>Guards the structural / replay contract.</b> Deterministic, no model, runs in CI — catches a regression in the bin or the JSON contract the moment it lands. 13 tests over the four fixtures.</span></li>
+          <li><span class="m">T2</span><span><b>Measures the live semantic judgement.</b> Does the agent stitch the three weakness fixtures and decline <code>control_unrelated_pair</code>? Token-costing, key-gated — run when tuning the prompt. <b>4/4 PASS at haiku</b> on the first run.</span></li>
+          <li><span class="m">·</span><span><b>The score is a number you generate.</b> 3 stitches + 1 decline + every member llm-described = pass; the report carries the agent's chosen umbrellas and rationale so a miss is diagnosable, not a bare red X.</span></li>
+          <li><span class="m">·</span><span><b><code>claude -p</code> over the Agents SDK</b> — print mode loads the exact installed <code>.claude</code> prose under measurement; the SDK would re-encode it and diverge from the artifact being tuned (and is not a repo dependency). Documented inline.</span></li>
         </ul>
       </article>
     </div>
     <div class="callout">
-      <span class="k">deferred</span>
-      <p>Captured-batch fixtures from a real production reconcile wait until at least one live run has been observed; the mini-codebase harness <b>is</b> the iteration loop until then.</p>
+      <span class="k">excluded from CI by construction</span>
+      <p>The live tier is an npm script, never a jest suite — so it never runs in CI, where it would spend real tokens and need an authenticated <code>claude</code> CLI. Tier 1 guards the deterministic contract this live run rides on.</p>
     </div>
   </section>
 
@@ -533,69 +651,74 @@
       <div class="h">tier 1 · golden replay</div>
       <div class="h">tier 2 · live agent score</div>
 
-      <div class="gcell"><span class="fx">registry_dispatch/</span></div>
-      <div class="gcell"><span class="chip clay">unresolved_sites ≥ 1</span><span class="chip">orphans flagged</span></div>
-      <div class="gcell"><span class="chip olive">1 umbrella · seeds 3 · ≥1 bridge</span><span class="chip gray">no-umbrella → 3 singletons</span></div>
-      <div class="gcell"><span class="chip olive">PASS = 1 multi-seed umbrella</span><span class="chip">members described</span></div>
+      <div class="gcell"><span class="fx">dynamic_key_dispatch/</span><span class="chip">TS</span></div>
+      <div class="gcell"><span class="chip clay">dispatcher: unresolved ≥ 1</span><span class="chip">3 orphans</span></div>
+      <div class="gcell"><span class="chip olive">1 umbrella · seeds 3 · 2 bridges</span><span class="chip gray">no-umbrella → 3 singletons</span></div>
+      <div class="gcell"><span class="chip olive">PASS · multi-seed + lookup_handler</span></div>
 
-      <div class="gcell"><span class="fx">callback_wiring/</span></div>
-      <div class="gcell"><span class="chip clay">unresolved_sites ≥ 1</span><span class="chip">orphans flagged</span></div>
-      <div class="gcell"><span class="chip olive">1 umbrella · seeds 2 · ≥1 bridge</span><span class="chip gray">no-umbrella → 2 singletons</span></div>
-      <div class="gcell"><span class="chip olive">PASS = 1 multi-seed umbrella</span><span class="chip">members described</span></div>
+      <div class="gcell"><span class="fx">untyped_callback_invocation/</span><span class="chip">TS</span></div>
+      <div class="gcell"><span class="chip clay">both callers carry run() site</span><span class="chip">2 orphans</span></div>
+      <div class="gcell"><span class="chip olive">1 umbrella · seeds 2 · 1 bridge</span><span class="chip gray">no-umbrella → 2 singletons</span></div>
+      <div class="gcell"><span class="chip olive">PASS · multi-seed + scheduler</span></div>
 
-      <div class="gcell"><span class="fx">unrelated_pair/</span></div>
+      <div class="gcell"><span class="fx">untyped_receiver_method/</span><span class="chip clay">PY</span></div>
+      <div class="gcell"><span class="chip clay">caller carries run_item(Item()) site</span><span class="chip">2 orphans</span></div>
+      <div class="gcell"><span class="chip olive">1 umbrella · seeds 2 · 1 bridge</span><span class="chip clay">descr. under Item.process anchor</span></div>
+      <div class="gcell"><span class="chip olive">PASS · multi-seed + run_item</span></div>
+
+      <div class="gcell"><span class="fx">control_unrelated_pair/</span><span class="chip">TS</span></div>
       <div class="gcell"><span class="chip">no shared unresolved link</span><span class="chip">2 entrypoints</span></div>
       <div class="gcell"><span class="chip gray">2 singletons (golden = no umbrella)</span></div>
-      <div class="gcell"><span class="chip rust">PASS = 2 singletons (decline)</span></div>
+      <div class="gcell"><span class="chip rust">PASS · 2 singletons (decline)</span></div>
     </div>
-    <p class="cap">The <code>--list-entrypoints</code> column is asserted in both tiers; Tier 1's golden replay proves the deterministic merge path and the no-umbrella default; Tier 2's score is the live judgement — two stitches and one principled decline.</p>
+    <p class="cap">The <code>--list-entrypoints</code> column is asserted in both tiers; Tier 1's golden replay proves the deterministic merge path and the no-umbrella default; Tier 2's score is the live judgement — three stitches and one principled decline, <b>4/4 on the first live run at haiku</b>.</p>
   </section>
 
   <!-- ════════════════════ 6 · AC MAP ════════════════════ -->
   <section id="ac">
-    <h2>Acceptance-criteria coverage</h2>
+    <h2>Acceptance-criteria coverage — all met</h2>
     <div class="acmap">
       <div class="acrow">
         <span class="acb">AC#1</span>
-        <div class="what">Three fixture dirs under <code>__fixtures__/stitch_eval/</code> — <code>registry_dispatch/</code>, <code>callback_wiring/</code>, <code>unrelated_pair/</code> — each ≤100 lines of real TypeScript expressing its pattern.</div>
-        <div class="why"><span class="chip">substrate</span><span class="chip">committed ground truth</span></div>
+        <div class="what">Four fixture dirs under <code>__fixtures__/stitch_eval/</code> — <code>dynamic_key_dispatch/</code>, <code>untyped_callback_invocation/</code>, <code>untyped_receiver_method/</code> (Python), <code>control_unrelated_pair/</code> — each named by its weakness, &le;100 lines, with a manifest comment.</div>
+        <div class="why"><span class="chip">substrate</span><span class="chip olive">met</span></div>
       </div>
       <div class="acrow">
         <span class="acb t1">AC#2</span>
-        <div class="what"><code>--list-entrypoints</code> over <code>registry_dispatch</code> and <code>callback_wiring</code> returns a non-empty <code>unresolved_sites</code> — the fixtures really trip Ariadne's resolver.</div>
-        <div class="why"><span class="chip">tier 1 · structural</span><span class="chip olive">positive</span></div>
+        <div class="what"><code>--list-entrypoints</code> over the three weakness fixtures returns a non-empty <code>unresolved_sites</code> — the fixtures really trip Ariadne's resolver; the control returns its two entrypoints with no shared link.</div>
+        <div class="why"><span class="chip">tier 1 · structural</span><span class="chip olive">positive + guard</span></div>
       </div>
       <div class="acrow">
         <span class="acb t1">AC#3</span>
-        <div class="what">Tier 1 jest runs the three modes per fixture: inventory well-formed; golden <code>--apply-stitch</code> → one multi-seed umbrella whose bridge endpoints resolve to real spans; no-umbrella → singletons; golden <code>--apply-descriptions</code> persists on the right <code>symbol_path</code>s. No model; runs in CI.</div>
-        <div class="why"><span class="chip">tier 1 · structural + replay</span></div>
+        <div class="what">Tier 1 jest runs the three modes per fixture: inventory well-formed; golden <code>--apply-stitch</code> → one multi-seed umbrella whose bridges resolve to real spans; no-umbrella → singletons; golden <code>--apply-descriptions</code> persists on the right anchor <code>symbol_path</code>s (incl. the <code>Item.process</code> join, cache-skip + revision). No model; in CI.</div>
+        <div class="why"><span class="chip">tier 1 · structural + replay</span><span class="chip olive">met</span></div>
       </div>
       <div class="acrow">
         <span class="acb t2">AC#4</span>
-        <div class="what">Tier 2 harness drives the real <code>drift-sync</code> skill / <code>drift-reconciler</code> per fixture via <code>claude -p</code>, captures the agent's <code>stitch.json</code> / <code>descriptions.json</code>, applies them through the bin, inspects the store. Gated on <code>STITCH_EVAL_LIVE=1</code> + key; excluded from default CI.</div>
-        <div class="why"><span class="chip">tier 2 · live</span><span class="chip">env-gated</span></div>
+        <div class="what">Tier 2 harness drives the real <code>drift-reconciler</code> per fixture via <code>claude -p</code> with the Stop hook's verbatim instruction, installs the <code>assets/</code> bundle via <code>install_drift</code>, captures the agent's <code>stitch.json</code> / <code>descriptions.json</code>, applies them, inspects the store. Gated on <code>STITCH_EVAL_LIVE=1</code>; excluded from CI.</div>
+        <div class="why"><span class="chip">tier 2 · live</span><span class="chip olive">met</span></div>
       </div>
       <div class="acrow">
         <span class="acb t2">AC#5</span>
-        <div class="what">Tier 2 scores <code>registry_dispatch</code> / <code>callback_wiring</code> as one multi-seed umbrella (<code>seeds ≥ 2</code>) with ≥1 <code>agentic.bridge</code>, and <code>unrelated_pair</code> as two singletons (false-positive guard); reports each member's description.</div>
+        <div class="what">Tier 2 scores the three weakness fixtures as one multi-seed umbrella (<code>seeds ≥ 2</code>) with ≥1 <code>agentic.bridge</code>, and <code>control_unrelated_pair</code> as two singletons (false-positive guard); reports each member's description. <b>First live run: 4/4 PASS at haiku.</b></div>
         <div class="why"><span class="chip">tier 2 · semantic</span><span class="chip olive">positive</span><span class="chip rust">+ negative guard</span></div>
       </div>
       <div class="acrow">
         <span class="acb t2">AC#6</span>
-        <div class="what">The Tier 2 report is per-fixture — pass/fail, chosen umbrellas, agent rationale, descriptions — and the harness is re-runnable in one command after a <code>SKILL.md</code> / prompt edit.</div>
-        <div class="why"><span class="chip">iteration ergonomics</span></div>
+        <div class="what">The Tier 2 report is per-fixture — pass/fail, chosen umbrellas, agent rationale, descriptions, model + prompt SHAs — written to <code>.stitch_eval_runs/</code>, and the harness re-runs in one command after a <code>SKILL.md</code> / prompt edit. The README "Tuning the stitching prompts" section is the front door.</div>
+        <div class="why"><span class="chip">iteration ergonomics</span><span class="chip olive">met</span></div>
       </div>
       <div class="acrow">
         <span class="acb">AC#7</span>
         <div class="what">Every test / harness block carries an inline comment naming the property it guards: structural vs semantic, positive vs negative.</div>
-        <div class="why"><span class="chip">legibility</span></div>
+        <div class="why"><span class="chip">legibility</span><span class="chip olive">met</span></div>
       </div>
     </div>
   </section>
 
   <footer>
-    task-27.1.6.7 companion · refined 2026-06-12 against the landed 27.1.6.6 implementation (merged to main).<br>
-    Re-read: drift_reconcile.ts · agentic_modes.ts · reconcile_stitch.test.ts · drift-sync/SKILL.md · drift-reconciler.md · the task doc.<br>
+    task-27.1.6.7 companion · refreshed 2026-06-12 against the built implementation (status Done · first live run 4/4 PASS at haiku).<br>
+    Re-read: the four fixtures + manifests · reconcile_stitch_eval.test.ts · src/bin/stitch_eval.ts · agentic_modes.ts (apply_descriptions) · README "Tuning the stitching prompts" · the task doc.<br>
     family: <a href="task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.overview.html">task-27.1.6 overview</a>
   </footer>
 </main>
