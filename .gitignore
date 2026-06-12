@@ -186,3 +186,4 @@ cython_debug/
 .turbo/
 CLAUDE.local.md
 .eslintcache
+.stitch_eval_runs/

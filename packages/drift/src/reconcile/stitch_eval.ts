@@ -1,0 +1,358 @@
+#!/usr/bin/env node
+/**
+ * Tier 2 of the stitch eval harness (task-27.1.6.7): the live feedback loop for the agent's
+ * stitching judgement. Per fixture under `__fixtures__/stitch_eval/` (each one Ariadne resolution
+ * weakness), it scaffolds a throwaway repo, installs the production `.claude` bundle from
+ * `assets/` via `install_drift` (so a `SKILL.md`/`drift-reconciler.md` edit lands in the next run
+ * with no manual copying), stages the pending-reconcile set the way the Stop hook would, and
+ * drives the REAL `drift-reconciler` sub-agent via `claude -p` with the Stop hook's verbatim
+ * instruction. It then reads the resulting store, scores it against the fixture's expectation
+ * (semantic, positive: the weakness fixtures collapse to one multi-seed umbrella with a bridge;
+ * semantic, negative: the control stays two singletons — the false-positive guard), and emits a
+ * readable per-fixture report (pass/fail, chosen umbrellas, agent rationale, descriptions).
+ *
+ * `claude -p` is the executor — not the Agents SDK — because the judgement under measurement is
+ * the prose in the installed `.claude` bundle: print mode loads the same skill + sub-agent files
+ * production runs, while the SDK would re-encode them as config and diverge from the artifact
+ * being tuned. (The SDK is also not a dependency of this repo.)
+ *
+ * Gated behind STITCH_EVAL_LIVE=1 (it spends real tokens and needs the `claude` CLI authenticated)
+ * and excluded from CI: it is an npm script (`npm run stitch_eval [fixture]`), never a jest suite.
+ * Tier 1 (`reconcile_stitch_eval.test.ts`) guards the deterministic contract this run rides on.
+ */
+
+import { spawnSync } from "node:child_process";
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+import { BRIDGE_EDGE_KIND, DESCRIPTION_NODE_KIND, FLOW_NODE_KIND, open_graph_store } from "@code-charter/core";
+
+import { serialize_pending_reconcile } from "../hooks/pending_reconcile";
+import { CLAUDE_CODE_LAYOUT } from "../installer/host_layout";
+import { install_drift } from "../installer/install";
+
+const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
+const FIXTURES = path.join(PACKAGE_ROOT, "src", "reconcile", "__fixtures__", "stitch_eval");
+const RECONCILE_BIN = path.join(PACKAGE_ROOT, "dist", "bin", "drift_reconcile.js");
+const RUNS_DIR = path.join(PACKAGE_ROOT, ".stitch_eval_runs");
+
+/** The Stop hook's verbatim instruction (stop_decision.ts) — the production trigger reproduced. */
+const AGENT_PROMPT = "Launch the `drift-reconciler` sub-agent.";
+
+const AGENT_TIMEOUT_MS = 15 * 60_000;
+
+interface FixtureExpectation {
+  /** Directory name — the Ariadne weakness the fixture contains. */
+  fixture: string;
+  /**
+   * "stitch" (semantic, positive): the fragments must collapse to one multi-seed umbrella with at
+   * least one corroborated bridge. "decline" (semantic, negative — the false-positive guard): the
+   * independent entrypoints must stay singleton flows with no bridge.
+   */
+  kind: "stitch" | "decline";
+  expected_flow_count: number;
+  /** Flow-layer member symbol_paths the umbrella's induced membership must cover (stitch only). */
+  expected_members: string[];
+  /** Anchor symbol_paths whose descriptions must be agent-authored, source "llm" (stitch only). */
+  expected_description_anchors: string[];
+}
+
+const EXPECTATIONS: FixtureExpectation[] = [
+  {
+    fixture: "dynamic_key_dispatch",
+    kind: "stitch",
+    expected_flow_count: 1,
+    expected_members: [
+      "create_handler.ts#handle_create:function",
+      "delete_handler.ts#handle_delete:function",
+      "dispatcher.ts#dispatch:function",
+      "registry.ts#lookup_handler:function",
+    ],
+    expected_description_anchors: [
+      "create_handler.ts#handle_create:function",
+      "delete_handler.ts#handle_delete:function",
+      "dispatcher.ts#dispatch:function",
+      "registry.ts#lookup_handler:function",
+    ],
+  },
+  {
+    fixture: "untyped_callback_invocation",
+    kind: "stitch",
+    expected_flow_count: 1,
+    expected_members: [
+      "boot_caller.ts#boot:function",
+      "scheduler.ts#run_scheduled:function",
+      "shutdown_caller.ts#shutdown:function",
+    ],
+    expected_description_anchors: [
+      "boot_caller.ts#boot:function",
+      "scheduler.ts#run_scheduled:function",
+      "shutdown_caller.ts#shutdown:function",
+    ],
+  },
+  {
+    fixture: "untyped_receiver_method",
+    kind: "stitch",
+    expected_flow_count: 1,
+    expected_members: [
+      "caller.py#main:function",
+      "caller.py#run_item:function",
+      "processor.py#process:method",
+    ],
+    // Description rows persist under the anchor's enclosing-qualified symbol_path, so the method's
+    // row lives under `Item.process` while its flow-layer member path is `process`.
+    expected_description_anchors: [
+      "caller.py#main:function",
+      "caller.py#run_item:function",
+      "processor.py#Item.process:method",
+    ],
+  },
+  {
+    fixture: "control_unrelated_pair",
+    kind: "decline",
+    expected_flow_count: 2,
+    expected_members: [],
+    expected_description_anchors: [],
+  },
+];
+
+interface StoreFlows {
+  flows: Array<{ id: string; label: string; entry_points: string[]; anchor_set: string[] }>;
+  bridges: Array<{ src_id: string; dst_id: string; rationale: string }>;
+  descriptions: Map<string, { text: string; source: string }>;
+}
+
+function read_store(store_path: string): StoreFlows {
+  const store = open_graph_store(store_path);
+  try {
+    const flows = store
+      .all_nodes()
+      .filter((n) => n.kind === FLOW_NODE_KIND && n.deleted_at === null)
+      .map((n) => ({
+        id: n.id,
+        label: typeof n.attributes.label === "string" ? n.attributes.label : "",
+        entry_points: as_string_array(n.attributes.entry_points),
+        anchor_set: as_string_array(n.attributes.anchor_set),
+      }))
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    const bridges = store
+      .all_edges()
+      .filter((e) => e.kind === BRIDGE_EDGE_KIND && e.deleted_at === null)
+      .map((e) => ({
+        src_id: e.src_id,
+        dst_id: e.dst_id,
+        rationale: typeof e.attributes.inference_rationale === "string" ? e.attributes.inference_rationale : "",
+      }));
+    const descriptions = new Map<string, { text: string; source: string }>();
+    for (const n of store.all_nodes()) {
+      if (n.kind !== DESCRIPTION_NODE_KIND || n.deleted_at !== null) continue;
+      descriptions.set(n.id.slice(DESCRIPTION_NODE_KIND.length + 1), {
+        text: typeof n.attributes.description === "string" ? n.attributes.description : "",
+        source: typeof n.attributes.description_source === "string" ? n.attributes.description_source : "",
+      });
+    }
+    return { flows, bridges, descriptions };
+  } finally {
+    store.close();
+  }
+}
+
+function as_string_array(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/** Source files of one fixture (everything committed in its directory), repo-relative. */
+function fixture_files(fixture: string): string[] {
+  return fs.readdirSync(path.join(FIXTURES, fixture)).sort();
+}
+
+/**
+ * Scaffold the throwaway repo: fixture source, the production `.claude` bundle, and the staged
+ * pending-reconcile set. The Stop hook entry is then stripped from the installed settings — the
+ * harness already staged the set itself, and the eval drives exactly one bounded agent run.
+ */
+function scaffold_repo(fixture: string): string {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), `stitch-eval-live-${fixture}-`));
+  fs.cpSync(path.join(FIXTURES, fixture), repo, { recursive: true });
+  install_drift(repo, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT);
+
+  const settings_path = path.join(repo, CLAUDE_CODE_LAYOUT.settings_file);
+  const settings = JSON.parse(fs.readFileSync(settings_path, "utf8")) as Record<string, unknown>;
+  delete settings.hooks;
+  fs.writeFileSync(settings_path, JSON.stringify(settings, null, 2) + "\n");
+
+  fs.mkdirSync(path.join(repo, ".code-charter"), { recursive: true });
+  fs.writeFileSync(
+    path.join(repo, ".code-charter", "drift_pending_reconcile.json"),
+    serialize_pending_reconcile(fixture_files(fixture)),
+  );
+  return repo;
+}
+
+function run_agent(repo: string): { output: string; status: number | null } {
+  // haiku by default: the eval runs often (every prompt iteration) and the judgement task is
+  // small; STITCH_EVAL_MODEL overrides when fidelity to the production session model matters.
+  const model = process.env.STITCH_EVAL_MODEL ?? "haiku";
+  const result = spawnSync(
+    "claude",
+    ["-p", AGENT_PROMPT, "--permission-mode", "bypassPermissions", "--model", model],
+    {
+      cwd: repo,
+      encoding: "utf8",
+      timeout: AGENT_TIMEOUT_MS,
+      env: {
+        ...process.env,
+        CODE_CHARTER_DB: path.join(repo, ".code-charter", "graph.db"),
+        DRIFT_RECONCILE_BIN: RECONCILE_BIN,
+      },
+    },
+  );
+  return { output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim(), status: result.status };
+}
+
+interface FixtureReport {
+  fixture: string;
+  passed: boolean;
+  failures: string[];
+  lines: string[];
+}
+
+function score_fixture(expectation: FixtureExpectation, repo: string, agent_output: string): FixtureReport {
+  const observed = read_store(path.join(repo, ".code-charter", "graph.db"));
+  const failures: string[] = [];
+
+  if (observed.flows.length !== expectation.expected_flow_count) {
+    failures.push(`expected ${expectation.expected_flow_count} live flow(s), found ${observed.flows.length}`);
+  }
+  if (expectation.kind === "stitch") {
+    const umbrella = observed.flows.find((f) => f.entry_points.length >= 2);
+    if (umbrella === undefined) {
+      failures.push("no multi-seed umbrella (no live flow with seeds >= 2) — the agent declined or fragmented");
+    } else {
+      const missing = expectation.expected_members.filter((m) => !umbrella.anchor_set.includes(m));
+      if (missing.length > 0) failures.push(`umbrella misses expected member(s): ${missing.join(", ")}`);
+    }
+    if (observed.bridges.length === 0) failures.push("no agentic.bridge persisted (uncorroborated or missing stitch)");
+    for (const anchor of expectation.expected_description_anchors) {
+      const description = observed.descriptions.get(anchor);
+      if (description === undefined || description.source !== "llm") {
+        failures.push(`member ${anchor} has no agent-authored description (${description?.source ?? "absent"})`);
+      }
+    }
+  } else {
+    if (observed.bridges.length > 0) {
+      failures.push(`false positive: ${observed.bridges.length} bridge(s) persisted between independent entrypoints`);
+    }
+    const merged = observed.flows.find((f) => f.entry_points.length >= 2);
+    if (merged !== undefined) failures.push(`false positive: independent entrypoints merged into '${merged.id}'`);
+  }
+
+  // The agent's own judgement record, for the report: the stitch payload it wrote beside the store
+  // (absent when it declined to stitch — which is the correct shape for the control).
+  let stitch_rationale = "(no stitch.json written)";
+  try {
+    const stitch = JSON.parse(fs.readFileSync(path.join(repo, ".code-charter", "stitch.json"), "utf8")) as {
+      umbrellas?: Array<{ label?: string; rationale?: string }>;
+    };
+    stitch_rationale =
+      (stitch.umbrellas ?? []).map((u) => `'${u.label ?? "?"}': ${u.rationale ?? "?"}`).join("; ") || "(empty umbrellas)";
+  } catch {
+    /* declined or never reached phase 1 apply */
+  }
+
+  const lines: string[] = [];
+  lines.push(`expected: ${expectation.kind === "stitch" ? "one multi-seed umbrella, >=1 bridge, llm descriptions" : "two singleton flows, no bridge"}`);
+  for (const flow of observed.flows) {
+    lines.push(`flow ${flow.id}  label='${flow.label}'  seeds=${flow.entry_points.length}  members=[${flow.anchor_set.join(", ")}]`);
+  }
+  for (const bridge of observed.bridges) {
+    lines.push(`bridge ${bridge.src_id} -> ${bridge.dst_id}  "${bridge.rationale}"`);
+  }
+  lines.push(`umbrella rationale: ${stitch_rationale}`);
+  for (const [anchor, description] of [...observed.descriptions.entries()].sort()) {
+    lines.push(`description [${description.source}] ${anchor}: ${description.text}`);
+  }
+  lines.push(`agent: ${agent_output.split("\n").at(-1) ?? "(no output)"}`);
+
+  return { fixture: expectation.fixture, passed: failures.length === 0, failures, lines };
+}
+
+function sha256(file: string): string {
+  return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex").slice(0, 12);
+}
+
+function main(): void {
+  if (process.env.STITCH_EVAL_LIVE !== "1") {
+    process.stdout.write("stitch_eval: skipped — set STITCH_EVAL_LIVE=1 (live agent run: spends tokens, needs the `claude` CLI authenticated)\n");
+    return;
+  }
+  if (spawnSync("claude", ["--version"], { encoding: "utf8" }).status !== 0) {
+    process.stderr.write("stitch_eval: `claude` CLI not found on PATH — install/authenticate Claude Code first\n");
+    process.exit(1);
+  }
+  if (!fs.existsSync(RECONCILE_BIN)) {
+    process.stderr.write("stitch_eval: built bin missing — run `npm run build` first\n");
+    process.exit(1);
+  }
+
+  const only = process.argv[2];
+  const selected = only === undefined ? EXPECTATIONS : EXPECTATIONS.filter((e) => e.fixture === only);
+  if (selected.length === 0) {
+    process.stderr.write(`stitch_eval: unknown fixture '${only}' (known: ${EXPECTATIONS.map((e) => e.fixture).join(", ")})\n`);
+    process.exit(2);
+  }
+
+  const report: string[] = [];
+  const stamp = new Date().toISOString();
+  report.push(`stitch_eval — ${stamp}`);
+  report.push(
+    `model: ${process.env.STITCH_EVAL_MODEL ?? "haiku"}   ` +
+      `skill_md: ${sha256(path.join(PACKAGE_ROOT, "assets", "skills", "drift-sync", "SKILL.md"))}   ` +
+      `reconciler_md: ${sha256(path.join(PACKAGE_ROOT, "assets", "agents", "drift-reconciler.md"))}`,
+  );
+  report.push("");
+
+  const results: FixtureReport[] = [];
+  for (const expectation of selected) {
+    process.stdout.write(`stitch_eval: running ${expectation.fixture} (live agent)...\n`);
+    const repo = scaffold_repo(expectation.fixture);
+    try {
+      const agent = run_agent(repo);
+      if (agent.status !== 0) {
+        results.push({
+          fixture: expectation.fixture,
+          passed: false,
+          failures: [`claude -p exited ${agent.status}`],
+          lines: [agent.output],
+        });
+      } else {
+        results.push(score_fixture(expectation, repo, agent.output));
+      }
+    } finally {
+      if (process.env.STITCH_EVAL_KEEP === "1") process.stdout.write(`stitch_eval: kept ${repo}\n`);
+      else fs.rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  for (const result of results) {
+    report.push(`━━ ${result.fixture} ${"━".repeat(Math.max(2, 50 - result.fixture.length))} ${result.passed ? "PASS" : "FAIL"}`);
+    for (const failure of result.failures) report.push(`  ✗ ${failure}`);
+    for (const line of result.lines) report.push(`  ${line}`);
+    report.push("");
+  }
+  const passed = results.filter((r) => r.passed);
+  report.push(`summary: ${passed.length}/${results.length} PASS${passed.length < results.length ? `  — FAIL: ${results.filter((r) => !r.passed).map((r) => r.fixture).join(", ")}` : ""}`);
+
+  const text = report.join("\n") + "\n";
+  process.stdout.write(text);
+  fs.mkdirSync(RUNS_DIR, { recursive: true });
+  const run_file = path.join(RUNS_DIR, `${stamp.replace(/[:.]/g, "")}.txt`);
+  fs.writeFileSync(run_file, text);
+  process.stdout.write(`report written: ${path.relative(process.cwd(), run_file)}\n`);
+
+  process.exit(passed.length === results.length ? 0 : 1);
+}
+
+main();

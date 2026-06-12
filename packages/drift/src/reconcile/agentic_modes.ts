@@ -346,6 +346,7 @@ export interface ApplyDescriptionsInput {
 }
 
 export interface ApplyDescriptionsResult {
+  /** The wire (flow-layer) symbol_paths whose descriptions persisted this call. */
   written: string[];
   /** symbol_paths skipped: a byte-identical re-submission at the current content hash, or no live anchor. */
   skipped: string[];
@@ -369,14 +370,23 @@ export function parse_apply_descriptions(raw: unknown): { input: ApplyDescriptio
 }
 
 /**
- * Persist agent-authored member descriptions through the scoped substrate writer. The cache skips a
- * byte-identical re-submission at the member's current content hash (unchanged nodes are not
- * re-described every sync); a different text at the same hash is a revision and writes. A
- * symbol_path with no live anchor is skipped with a diagnostic; duplicate symbol_paths in one
- * payload collapse last-wins.
+ * Persist agent-authored member descriptions through the scoped substrate writer. The wire
+ * symbol_paths are flow-layer — what `--list-entrypoints` and `--apply-stitch` hand the agent —
+ * and each resolves through the graph index to its anchor by `symbol_id` (the same two-id-space
+ * join hydration's describe step uses); the row persists under the anchor's enclosing-qualified,
+ * rename-stable symbol_path, which differs for methods (`file#process:method` vs
+ * `file#Item.process:method`). The cache skips a byte-identical re-submission at the member's
+ * current content hash (unchanged nodes are not re-described every sync); a different text at the
+ * same hash is a revision and writes. A symbol_path with no live anchor is skipped with a
+ * diagnostic; duplicate symbol_paths in one payload collapse last-wins.
  */
-export function apply_descriptions(deps: ReconcileDeps, input: ApplyDescriptionsInput): ApplyDescriptionsResult {
+export function apply_descriptions(
+  deps: ReconcileDeps,
+  input: ApplyDescriptionsInput,
+  graph: CallGraph,
+): ApplyDescriptionsResult {
   const by_path = new Map(input.descriptions.map((d) => [d.symbol_path, d]));
+  const index = build_symbol_path_index(graph);
   const files = [
     ...new Set(
       [...by_path.keys()]
@@ -384,25 +394,28 @@ export function apply_descriptions(deps: ReconcileDeps, input: ApplyDescriptions
         .map((p) => file_of_symbol_path(p)),
     ),
   ];
-  const anchor_by_path = new Map(deps.adapter.anchored_symbols(files).map((a) => [a.symbol_path, a]));
+  const anchor_by_symbol_id = new Map(deps.adapter.anchored_symbols(files).map((a) => [a.symbol_id, a]));
   const existing = existing_descriptions(deps.store);
 
   const resolved: ResolvedDescription[] = [];
+  const written: string[] = [];
   const skipped: string[] = [];
   for (const item of by_path.values()) {
-    const anchor = anchor_by_path.get(item.symbol_path);
+    const symbol_id = index.get(item.symbol_path);
+    const anchor = symbol_id === undefined ? undefined : anchor_by_symbol_id.get(symbol_id);
     if (anchor === undefined) {
       deps.log(`apply-descriptions: no live anchor for ${item.symbol_path}, skipped`);
       skipped.push(item.symbol_path);
       continue;
     }
-    const prior = existing.get(item.symbol_path);
+    const prior = existing.get(anchor.symbol_path);
     if (prior?.described_at_content_hash === anchor.content_hash && prior.text === item.text) {
       skipped.push(item.symbol_path);
       continue;
     }
+    written.push(item.symbol_path);
     resolved.push({
-      symbol_path: item.symbol_path,
+      symbol_path: anchor.symbol_path,
       content_hash: anchor.content_hash,
       file_path: anchor.file_path,
       text: item.text,
@@ -411,5 +424,5 @@ export function apply_descriptions(deps: ReconcileDeps, input: ApplyDescriptions
   }
 
   write_agentic_substrate(deps.store, { bridges: [], descriptions: resolved }, { log: deps.log });
-  return { written: resolved.map((r) => r.symbol_path).sort(), skipped: skipped.sort() };
+  return { written: written.sort(), skipped: skipped.sort() };
 }
