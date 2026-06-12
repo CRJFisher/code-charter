@@ -129,6 +129,7 @@
   <a href="#evidence"><span class="step">·</span>The evidence bar</a>
   <a href="#phase2"><span class="step">2</span>Describe</a>
   <a href="#guarantees"><span class="step">·</span>If anything fails</a>
+  <a href="#eval"><span class="step">·</span>The eval harness</a>
   <a href="#engine"><span class="step">·</span>Engine reference</a>
 </nav>
 
@@ -523,7 +524,84 @@
   <p class="cap">The worst case is a fragmented-but-honest map, never a wrong one. The agent only ever <em>upgrades</em> what the scripts already guarantee. <b>reconcile_stitch.test.ts: byte-identical to the default reconcile · a no-op leaves orphans as singletons</b></p>
 
   <!-- ============================================================= -->
-  <!-- 6 · ENGINE REFERENCE (demoted)                                -->
+  <!-- 6 · THE STITCH EVAL HARNESS                                    -->
+  <!-- ============================================================= -->
+  <h2 id="eval">Measuring the judgement: the stitch eval harness</h2>
+  <p class="thesis">The judgement in Phases 1–2 is authored in prose — <code>SKILL.md</code> and <code>drift-reconciler.md</code> — so it is tuned by measurement, not intuition. Committed mini-codebases, each containing one Ariadne resolution weakness, turn a prompt edit into a score in one command.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 1320 400" role="img"
+      aria-label="The stitch eval harness. Left: a fixtures box holding six mini-codebases under fixtures slash stitch_eval, grouped by signal class — three site-recorded weaknesses (dynamic_key_dispatch, untyped_callback_invocation, untyped_receiver_method), two evidence-less weaknesses (interface_method, barrel_reexport), and one control (control_unrelated_pair). Arrows feed two tier lanes. Tier 1, structural replay: jest spawns the built drift_reconcile bin over a tmp copy of each fixture and replays golden stitch and description JSON through the three modes — deterministic, no model, runs in CI; it pins the inventory shape, bridge corroboration, and uncorroborated-bridge rejection. Tier 2, live judgement: gated behind STITCH_EVAL_LIVE=1, it scaffolds a throwaway repo per fixture, installs the production dot-claude bundle via install_drift, and drives the real drift-reconciler via claude -p with the Stop hook's verbatim instruction, haiku by default. Both lanes converge on a dark scoring box listing three expectation kinds — stitch requires one umbrella with at least one bridge; stitch_seeds_only requires the umbrella but no bridge, since none is corroborable; decline requires the singletons to stay apart — and Tier 2 writes a per-fixture report to dot-stitch_eval_runs.">
+      <defs>
+        <marker id="ev-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
+        <marker id="ev-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
+      </defs>
+      <g font-family="ui-sans-serif,system-ui">
+        <!-- fixtures column -->
+        <rect x="24" y="24" width="380" height="340" rx="10" fill="#ece5d6" stroke="#aaa492" stroke-width="1.5"/>
+        <text x="44" y="52" font-size="13.5" font-weight="700" fill="#20242b">Fixtures — one per weakness</text>
+        <text x="44" y="70" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">reconcile/__fixtures__/stitch_eval · ≤100 lines each</text>
+        <text x="44" y="98" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233" font-weight="700">site-recorded — unresolved site cited by the bridge</text>
+        <g font-family="ui-monospace,monospace" font-size="10.5" fill="#2c3038">
+          <rect x="44" y="108" width="340" height="24" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="56" y="124">dynamic_key_dispatch · registry lookup (TS)</text>
+          <rect x="44" y="138" width="340" height="24" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="56" y="154">untyped_callback_invocation · callback (TS)</text>
+          <rect x="44" y="168" width="340" height="24" rx="5" fill="#fbfaf5" stroke="#6c7a3b"/><text x="56" y="184">untyped_receiver_method · untyped param (Py)</text>
+        </g>
+        <text x="44" y="216" font-family="ui-monospace,monospace" font-size="9.5" fill="#92522f" font-weight="700">evidence-less — no recorded site; orphan-ness is the signal</text>
+        <g font-family="ui-monospace,monospace" font-size="10.5" fill="#2c3038">
+          <rect x="44" y="226" width="340" height="24" rx="5" fill="#fbfaf5" stroke="#b5683e"/><text x="56" y="242">interface_method · structural interface call (TS)</text>
+          <rect x="44" y="256" width="340" height="24" rx="5" fill="#fbfaf5" stroke="#b5683e"/><text x="56" y="272">barrel_reexport · re-export chain (TS)</text>
+        </g>
+        <text x="44" y="304" font-family="ui-monospace,monospace" font-size="9.5" fill="#9e3b2e" font-weight="700">control — false-positive guard</text>
+        <rect x="44" y="314" width="340" height="24" rx="5" fill="#f4e6e2" stroke="#9e3b2e"/><text x="56" y="330" font-family="ui-monospace,monospace" font-size="10.5" fill="#2c3038">control_unrelated_pair · must NOT stitch</text>
+        <!-- arrows to tiers -->
+        <line x1="404" y1="120" x2="452" y2="120" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ev-g)"/>
+        <line x1="404" y1="268" x2="452" y2="268" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ev-g)"/>
+        <!-- tier 1 lane -->
+        <rect x="456" y="62" width="600" height="116" rx="10" fill="#fbfaf5" stroke="#6c6759" stroke-width="1.6"/>
+        <text x="474" y="90" font-size="13.5" font-weight="700" fill="#20242b">Tier 1 · structural / replay</text>
+        <text x="474" y="107" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">reconcile_stitch_eval.test.ts · jest · CI · no model</text>
+        <text x="474" y="132" font-size="11.5" fill="#2c3038">spawn the built bin over a tmp fixture copy →</text>
+        <text x="474" y="150" font-size="11.5" fill="#2c3038">replay <tspan font-weight="600">golden</tspan> stitch/description JSON through the three modes</text>
+        <text x="474" y="168" font-family="ui-monospace,monospace" font-size="9.5" fill="#6c6759">pins inventory shape · bridge corroboration · uncorroborated-bridge rejection</text>
+        <!-- tier 2 lane -->
+        <rect x="456" y="210" width="600" height="116" rx="10" fill="#eef0e3" stroke="#6c7a3b" stroke-width="1.6"/>
+        <text x="474" y="238" font-size="13.5" font-weight="700" fill="#20242b">Tier 2 · live judgement</text>
+        <text x="474" y="255" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">bin/stitch_eval.ts · STITCH_EVAL_LIVE=1 npm run stitch_eval [fixture]</text>
+        <text x="474" y="280" font-size="11.5" fill="#2c3038">throwaway repo + <tspan font-family="ui-monospace,monospace" font-size="10">install_drift</tspan>(.claude) → <tspan font-family="ui-monospace,monospace" font-size="10">claude -p</tspan> drives the real</text>
+        <text x="474" y="298" font-size="11.5" fill="#2c3038">drift-reconciler with the Stop hook's verbatim instruction</text>
+        <text x="474" y="316" font-family="ui-monospace,monospace" font-size="9.5" fill="#5b6233">haiku by default (STITCH_EVAL_MODEL overrides) · excluded from CI · spends tokens</text>
+        <!-- converge on scoring -->
+        <line x1="1056" y1="120" x2="1106" y2="160" stroke="#6c6759" stroke-width="1.6" marker-end="url(#ev-g)"/>
+        <line x1="1056" y1="268" x2="1106" y2="228" stroke="#b5683e" stroke-width="1.8" marker-end="url(#ev-clay)"/>
+        <!-- scoring box -->
+        <rect x="1110" y="120" width="186" height="206" rx="10" fill="#2c3038"/>
+        <text x="1203" y="148" text-anchor="middle" font-size="13" font-weight="600" fill="#f7f4ec">expectation kinds</text>
+        <g font-family="ui-monospace,monospace" font-size="9.5">
+          <text x="1126" y="176" fill="#e7c3a6" font-weight="700">stitch</text>
+          <text x="1126" y="190" fill="#aaa492">1 umbrella · ≥1 bridge</text>
+          <text x="1126" y="216" fill="#e7c3a6" font-weight="700">stitch_seeds_only</text>
+          <text x="1126" y="230" fill="#aaa492">1 umbrella · no bridge</text>
+          <text x="1126" y="244" fill="#aaa492">required (none corroborable)</text>
+          <text x="1126" y="270" fill="#e7c3a6" font-weight="700">decline</text>
+          <text x="1126" y="284" fill="#aaa492">singletons stay · 0 bridges</text>
+          <text x="1126" y="310" fill="#f7f4ec">report → .stitch_eval_runs/</text>
+        </g>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="sw"><i class="solid"></i> fixture flows into both tiers</span>
+      <span class="sw">six fixtures span the open failure set: site-recorded · evidence-less · control · suite scores 6/6 on haiku</span>
+    </div>
+  </div>
+  <p class="cap">Every fixture's fragmentation signal is pinned <em>empirically</em> — <code>--list-entrypoints</code> runs over the candidate before any assertion is written, because Ariadne resolves more than intuition suggests: an <code>implements</code> clause lets it link an interface call (so <code>interface_method</code> satisfies its interface structurally), and a re-export keeps an implementation off the inventory entirely (so <code>barrel_reexport</code>'s umbrella seeds a definition the inventory never lists). The Tier&nbsp;2 report carries each fixture's pass/fail, the agent's chosen umbrellas and rationale, and every member description. <b>reconcile_stitch_eval.test.ts · bin/stitch_eval.ts · .stitch_eval_runs/</b></p>
+  <div class="callout olive">
+    <span class="k">The prose is the artifact under test</span>
+    Tier&nbsp;2 installs the production <code>.claude</code> bundle from <code>assets/</code> via <code>install_drift</code> into each throwaway repo, and <code>claude -p</code> loads exactly that installed prose — so a <code>SKILL.md</code> or <code>drift-reconciler.md</code> edit reaches the very next run with no copying, and one command turns a prompt change into a score. The evidence-less fixtures hold the prose to stitching when orphan-ness is the <em>only</em> signal; the control holds it to declining when nothing connects.
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 7 · ENGINE REFERENCE (demoted)                                -->
   <!-- ============================================================= -->
   <h2 id="engine">Engine reference</h2>
   <p class="thesis">The deterministic engine the loop sits on. Each item is a pointer; the full picture lives in the sibling pages.</p>
