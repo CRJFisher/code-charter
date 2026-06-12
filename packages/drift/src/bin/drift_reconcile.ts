@@ -228,7 +228,7 @@ async function main(): Promise<void> {
           process.stderr.write(`drift-reconcile: invalid --apply-descriptions payload: ${parsed_payload.error}\n`);
           process.exit(2);
         }
-        const result = apply_descriptions(deps, parsed_payload.input);
+        const result = apply_descriptions(deps, parsed_payload.input, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
         process.stderr.write(
           `drift-reconcile: wrote ${result.written.length} description(s), skipped ${result.skipped.length}\n`,

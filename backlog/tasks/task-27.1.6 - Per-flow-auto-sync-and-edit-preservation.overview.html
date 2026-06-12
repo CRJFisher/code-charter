@@ -116,7 +116,7 @@
 
     <div class="prompt-box">
       <p class="label">This overview covers</p>
-      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), <code>task-27.1.6.4</code> (fine-grained change detection), <code>task-27.1.6.5</code> (concise Stop-hook instruction — drop the inline file list), <code>task-27.1.6.6</code> (agentic entrypoint stitching), and <code>task-27.1.6.7</code> (eval harness for the stitcher — mini-codebase fixtures). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
+      <p><code>task-27.1.6 - Per-flow-auto-sync-and-edit-preservation.md</code> and its direct children <code>task-27.1.6.1</code> (drift.* surface review + Stop-hook filter), <code>task-27.1.6.2</code> (re-sync mass-bin bug), <code>task-27.1.6.3</code> (richer drift recovery), <code>task-27.1.6.4</code> (fine-grained change detection), <code>task-27.1.6.5</code> (concise Stop-hook instruction — drop the inline file list), <code>task-27.1.6.6</code> (agentic entrypoint stitching), and <code>task-27.1.6.7</code> (eval harness for the stitcher — four weakness fixtures, one Python; live run green). Re-scanned <code>backlog/tasks/</code> for child companions on generation.</p>
     </div>
 
     <div class="callout invert">
@@ -174,7 +174,7 @@
     </div>
 
     <h2 id="fit">How the sub-tasks fit together</h2>
-    <p>The first five children are the <em>come-back-and-make-it-real</em> pass on the live loop: prove and sand the recovery surface, fix a re-sync bug the loop surfaced, extend recovery, sharpen change detection so drift follows the code rather than the file, and trim the Stop-hook transport. The sixth opens the next capability — the <strong>agentic (L1) lane</strong>: it stitches back together the call-graphs Ariadne's <em>syntactic</em> resolution leaves split. Where a dynamic dispatch or registry lookup fails to resolve, one functionality fragments into several entrypoints; the agent repairs the missing edge so the pieces re-merge into one flow. The seventh makes that lane <strong>measurable</strong>: committed mini-codebase fixtures parsed by real Ariadne, so the stitcher's judgment can be evaluated repeatably against authored ground truth.</p>
+    <p>The first five children are the <em>come-back-and-make-it-real</em> pass on the live loop: prove and sand the recovery surface, fix a re-sync bug the loop surfaced, extend recovery, sharpen change detection so drift follows the code rather than the file, and trim the Stop-hook transport. The sixth opens the next capability — the <strong>agentic (L1) lane</strong>: it stitches back together the call-graphs Ariadne's <em>syntactic</em> resolution leaves split. Where a dynamic dispatch or registry lookup fails to resolve, one functionality fragments into several entrypoints; the agent repairs the missing edge so the pieces re-merge into one flow. The seventh makes that lane <strong>measurable in two tiers</strong>: committed mini-codebase fixtures parsed by real Ariadne, evaluated through the same three bin modes &mdash; a deterministic golden-JSON tier that runs in CI, and a live, env-gated tier that drives the real agent and scores its semantic judgment against authored ground truth.</p>
     <div class="steps">
       <div class="step">
         <div class="badge">1</div>
@@ -225,19 +225,19 @@
         </div>
       </div>
       <div class="step">
-        <div class="badge todo">7</div>
+        <div class="badge">7</div>
         <div>
-          <span class="id">task-27.1.6.6 · To Do</span>
+          <span class="id">task-27.1.6.6 · Done</span>
           <h3>Agentic entrypoint stitching — reconnect the split call-graphs</h3>
           <p>Ariadne resolves calls <em>syntactically</em>, so dynamic dispatch, registry lookups, re-exports, and callback wiring frequently fail to resolve — and a callee reached only through such a missed call has no in-graph caller, so it is promoted to its own entrypoint. One functionality fragments into several flows. This adds the agentic pass that <strong>stitches them back together</strong>, with the intelligence owned by the <code>drift-sync</code> skill rather than any in-process function. The skill orchestrates the <code>drift-reconciler</code> sub-agent through two judgement phases over three thin store-facing bin modes. <strong>Phase 1 — stitch:</strong> <code>--list-entrypoints</code> emits the changed neighbourhood's orphan/unresolved inventory; the agent <em>explores the codebase itself</em> (grep/Read) to decide which orphans belong to one functionality, writes <code>stitch.json</code> (<code>umbrellas</code> = the existing <code>CodeUmbrella</code> shape), and <code>--apply-stitch</code> hydrates each multi-seed umbrella plus an <code>agentic.bridge</code> over the recovered edge. <strong>Phase 2 — describe:</strong> the agent reads each member and <code>--apply-descriptions</code> persists a short sentence apiece. Two whole TypeScript layers <strong>delete</strong> — the injected executor seams (<code>stitch_entrypoints?</code>/<code>describe?</code> + null defaults) <em>and</em> the candidate-pairing / union-find / agenda engine that fed them — because the agent, not the engine, now decides the flow shape. No orphans ⇒ both judgements skip and the deterministic resync/retire is byte-identical to today. Identity stays purely deterministic — id = dominant seed's <code>symbol_path</code> (<code>flow_id_of</code>); doc-attachment-by-judgement is deferred.</p>
         </div>
       </div>
       <div class="step">
-        <div class="badge todo">8</div>
+        <div class="badge">8</div>
         <div>
-          <span class="id">task-27.1.6.7 · To Do</span>
+          <span class="id">task-27.1.6.7 · Done</span>
           <h3>Eval harness for the stitcher — mini-codebase fixtures</h3>
-          <p>27.1.6.6's three bin modes are proven on a synthetic in-process <code>CallGraph</code>; what is not yet measurable is the agent's <strong>semantic judgment</strong> — does it stitch only what is real? This task commits three mini TypeScript codebases (≤100 lines each) under <code>__fixtures__/stitch_eval/</code> — <code>registry_dispatch/</code> and <code>callback_wiring/</code> (Ariadne genuinely cannot resolve their dispatch/callback calls, so they must stitch) and <code>unrelated_pair/</code> (pure functions, must <em>not</em> stitch) — parses them with the real Ariadne via <code>HeadlessProject</code>, and asserts at the <strong>three-mode boundary</strong>: <code>--list-entrypoints</code> over each fixture yields a well-formed inventory whose unresolved sites point at real lines (structural, always); a golden <code>stitch.json</code> through <code>--apply-stitch</code> yields the correct multi-seed umbrellas, and no umbrellas leaves singletons (replay). Ground truth is authored into the fixtures, so the same harness drives golden JSON now and a thin <code>claude -p</code> driver against the live agent later — both over the identical three modes production uses.</p>
+          <p>27.1.6.6's three bin modes are proven by spawning the built bin over an on-disk dispatch fixture; what was not yet measurable is the agent's <strong>semantic judgment</strong> — does it stitch only what is real? This commits <strong>four</strong> mini-codebases (≤100 lines each) under <code>__fixtures__/stitch_eval/</code>, each named by the Ariadne resolution weakness it contains — <code>dynamic_key_dispatch/</code> (a string-keyed registry lookup), <code>untyped_callback_invocation/</code> (a function-typed parameter invocation), and <code>untyped_receiver_method/</code> (<strong>Python</strong>: a method call on an unannotated receiver, for which Ariadne emits no call node at all) all <em>must</em> stitch, and <code>control_unrelated_pair/</code> (independent domains) must <em>not</em> — parsed by real Ariadne, and evaluates them in <strong>two tiers over the identical three modes production uses</strong>. <strong>Tier 1</strong> (<code>reconcile_stitch_eval.test.ts</code>, 13 tests, deterministic, in CI) spawns the built bin per fixture over a tmp copy and replays <strong>golden JSON</strong> through the modes: the inventory's unresolved sites point at real lines; a golden <code>stitch.json</code> through <code>--apply-stitch</code> yields the correct multi-seed umbrella with a bridge over the real call site, and no umbrellas leaves singletons. <strong>Tier 2</strong> (<code>src/bin/stitch_eval.ts</code>, <code>STITCH_EVAL_LIVE=1 npm run stitch_eval</code>, env-gated, excluded from CI) installs the <code>assets/</code> <code>.claude</code> bundle and drives the <em>real</em> <code>drift-reconciler</code> via <code>claude -p</code> at haiku per fixture with the Stop hook's verbatim instruction, then scores the store: three stitches, one principled decline, every member described — a per-fixture report a <code>SKILL.md</code> edit re-runs. Building the Python fixture surfaced a product fix in <code>apply_descriptions</code> — it now resolves the agent's flow-layer <code>symbol_path</code> through the graph index to the anchor by <code>symbol_id</code>, persisting a method's description under its enclosing-qualified path (<code>Item.process</code> vs <code>process</code>). The first live run scored <strong>4/4 PASS</strong>.</p>
         </div>
       </div>
     </div>
@@ -329,7 +329,7 @@
       <div class="gh">
         <span class="status-dot note"></span>
         <span class="id">task-27.1.6.6</span>
-        <span class="title">Agentic entrypoint stitching — reconnect the split call-graphs (To Do)</span>
+        <span class="title">Agentic entrypoint stitching — reconnect the split call-graphs (Done)</span>
       </div>
       <div class="doc-links">
         <a class="doc-link" href="task-27.1.6.6 - Agentic-entrypoint-stitching-reconnect-the-call-graphs-Ariadnes-syntactic-analysis-leaves-split.skill-orchestrated-reconcile.plan.html">
@@ -342,14 +342,14 @@
 
     <div class="doc-group">
       <div class="gh">
-        <span class="status-dot note"></span>
+        <span class="status-dot live"></span>
         <span class="id">task-27.1.6.7</span>
-        <span class="title">Eval harness for the stitcher — mini-codebase fixtures (To Do)</span>
+        <span class="title">Eval harness for the stitcher — mini-codebase fixtures</span>
       </div>
       <div class="doc-links">
         <a class="doc-link" href="task-27.1.6.7 - Eval-harness-for-agentic-entrypoint-stitching-mini-codebase-fixtures.plan.html">
-          <span class="status-dot note"></span>
-          <span class="lbl"><b>Harness plan</b><small>pipeline-with-assertion-taps diagram &middot; three fixture call-graphs &middot; what counts as unresolved &middot; structural inventory assertions &middot; golden-JSON replay through --apply-stitch &middot; AC map</small></span>
+          <span class="status-dot live"></span>
+          <span class="lbl"><b>Harness companion</b><small>two tiers over the three drift-reconcile modes &middot; four weakness fixtures (3 stitch / 1 decline), one Python &middot; tier 1 golden-JSON replay in CI (13 tests) &middot; tier 2 live claude -p loop at haiku &mdash; 4/4 PASS &middot; the symbol_path&rarr;symbol_id&rarr;anchor join &middot; expected-outcomes matrix &middot; AC map</small></span>
           <span class="arrow">→</span>
         </a>
       </div>
@@ -357,11 +357,11 @@
 
     <div class="callout">
       <span class="k">Reading order</span>
-      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work in order: the <strong>drift.* surface review</strong> (the decision confirmed), the <strong>Stop-hook filter</strong> (the focused trigger change), the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read once you know what the loop preserves and where the bin sits), the <strong>recovery walkthrough</strong> (growing the three-case recovery toward a new target), then <strong>symbol-level change detection</strong> (27.1.6.4 — sharpens the trigger from file to symbol; read after the filter, since it replaces that same changed-file intersection inside the engine). Read <strong>27.1.6.6 · the skill-orchestrated reconcile plan</strong> next: it opens the agentic lane on top of everything the first five hardened. The <code>drift-sync</code> skill orchestrates the sub-agent through two judgement phases — its own grep/Read reasoning groups orphan entrypoints into umbrellas, then describes the flow members — around three thin store-facing bin modes, deleting both the executor seams and the candidate-pairing engine; its current-vs-planned pair only reads clearly once the live loop and its identity guarantees are familiar. Finish with <strong>27.1.6.7 · the harness plan</strong>: it evals the same three bin modes, so read it with the reconcile plan fresh.</p>
+      <p>For the parent's shape, start at <strong>The loop the parent ships</strong> above. For the live work in order: the <strong>drift.* surface review</strong> (the decision confirmed), the <strong>Stop-hook filter</strong> (the focused trigger change), the <strong>two-hop fault walkthrough</strong> (the re-sync bug — read once you know what the loop preserves and where the bin sits), the <strong>recovery walkthrough</strong> (growing the three-case recovery toward a new target), then <strong>symbol-level change detection</strong> (27.1.6.4 — sharpens the trigger from file to symbol; read after the filter, since it replaces that same changed-file intersection inside the engine). Read <strong>27.1.6.6 · the skill-orchestrated reconcile plan</strong> next: it opens the agentic lane on top of everything the first five hardened. The <code>drift-sync</code> skill orchestrates the sub-agent through two judgement phases — its own grep/Read reasoning groups orphan entrypoints into umbrellas, then describes the flow members — around three thin store-facing bin modes, deleting both the executor seams and the candidate-pairing engine; its current-vs-planned pair only reads clearly once the live loop and its identity guarantees are familiar. Finish with <strong>27.1.6.7 · the harness companion</strong>: it evals those same three bin modes in two tiers &mdash; golden JSON in CI over four weakness fixtures (one Python), then the real agent via <code>claude -p</code> at haiku (4/4 PASS) &mdash; so read it with the reconcile plan fresh.</p>
     </div>
 
     <footer>
-      task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation (2026-06-11).<br>
+      task-family-overview · parent task-27.1.6 (Done) · children re-scanned from backlog/tasks/ on generation (2026-06-12).<br>
       Companions present: 7 — two under task-27.1.6.1, one each under task-27.1.6.2, task-27.1.6.3, task-27.1.6.4, task-27.1.6.6, task-27.1.6.7 · task-27.1.6.5: none yet.
     </footer>
   </main>
