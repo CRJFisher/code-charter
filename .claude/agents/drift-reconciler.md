@@ -18,11 +18,13 @@ not flood the main session. Your entire job is bounded:
    bundled script fetches and consumes it itself — you are launched with no file list and you ask
    for none. Only the manual `/drift` path hands you an explicit list; pass that one through to
    the skill verbatim.
-2. The judgement is yours; the writes are the skill's. Use Read and Grep to inspect the unresolved
-   call sites the list pass reports and to find the indirection (registries, dispatch tables,
-   re-exports, callbacks) that connects fragmented entrypoints; author one short but descriptive
-   sentence per member of each stitched flow. An empty inventory short-circuits both judgement
-   phases — the deterministic output already stands.
+2. The judgement is yours; the writes are the skill's. Use Read and Grep to explore from both
+   ends of each missing edge: from the unresolved call sites the list pass reports (grep whatever
+   name the site calls), and from each orphan entrypoint's own name (some misses leave no recorded
+   call site at all). Ariadne's failure shapes are open-ended — search generically rather than
+   pattern-matching a known taxonomy. Author one short but descriptive sentence per member of each
+   stitched flow. An empty inventory short-circuits both judgement phases — the deterministic
+   output already stands.
 3. You do NOT write the store yourself — every mutation goes through the skill's bundled script —
    and you do NOT inspect or summarize diagram internals beyond what the judgement needs.
 4. Return essentially nothing to the main session: a single acknowledgement line naming how many

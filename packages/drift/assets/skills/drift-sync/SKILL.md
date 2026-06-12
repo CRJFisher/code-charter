@@ -19,9 +19,10 @@ bin (located via the `DRIFT_RECONCILE_BIN` env var or the `.drift_reconcile_bin`
 installer drops beside this skill). You never write the store through any other tool.
 
 Reconciliation is two judgement phases bracketed by deterministic store writes. Ariadne is a
-syntactic call-graph extractor: dynamic dispatch, registry lookups, and callback wiring frequently
-fail to resolve, so one functionality fragments into several singleton flows — one per
-spuriously-promoted entrypoint. The scripts do the deterministic reads and writes; you do the
+syntactic call-graph extractor: dynamic dispatch, registry lookups, callback wiring, and every
+other indirection it cannot follow leave call edges unresolved — the failure set is open-ended —
+so one functionality fragments into several singleton flows, one per spuriously-promoted
+entrypoint. The scripts do the deterministic reads and writes; you do the
 judging: which fragments are one functionality (phase 1), and what each member does (phase 2).
 
 The store path resolves from `CODE_CHARTER_DB`, falling back to `.code-charter/graph.db` under the
@@ -56,12 +57,23 @@ entrypoint is usually a genuine flow root.
 and no plausible grouping → the deterministic output already stands. Report the one-line
 acknowledgement and stop; neither judgement phase runs.
 
-**3. Judge the stitches by exploring.** For each entrypoint with `unresolved_sites`, Read the
-`source_line` at its `file:line` and the enclosing definition, then Grep for the indirection that
-hides the edge — registry `register(...)` calls, dispatch tables, re-exports, callback wiring.
+**3. Judge the stitches by exploring.** Ariadne misses call edges for many reasons — do not
+assume a known taxonomy of failure shapes; search generically, from both ends of the missing edge:
+
+- **From the call site.** For each entrypoint with `unresolved_sites`, Read the `source_line` at
+  its `file:line` and the enclosing definition. Take whatever name the site calls (a variable, a
+  member, a lookup result) and Grep for where that name is defined, assigned, registered, or
+  exported; read the candidates and decide what the call actually reaches.
+- **From the orphan.** Some misses leave no recorded call site at all, so an orphan can carry
+  zero `unresolved_sites` and still be a fragment. For each orphan, Grep for its *name* across
+  the codebase — imports, re-exports, registrations, callbacks, member references, string keys.
+  A real reference that connects it into another entrypoint's functionality justifies a stitch.
+
 Decide which entrypoints belong to one functionality. Never invent a bridge you have not read the
 call site for: every bridge points from the entrypoint whose tree encloses a real unresolved site
-to the seed it actually reaches.
+to the seed it actually reaches. When the connection is real but no recorded unresolved site
+exists to cite, stitch **without a bridge** — a seeds-only umbrella merges the membership, and
+the rationale carries the explanation.
 
 **4. Apply the stitches.** Write your judgement beside the store as `stitch.json`:
 
@@ -163,7 +175,8 @@ scoped (per-row upserts + field writes), so hydrating one flow never disturbs an
   a gap.
 - **Evidence bar.** A bridge requires a read unresolved call site, named by its inventory
   `file`/`line` — the bin verifies the site against the live graph and drops a bridge it cannot
-  corroborate. If you cannot find the indirection that connects two entrypoints, do not stitch
+  corroborate. A connection with no citable recorded site is stitched as a seeds-only umbrella
+  (no bridge). If you cannot find any real reference connecting two entrypoints, do not stitch
   them.
 - **Description bar.** Short but descriptive — what the member does in the flow, one sentence.
 - **Identity.** A flow's id is always its dominant seed's `symbol_path`. You choose the grouping
