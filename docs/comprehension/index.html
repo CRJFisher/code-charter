@@ -374,7 +374,7 @@
 
   <div class="fig">
     <svg viewBox="0 0 1240 360" role="img"
-      aria-label="The pipeline runs in five numbered stages. One, source code, dot-ts dot-py dot-rs. Two, Ariadne CallGraph, SymbolId to CallableNode. Three, the SQLite store with raw, agentic and user tiers, at dot-code-charter slash graph dot db. Four, flow projection that induces and renders into RenderedRows. Five, the React-Flow webview diagram with ELK, zoom and search. Beneath, a clay drift loop runs after every code-editing turn: the Stop hook learns the worked-on files, reconcile does HYDRATE or RE-SYNC, then writes back scoped into the store.">
+      aria-label="The pipeline runs in five numbered stages. One, source code, dot-ts dot-py dot-rs. Two, Ariadne CallGraph, SymbolId to CallableNode. Three, the SQLite store with raw, agentic and user tiers, at dot-code-charter slash graph dot db. Four, flow projection that induces and renders into RenderedRows. Five, the React-Flow webview diagram with ELK, zoom and search. Beneath, a clay drift loop runs after every code-editing turn: the Stop hook learns the worked-on files, reconcile does HYDRATE or RE-SYNC, then the drift-reconciler sub-agent stitches fragmented entrypoints and describes members; every write back into the store is scoped.">
       <defs>
         <marker id="p-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c6759"/></marker>
         <marker id="p-clay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5683e"/></marker>
@@ -437,7 +437,7 @@
     <div class="r"><span class="n">3</span><div><b>Three-tier store</b> persists raw rows beside agentic + user tiers. <code>upsert_node</code> / <code>write_fields</code></div></div>
     <div class="r"><span class="n">4</span><div><b>Induce + project.</b> Skeleton on cold repo; re-induce members, bound to budget. <code>build_skeleton_flows</code> / <code>project_flow</code></div></div>
     <div class="r"><span class="n">5</span><div><b>Map to React Flow</b> (<code>agentic.contains</code> → <code>parentId</code>), ELK layout. <code>custom_graph_to_react_flow</code></div></div>
-    <div class="r"><span class="n">↺</span><div><b>Drift loop.</b> Hook learns worked files; reconcile hydrates/re-syncs; scoped write-back. <code>Stop hook</code></div></div>
+    <div class="r"><span class="n">↺</span><div><b>Drift loop.</b> Hook learns worked files; reconcile hydrates/re-syncs; the drift-reconciler then stitches fragmented entrypoints and describes members (see <a href="flow-construction.html">Flow Construction</a>); scoped write-back. <code>Stop hook</code></div></div>
   </div>
   <p class="cap">The loop preserves everything you authored, so the next render is honest. <b>drift/reconcile</b></p>
 
