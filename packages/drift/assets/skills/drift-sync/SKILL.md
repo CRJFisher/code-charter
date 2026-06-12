@@ -53,9 +53,10 @@ tree. `is_orphan: true` means no documentation edge links the entrypoint — the
 spuriously-promoted-fragment signal; weight your stitching toward orphans, since a doc-linked
 entrypoint is usually a genuine flow root.
 
-**2. Short-circuit on an empty inventory.** No entrypoints, or no entrypoint with unresolved sites
-and no plausible grouping → the deterministic output already stands. Report the one-line
-acknowledgement and stop; neither judgement phase runs.
+**2. Short-circuit on an empty inventory.** No entrypoints → the deterministic output already
+stands; report the one-line acknowledgement and stop, with neither judgement phase run. An
+inventory whose orphans all carry zero `unresolved_sites` does **not** short-circuit: some misses
+record no call site at all, so zero recorded sites is itself a failure shape — judge it in step 3.
 
 **3. Judge the stitches by exploring.** Ariadne misses call edges for many reasons — do not
 assume a known taxonomy of failure shapes; search generically, from both ends of the missing edge:
@@ -65,9 +66,14 @@ assume a known taxonomy of failure shapes; search generically, from both ends of
   member, a lookup result) and Grep for where that name is defined, assigned, registered, or
   exported; read the candidates and decide what the call actually reaches.
 - **From the orphan.** Some misses leave no recorded call site at all, so an orphan can carry
-  zero `unresolved_sites` and still be a fragment. For each orphan, Grep for its *name* across
-  the codebase — imports, re-exports, registrations, callbacks, member references, string keys.
-  A real reference that connects it into another entrypoint's functionality justifies a stitch.
+  zero `unresolved_sites` and still be a fragment. For each orphan, Read its definition and Grep
+  for its _name_ across the codebase — imports, re-exports, registrations, callbacks, member
+  references, string keys. A real reference that connects it into another entrypoint's
+  functionality justifies a stitch. A call in the orphan's own body that resolves to no member
+  and appears in no `unresolved_sites` is an unrecorded miss — Grep the called name to find the
+  definition it reaches. That definition may itself be absent from the inventory (a re-export,
+  for example, counts as its only reference and keeps it off the entrypoint list); it is still a
+  valid seed.
 
 Decide which entrypoints belong to one functionality. Never invent a bridge you have not read the
 call site for: every bridge points from the entrypoint whose tree encloses a real unresolved site
@@ -101,7 +107,10 @@ the rationale carries the explanation.
 }
 ```
 
-`seeds` are inventory `symbol_path`s. A bridge's `file`/`line` name the unresolved call site,
+`seeds` are `symbol_path`s — usually copied from the inventory, but a fragment your exploration
+found that the inventory never promoted is seeded in the same flow-layer format
+(`file#name:kind`, kind `function` or `method`) and resolves against the live graph; an
+unresolvable seed is skipped with a diagnostic. A bridge's `file`/`line` name the unresolved call site,
 copied verbatim from the inventory's `unresolved_sites` (`file` defaults to `src_id`'s file); the
 bin resolves them to the call's exact span so click-through lands on the real missed call, and
 skips a bridge whose site the graph cannot corroborate. `dst_id` is one of the umbrella's seeds —

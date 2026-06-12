@@ -7,8 +7,9 @@
  * with no manual copying), stages the pending-reconcile set the way the Stop hook would, and
  * drives the REAL `drift-reconciler` sub-agent via `claude -p` with the Stop hook's verbatim
  * instruction. It then reads the resulting store, scores it against the fixture's expectation
- * (semantic, positive: the weakness fixtures collapse to one multi-seed umbrella with a bridge;
- * semantic, negative: the control stays two singletons — the false-positive guard), and emits a
+ * (semantic, positive: the weakness fixtures collapse to one multi-seed umbrella — with a bridge
+ * for the site-recorded shapes, seeds-only for the evidence-less ones; semantic, negative: the
+ * control stays two singletons — the false-positive guard), and emits a
  * readable per-fixture report (pass/fail, chosen umbrellas, agent rationale, descriptions).
  *
  * `claude -p` is the executor — not the Agents SDK — because the judgement under measurement is
@@ -46,10 +47,13 @@ interface FixtureExpectation {
   fixture: string;
   /**
    * "stitch" (semantic, positive): the fragments must collapse to one multi-seed umbrella with at
-   * least one corroborated bridge. "decline" (semantic, negative — the false-positive guard): the
+   * least one corroborated bridge. "stitch_seeds_only" (semantic, positive, evidence-less): the
+   * fragments must collapse to one multi-seed umbrella but NO bridge is required — the fixture
+   * records no unresolved call site anywhere, so a corroborable bridge cannot exist and the bin
+   * rejects any the agent claims. "decline" (semantic, negative — the false-positive guard): the
    * independent entrypoints must stay singleton flows with no bridge.
    */
-  kind: "stitch" | "decline";
+  kind: "stitch" | "stitch_seeds_only" | "decline";
   expected_flow_count: number;
   /** Flow-layer member symbol_paths the umbrella's induced membership must cover (stitch only). */
   expected_members: string[];
@@ -106,6 +110,32 @@ const EXPECTATIONS: FixtureExpectation[] = [
       "caller.py#run_item:function",
       "processor.py#Item.process:method",
     ],
+  },
+  {
+    fixture: "interface_method",
+    kind: "stitch_seeds_only",
+    expected_flow_count: 1,
+    expected_members: [
+      "csv_exporter.ts#export_rows:method",
+      "exporter.ts#run_export:function",
+      "main.ts#export_report:function",
+    ],
+    expected_description_anchors: [
+      "csv_exporter.ts#CsvExporter.export_rows:method",
+      "exporter.ts#run_export:function",
+      "main.ts#export_report:function",
+    ],
+  },
+  {
+    // The hardest judgement in the suite: the inventory shows ONE orphan with zero unresolved
+    // sites, and the fragment to stitch (compute_average) never appears in the inventory at all —
+    // the agent must read the orphan's body, follow the barrel re-export, and seed the
+    // never-promoted definition itself.
+    fixture: "barrel_reexport",
+    kind: "stitch_seeds_only",
+    expected_flow_count: 1,
+    expected_members: ["report.ts#summarize:function", "stats.ts#compute_average:function"],
+    expected_description_anchors: ["report.ts#summarize:function", "stats.ts#compute_average:function"],
   },
   {
     fixture: "control_unrelated_pair",
@@ -246,7 +276,7 @@ function score_fixture(expectation: FixtureExpectation, repo: string, agent_outp
   if (observed.flows.length !== expectation.expected_flow_count) {
     failures.push(`expected ${expectation.expected_flow_count} live flow(s), found ${observed.flows.length}`);
   }
-  if (expectation.kind === "stitch") {
+  if (expectation.kind === "stitch" || expectation.kind === "stitch_seeds_only") {
     const umbrella = observed.flows.find((f) => f.entry_points.length >= 2);
     if (umbrella === undefined) {
       failures.push("no multi-seed umbrella (no live flow with seeds >= 2) — the agent declined or fragmented");
@@ -254,7 +284,11 @@ function score_fixture(expectation: FixtureExpectation, repo: string, agent_outp
       const missing = expectation.expected_members.filter((m) => !umbrella.anchor_set.includes(m));
       if (missing.length > 0) failures.push(`umbrella misses expected member(s): ${missing.join(", ")}`);
     }
-    if (observed.bridges.length === 0) failures.push("no agentic.bridge persisted (uncorroborated or missing stitch)");
+    // seeds_only fixtures record no unresolved site anywhere, so no corroborable bridge can exist
+    // — the bin's evidence bar (Tier 1-pinned) rejects any claimed one; only "stitch" demands one.
+    if (expectation.kind === "stitch" && observed.bridges.length === 0) {
+      failures.push("no agentic.bridge persisted (uncorroborated or missing stitch)");
+    }
     for (const anchor of expectation.expected_description_anchors) {
       const description = observed.descriptions.get(anchor);
       if (description === undefined || description.source !== "llm" || description.text.trim().length === 0) {
@@ -283,7 +317,13 @@ function score_fixture(expectation: FixtureExpectation, repo: string, agent_outp
   }
 
   const lines: string[] = [];
-  lines.push(`expected: ${expectation.kind === "stitch" ? "one multi-seed umbrella, >=1 bridge, llm descriptions" : "two singleton flows, no bridge"}`);
+  const expected_line =
+    expectation.kind === "stitch"
+      ? "one multi-seed umbrella, >=1 bridge, llm descriptions"
+      : expectation.kind === "stitch_seeds_only"
+        ? "one multi-seed umbrella, seeds-only (no corroborable site exists, no bridge required), llm descriptions"
+        : "two singleton flows, no bridge";
+  lines.push(`expected: ${expected_line}`);
   for (const flow of observed.flows) {
     lines.push(`flow ${flow.id}  label='${flow.label}'  seeds=${flow.entry_points.length}  members=[${flow.anchor_set.join(", ")}]`);
   }

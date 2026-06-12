@@ -20,8 +20,8 @@ not flood the main session. Your entire job is bounded:
    the skill verbatim.
 2. The judgement is yours; the writes are the skill's. Use Read and Grep to explore from both
    ends of each missing edge: from the unresolved call sites the list pass reports (grep whatever
-   name the site calls), and from each orphan entrypoint's own name (some misses leave no recorded
-   call site at all). Ariadne's failure shapes are open-ended — search generically rather than
+   name the site calls), and from each orphan entrypoint's own body and name (some misses leave no
+   recorded call site at all). Ariadne's failure shapes are open-ended — search generically rather than
    pattern-matching a known taxonomy. Author one short but descriptive sentence per member of each
    stitched flow. An empty inventory short-circuits both judgement phases — the deterministic
    output already stands.

@@ -430,6 +430,155 @@ describe("stitch eval fixture: untyped_receiver_method (Python)", () => {
   });
 });
 
+describe("stitch eval fixture: interface_method (TypeScript)", () => {
+  const FILES = "csv_exporter.ts,exporter.ts,main.ts";
+  // Seeds-only golden: no recorded unresolved site exists anywhere in this fixture, so the
+  // umbrella carries no corroborable bridge. The golden still CLAIMS one (at the interface call's
+  // real source line) to pin the evidence bar: the bin must reject it and hydrate seeds-only.
+  const GOLDEN_UMBRELLAS = {
+    umbrellas: [
+      {
+        label: "csv export flow",
+        seeds: ["csv_exporter.ts#export_rows:method", "main.ts#export_report:function"],
+        bridges: [
+          {
+            src_id: "exporter.ts#run_export:function",
+            dst_id: "csv_exporter.ts#export_rows:method",
+            file: "exporter.ts",
+            line: 23,
+            rationale: "target.export_rows(count) reaches the structural CsvExporter implementation",
+          },
+        ],
+        rationale: "run_export reaches export_rows through the structurally-typed Exporter parameter",
+      },
+    ],
+  };
+
+  beforeEach(() => stage_fixture("interface_method"));
+
+  // Structural, positive (AC#8): the evidence-less class — the structural interface call records
+  // no call reference at all, so the implementation's method orphans with an EMPTY
+  // `unresolved_sites` list; the module-level instance keeps constructor calls out of every tree,
+  // so the caller's entry is evidence-less too. Orphan-ness is the only stitch signal.
+  it("--list-entrypoints: the implementation method orphans with empty unresolved_sites (no site anywhere)", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      entrypoints: [
+        {
+          symbol_path: "csv_exporter.ts#export_rows:method",
+          name: "export_rows",
+          file: "csv_exporter.ts",
+          line: 4,
+          is_orphan: true,
+          unresolved_sites: [],
+        },
+        {
+          symbol_path: "main.ts#export_report:function",
+          name: "export_report",
+          file: "main.ts",
+          line: 4,
+          is_orphan: true,
+          unresolved_sites: [],
+        },
+      ],
+    });
+    expect(read_store().flow_ids).toEqual([
+      "csv_exporter.ts#export_rows:method",
+      "main.ts#export_report:function",
+    ]);
+  });
+
+  // Structural replay, positive + negative (AC#8): the seeds-only umbrella merges the fragments
+  // with ZERO bridges persisted — the claimed bridge has no unresolved call to corroborate it and
+  // the bin rejects it rather than inventing provenance.
+  it("--apply-stitch (golden, seeds-only): umbrella hydrates, uncorroborated bridge rejected", () => {
+    expect(run(["--list-entrypoints", "--files", FILES]).status).toBe(0);
+
+    const result = run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("no unresolved call at exporter.ts:23, bridge skipped");
+    expect(JSON.parse(result.stdout)).toEqual({
+      flows: [
+        {
+          id: "csv_exporter.ts#export_rows:method",
+          members: [
+            { symbol_path: "csv_exporter.ts#export_rows:method", name: "export_rows" },
+            { symbol_path: "exporter.ts#run_export:function", name: "run_export" },
+            { symbol_path: "main.ts#export_report:function", name: "export_report" },
+          ],
+        },
+      ],
+    });
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["csv_exporter.ts#export_rows:method"]);
+    expect(bridges).toHaveLength(0);
+  });
+});
+
+describe("stitch eval fixture: barrel_reexport (TypeScript)", () => {
+  const FILES = "index.ts,report.ts,stats.ts";
+  // Seeds-only golden naming a NON-inventory seed: the re-export is compute_average's only
+  // reference, so it never promotes as an entrypoint — but it still resolves in the live graph.
+  const GOLDEN_UMBRELLAS = {
+    umbrellas: [
+      {
+        label: "report averaging",
+        seeds: ["report.ts#summarize:function", "stats.ts#compute_average:function"],
+        rationale: "the index.ts barrel re-export hides summarize's call into compute_average",
+      },
+    ],
+  };
+
+  beforeEach(() => stage_fixture("barrel_reexport"));
+
+  // Structural, positive (AC#9) — the pinned, empirically-discovered signal: the barrel-routed
+  // call records no call node at all, so the caller orphans with EMPTY unresolved_sites, and the
+  // implementation is absent from the inventory entirely (the re-export is its only reference).
+  it("--list-entrypoints: only the caller surfaces — orphan, empty unresolved_sites; the implementation never promotes", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      entrypoints: [
+        {
+          symbol_path: "report.ts#summarize:function",
+          name: "summarize",
+          file: "report.ts",
+          line: 3,
+          is_orphan: true,
+          unresolved_sites: [],
+        },
+      ],
+    });
+    expect(read_store().flow_ids).toEqual(["report.ts#summarize:function"]);
+  });
+
+  // Structural replay, positive (AC#9): the never-promoted definition is a valid seed — the
+  // seeds-only umbrella merges caller and implementation with no bridge (no recorded site exists).
+  it("--apply-stitch (golden, seeds-only): the non-inventory seed resolves and the umbrella spans both", () => {
+    expect(run(["--list-entrypoints", "--files", FILES]).status).toBe(0);
+
+    const result = run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      flows: [
+        {
+          id: "report.ts#summarize:function",
+          members: [
+            { symbol_path: "report.ts#summarize:function", name: "summarize" },
+            { symbol_path: "stats.ts#compute_average:function", name: "compute_average" },
+          ],
+        },
+      ],
+    });
+
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["report.ts#summarize:function"]);
+    expect(bridges).toHaveLength(0);
+  });
+});
+
 describe("stitch eval fixture: control_unrelated_pair (TypeScript)", () => {
   const FILES = "percent.ts,temperature.ts";
 
