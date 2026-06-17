@@ -1,6 +1,7 @@
 import type { EdgeRow, NodeRow } from "@code-charter/types";
 
 import { is_code_node, is_module_node } from "./chart_types";
+import { CONFIG } from "./chart_config";
 import { custom_graph_to_react_flow } from "./custom_graph_to_react_flow";
 
 function node(over: Partial<NodeRow> = {}): NodeRow {
@@ -76,7 +77,7 @@ describe("custom_graph_to_react_flow (AC#6)", () => {
     const rendered_leaf = nodes.find((n) => n.id === leaf.id)!;
     expect(rendered_leaf.parentId).toBe(MODULE_ID);
     expect(rendered_leaf.expandParent).toBe(true);
-    expect(rendered_leaf.extent).toEqual([[-1e9, 30], [1e9, 1e9]]);
+    expect(rendered_leaf.extent).toEqual([[-1e9, CONFIG.layout.module.headerHeight], [1e9, 1e9]]);
     const rendered_module = nodes.find((n) => n.id === MODULE_ID)!;
     if (is_module_node(rendered_module)) {
       expect(rendered_module.data.member_count).toBe(1);

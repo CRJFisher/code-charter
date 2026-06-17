@@ -1,7 +1,7 @@
 ---
 id: TASK-28
 title: Restore module expand/contract, entry-point, and color regressions from 27.1.3 adapter port
-status: To Do
+status: Done
 assignee: []
 created_date: "2026-06-17"
 labels: [ui, bug]
@@ -35,6 +35,16 @@ Root-cause: `custom_graph_to_react_flow.ts:build_node()` at lines 86–91 (funct
 - [ ] #5 `build_node()` assigns a distinct `cluster_index` to each module group node (derived from its position in the sorted module list) so adjacent modules render with different cluster colors from the palette
 - [ ] #6 All existing tests pass; add or update tests in `custom_graph_to_react_flow.test.ts` to cover ACs #1–5
 <!-- AC:END -->
+
+## Implementation Notes
+
+## High-level summary
+
+The task-27.1.3 adapter replacement (`custom_graph_to_react_flow.ts`) omitted four properties that the shrink-fit system, entry-point rendering, and module color differentiation all depend on. The omissions were silent: no type errors and no runtime crashes, but the drag-resize path, the `⮕` arrow, and per-module colors were all unreachable.
+
+The fix is concentrated in `build_node()` in [custom_graph_to_react_flow.ts](packages/ui/src/components/code_chart_area/custom_graph_to_react_flow.ts). For parented function nodes, `expandParent: true` and a `CoordinateExtent` array (`[[-1e9, CONFIG.layout.module.headerHeight], [1e9, 1e9]]`) replace the old `extent: "parent"` — these are the two properties `parent_resize.ts` and `onNodeDragStop` require. For module group nodes, a per-call counter (`module_cluster_index`) replaces the hardcoded `0`, so each module receives a distinct palette index. For the entry-point, the approach avoids adding a field to `RenderedRows`: `project_member_set()` in [flow_projection.ts](packages/core/src/model/flow_projection.ts) receives the flow's seed set and marks each seed node's row with `attributes.is_entry_point = true`; `build_node()` reads that attribute to set `data.is_entry_point` on the `CodeNodeData`.
+
+The cluster index is stable across re-renders because `build_module_scaffold` always emits module nodes sorted by group ID, so emission order in `rows.nodes` maps to the same color slot each time. The entry-point pipeline runs through `NodeRow.attributes` — the established cross-boundary carrier already used for `label`, `line_number`, and `description` — keeping `RenderedRows` unchanged.
 
 ## Implementation Plan
 

@@ -51,6 +51,7 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
       continue;
     }
     const parent_id = parent_of.get(row.id);
+    // cluster_index is only consumed by the module_group branch of build_node; 0 is a safe no-op for all other node types
     const cluster_index = type === "module_group" ? module_cluster_index++ : 0;
     nodes.push(build_node(row, type, parent_id !== undefined && emitted.has(parent_id) ? parent_id : undefined, member_count.get(row.id) ?? 0, cluster_index));
   }
