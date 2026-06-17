@@ -76,14 +76,14 @@ function make_call_reference(
 }
 
 /** A render-only code.function row (no anchor; the adapter reads `attributes.label`). */
-function code_function_row(id: string, label: string, file_path: string, line_number: number): NodeRow {
+function code_function_row(id: string, label: string, file_path: string, line_number: number, is_entry_point?: boolean): NodeRow {
   return {
     id,
     kind: "code.function",
     path: file_path,
     anchor: null,
     layer: "raw",
-    attributes: { label, line_number },
+    attributes: is_entry_point === true ? { label, line_number, is_entry_point: true } : { label, line_number },
     field_ownership: {},
     origin: "mock",
     intent_source: "code-edit",
@@ -189,7 +189,7 @@ export class MockBackend implements CodeCharterBackend {
   async render_flow(_flow_id: string): Promise<RenderedRows> {
     return {
       nodes: [
-        code_function_row("main.ts:main", "main", "main.ts", 0),
+        code_function_row("main.ts:main", "main", "main.ts", 0, true),
         code_function_row("utils.ts:processData", "processData", "utils.ts", 9),
         code_function_row("api.ts:fetch_data", "fetch_data", "api.ts", 4),
         module_group_row("main.ts"),

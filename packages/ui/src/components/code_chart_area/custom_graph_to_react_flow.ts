@@ -18,6 +18,7 @@ import type { NodeRow, RenderedRows } from "@code-charter/types";
 import type { CodeNodeData } from "./code_function_node";
 import { resolve_node_type, type ModuleNodeData } from "./chart_node_types";
 import type { CodeChartEdge, CodeChartNode } from "./chart_types";
+import { CONFIG } from "./chart_config";
 import { error_logger } from "./error_handling";
 
 const CONTAINS_EDGE_KIND = "agentic.contains";
@@ -40,6 +41,7 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
   // parent module was also emitted, so a leaf never references a React Flow parent that doesn't exist.
   const emitted = new Set(rows.nodes.filter((row) => resolve_node_type(row.kind) !== undefined).map((row) => row.id));
   const nodes: CodeChartNode[] = [];
+  let module_cluster_index = 0;
   for (const row of rows.nodes) {
     const type = resolve_node_type(row.kind);
     if (type === undefined) {
@@ -49,7 +51,8 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
       continue;
     }
     const parent_id = parent_of.get(row.id);
-    nodes.push(build_node(row, type, parent_id !== undefined && emitted.has(parent_id) ? parent_id : undefined, member_count.get(row.id) ?? 0));
+    const cluster_index = type === "module_group" ? module_cluster_index++ : 0;
+    nodes.push(build_node(row, type, parent_id !== undefined && emitted.has(parent_id) ? parent_id : undefined, member_count.get(row.id) ?? 0, cluster_index));
   }
 
   const edges: CodeChartEdge[] = [];
@@ -62,14 +65,14 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
   return { nodes, edges };
 }
 
-function build_node(row: NodeRow, type: string, parent_id: string | undefined, member_count: number): CodeChartNode {
+function build_node(row: NodeRow, type: string, parent_id: string | undefined, member_count: number, cluster_index: number): CodeChartNode {
   const description = string_attr(row.attributes.description) ?? "";
   if (type === "module_group") {
     const data: ModuleNodeData = {
       module_name: string_attr(row.attributes.label) ?? display_name_of(row),
       description,
       member_count,
-      cluster_index: 0,
+      cluster_index,
       row,
     };
     return { id: row.id, type, position: { x: 0, y: 0 }, data };
@@ -80,13 +83,15 @@ function build_node(row: NodeRow, type: string, parent_id: string | undefined, m
     description,
     file_path: row.path,
     line_number: number_attr(row.attributes.line_number) ?? 1,
+    is_entry_point: row.attributes.is_entry_point === true,
     symbol: row.id,
     row,
   };
   const node: CodeChartNode = { id: row.id, type, position: { x: 0, y: 0 }, data };
   if (parent_id !== undefined) {
     node.parentId = parent_id;
-    node.extent = "parent";
+    node.expandParent = true;
+    node.extent = [[-1e9, CONFIG.layout.module.headerHeight], [1e9, 1e9]];
   }
   return node;
 }

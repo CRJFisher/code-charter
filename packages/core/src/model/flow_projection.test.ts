@@ -52,6 +52,14 @@ describe("project_flow — under budget (AC#3, AC#6)", () => {
   it("is deterministic across runs", () => {
     expect(project_flow(main_flow(), graph)).toEqual(project_flow(main_flow(), graph));
   });
+
+  it("marks the seed node with attributes.is_entry_point = true, non-seeds are unmarked", () => {
+    const { nodes } = project_flow(main_flow(), graph);
+    const main_node = nodes.find((n) => n.id === "main");
+    expect(main_node?.attributes.is_entry_point).toBe(true);
+    const helper_node = nodes.find((n) => n.id === "helper");
+    expect(helper_node?.attributes.is_entry_point).toBeUndefined();
+  });
 });
 
 describe("project_flow — over budget collapses to module granularity (AC#6, D-LARGE-FLOW-RENDER)", () => {
