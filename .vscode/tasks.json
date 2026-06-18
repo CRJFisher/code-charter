@@ -40,6 +40,17 @@
             "presentation": {
                 "reveal": "never"
             }
+        },
+        {
+            "label": "Build UI Dependencies",
+            "type": "shell",
+            "command": "npx turbo run build --filter=@code-charter/ui^...",
+            "group": "build",
+            "problemMatcher": "$tsc",
+            "isBackground": false,
+            "presentation": {
+                "reveal": "silent"
+            }
         }
     ]
 }
