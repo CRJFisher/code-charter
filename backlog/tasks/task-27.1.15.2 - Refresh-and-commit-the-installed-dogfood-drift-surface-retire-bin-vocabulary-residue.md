@@ -49,6 +49,13 @@ Small residue to clean in the same pass:
 
 ## Implementation Notes
 
+> **Superseded by task-27.1.19.** This task kept the repo-root `.claude/` installed dogfood drift
+> surface in sync with `packages/drift/assets`. task-27.1.19 removes drift from code-charter's own
+> repo entirely: code-charter is product source and does not run drift on itself, so there is no
+> committed dogfood surface to refresh. The drift substrate lives only in the prod package
+> (`packages/drift/assets`) and is installed into external repos at runtime. The work below was
+> correct at the time; the surface it maintained no longer exists.
+
 ## High-level summary
 
 The committed dogfood surface and the assets are byte-identical, and no retired vocabulary remains on any agent-facing surface: `grep` over `.claude/commands`, `.claude/agents`, and `.claude/skills` finds no `drift.list`, `drift.next`, re-attachment-bin, recall-and-reapply, or reanchor references. The installed copies were refreshed from the assets in the same commits that edited them (tasks 27.1.15.1 and 27.1.15.4), so the surface a session loads always matches the shipped package.

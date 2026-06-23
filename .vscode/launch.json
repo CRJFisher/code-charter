@@ -12,7 +12,7 @@
             "outFiles": [
                 "${workspaceFolder}/packages/vscode/out/**/*.js"
             ],
-            "preLaunchTask": "Build All Packages",
+            "preLaunchTask": "Install Drift Into Target Repo",
             "env": {
                 "CODE_CHARTER_DEV_MODE": "true"
             }

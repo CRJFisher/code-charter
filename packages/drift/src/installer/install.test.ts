@@ -35,9 +35,19 @@ describe("install_drift (idempotency + asset install)", () => {
       expect(fs.existsSync(path.join(target, ".claude", "commands", "drift.md"))).toBe(true);
 
       // The dependency-free skill script finds the built reconcile bin via this installer-written sidecar.
+      // It records an ABSOLUTE path: the bin lives in the drift package, not the target repo, so the
+      // skill resolves it regardless of its cwd.
       const sidecar = path.join(target, ".claude", "skills", "drift-sync", ".drift_reconcile_bin");
       expect(fs.existsSync(sidecar)).toBe(true);
-      expect(fs.readFileSync(sidecar, "utf8").trim()).toContain("drift_reconcile.js");
+      const sidecar_bin = fs.readFileSync(sidecar, "utf8").trim();
+      expect(sidecar_bin).toContain("drift_reconcile.js");
+      expect(path.isAbsolute(sidecar_bin)).toBe(true);
+
+      // The Stop hook command points at the bin by its absolute path, for the same reason.
+      const stop_group = read_hook_groups(settings, CLAUDE_CODE_LAYOUT, "Stop")[0];
+      const stop_command = stop_group.hooks[0].command;
+      expect(stop_command).toContain("drift_stop_hook.js");
+      expect(stop_command).toMatch(/node "\//);
 
       // Idempotency at the byte level: a third run does not change settings.json.
       const before = fs.readFileSync(settings_path, "utf8");

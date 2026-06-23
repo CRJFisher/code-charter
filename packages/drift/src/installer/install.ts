@@ -34,18 +34,14 @@ function bin_path(package_root: string, bin_filename: string): string {
 }
 
 /**
- * The bin path as a forward-slash path relative to the install target. The hook and the drift-sync
- * skill both run with the target repo as their cwd, so a repo-relative path is portable across
- * machines and checkouts — the installed `.claude` config can be committed without baking in an absolute
- * home directory.
+ * The `node "<abs-bin>"` command a hook entry runs. The bin lives in the drift package — the installed
+ * VS Code extension, or the dev checkout — never in the target repo, so the command carries an absolute
+ * path to it. The hook runs with the target repo as cwd; an absolute path makes the bin resolvable
+ * wherever the target repo and the package each sit. The installer re-asserts this on every install, so
+ * a move of the package (e.g. an extension update to a new versioned folder) self-heals on the next run.
  */
-function relative_bin(target_root: string, package_root: string, bin_filename: string): string {
-  return path.relative(target_root, bin_path(package_root, bin_filename)).split(path.sep).join("/");
-}
-
-/** The `node <repo-relative-bin>` command string a hook entry runs (cwd is the target repo). */
-export function hook_command(target_root: string, package_root: string, bin_filename: string): string {
-  return `node ${relative_bin(target_root, package_root, bin_filename)}`;
+export function hook_command(package_root: string, bin_filename: string): string {
+  return `node "${bin_path(package_root, bin_filename)}"`;
 }
 
 /**
@@ -91,11 +87,11 @@ function assert_bin_built(package_root: string, bin_filename: string): void {
 }
 
 /** The hook specs the installer writes, with their identity tokens for idempotency. */
-export function build_hook_specs(target_root: string, package_root: string): HookArtifactSpec[] {
+export function build_hook_specs(package_root: string): HookArtifactSpec[] {
   return [
     {
       event_name: "Stop",
-      command: hook_command(target_root, package_root, STOP_BIN),
+      command: hook_command(package_root, STOP_BIN),
       identity_token: "drift_stop_hook",
     },
   ];
@@ -107,7 +103,7 @@ export function install_drift(target_root: string, layout: HostLayout, package_r
     assert_bin_built(package_root, bin);
   }
 
-  const specs = build_hook_specs(target_root, package_root);
+  const specs = build_hook_specs(package_root);
 
   const settings_path = path.join(target_root, layout.settings_file);
   const merged_settings = merge_all_hooks(read_json(settings_path), layout, specs);
@@ -122,8 +118,8 @@ export function install_drift(target_root: string, layout: HostLayout, package_r
   }
 
   // The drift-sync skill script is dependency-free and shells into the built reconcile bin; record the
-  // bin's repo-relative path beside the installed skill so the script (run with the repo as cwd) can
-  // locate it with no node_modules, portably across checkouts.
+  // bin's absolute path beside the installed skill so the script can locate it with no node_modules,
+  // regardless of the cwd it runs from.
   const sidecar = path.join(target_root, layout.skills.target_subdir, "drift-sync", RECONCILE_BIN_SIDECAR);
-  fs.writeFileSync(sidecar, relative_bin(target_root, package_root, RECONCILE_BIN) + "\n");
+  fs.writeFileSync(sidecar, bin_path(package_root, RECONCILE_BIN) + "\n");
 }

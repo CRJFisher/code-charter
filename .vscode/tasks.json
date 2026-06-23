@@ -51,6 +51,21 @@
             "presentation": {
                 "reveal": "silent"
             }
+        },
+        {
+            "label": "Install Drift Into Target Repo",
+            "type": "shell",
+            "command": "node ${workspaceFolder}/packages/drift/dist/bin/drift_install.js",
+            "options": {
+                "cwd": "${userHome}/workspace/bergamot"
+            },
+            "dependsOn": ["Build All Packages"],
+            "group": "build",
+            "problemMatcher": [],
+            "isBackground": false,
+            "presentation": {
+                "reveal": "silent"
+            }
         }
     ]
 }

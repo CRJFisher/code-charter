@@ -37,6 +37,7 @@ The 27.0/27.1 line already realizes most of task-21 (persisted graph, hooks, age
 - [ ] #2 The same artifact set produces a usable experience in at least one host beyond Claude Code (Cursor lowest-friction) without per-tool translation code — **subject to D-PORT-SCOPE / D-PORT-HOSTS**
 - [ ] #3 When a host lacks the Stop hook / custom-sub-agent capability, the fallback is a host-driven manual `drift-sync` run (the skill, or its bundled script, invoked directly) — there is no MCP pull-fallback (the drift MCP server is removed in task-27.1.15); the neutral `.agents/skills/` path and OpenCode's hooks-via-JS-plugin gap (which affects the Stop-hook trigger) are handled or explicitly deferred per the host matrix (task-27.1.1)
 - [ ] #4 No regression to the Claude-Code-native experience; versioned/droppable bundle only if **D-BUNDLE-ARTIFACT** selects that framing
+- [x] #5 The bundle is installed into the target repo at runtime by an explicit actor — the VS Code extension installs/refreshes it into the open workspace, resolving the package root from the bundled extension assets (`require.resolve`), and never installs onto code-charter itself (done for the Claude-Code host in task-27.1.19; the host-keyed layout keeps the actor host-neutral)
 
 <!-- AC:END -->
 
@@ -46,7 +47,7 @@ The 27.0/27.1 line already realizes most of task-21 (persisted graph, hooks, age
 
 - **D-PORT-SCOPE** — v1 deliverable vs compatibility-seam-only vs deferred shell.
 - **D-PORT-HOSTS** — Claude Code only · + Cursor · + OpenCode · broader hosts via a manual skill-invocation fallback (no MCP pull-fallback post-strip).
-- **D-BUNDLE-ARTIFACT** — versioned droppable bundle vs installer-output-suffices vs defer.
+- **D-BUNDLE-ARTIFACT** — RESOLVED (task-27.1.19): installer-output-suffices, no separately versioned droppable bundle. The substrate ships inside the `@code-charter/drift` package (`assets/` + built bins). The installer writes the bundle into an EXTERNAL target repo's `.claude/` with ABSOLUTE bin paths (the bin lives in the installed package, outside that repo); the installed `.claude/` is that user's to commit or ignore. code-charter never keeps a drift surface in its own repo — it is product source and does not run drift on itself.
 - **D-SKILL-ENTRY-SURFACE** — does rendering a skill directory get its own entry surface, or is it the flow selector scoped to a skill dir? (A skill dir is one flow.)
 
 <!-- SECTION:DECISIONS:END -->

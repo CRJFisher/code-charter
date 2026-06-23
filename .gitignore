@@ -169,8 +169,9 @@ cython_debug/
 # all node_modules directories
 **/node_modules
 .aider*
-# .claude/ holds tracked project config (skills, agents, commands). Only the per-user local settings
-# and the transient worktree checkouts are ignored — at any depth (root or a package's own .claude/).
+# .claude/ holds checked-in project config. Only the per-user local settings and the transient worktree
+# checkouts are ignored — at any depth (root or a package's own .claude/). The drift substrate is NOT
+# committed here: it ships from packages/drift/assets and is installed into target repos at runtime.
 **/.claude/settings.local.json
 **/.claude/worktrees/
 .codex/

@@ -63,6 +63,7 @@
     "@ariadnejs/core": "^0.8.0",
     "@ariadnejs/types": "^0.8.0",
     "@code-charter/core": "^0.0.1",
+    "@code-charter/drift": "^0.0.1",
     "@code-charter/types": "^0.0.1",
     "@code-charter/ui": "^0.0.1",
     "@vscode/python-extension": "^1.0.5"

@@ -1,14 +1,1 @@
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/packages/drift/dist/bin/drift_stop_hook.js\""
-          }
-        ]
-      }
-    ]
-  }
-}
+{}

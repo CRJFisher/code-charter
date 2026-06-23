@@ -18,6 +18,7 @@ import {
   skeleton_to_summary,
 } from "@code-charter/core";
 import type { FlowSummary, RenderedRows } from "@code-charter/types";
+import { HOST_LAYOUTS, install_drift } from "@code-charter/drift";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { AriadneProjectManager } from "./ariadne/project_manager";
@@ -36,6 +37,29 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(disposable);
 }
 
+/**
+ * Install (or refresh) the drift substrate into the open workspace so Claude Code sessions there fire
+ * the Stop-hook reconcile chain that keeps the diagram in sync with the code. The drift package — its
+ * `assets/` bundle and built bins — ships inside the extension; `require.resolve` finds it both in the
+ * dev checkout (workspace symlink) and in the packaged extension (bundled dependency). The install is
+ * idempotent and must never block diagram generation, so any failure is logged and swallowed.
+ */
+function ensure_drift_installed(workspace_path: string): void {
+  try {
+    const package_root = path.dirname(require.resolve("@code-charter/drift/package.json"));
+    // Never dogfood code-charter onto itself: when the open workspace IS the drift package's own repo
+    // (only reachable from a dev checkout), skip — the product analyzes OTHER repos, never its own source.
+    const package_repo_root = path.resolve(package_root, "..", "..");
+    if (path.resolve(workspace_path) === package_repo_root) {
+      console.warn("[code-charter] drift install skipped: the open workspace is code-charter itself");
+      return;
+    }
+    install_drift(workspace_path, HOST_LAYOUTS.claude_code, package_root);
+  } catch (err) {
+    console.error("[code-charter] drift substrate install skipped:", err);
+  }
+}
+
 async function generate_diagram(context: vscode.ExtensionContext) {
   const workspace_folders = vscode.workspace.workspaceFolders;
   if (!workspace_folders) {
@@ -43,6 +67,7 @@ async function generate_diagram(context: vscode.ExtensionContext) {
     return;
   }
   const workspace_path = workspace_folders[0].uri.fsPath;
+  ensure_drift_installed(workspace_path);
   const work_dir = vscode.Uri.file(`${workspace_path}/${extension_folder}`);
   const dir_exists = await vscode.workspace.fs.stat(work_dir).then(
     () => true,

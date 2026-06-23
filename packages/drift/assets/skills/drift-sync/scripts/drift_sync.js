@@ -127,16 +127,13 @@ function locate_reconcile_bin() {
 }
 
 function spawn_bin(args, forwarded_tail) {
-  let bin = locate_reconcile_bin();
+  const bin = locate_reconcile_bin();
   if (bin === null) {
     process.stderr.write(
       "drift-sync: reconcile bin not located. Set DRIFT_RECONCILE_BIN or re-run `drift-install`.\n",
     );
     process.exit(1);
   }
-  // The sidecar records a repo-relative path (portable across checkouts); resolve it against the repo
-  // root so the spawn works regardless of the cwd the skill happens to run from.
-  if (!path.isAbsolute(bin)) bin = path.resolve(args.repo_root, bin);
 
   const forwarded = [bin, ...forwarded_tail, "--store", args.store, "--repo-root", args.repo_root];
   if (args.json) forwarded.push("--json");
