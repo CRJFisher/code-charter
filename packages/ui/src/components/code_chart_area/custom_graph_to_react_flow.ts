@@ -68,9 +68,11 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
   // at its raw parent-relative coord. The flow projection emits leaves before their module groups, so
   // every child would collapse to a near-identical spot on first render. Emit every parent before its
   // children via a stable partition (intra-group order preserved) so each child resolves on first pass.
-  const ordered = [...nodes.filter((n) => n.parentId === undefined), ...nodes.filter((n) => n.parentId !== undefined)];
+  // This lives in the adapter, not the projection, because parentId is assigned here — and only against
+  // modules that survive the kind->component check above — so this is the layer that owns the order.
+  const ordered_nodes = [...nodes.filter((n) => n.parentId === undefined), ...nodes.filter((n) => n.parentId !== undefined)];
 
-  return { nodes: ordered, edges };
+  return { nodes: ordered_nodes, edges };
 }
 
 function build_node(row: NodeRow, type: string, parent_id: string | undefined, member_count: number, cluster_index: number): CodeChartNode {
