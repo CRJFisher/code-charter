@@ -25,10 +25,9 @@ import { ProvenancePanel } from "./provenance_panel";
 import { custom_graph_to_react_flow } from "./custom_graph_to_react_flow";
 import { compute_parent_resize, apply_parent_resize } from "./parent_resize";
 import { LoadingIndicator } from "./loading_indicator";
-import { save_graph_state, load_graph_state, export_graph_state, clear_graph_state } from "./state_persistence";
+import { export_graph_state } from "./state_persistence";
 import { use_keyboard_navigation, SkipToGraph } from "./keyboard_navigation";
 import { use_debounce } from "../../hooks/use_debounce";
-import { use_throttle } from "../../hooks/use_throttle";
 import { clear_layout_caches } from "./graph_layout";
 import { get_visible_nodes, use_virtual_nodes, ViewportIndicator } from "./virtual_renderer";
 import { SearchPanel } from "./search_panel";
@@ -158,20 +157,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         set_nodes([]);
         set_edges([]);
 
-        // Restore a saved layout if the single persisted slot holds this flow's state (it is matched
-        // by flow id; opening a different flow overwrites it — per-flow persistence is not a v1 goal).
-        const saved_state = load_graph_state(selected_flow_id);
-        if (saved_state) {
-          if (cancelled) return;
-          set_nodes(saved_state.nodes);
-          set_edges(saved_state.edges);
-          set_render_status(FlowRenderStatus.Ready);
-          return;
-        }
-
         // Project the flow's bounded subgraph to render rows and adapt them to React Flow (AC#6). The
         // adapter folds the file-module scaffold's `agentic.contains` edges into `parentId` and carries
-        // each source row on `data.row` for the selection-driven provenance panel.
+        // each source row on `data.row` for the selection-driven provenance panel. The layout is always
+        // computed fresh from the current graph — there is no restore-from-storage path, so a graph or
+        // layout-algorithm change is reflected immediately and a stale snapshot can never be replayed.
         const rows = await render_flow(selected_flow_id);
         if (cancelled) return;
 
@@ -214,28 +204,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     return show ? "visible" : "invisible";
   };
 
-  // Throttle save operations for performance (manual Save button)
-  const handle_save_state = use_throttle(useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
-    if (!selected_flow_id || !instance) return;
-
-    const viewport = instance.getViewport();
-    save_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_flow_id);
-  }, [selected_flow_id]), CONFIG.animation.debounce.save);
-
-  // Debounced autosave driven by local state. Reading `nodes`/`edges` directly
-  // (rather than `instance.getNodes()`) avoids a race with React Flow's
-  // internal store: after `set_nodes(...)` from a drag-stop resize, the local
-  // state is already the source of truth.
-  const debounced_nodes = use_debounce(nodes, CONFIG.animation.debounce.save);
-  const debounced_edges = use_debounce(edges, CONFIG.animation.debounce.save);
-  useEffect(() => {
-    if (render_status !== FlowRenderStatus.Ready) return;
-    if (!selected_flow_id || !react_flow_instance.current) return;
-    const viewport = react_flow_instance.current.getViewport();
-    save_graph_state(debounced_nodes, debounced_edges, viewport, selected_flow_id);
-  }, [debounced_nodes, debounced_edges, render_status, selected_flow_id]);
-
-  // Export state to file
+  // Export the current layout to a JSON file (an explicit user action via the Export button).
   const handle_export_state = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selected_flow_id || !instance) return;
 
@@ -243,17 +212,11 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     export_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_flow_id);
   }, [selected_flow_id]);
 
-  // Handle React Flow initialization
+  // Handle React Flow initialization: capture the instance. The viewport is framed by `fitView`,
+  // not restored from storage — the layout is always computed fresh for the current graph.
   const on_init = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selected_flow_id) return;
-
     react_flow_instance.current = instance;
-
-    // Check for saved viewport
-    const saved_state = load_graph_state(selected_flow_id);
-    if (saved_state?.viewport) {
-      instance.setViewport(saved_state.viewport);
-    }
   }, [selected_flow_id]);
 
   if (indexing_status !== CodeIndexStatus.Ready) {
@@ -476,29 +439,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               {show_mini_map ? "🗺️ Hide Map" : "🗺️ Show Map"}
             </button>
 
-            {/* Persistence controls */}
+            {/* Export the current layout to a JSON file (explicit user action). */}
             <div
               style={{
                 display: "flex",
                 gap: `${CONFIG.spacing.margin.small}px`,
               }}
             >
-              <button
-                onClick={() => {
-                  if (react_flow_instance.current) {
-                    handle_save_state(react_flow_instance.current);
-                    notify("Graph state saved!", "info");
-                  }
-                }}
-                style={{
-                  ...theme_styles.get_button_style('primary'),
-                  padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
-                  fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                }}
-              >
-                Save
-              </button>
               <button
                 onClick={() => {
                   if (react_flow_instance.current) {
@@ -513,20 +460,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
                 }}
               >
                 Export
-              </button>
-              <button
-                onClick={() => {
-                  clear_graph_state();
-                  notify("Saved state cleared!", "info");
-                }}
-                style={{
-                  ...theme_styles.get_button_style('danger'),
-                  padding: `${CONFIG.spacing.padding.small}px ${CONFIG.spacing.padding.medium}px`,
-                  fontSize: `${CONFIG.spacing.fontSize.small}px`,
-                  borderRadius: `${CONFIG.spacing.borderRadius.small}px`,
-                }}
-              >
-                Clear
               </button>
             </div>
           </div>

@@ -56,7 +56,6 @@ All configuration constants have been extracted into a central `chart_config.ts`
   - `saveDelay`: Save operation delay (default: 100ms)
 - **Debounce**: Debounce timings
   - `viewport`: Viewport change debounce (default: 100ms)
-  - `save`: Save operation debounce (default: 1000ms)
 
 ### Performance Configuration (`PERFORMANCE_CONFIG`)
 

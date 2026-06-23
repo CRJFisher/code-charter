@@ -89,7 +89,6 @@ const ANIMATION_CONFIG = {
   // Debounce/Throttle
   debounce: {
     viewport: 100,
-    save: 1000,
   },
 } as const;
 

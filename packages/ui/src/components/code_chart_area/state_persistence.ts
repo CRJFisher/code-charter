@@ -9,62 +9,6 @@ export interface GraphState {
   entry_point: string;
 }
 
-const STORAGE_KEY = 'code-charter-react-flow-state';
-
-export function save_graph_state(
-  nodes: CodeChartNode[],
-  edges: CodeChartEdge[],
-  viewport: Viewport,
-  entry_point: string
-): void {
-  const state: GraphState = {
-    nodes,
-    edges,
-    viewport,
-    timestamp: Date.now(),
-    entry_point,
-  };
-  
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.error('Failed to save graph state:', error);
-  }
-}
-
-export function load_graph_state(entry_point: string): GraphState | null {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return null;
-    
-    const state = JSON.parse(saved) as GraphState;
-    
-    // Check if this is for the same entry point
-    if (state.entry_point !== entry_point) {
-      return null;
-    }
-    
-    // Check if state is not too old (e.g., 24 hours)
-    const day_in_ms = 24 * 60 * 60 * 1000;
-    if (Date.now() - state.timestamp > day_in_ms) {
-      return null;
-    }
-    
-    return state;
-  } catch (error) {
-    console.error('Failed to load graph state:', error);
-    return null;
-  }
-}
-
-export function clear_graph_state(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error('Failed to clear graph state:', error);
-  }
-}
-
 // Export graph state to JSON file
 export function export_graph_state(
   nodes: CodeChartNode[],
