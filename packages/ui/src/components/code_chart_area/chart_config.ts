@@ -75,6 +75,10 @@ const ZOOM_CONFIG = {
     min: 0.1,
     max: 2.5,
     threshold: 0.45,
+    // Cap for the initial fit-to-view so the first frame lands in the module-level
+    // view (modules render as boxes, functions are simplified). Must stay strictly
+    // below `threshold`: the view switches to function detail at `transform[2] >= threshold`.
+    initial_max_zoom: 0.44,
   },
 } as const;
 

@@ -317,6 +317,10 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           fitViewOptions={{
             padding: CONFIG.viewport.fit_view.padding,
             duration: CONFIG.animation.duration.fit_view,
+            // Frame the graph in the module-level view on first load: cap the fit
+            // zoom below the function-detail threshold so small graphs don't open
+            // zoomed past it. Only the mount-time fit uses these options.
+            maxZoom: CONFIG.zoom.levels.initial_max_zoom,
           }}
           nodesDraggable={true}
           nodesConnectable={false}
