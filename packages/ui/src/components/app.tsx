@@ -65,7 +65,6 @@ export const App: React.FC<AppProps> = ({ class_name = "" }) => {
         <div className="flex flex-1 bg-vscodeBg">
           <CodeChartArea
             selected_flow_id={selected_flow_id}
-            screen_width_fraction={0.8}
             render_flow={backend.render_flow.bind(backend)}
             indexing_status={status_message}
           />

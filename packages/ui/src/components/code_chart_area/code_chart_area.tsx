@@ -42,7 +42,6 @@ type ZoomMode = "zoomedIn" | "zoomedOut";
 
 interface CodeChartAreaProps {
   selected_flow_id: string | null;
-  screen_width_fraction: number;
   render_flow: (flow_id: string) => Promise<RenderedRows>;
   indexing_status: CodeIndexStatus;
 }
@@ -56,7 +55,6 @@ const aria_label_config = {
 
 const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   selected_flow_id,
-  screen_width_fraction,
   render_flow,
   indexing_status,
 }) => {
@@ -263,8 +261,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       <div
         className="chart-container"
         style={{
-          width: `${screen_width_fraction * 100}%`,
-          height: "100vh",
+          width: "100%",
+          height: "100%",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
@@ -285,8 +283,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
       <div
         className="chart-container"
         style={{
-          width: `${screen_width_fraction * 100}%`,
-          height: "100vh",
+          width: "100%",
+          height: "100%",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
@@ -308,8 +306,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         ref={container_ref}
         className="chart-container"
         style={{
-          width: `${screen_width_fraction * 100}%`,
-          height: "100vh",
+          width: "100%",
+          height: "100%",
           position: "relative",
         }}
         id="code-flow-graph"
