@@ -111,6 +111,28 @@ describe("custom_graph_to_react_flow (AC#6)", () => {
     }
   });
 
+  it("emits every parent before its children, even for children-first input rows (AC#2)", () => {
+    // Two modules, each with a leaf. Input order is children-first (as flow_projection emits them):
+    // both leaves, then both module groups. The adapter must reorder so each parent precedes its child.
+    const leaf_a = node({ id: "src/a.ts#fn:function", path: "src/a.ts" });
+    const leaf_b = node({ id: "src/b.ts#fn:function", path: "src/b.ts" });
+    const module_a = node({ id: "agentic.group:file:src/a.ts", kind: "agentic.group", anchor: null, layer: "agentic", attributes: { label: "src/a.ts" } });
+    const module_b = node({ id: "agentic.group:file:src/b.ts", kind: "agentic.group", anchor: null, layer: "agentic", attributes: { label: "src/b.ts" } });
+    const contains_a = edge({ key: "c1", src_id: leaf_a.id, dst_id: module_a.id, kind: "agentic.contains", layer: "agentic" });
+    const contains_b = edge({ key: "c2", src_id: leaf_b.id, dst_id: module_b.id, kind: "agentic.contains", layer: "agentic" });
+
+    const { nodes } = custom_graph_to_react_flow({
+      nodes: [leaf_a, leaf_b, module_a, module_b],
+      edges: [contains_a, contains_b],
+    });
+
+    const index_of = new Map(nodes.map((n, i) => [n.id, i]));
+    for (const child of nodes) {
+      if (child.parentId === undefined) continue;
+      expect(index_of.get(child.parentId)!).toBeLessThan(index_of.get(child.id)!);
+    }
+  });
+
   it("skips a node whose kind has no registered component, without throwing", () => {
     const { nodes } = custom_graph_to_react_flow({
       nodes: [node(), node({ id: "doc#1", kind: "doc.markdown", anchor: null })],

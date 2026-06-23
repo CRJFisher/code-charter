@@ -63,7 +63,14 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
     edges.push({ id: edge.key, source: edge.src_id, target: edge.dst_id, data: { row: edge } });
   }
 
-  return { nodes, edges };
+  // React Flow v12 `adoptUserNodes` walks the node array top-to-bottom; reaching a child whose parent is
+  // not yet in `nodeLookup`, it early-returns without deriving the child's absolute position, leaving it
+  // at its raw parent-relative coord. The flow projection emits leaves before their module groups, so
+  // every child would collapse to a near-identical spot on first render. Emit every parent before its
+  // children via a stable partition (intra-group order preserved) so each child resolves on first pass.
+  const ordered = [...nodes.filter((n) => n.parentId === undefined), ...nodes.filter((n) => n.parentId !== undefined)];
+
+  return { nodes: ordered, edges };
 }
 
 function build_node(row: NodeRow, type: string, parent_id: string | undefined, member_count: number, cluster_index: number): CodeChartNode {
