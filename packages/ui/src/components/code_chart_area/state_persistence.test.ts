@@ -3,10 +3,25 @@ import {
   import_graph_state,
   GraphState
 } from "./state_persistence";
+import * as state_persistence from "./state_persistence";
 import { Viewport } from "@xyflow/react";
 import { CodeChartNode, CodeChartEdge } from "./chart_types";
 
 describe("state_persistence", () => {
+  // task-29.3 regression. The live defect restored a stale layout snapshot from localStorage on mount
+  // and returned before the layout pipeline ran, replaying a broken layout (modules at {0,0}, no
+  // dimensions) forever. The fix removed that path: persistence is file-only (export/import), with no
+  // localStorage load/save/clear primitive. Re-introducing any of those re-enables the restore-bypass,
+  // so guard their absence here — this is the test that fails if the root cause regresses.
+  describe("no layout auto-restore surface (task-29.3 regression)", () => {
+    it.each(["load_graph_state", "save_graph_state", "clear_graph_state"])(
+      "does not expose %s (a localStorage restore/persist primitive)",
+      (name) => {
+        expect(name in state_persistence).toBe(false);
+      },
+    );
+  });
+
   const mockNodes: CodeChartNode[] = [
     {
       id: "node1",

@@ -40,4 +40,6 @@ ZOOM REMOVAL DECISION: keep zoom + virtualization. Rationale: only the zoom-virt
 
 RECOMMENDED ORDER: ship .1 and .2 (confirmed, safe), then drive the app and try to reproduce .3/.4/.5 on a small flow first, then on a >200-node flow. .4 and .5 real causes (if any) are gated to large graphs.
 
+LAYOUT-PERSISTENCE BYPASS (found in .3, affects .4/.5 verification): the chart used to restore a layout snapshot from localStorage on load and return before the layout pipeline ran. A snapshot captured during the pre-29.2 broken era (every module at {0,0}, no dimensions) was replayed on every load, so the live app showed the overlap AND drag-follow failure even though .1/.2 had landed — the fixes never reached the running view. .3 removes layout restore entirely: the layout is now always computed fresh. Consequence for .4 and .5: any earlier live reproduction of those symptoms may have been an artifact of the same stale snapshot, not a real defect. Re-verify .4/.5 against the fresh-layout build before diagnosing — if a symptom no longer reproduces, it was the persistence bypass.
+
 <!-- SECTION:NOTES:END -->

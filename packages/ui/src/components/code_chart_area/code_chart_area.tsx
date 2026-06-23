@@ -336,8 +336,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             // Shrink-fit the parent module to its children's bounding box.
             // Children's positions are relative to the parent, so after a drag
             // there may be slack on the right/bottom that expandParent didn't
-            // remove. Autosave runs separately in the nodes-effect below, so
-            // the saved snapshot reflects the post-resize state.
+            // remove.
             if (node.type !== "code_function") return;
             const parent_id = node.parentId;
             if (!parent_id) return;
