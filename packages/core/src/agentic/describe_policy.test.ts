@@ -65,4 +65,39 @@ describe("plan_descriptions (AC#3)", () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
+  it("returns empty buckets and no truncation for no members", () => {
+    const plan = plan_descriptions([]);
+    expect(plan).toEqual({ from_docstring: [], needs_llm: [], placeholder: [], cached: [] });
+    expect(plan.truncation).toBeUndefined();
+  });
+
+  it("omits truncation when candidates stay within the cap", () => {
+    const plan = plan_descriptions([member("a"), member("b")], { cap: 5 });
+    expect(plan.placeholder).toHaveLength(0);
+    expect(plan.truncation).toBeUndefined();
+  });
+
+  it("marks LLM candidates with a null text for the agent to fill", () => {
+    const plan = plan_descriptions([member("a", { content_hash: "h1" })]);
+    expect(plan.needs_llm).toEqual([
+      { symbol_path: "a", content_hash: "h1", name: "a", source: "llm", text: null },
+    ]);
+  });
+
+  it("sorts the cached and docstring buckets by symbol_path", () => {
+    const existing = new Map<string, ExistingDescription>([
+      ["x", { described_at_content_hash: "h" }],
+      ["m", { described_at_content_hash: "h" }],
+    ]);
+    const members = [
+      member("x", { content_hash: "h" }),
+      member("m", { content_hash: "h" }),
+      member("d", { docstring: "d-doc" }),
+      member("b", { docstring: "b-doc" }),
+    ];
+    const plan = plan_descriptions(members, { existing });
+    expect(plan.cached).toEqual(["m", "x"]);
+    expect(plan.from_docstring.map((p) => p.symbol_path)).toEqual(["b", "d"]);
+  });
+
 });
