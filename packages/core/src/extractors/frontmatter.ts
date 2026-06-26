@@ -21,7 +21,6 @@ function normalize_key(key: string): string {
   return ALIASES[trimmed] ?? trimmed.replace(/-/g, "_");
 }
 
-/** Whether a value is wrapped in matching single/double quotes. */
 function is_quoted(value: string): boolean {
   const trimmed = value.trim();
   if (trimmed.length < 2) return false;
@@ -30,13 +29,11 @@ function is_quoted(value: string): boolean {
   return (first === '"' && last === '"') || (first === "'" && last === "'");
 }
 
-/** Strip matching surrounding single/double quotes from a scalar. */
 function unquote(value: string): string {
   const trimmed = value.trim();
   return is_quoted(trimmed) ? trimmed.slice(1, -1) : trimmed;
 }
 
-/** Coerce a scalar to boolean when it reads as one, else return the unquoted string. */
 function coerce_scalar(value: string): unknown {
   const v = unquote(value);
   if (v === "true") return true;
@@ -44,7 +41,6 @@ function coerce_scalar(value: string): unknown {
   return v;
 }
 
-/** Parse an inline list `a, b, c` into a trimmed string array (one element if no commas). */
 function parse_inline_list(value: string): string[] {
   return value
     .split(",")
@@ -74,13 +70,12 @@ export function parse_frontmatter(source: string): Record<string, unknown> {
     const line = lines[i];
     if (line.trim().length === 0 || line.trimStart().startsWith("#")) continue;
     const colon = line.indexOf(":");
-    if (colon === -1 || indent_of(line) > 0) continue; // only top-level keys; nested handled below
+    if (colon === -1 || indent_of(line) > 0) continue; // indented/colon-less lines belong to a block value handled by its key's branch below
     const key = normalize_key(line.slice(0, colon));
     const rest = line.slice(colon + 1).trim();
     const base_indent = indent_of(line);
 
     if (rest === "|" || rest === ">") {
-      // Block scalar: gather the more-indented following lines.
       const collected: string[] = [];
       while (i + 1 < lines.length && (lines[i + 1].trim().length === 0 || indent_of(lines[i + 1]) > base_indent)) {
         i += 1;
@@ -91,7 +86,7 @@ export function parse_frontmatter(source: string): Record<string, unknown> {
     }
 
     if (rest === "") {
-      // Possibly a YAML block list: subsequent `- item` lines.
+      // An empty value is ambiguous: it may head a YAML block list of `- item` lines, or be a genuinely empty scalar.
       const items: string[] = [];
       while (i + 1 < lines.length && lines[i + 1].trimStart().startsWith("- ")) {
         i += 1;
