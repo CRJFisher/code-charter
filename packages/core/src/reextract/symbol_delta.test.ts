@@ -27,6 +27,25 @@ const GONE: ResolverSymbol = {
   body_source: "{\n  return 999;\n}",
 };
 
+/** `transform` at a stable path; {@link TRANSFORM_REBODIED} is the same path with a changed body. */
+const TRANSFORM_V1: ResolverSymbol = {
+  file_path: "src/app.ts",
+  name: "transform",
+  kind: "function",
+  enclosing: [],
+  body_source: "{\n  return a - b;\n}",
+};
+const TRANSFORM_REBODIED: ResolverSymbol = { ...TRANSFORM_V1, body_source: "{\n  return b - a;\n}" };
+
+/** A symbol present only in the fresh index, with a body shared by nothing — a clean `added`. */
+const FRESH: ResolverSymbol = {
+  file_path: "src/app.ts",
+  name: "fresh",
+  kind: "function",
+  enclosing: [],
+  body_source: "{\n  return 0;\n}",
+};
+
 /** symbol_path → content_hash baseline, as `re_extract` builds it from persisted anchors. */
 function baseline_of(...symbols: ResolverSymbol[]): Map<string, string> {
   const baseline = new Map<string, string>();
@@ -98,6 +117,22 @@ describe("compute_symbol_delta (AC#1)", () => {
     const delta = compute_symbol_delta(baseline, index);
 
     expect(delta).toEqual({ added: [], removed: [], modified: [], relocated: [] });
+  });
+
+  it("classifies every bucket independently in a turn that adds, removes, modifies, and relocates at once", () => {
+    const baseline = baseline_of(TRANSFORM_V1, COMPUTE_V1, GONE);
+    // transform stays put with a new body (modified); compute→calculate keeps its body (relocated);
+    // gone vanishes (removed); fresh is brand new (added).
+    const index = build_resolver_index([TRANSFORM_REBODIED, CALCULATE_V2, FRESH]);
+
+    const delta = compute_symbol_delta(baseline, index);
+
+    expect(delta).toEqual({
+      added: [symbol_path_of(FRESH)],
+      removed: [symbol_path_of(GONE)],
+      modified: [symbol_path_of(TRANSFORM_V1)],
+      relocated: [{ from: symbol_path_of(COMPUTE_V1), to: symbol_path_of(CALCULATE_V2) }],
+    });
   });
 
   it("sorts every bucket deterministically regardless of input order", () => {
