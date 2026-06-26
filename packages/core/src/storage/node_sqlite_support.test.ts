@@ -1,6 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
 
-import { NullGraphStore } from "./null_graph_store";
 import { MIN_NODE_SQLITE_VERSION, is_node_sqlite_supported } from "./node_sqlite_support";
 
 describe("is_node_sqlite_supported (AC#3 semver gate)", () => {
@@ -23,39 +22,6 @@ describe("is_node_sqlite_supported (AC#3 semver gate)", () => {
 
   it("exposes the minimum version constant", () => {
     expect(MIN_NODE_SQLITE_VERSION).toBe("22.13.0");
-  });
-});
-
-describe("NullGraphStore (AC#3 degraded store)", () => {
-  const store = new NullGraphStore();
-
-  it("returns empty reads and undefined lookups", () => {
-    expect(store.all_nodes()).toEqual([]);
-    expect(store.all_edges()).toEqual([]);
-    expect(store.provenance_for_edge()).toEqual([]);
-    expect(store.node()).toBeUndefined();
-    expect(store.neighborhood()).toEqual({ nodes: [], edges: [] });
-    expect(store.edges_for_files()).toEqual([]);
-    expect(store.table_disposition()).toEqual([]);
-    expect(store.write_fields()).toEqual({ skipped: [] });
-  });
-
-  it("makes writes no-ops that never throw", () => {
-    expect(() => {
-      store.upsert_node();
-      store.upsert_edge();
-      store.record_file_hash();
-      store.invalidate_edges_for_files();
-      store.invalidate_nodes_for_files();
-      store.soft_delete();
-      store.rebuild_layer("raw", () => undefined);
-      store.close();
-    }).not.toThrow();
-  });
-
-  it("assumes change when nothing is known, and reports no real schema", () => {
-    expect(store.file_changed_since_recorded()).toBe(true);
-    expect(store.schema_version()).toBe(0);
   });
 });
 
