@@ -111,9 +111,7 @@ export function build_entrypoint_inventory(
   graph: CallGraph,
 ): EntrypointInventory {
   const changed_set = new Set(changed);
-  const orphan_ids = new Set(
-    find_orphan_entrypoints(graph, deps.store.all_edges(), DEFAULT_GAP_OPTIONS).map((o) => o.flow_id),
-  );
+  const orphan_ids = new Set(find_orphan_entrypoints(graph, deps.store.all_edges(), DEFAULT_GAP_OPTIONS));
 
   const entrypoints: InventoryEntrypoint[] = [];
   const seen = new Set<string>();

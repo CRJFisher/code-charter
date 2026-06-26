@@ -109,7 +109,7 @@ export type { RelocatedSymbol, SymbolDelta } from "./reextract/symbol_delta";
 
 // Deterministic orphan-entrypoint detection (the --list-entrypoints inventory substrate)
 export { DEFAULT_GAP_OPTIONS, find_orphan_entrypoints } from "./agentic/gap_detection";
-export type { GapDetectionOptions, OrphanEntrypoint } from "./agentic/gap_detection";
+export type { GapDetectionOptions } from "./agentic/gap_detection";
 
 // task-27.1.4 AC#2 — agentic bridge builder + registry-shaped detector
 export { BRIDGE_CONFIDENCE_INFERRED, bridge_edge_key, build_bridge_edges } from "./agentic/bridge";

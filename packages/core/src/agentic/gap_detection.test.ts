@@ -38,8 +38,19 @@ describe("find_orphan_entrypoints (AC#1)", () => {
   it("flags an entrypoint with no incident doc edge and not one that has one", () => {
     const graph = make_graph([main, other], ["main", "other"]);
     const orphans = find_orphan_entrypoints(graph, [doc_edge(symbol_path_of(main))], DEFAULT_GAP_OPTIONS);
-    expect(orphans.map((o) => o.flow_id)).toEqual([symbol_path_of(other)]);
-    expect(orphans[0].name).toBe("other");
+    expect(orphans).toEqual([symbol_path_of(other)]);
+  });
+
+  it("returns orphan flow_ids sorted regardless of entrypoint encounter order", () => {
+    const graph = make_graph([other, main], ["other", "main"]);
+    const orphans = find_orphan_entrypoints(graph, [], DEFAULT_GAP_OPTIONS);
+    expect(orphans).toEqual([symbol_path_of(main), symbol_path_of(other)]);
+  });
+
+  it("returns no orphans when every entrypoint is documented", () => {
+    const graph = make_graph([main, other], ["main", "other"]);
+    const edges = [doc_edge(symbol_path_of(main)), doc_edge(symbol_path_of(other))];
+    expect(find_orphan_entrypoints(graph, edges, DEFAULT_GAP_OPTIONS)).toEqual([]);
   });
 
   it("treats a doc edge on the dst side as documenting too", () => {
