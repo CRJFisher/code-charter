@@ -143,6 +143,67 @@ describe("re_extract (AC#2/#3/#9)", () => {
     expect(contains.map((e) => e.src_id)).toContain(symbol_path_of(CALCULATE_V2));
   });
 
+  it("promotes the rename into the turn-level symbol delta as a relocation", () => {
+    const result = re_extract([FILE], "code-change", deps(store));
+    expect(result.delta.relocated).toContainEqual({
+      from: symbol_path_of(COMPUTE_V1),
+      to: symbol_path_of(CALCULATE_V2),
+    });
+  });
+
+  it("soft-deletes a preserved node whose symbol is both renamed and re-bodied (miss)", () => {
+    const gone: ResolverSymbol = { file_path: FILE, name: "gone", kind: "function", enclosing: [], body_source: "{\n  return 999;\n}" };
+    const gone_state = derive_code_state(gone);
+    const gone_id = description_node_id(gone_state.symbol_path);
+    store.upsert_node({
+      id: gone_id,
+      kind: DESCRIPTION_NODE_KIND,
+      path: FILE,
+      anchor: format_anchor({ symbol_path: gone_state.symbol_path, content_hash: gone_state.content_hash }),
+      layer: "agentic",
+      attributes: {},
+      field_ownership: {},
+      origin: "describe-policy",
+      intent_source: "code-edit",
+      deleted_at: null,
+    });
+    store.write_fields({ kind: "node", id: gone_id }, { description: "describes gone" }, "agentic");
+
+    const logs: string[] = [];
+    const result = re_extract([FILE], "code-change", { ...deps(store), log: (m) => logs.push(m) });
+
+    const miss = result.findings.find((f) => f.node_id === gone_id);
+    expect(miss?.reason).toBe("miss");
+    expect(miss?.to_symbol_path).toBeNull();
+    expect(store.node(gone_id)).toBeUndefined();
+    const retired = store.all_nodes({ include_deleted: true }).find((n) => n.id === gone_id);
+    expect(retired?.deleted_at).not.toBeNull();
+    expect(result.delta.removed).toContain(gone_state.symbol_path);
+    expect(logs.some((m) => m.includes("soft-deleted"))).toBe(true);
+  });
+
+  it("logs a baseline conflict when two preserved nodes anchor one symbol with divergent hashes", () => {
+    // A second preserved node on `compute`'s symbol_path but a divergent content_hash: the baseline is
+    // first-wins, so the conflict must be logged loudly rather than silently narrowed.
+    store.upsert_node({
+      id: "agentic:behaviour:adder",
+      kind: "agentic.behaviour",
+      path: FILE,
+      anchor: format_anchor({ symbol_path: symbol_path_of(COMPUTE_V1), content_hash: "b".repeat(64) }),
+      layer: "agentic",
+      attributes: {},
+      field_ownership: {},
+      origin: "fixture.agentic",
+      intent_source: "diagram-edit",
+      deleted_at: null,
+    });
+
+    const logs: string[] = [];
+    re_extract([FILE], "code-change", { ...deps(store), log: (m) => logs.push(m) });
+
+    expect(logs.some((m) => m.includes("conflicting content_hash"))).toBe(true);
+  });
+
   describe("same-pass relocation chains are order-independent (two-phase apply)", () => {
     const local_sym = (name: string, body: string): ResolverSymbol => ({
       file_path: FILE,

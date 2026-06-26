@@ -4,7 +4,7 @@
  * `re_extract` is the one in-process funnel through which a changed file set is re-analyzed. The
  * `Stop`-hook reconciliation path (via the drift-reconciler sub-agent's drift-sync skill) and the
  * consistency engine are its only callers, each passing `origin='code-change'`; the `origin` union is
- * open so task-27.2's `origin='apply'` is one more value with no signature change.
+ * open so a new trigger source is one more value, not a signature change.
  *
  * It re-extracts only the raw tier for the file set (never the whole store), rebuilds the file-module
  * scaffold for those files, then resolves every preserved (non-raw, anchored) node in the set against
@@ -37,7 +37,7 @@ import type { ResolverIndex } from "../resolver";
 import { compute_symbol_delta } from "./symbol_delta";
 import type { SymbolDelta } from "./symbol_delta";
 
-/** Where a re-extraction was triggered from. Open union — task-27.2 adds `'apply'` with no change. */
+/** Where a re-extraction was triggered from. Open union so a new trigger source needs no signature change. */
 export type ReExtractOrigin = "code-change" | (string & {});
 
 export interface ReExtractDeps {
@@ -81,21 +81,18 @@ export interface ReExtractResult {
 export function re_extract(file_set: readonly string[], origin: ReExtractOrigin, deps: ReExtractDeps): ReExtractResult {
   const { store, extract_raw, build_index, analyzed_root } = deps;
 
-  // 1. Replace only the raw tier for these files; preserved (agentic/user) rows survive untouched.
+  // Replace only the raw tier; preserved (agentic/user) rows survive untouched.
   store.invalidate_edges_for_files([...file_set]);
   store.invalidate_nodes_for_files([...file_set]);
   extract_raw(store, file_set);
 
-  // 2. Rebuild the file-module scaffold for the freshly-extracted leaves (deterministic, idempotent).
   rebuild_file_module_scaffold(store, file_set, analyzed_root);
 
-  // 3. Resolve every preserved, anchored node in the set against the fresh index — re-anchoring
-  //    relocations inline — and accumulate the persisted-anchor baseline the symbol delta diffs against.
-  //    The baseline records each node's PRE-change anchor (the in-memory row), so the delta still
-  //    reports the relocation this turn. Verdicts are computed against the pre-pass snapshot and
-  //    applied in two phases (all soft-deletes, then all re-key upserts), so same-pass chains —
-  //    rename A→B while B renames away, or a relocation onto a just-missed node's id — are
-  //    order-independent and never destroy a carried row.
+  // The baseline records each node's PRE-change anchor (the in-memory row), so the delta still
+  // reports the relocation this turn. Verdicts are computed against the pre-pass snapshot and
+  // applied in two phases (all soft-deletes, then all re-key upserts), so same-pass chains —
+  // rename A→B while B renames away, or a relocation onto a just-missed node's id — are
+  // order-independent and never destroy a carried row.
   const index = build_index(file_set);
   const findings: DriftFinding[] = [];
   const baseline = new Map<string, string>();
@@ -114,7 +111,6 @@ export function re_extract(file_set: readonly string[], origin: ReExtractOrigin,
     deps.log?.(`re_extract: soft-deleted ${misses.length} preserved node(s) whose anchors no longer resolve (miss)`);
   }
 
-  // 4. Promote the per-node verdicts into the turn-level symbol delta (AC#1).
   const delta = compute_symbol_delta(baseline, index);
 
   return { file_set, origin, findings, delta };
