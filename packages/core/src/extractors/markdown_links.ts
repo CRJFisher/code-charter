@@ -1,31 +1,26 @@
 /**
  * task-27.1.4 AC#6 — the literal markdown-link extractor.
  *
- * Finds genuine inline markdown links `[text](target)` in a document and reports each occurrence with
- * its source span. Fenced code blocks (``` and ~~~, including mermaid fences) and inline code spans
- * (`` `...` ``) are excluded, so a link written inside a usage example or a diagram never becomes a
- * false-positive edge (task-21.2 AC#5). Reference-style links, autolinks, and links whose
- * `[text](target)` span wraps across a newline are out of scope (the skill corpus uses single-line
- * inline links); these limitations are stated rather than half-supported.
+ * Finds genuine inline markdown links `[text](target)` and reports each with its source span. Fenced
+ * code blocks (``` and ~~~, including mermaid fences) and inline code spans (`` `...` ``) are excluded
+ * so a link written inside a usage example or a diagram never becomes a false-positive edge
+ * (task-21.2 AC#5). Reference-style links, autolinks, and links whose `[text](target)` span wraps
+ * across a newline are out of scope: the skill corpus uses single-line inline links.
  */
 
-import { offset_to_line_col } from "./text_span";
+import { format_range } from "./text_span";
 
 export interface MarkdownLink {
-  /** The raw target exactly as written, e.g. `scripts/x.py#anchor` (title and quotes stripped). */
-  raw_target: string;
-  /** `raw_target` with any `#fragment` removed — the path to resolve on disk. */
+  /** Link target with any `#fragment` and `"title"` stripped — the path to resolve on disk. */
   path_target: string;
-  /** The `#fragment` after the path, or null. Retained for provenance, never for resolution. */
-  fragment: string | null;
-  /** Provenance `source_range` of the whole `[..](..)` span: `line:col-line:col`. */
+  /** Provenance span of the whole `[..](..)` as `line:col-line:col`. */
   source_range: string;
 }
 
 const FENCE = /^\s*(```|~~~)/;
 const LINK = /\[[^\]]*\]\(([^)]+)\)/g;
 
-/** Replace every inline-code span on a line with spaces, preserving column positions. */
+/** Mask inline-code spans with spaces rather than removing them, so column offsets stay accurate. */
 function mask_inline_code(line: string): string {
   let masked = "";
   let in_code = false;
@@ -40,17 +35,13 @@ function mask_inline_code(line: string): string {
   return masked;
 }
 
-/** Split a link target into its path and optional `#fragment`, dropping any `"title"`. */
-function split_target(target: string): { raw_target: string; path_target: string; fragment: string | null } {
+function target_path(target: string): string {
   const trimmed = target.trim();
   // A title follows the url after whitespace: `(url "title")` / `(url 'title')`.
-  const space = trimmed.search(/\s/);
-  const url = space === -1 ? trimmed : trimmed.slice(0, space);
+  const url_end = trimmed.search(/\s/);
+  const url = url_end === -1 ? trimmed : trimmed.slice(0, url_end);
   const hash = url.indexOf("#");
-  if (hash === -1) {
-    return { raw_target: url, path_target: url, fragment: null };
-  }
-  return { raw_target: url, path_target: url.slice(0, hash), fragment: url.slice(hash + 1) };
+  return hash === -1 ? url : url.slice(0, hash);
 }
 
 /**
@@ -76,18 +67,11 @@ export function parse_markdown_links(source: string): MarkdownLink[] {
     LINK.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = LINK.exec(masked)) !== null) {
-      const { raw_target, path_target, fragment } = split_target(match[1]);
+      const path_target = target_path(match[1]);
       if (path_target.length === 0) continue;
       const start = offset + match.index;
       const end = start + match[0].length;
-      const a = offset_to_line_col(source, start);
-      const b = offset_to_line_col(source, end);
-      links.push({
-        raw_target,
-        path_target,
-        fragment,
-        source_range: `${a.line}:${a.col}-${b.line}:${b.col}`,
-      });
+      links.push({ path_target, source_range: format_range(source, start, end) });
     }
     offset += line.length + 1;
   }
