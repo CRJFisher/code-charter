@@ -54,8 +54,6 @@ export function write_descriptions(
 
   for (const item of ordered) {
     const id = description_node_id(item.symbol_path);
-    // Always (re)write the side-node live at the agentic tier: this resurrects a soft-deleted node and
-    // overwrites any prior content, so a stranded agentic description is regenerated, never lost.
     store.upsert_node({
       id,
       kind: DESCRIPTION_NODE_KIND,

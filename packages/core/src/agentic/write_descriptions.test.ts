@@ -43,14 +43,32 @@ describe("write_descriptions (AC#3)", () => {
   });
   afterEach(() => store.close());
 
-  it("writes an agentic.description side-node with the content-hash cache key", () => {
+  it("writes an agentic.description side-node with the content-hash cache key and its source", () => {
     const result = write_descriptions(store, [description_for(COMPUTE_V1, "adds two numbers")]);
     expect(result.written).toEqual([symbol_path_of(COMPUTE_V1)]);
     const node = store.node(description_node_id(symbol_path_of(COMPUTE_V1)))!;
     expect(node.layer).toBe("agentic");
     expect(node.attributes.description).toBe("adds two numbers");
     expect(node.attributes.description_hash).toBe(content_hash_of(COMPUTE_V1));
+    expect(node.attributes.description_source).toBe("docstring");
     expect(node.field_ownership.description).toBe("agentic");
+  });
+
+  it("returns written symbol_paths in sorted order regardless of input order", () => {
+    const resolved: ResolvedDescription[] = ["c", "a", "b"].map((name) => ({
+      symbol_path: `src/app.ts#${name}:function`,
+      content_hash: `hash_${name}`,
+      file_path: FILE,
+      text: `describes ${name}`,
+      source: "llm",
+    }));
+    const result = write_descriptions(store, resolved);
+    expect(result.written).toEqual(["src/app.ts#a:function", "src/app.ts#b:function", "src/app.ts#c:function"]);
+    expect(store.node(description_node_id("src/app.ts#b:function"))!.attributes.description).toBe("describes b");
+  });
+
+  it("writes nothing for empty input", () => {
+    expect(write_descriptions(store, []).written).toEqual([]);
   });
 
   it("resurrects a soft-deleted side-node and overwrites its content (descriptions are agent-generated)", () => {
