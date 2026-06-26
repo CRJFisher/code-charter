@@ -1,20 +1,19 @@
 /**
- * task-27.1.4 AC#6 — source-span helpers shared by the literal extractors.
+ * Source-span helpers shared by the literal skill extractors.
  *
- * Provenance `source_range` is the string `start_line:start_col-end_line:end_col`, with 1-indexed
- * lines and 0-indexed columns, matching the convention the round-trip fixture writes (`"1:0-1:0"`).
- * These helpers turn character offsets into that form so click-through lands on the real source.
+ * A provenance `source_range` is the string `start_line:start_col-end_line:end_col`, with
+ * 1-indexed lines and 0-indexed columns. That convention matches what the round-trip fixture
+ * writes, so click-through lands on the real source location.
  */
 
-export interface LineCol {
-  /** 1-indexed line. */
+interface LineCol {
+  /** 1-indexed. */
   line: number;
-  /** 0-indexed column (characters since the last newline). */
+  /** 0-indexed (characters since the last newline). */
   col: number;
 }
 
-/** The {@link LineCol} of a character offset within `source`. */
-export function offset_to_line_col(source: string, offset: number): LineCol {
+function offset_to_line_col(source: string, offset: number): LineCol {
   let line = 1;
   let last_newline = -1;
   for (let i = 0; i < offset && i < source.length; i++) {
