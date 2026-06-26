@@ -39,6 +39,20 @@ describe("build_bridge_edges (AC#2)", () => {
     expect(result[0].provenance).toHaveLength(2);
   });
 
+  it("dedupes a candidate pair sharing an identical provenance span", () => {
+    const result = build_bridge_edges([
+      candidate({ provenance: { source_file: "s.ts", source_range: "3:2-3:20", extractor_id: "agentic.registry", extractor_version: "1" } }),
+      candidate({ provenance: { source_file: "s.ts", source_range: "3:2-3:20", extractor_id: "agentic.registry", extractor_version: "2" } }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].provenance).toHaveLength(1);
+    expect(result[0].provenance[0].extractor_version).toBe("1");
+  });
+
+  it("returns an empty array for no candidates", () => {
+    expect(build_bridge_edges([])).toEqual([]);
+  });
+
   it("sorts output by edge key for byte-stability", () => {
     const keys = build_bridge_edges([
       candidate({ dst_id: "z.ts#z:function" }),
