@@ -39,6 +39,15 @@ describe("apply_field_ladder", () => {
     expect(ownership.label).toBe("user");
   });
 
+  it("returns empty partitions and mutates nothing for an empty batch", () => {
+    const attributes: Record<string, unknown> = { label: "user-val" };
+    const ownership: Record<string, Tier> = { label: "user" };
+    const result = apply_field_ladder(attributes, ownership, {}, "agentic");
+    expect(result).toEqual({ written: [], skipped: [] });
+    expect(attributes).toEqual({ label: "user-val" });
+    expect(ownership).toEqual({ label: "user" });
+  });
+
   it("partitions a mixed batch into written and skipped", () => {
     const attributes: Record<string, unknown> = { label: "user-val", description: "raw-desc" };
     const ownership: Record<string, Tier> = { label: "user", description: "raw" };
