@@ -9,9 +9,8 @@ import type { ResolverSymbol } from "./resolver_symbol";
  * pass; both lookups are O(1).
  */
 export interface ResolverIndex {
-  /** symbol_path → its current state. Unique by construction (`build_resolver_index` enforces it). */
   readonly by_symbol_path: ReadonlyMap<string, CodeState>;
-  /** content_hash → every state sharing it, sorted by symbol_path so the relocated pick is deterministic. */
+  /** Each bucket is sorted by symbol_path so the relocated tie-break is deterministic. */
   readonly by_content_hash: ReadonlyMap<string, readonly CodeState[]>;
 }
 
