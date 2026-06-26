@@ -4,10 +4,8 @@ import type { SymbolKind } from "@ariadnejs/types";
  * The narrow, normalized input the resolver index is built from — one record per
  * anchorable code symbol. It is deliberately Ariadne-light: it carries only the data
  * the three derived identifiers ({@link CodeState}) need, so the pure resolver never
- * touches a live Ariadne `Project`, a scope tree, or the filesystem.
- *
- * `from_ariadne` produces these from Ariadne definitions + source; hand-built records
- * drive the cascade's unit tests.
+ * touches a live Ariadne `Project`, a scope tree, or the filesystem. Being plain data
+ * keeps it hand-constructable without an Ariadne parse.
  */
 export interface ResolverSymbol {
   /** Repo-relative, forward-slash file path. The file-qualifying prefix of `symbol_path`. */
