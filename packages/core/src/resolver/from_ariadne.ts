@@ -31,7 +31,6 @@ import type { ResolverSymbol } from "./resolver_symbol";
 export interface AriadneFileInput {
   /** Repo-relative, forward-slash file path — becomes the `symbol_path` prefix. */
   readonly file_path: string;
-  /** The file's full source text. */
   readonly source: string;
   /**
    * The file's top-level definitions (functions, classes, interfaces, enums) from a `SemanticIndex`.
@@ -134,8 +133,6 @@ function walk_callables(
   file: AriadneFileInput,
   visit: (def: FunctionDefinition | MethodDefinition | ConstructorDefinition, enclosing: readonly string[]) => void,
 ): void {
-  // One chokepoint for both emitters: an anonymous callable has no addressable identity, so it is
-  // never a resolver symbol (it would collide in `symbol_path` space and carry an unanchorable description).
   const visit_named = (
     def: FunctionDefinition | MethodDefinition | ConstructorDefinition,
     enclosing: readonly string[],

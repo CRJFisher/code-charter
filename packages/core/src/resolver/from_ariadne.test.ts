@@ -6,8 +6,9 @@ import { Project } from "@ariadnejs/core";
 import type { AnyDefinition, FilePath, ScopeId } from "@ariadnejs/types";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 
-import { derive_code_state } from "./code_state";
+import { compute_content_hash, derive_code_state } from "./code_state";
 import {
+  anchored_symbols_from_ariadne,
   type AriadneFileInput,
   parse_scope_range,
   resolver_symbols_from_ariadne,
@@ -17,6 +18,15 @@ import {
 describe("parse_scope_range", () => {
   it("reads the trailing range from a scope id", () => {
     expect(parse_scope_range("function:/p/s.ts:6:20:8:1" as ScopeId)).toEqual({
+      start_line: 6,
+      start_col: 20,
+      end_line: 8,
+      end_col: 1,
+    });
+  });
+
+  it("absorbs colons earlier in the id (e.g. a Windows drive letter) into the discarded middle", () => {
+    expect(parse_scope_range("function:C:/p/s.ts:6:20:8:1" as ScopeId)).toEqual({
       start_line: 6,
       start_col: 20,
       end_line: 8,
@@ -43,54 +53,62 @@ describe("slice_source", () => {
   it("slices a single-line span", () => {
     expect(slice_source(lines, { start_line: 2, start_col: 2, end_line: 2, end_col: 8 })).toBe("return");
   });
+
+  it("returns empty for a degenerate single-line range where end precedes start", () => {
+    expect(slice_source(lines, { start_line: 2, start_col: 8, end_line: 2, end_col: 2 })).toBe("");
+  });
+
+  it("clamps a multi-line range that runs past the last line", () => {
+    expect(slice_source(lines, { start_line: 2, start_col: 2, end_line: 9, end_col: 4 })).toBe("return 42;\n}");
+  });
+});
+
+const SOURCE = [
+  "export class X {",
+  "  run() {",
+  "    return this.a;",
+  "  }",
+  "}",
+  "export class Y {",
+  "  run() {",
+  "    return this.b;",
+  "  }",
+  "}",
+  "export interface I {",
+  "  ping(): void;",
+  "}",
+  "export function top() {",
+  "  return 1;",
+  "}",
+  "",
+].join("\n");
+
+let dir: string;
+let input: AriadneFileInput[];
+
+beforeAll(async () => {
+  dir = mkdtempSync(join(tmpdir(), "resolver-adapter-"));
+  const file_abs = join(dir, "s.ts") as FilePath;
+  writeFileSync(file_abs, SOURCE);
+  const project = new Project();
+  await project.initialize(dir as FilePath);
+  project.update_file(file_abs, SOURCE);
+  const idx = project.get_index_single_file(file_abs);
+  if (!idx) throw new Error("no semantic index for fixture file");
+  const definitions: AnyDefinition[] = [
+    ...idx.functions.values(),
+    ...idx.classes.values(),
+    ...idx.interfaces.values(),
+    ...idx.enums.values(),
+  ];
+  input = [{ file_path: "s.ts", source: SOURCE, definitions }];
+});
+
+afterAll(() => {
+  rmSync(dir, { recursive: true, force: true });
 });
 
 describe("resolver_symbols_from_ariadne (real Ariadne parse)", () => {
-  const SOURCE = [
-    "export class X {",
-    "  run() {",
-    "    return this.a;",
-    "  }",
-    "}",
-    "export class Y {",
-    "  run() {",
-    "    return this.b;",
-    "  }",
-    "}",
-    "export interface I {",
-    "  ping(): void;",
-    "}",
-    "export function top() {",
-    "  return 1;",
-    "}",
-    "",
-  ].join("\n");
-
-  let dir: string;
-  let input: AriadneFileInput[];
-
-  beforeAll(async () => {
-    dir = mkdtempSync(join(tmpdir(), "resolver-adapter-"));
-    const file_abs = join(dir, "s.ts") as FilePath;
-    writeFileSync(file_abs, SOURCE);
-    const project = new Project();
-    await project.initialize(dir as FilePath);
-    project.update_file(file_abs, SOURCE);
-    const idx = project.get_index_single_file(file_abs);
-    if (!idx) throw new Error("no semantic index for fixture file");
-    const definitions: AnyDefinition[] = [
-      ...idx.functions.values(),
-      ...idx.classes.values(),
-      ...idx.interfaces.values(),
-      ...idx.enums.values(),
-    ];
-    input = [{ file_path: "s.ts", source: SOURCE, definitions }];
-  });
-
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
   it("derives distinct file-qualified symbol_paths for same-named methods on different classes", () => {
     const symbols = resolver_symbols_from_ariadne(input);
     const paths = symbols.map((s) => derive_code_state(s).symbol_path);
@@ -98,7 +116,6 @@ describe("resolver_symbols_from_ariadne (real Ariadne parse)", () => {
     expect(paths).toContain("s.ts#X.run:method");
     expect(paths).toContain("s.ts#Y.run:method");
     expect(paths).toContain("s.ts#top:function");
-    // The two `run` methods are distinct, not collapsed.
     expect(new Set(paths).size).toBe(paths.length);
   });
 
@@ -112,7 +129,49 @@ describe("resolver_symbols_from_ariadne (real Ariadne parse)", () => {
 
   it("skips signature-only methods that have no body", () => {
     const symbols = resolver_symbols_from_ariadne(input);
-    // The interface method `I.ping` has no body_scope_id and must not be anchored.
     expect(symbols.some((s) => s.name === "ping")).toBe(false);
+  });
+});
+
+describe("anchored_symbols_from_ariadne (real Ariadne parse)", () => {
+  it("anchors the same callables resolver_symbols_from_ariadne emits", () => {
+    const resolver_paths = resolver_symbols_from_ariadne(input)
+      .map((s) => derive_code_state(s).symbol_path)
+      .sort();
+    const anchored_paths = anchored_symbols_from_ariadne(input)
+      .map((s) => s.symbol_path)
+      .sort();
+
+    expect(anchored_paths).toEqual(resolver_paths);
+  });
+
+  it("skips signature-only members without a body", () => {
+    const anchored = anchored_symbols_from_ariadne(input);
+    expect(anchored.some((s) => s.symbol_path === "s.ts#I.ping:method")).toBe(false);
+  });
+
+  it("composes the anchor as `symbol_path:content_hash`", () => {
+    const top = anchored_symbols_from_ariadne(input).find((s) => s.symbol_path === "s.ts#top:function");
+
+    expect(top).toBeDefined();
+    expect(top?.content_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(top?.anchor).toBe(`${top?.symbol_path}:${top?.content_hash}`);
+  });
+
+  it("hashes the rename-stripped body so a `content_hash` matches the body span", () => {
+    const x_run = anchored_symbols_from_ariadne(input).find((s) => s.symbol_path === "s.ts#X.run:method");
+    const body = resolver_symbols_from_ariadne(input).find((s) => s.name === "run" && s.enclosing[0] === "X");
+
+    expect(x_run).toBeDefined();
+    expect(body).toBeDefined();
+    expect(x_run?.content_hash).toBe(compute_content_hash(body?.body_source ?? "", "run"));
+  });
+
+  it("carries the Ariadne symbol_id and live definition for each anchored callable", () => {
+    const top = anchored_symbols_from_ariadne(input).find((s) => s.symbol_path === "s.ts#top:function");
+
+    expect(typeof top?.symbol_id).toBe("string");
+    expect(top?.file_path).toBe("s.ts");
+    expect(top?.definition.name).toBe("top");
   });
 });
