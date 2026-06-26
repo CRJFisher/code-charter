@@ -90,7 +90,6 @@ export function write_agentic_substrate(
   };
   const started = now();
 
-  // --- bridges ---
   const sorted_bridges = [...proposal.bridges].sort((a, b) =>
     a.edge.key < b.edge.key ? -1 : a.edge.key > b.edge.key ? 1 : 0,
   );
@@ -103,8 +102,8 @@ export function write_agentic_substrate(
   const existing_by_key = new Map(store.all_edges({ include_deleted: true }).map((e) => [e.key, e]));
   for (const { edge, provenance } of bridges) {
     const existing = existing_by_key.get(edge.key);
-    // Preserve a user-owned edge (promoted layer OR a user adjudication — a column, not a ladder
-    // field) and never resurrect a binned one.
+    // A user-owned edge (promoted layer OR a user adjudication — a column, not a ladder field) or a
+    // binned one is preserved: the agentic lane must never clobber or resurrect user intent.
     if (existing && (existing.layer === "user" || existing.adjudication !== null || existing.deleted_at !== null)) {
       report.preserved.push(edge.key);
       continue;
@@ -113,7 +112,6 @@ export function write_agentic_substrate(
     report.bridges_written += 1;
   }
 
-  // --- descriptions (gated by the deadline) ---
   if (now() - started > limits.deadline_ms) {
     report.hit_deadline = true;
     if (proposal.descriptions.length > 0) {

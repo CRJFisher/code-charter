@@ -103,6 +103,22 @@ describe("write_agentic_substrate (AC#5)", () => {
     expect(messages.some((m) => m.includes("capped bridges"))).toBe(true);
   });
 
+  it("caps descriptions and logs the truncation (no silent cap)", () => {
+    const messages: string[] = [];
+    const descriptions = [
+      description("src/a.ts#a:function", "a"),
+      description("src/b.ts#b:function", "b"),
+      description("src/c.ts#c:function", "c"),
+    ];
+    const report = write_agentic_substrate(store, proposal({ bridges: [], descriptions }), {
+      limits: { max_descriptions: 1 },
+      log: (m) => messages.push(m),
+    });
+    expect(report.descriptions_written).toBe(1);
+    expect(report.truncated).toContainEqual({ kind: "descriptions", requested: 3, written: 1 });
+    expect(messages.some((m) => m.includes("capped descriptions"))).toBe(true);
+  });
+
   it("skips the description phase once the deadline is hit", () => {
     const times = [0, 100_000];
     let i = 0;
@@ -110,5 +126,16 @@ describe("write_agentic_substrate (AC#5)", () => {
     expect(report.hit_deadline).toBe(true);
     expect(report.descriptions_written).toBe(0);
     expect(report.truncated).toContainEqual({ kind: "descriptions", requested: 1, written: 0 });
+  });
+
+  it("records the deadline without a truncation entry when there are no descriptions", () => {
+    const times = [0, 100_000];
+    let i = 0;
+    const report = write_agentic_substrate(store, proposal({ descriptions: [] }), {
+      now: () => times[i++],
+      log: () => undefined,
+    });
+    expect(report.hit_deadline).toBe(true);
+    expect(report.truncated).toHaveLength(0);
   });
 });
