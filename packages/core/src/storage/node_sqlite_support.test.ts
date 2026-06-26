@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 
-import { MIN_NODE_SQLITE_VERSION, is_node_sqlite_supported } from "./node_sqlite_support";
+import { MIN_NODE_SQLITE_VERSION, current_node_version, is_node_sqlite_supported } from "./node_sqlite_support";
 
 describe("is_node_sqlite_supported (AC#3 semver gate)", () => {
   it("accepts the exact minimum and above, rejects below — never a lexical compare", () => {
@@ -22,6 +22,12 @@ describe("is_node_sqlite_supported (AC#3 semver gate)", () => {
 
   it("exposes the minimum version constant", () => {
     expect(MIN_NODE_SQLITE_VERSION).toBe("22.13.0");
+  });
+});
+
+describe("current_node_version", () => {
+  it("reports the running host's Node version", () => {
+    expect(current_node_version()).toBe(process.versions.node);
   });
 });
 
