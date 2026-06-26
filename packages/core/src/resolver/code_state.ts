@@ -59,7 +59,8 @@ export function compute_content_hash(body_source: string, name: string): string 
 
 /**
  * `span_hash` = sha256 of the exact body span (untrimmed, identifier not stripped). The byte-fidelity
- * counterpart to `content_hash`, reserved by the task-27.0 plan with no current consumer.
+ * counterpart to `content_hash`: it separates bodies that differ only in whitespace or in an
+ * occurrence of the symbol's own name, both of which `content_hash` normalizes away.
  */
 export function compute_span_hash(body_source: string): string {
   return createHash("sha256").update(body_source, "utf8").digest("hex");

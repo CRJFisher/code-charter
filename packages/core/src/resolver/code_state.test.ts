@@ -22,15 +22,18 @@ describe("compute_content_hash", () => {
   });
 
   it("is stable across a pure rename, including recursive self-calls", () => {
-    // foo -> bar changes only the identifier; stripping every whole-word occurrence makes the hash equal.
     const before = compute_content_hash("{ return foo(x) + 1; }", "foo");
     const after = compute_content_hash("{ return bar(x) + 1; }", "bar");
     expect(after).toBe(before);
   });
 
   it("only strips whole-word occurrences, not substrings", () => {
-    // "foo" must not be stripped out of "foobar".
     expect(compute_content_hash("{ return foobar(); }", "foo")).toBe(compute_content_hash("{ return foobar(); }", "zzz"));
+  });
+
+  it("strips nothing when the name is empty, hashing the trimmed body verbatim", () => {
+    const body = "  { return foo(); }  ";
+    expect(compute_content_hash(body, "")).toBe(compute_content_hash("{ return foo(); }", "zzz"));
   });
 
   it("handles identifiers containing regex metacharacters", () => {
