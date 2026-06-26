@@ -9,6 +9,7 @@ import {
   FLOW_NODE_KIND,
   flow_id_of,
   flow_of_leaf,
+  hydrated_seed_paths,
   induce_members,
   order_flows,
   reachable_from,
@@ -185,7 +186,7 @@ describe("order_flows (AC#7)", () => {
       summary({ id: "h1", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
       summary({ id: "h2", is_hydrated: true, last_synced_at: "2026-06-02T00:00:00Z" }),
     ];
-    expect(order_flows(hydrated, skeleton).map((f) => f.id)).toEqual([
+    expect(order_flows(hydrated, skeleton, new Set()).map((f) => f.id)).toEqual([
       "h2",
       "h1",
       "m.ts#main:function",
@@ -197,13 +198,23 @@ describe("order_flows (AC#7)", () => {
     const hydrated: FlowSummary[] = [
       summary({ id: "m.ts#main:function", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
     ];
-    const ordered = order_flows(hydrated, skeleton);
+    const ordered = order_flows(hydrated, skeleton, new Set());
     expect(ordered.filter((f) => f.id === "m.ts#main:function")).toHaveLength(1);
     expect(ordered[0].is_hydrated).toBe(true);
   });
 
+  it("drops a skeleton flow a grouped flow folded in as a non-dominant seed (claimed_paths)", () => {
+    // A hydrated grouped flow's id is only its dominant seed; `c.ts#cli:function` is a second seed it
+    // claimed. Without claimed-path suppression it would re-surface as a duplicate bare skeleton entry.
+    const hydrated: FlowSummary[] = [
+      summary({ id: "grp.ts#run:function", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
+    ];
+    const ordered = order_flows(hydrated, skeleton, new Set(["c.ts#cli:function"]));
+    expect(ordered.map((f) => f.id)).toEqual(["grp.ts#run:function", "m.ts#main:function"]);
+  });
+
   it("with no hydrated flows, returns the skeleton order unchanged", () => {
-    expect(order_flows([], skeleton)).toEqual(skeleton);
+    expect(order_flows([], skeleton, new Set())).toEqual(skeleton);
   });
 
   it("breaks an equal-recency tie by id and sorts a null last_synced_at last", () => {
@@ -212,7 +223,7 @@ describe("order_flows (AC#7)", () => {
       summary({ id: "b", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
       summary({ id: "a", is_hydrated: true, last_synced_at: "2026-06-01T00:00:00Z" }),
     ];
-    expect(order_flows(hydrated, []).map((f) => f.id)).toEqual(["a", "b", "z"]);
+    expect(order_flows(hydrated, [], new Set()).map((f) => f.id)).toEqual(["a", "b", "z"]);
   });
 });
 
@@ -245,6 +256,28 @@ describe("read_hydrated_flows (AC#7)", () => {
         seed_location: null,
       },
     ]);
+  });
+});
+
+describe("hydrated_seed_paths", () => {
+  it("unions every live flow node's entry_points and skips other kinds + tombstones", () => {
+    const paths = hydrated_seed_paths([
+      {
+        id: "grp.ts#run:function",
+        kind: FLOW_NODE_KIND,
+        path: "",
+        anchor: null,
+        layer: "agentic",
+        attributes: { entry_points: ["grp.ts#run:function", "dep.ts#embed:function"] },
+        field_ownership: {},
+        origin: "flow-detector",
+        intent_source: "code-edit",
+        deleted_at: null,
+      },
+      { id: "leaf", kind: "code.function", path: "a.ts", anchor: null, layer: "raw", attributes: { entry_points: ["nope"] }, field_ownership: {}, origin: "x", intent_source: "code-edit", deleted_at: null },
+      { id: "gone", kind: FLOW_NODE_KIND, path: "", anchor: null, layer: "agentic", attributes: { entry_points: ["dead"] }, field_ownership: {}, origin: "flow-detector", intent_source: "code-edit", deleted_at: "2026-06-02T00:00:00Z" },
+    ]);
+    expect([...paths].sort()).toEqual(["dep.ts#embed:function", "grp.ts#run:function"]);
   });
 });
 

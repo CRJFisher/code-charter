@@ -41,6 +41,13 @@ export class AriadneProjectManager {
     ".ts", ".tsx", ".js", ".jsx", ".py", ".rs",
   ]);
 
+  // True when any segment of a repo-relative path names an excluded directory. `scan_files` skips
+  // these during recursion; the watcher applies this check explicitly so an excluded-dir file (e.g. a
+  // `node_modules` write) is ignored regardless of the instance `file_filter`.
+  private static is_in_excluded_dir(repo_relative_path: string): boolean {
+    return repo_relative_path.split("/").some((segment) => AriadneProjectManager.EXCLUDED_DIRS.has(segment));
+  }
+
   private static is_supported(file_path: string): boolean {
     const ext = path.extname(file_path).toLowerCase();
     return AriadneProjectManager.SUPPORTED_EXTENSIONS.has(ext);
@@ -163,7 +170,11 @@ export class AriadneProjectManager {
     this.file_watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
     const passes_filters = (file_path: string): boolean => {
-      return AriadneProjectManager.is_supported(file_path) && this.file_filter(file_path);
+      return (
+        AriadneProjectManager.is_supported(file_path) &&
+        !AriadneProjectManager.is_in_excluded_dir(this.to_repo_relative(file_path)) &&
+        this.file_filter(file_path)
+      );
     };
 
     this.disposables.push(

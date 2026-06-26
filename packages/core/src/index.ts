@@ -83,6 +83,7 @@ export {
   FLOW_NODE_KIND,
   flow_id_of,
   flow_of_leaf,
+  hydrated_seed_paths,
   induce_members,
   order_flows,
   paths_of,

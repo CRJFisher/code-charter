@@ -9,6 +9,7 @@ import { serialize_call_graph } from "@code-charter/types";
 import {
   build_skeleton_flows,
   collect_persisted_flow,
+  hydrated_seed_paths,
   open_graph_store,
   order_flows,
   project_flow,
@@ -17,7 +18,7 @@ import {
   reconstruct_flow_membership,
   skeleton_to_summary,
 } from "@code-charter/core";
-import type { FlowSummary, RenderedRows } from "@code-charter/types";
+import type { FlowSummary, NodeRow, RenderedRows } from "@code-charter/types";
 import { HOST_LAYOUTS, install_drift } from "@code-charter/drift";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
@@ -125,14 +126,12 @@ async function show_webview_diagram(
   // a per-request snapshot (live re-sync is task-27.1.6's Stop-hook hydration, not a webview push).
   const ensure_call_graph = async (): Promise<CallGraph> => {
     if (!project_manager) {
-      project_manager = new AriadneProjectManager(workspace_path, (file_path) => {
-        return (
-          !file_path.includes("test") &&
-          !file_path.includes("node_modules") &&
-          !file_path.includes("__pycache__") &&
-          !file_path.includes(".git")
-        );
-      });
+      // Index the same file set the drift reconcile engine does (HeadlessProject): every supported
+      // source minus EXCLUDED_DIRS, tests included. The webview renders flows from the persisted store
+      // the reconcile engine writes, so the two indexers must agree on which files exist — otherwise a
+      // persisted flow whose seed lives in a file the webview skipped resolves to zero members and
+      // renders empty. The default filter keeps `node_modules`/`.git`/etc. out via EXCLUDED_DIRS.
+      project_manager = new AriadneProjectManager(workspace_path);
       call_graph = await project_manager.initialize();
     } else {
       call_graph = project_manager.get_call_graph();
@@ -162,13 +161,9 @@ async function show_webview_diagram(
   // Hydrated flows (`agentic.flow` nodes) sort ahead of the deterministic skeleton (AC#7). A hydrated
   // entry that supersedes its skeleton twin inherits the twin's jump-to-source `seed_location` and live
   // `member_count`, which `read_hydrated_flows` cannot recover from the store alone.
-  const read_hydrated = (skeleton: FlowSummary[]): FlowSummary[] => {
-    const rows = read_store_rows();
-    if (rows === null) {
-      return [];
-    }
+  const read_hydrated = (skeleton: FlowSummary[], nodes: readonly NodeRow[]): FlowSummary[] => {
     const by_id = new Map(skeleton.map((flow) => [flow.id, flow]));
-    return read_hydrated_flows(rows.nodes).map((flow) => {
+    return read_hydrated_flows(nodes).map((flow) => {
       const twin = by_id.get(flow.id);
       return twin === undefined
         ? flow
@@ -205,7 +200,13 @@ async function show_webview_diagram(
         list_flows: async () => {
           const graph = await ensure_call_graph();
           const skeleton = build_skeleton_flows(graph).map(skeleton_to_summary);
-          const flows = order_flows(read_hydrated(skeleton), skeleton);
+          const rows = read_store_rows();
+          // A hydrated grouped flow folds several seed entrypoints under one id (its dominant seed), so
+          // its non-dominant seeds must be suppressed from the skeleton or they re-surface as duplicate
+          // bare entries. `claimed_paths` is every hydrated flow's full seed set, not just its id.
+          const hydrated = rows === null ? [] : read_hydrated(skeleton, rows.nodes);
+          const claimed_paths = rows === null ? new Set<string>() : hydrated_seed_paths(rows.nodes);
+          const flows = order_flows(hydrated, skeleton, claimed_paths);
           panel.webview.postMessage({ id, command: "list_flows_response", data: flows });
         },
         render_flow: async () => {

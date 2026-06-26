@@ -180,19 +180,42 @@ export function skeleton_to_summary(flow: SkeletonFlow): FlowSummary {
 
 /**
  * The ordered selector list (AC#7): hydrated flows first by `last_synced_at` (most recent first, nulls
- * last), then the deterministic skeleton in its own order. A skeleton flow whose id is already hydrated
- * is dropped — the hydrated entry supersedes it (the skeleton is the substrate the agent upgraded).
+ * last), then the deterministic skeleton in its own order. A skeleton flow is dropped when a hydrated
+ * flow supersedes it — either it shares the hydrated flow's id, or its seed is one the stitch folded
+ * into a grouped flow as a non-dominant seed (`claimed_paths`). A multi-seed flow's id is only its
+ * DOMINANT seed's `symbol_path`, so without the `claimed_paths` suppression every other seed of that
+ * flow re-surfaces here as a duplicate bare skeleton entry. `claimed_paths` is {@link hydrated_seed_paths}.
  */
-export function order_flows(hydrated: FlowSummary[], skeleton: FlowSummary[]): FlowSummary[] {
+export function order_flows(
+  hydrated: FlowSummary[],
+  skeleton: FlowSummary[],
+  claimed_paths: ReadonlySet<string>,
+): FlowSummary[] {
   const ranked_hydrated = [...hydrated].sort((a, b) => {
     if (a.last_synced_at === b.last_synced_at) return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     if (a.last_synced_at === null) return 1;
     if (b.last_synced_at === null) return -1;
     return a.last_synced_at < b.last_synced_at ? 1 : -1; // most recent first
   });
-  const hydrated_ids = new Set(ranked_hydrated.map((flow) => flow.id));
-  const remaining_skeleton = skeleton.filter((flow) => !hydrated_ids.has(flow.id));
+  const superseded = new Set<string>([...ranked_hydrated.map((flow) => flow.id), ...claimed_paths]);
+  const remaining_skeleton = skeleton.filter((flow) => !superseded.has(flow.id));
   return [...ranked_hydrated, ...remaining_skeleton];
+}
+
+/**
+ * The seed `symbol_path`s every live hydrated flow claims (its `entry_points`). The selector passes this
+ * to {@link order_flows} so a skeleton entry the stitch already folded into a grouped flow as a
+ * non-dominant seed is suppressed rather than re-surfacing as a duplicate bare entry.
+ */
+export function hydrated_seed_paths(nodes: readonly NodeRow[]): Set<string> {
+  const paths = new Set<string>();
+  for (const node of nodes) {
+    if (node.kind !== FLOW_NODE_KIND || node.deleted_at !== null) continue;
+    const entries = node.attributes.entry_points;
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) if (typeof entry === "string") paths.add(entry);
+  }
+  return paths;
 }
 
 /** Read persisted hydrated flows from the store (AC#7) — `agentic.flow` nodes. Empty until task-27.1.6. */
