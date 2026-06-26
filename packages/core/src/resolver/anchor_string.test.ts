@@ -8,7 +8,6 @@ const HASH = "a".repeat(64);
 
 describe("anchor_string round-trip", () => {
   it("round-trips a symbol_path that itself contains colons", () => {
-    // symbol_path ends with `:method`; the split must key on the LAST colon.
     const anchor: Anchor = { symbol_path: "src/s.ts#X.run:method", content_hash: HASH };
     expect(format_anchor(anchor)).toBe(`src/s.ts#X.run:method:${HASH}`);
     expect(parse_anchor(format_anchor(anchor))).toEqual(anchor);

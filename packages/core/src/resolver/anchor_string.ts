@@ -1,9 +1,9 @@
 import type { Anchor } from "@code-charter/types";
 
 /**
- * The serialization boundary between the resolver and the store. A `NodeRow.anchor` (task-27.0) is
- * persisted as the single string `symbol_path:content_hash`; consumers read that column and parse it
- * back into a structured {@link Anchor} before calling `resolve_anchor`.
+ * The serialization boundary between the resolver and the store. A `NodeRow.anchor` is persisted as
+ * the single string `symbol_path:content_hash`; consumers read that column and parse it back into a
+ * structured {@link Anchor} before calling `resolve_anchor`.
  */
 
 const HEX64 = /^[0-9a-f]{64}$/;
