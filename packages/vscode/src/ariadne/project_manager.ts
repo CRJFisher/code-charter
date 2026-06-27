@@ -80,9 +80,6 @@ export class AriadneProjectManager {
     }
   }
 
-  /**
-   * Initialize the project by loading all files and setting up watchers
-   */
   async initialize(): Promise<CallGraph> {
     this.project = new Project();
     await this.project.initialize(this.workspace_path as FilePath);
@@ -110,9 +107,6 @@ export class AriadneProjectManager {
     return this.project.get_call_graph();
   }
 
-  /**
-   * Recursively scan directory for files matching the filter
-   */
   private async scan_files(dir: string): Promise<string[]> {
     const results: string[] = [];
     let entries: fs.Dirent[];
@@ -143,9 +137,6 @@ export class AriadneProjectManager {
     return results;
   }
 
-  /**
-   * Update a file in the project
-   */
   private async update_file_in_project(file_path: string): Promise<void> {
     if (!this.project) {
       return;
@@ -161,11 +152,7 @@ export class AriadneProjectManager {
     }
   }
 
-  /**
-   * Set up file system watchers for incremental updates
-   */
   private setup_file_watchers(): void {
-    // Create a file watcher for the workspace
     const pattern = new vscode.RelativePattern(this.workspace_path, "**/*");
     this.file_watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
@@ -220,9 +207,6 @@ export class AriadneProjectManager {
     );
   }
 
-  /**
-   * Handle incremental document changes
-   */
   private handle_document_change(document: vscode.TextDocument): void {
     if (!this.project) {
       return;
@@ -236,9 +220,6 @@ export class AriadneProjectManager {
 
   private update_timer: NodeJS.Timeout | undefined;
 
-  /**
-   * Debounce call graph updates to avoid excessive recalculation
-   */
   private debounce_call_graph_update(): void {
     if (this.update_timer) {
       clearTimeout(this.update_timer);
@@ -246,12 +227,9 @@ export class AriadneProjectManager {
 
     this.update_timer = setTimeout(() => {
       this.emit_call_graph_changed();
-    }, 500); // Wait 500ms after last change
+    }, 500);
   }
 
-  /**
-   * Emit that the call graph has changed
-   */
   private emit_call_graph_changed(): void {
     if (!this.project) {
       return;
@@ -267,9 +245,6 @@ export class AriadneProjectManager {
     return this.project.get_call_graph();
   }
 
-  /**
-   * Dispose of all resources
-   */
   dispose(): void {
     this.disposables.forEach(d => d.dispose());
     this.file_watcher?.dispose();
