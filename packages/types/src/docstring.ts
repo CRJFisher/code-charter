@@ -1,10 +1,7 @@
 import type { AnyDefinition } from "@ariadnejs/types";
 
-/**
- * Read ariadne's native docstring off any definition variant.
- * Some definitions (ClassDefinition) store an array of doc comments;
- * the rest store a single string.
- */
+// ClassDefinition stores docstrings as an array of doc comments; every other
+// definition variant stores a single string, so both shapes are handled.
 export function get_docstring(definition: AnyDefinition): string | undefined {
   if (!("docstring" in definition)) return undefined;
   const value = definition.docstring;
