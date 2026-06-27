@@ -15,7 +15,6 @@ import { is_supported_source } from "./headless_project";
 import { to_abs } from "./paths";
 import { find_skill_root } from "./skill_dir";
 
-/** True iff `abs_path` can form a flow: a supported source, or a file under a `SKILL.md` ancestor. */
 export function is_flow_relevant(abs_path: string, repo_root_abs: string): boolean {
   const abs = to_abs(abs_path, repo_root_abs);
   return is_supported_source(abs) || find_skill_root(abs, repo_root_abs) !== undefined;
@@ -23,9 +22,7 @@ export function is_flow_relevant(abs_path: string, repo_root_abs: string): boole
 
 /** A worked-on set split into the files that can form a flow and the rest (dropped, never reconciled). */
 export interface FlowRelevancePartition {
-  /** Worked-on entries that can form a flow, in input order. */
   relevant: string[];
-  /** The non-flow entries (docs/config) that the hook skips. */
   dropped: string[];
 }
 
