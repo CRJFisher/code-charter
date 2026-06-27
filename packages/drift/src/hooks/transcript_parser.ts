@@ -8,8 +8,7 @@
 
 import { is_record } from "./hook_payloads";
 
-/** The file-editing tools whose tool-use entries mark a worked-on file. */
-export const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
+const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "Edit",
   "Write",
   "MultiEdit",

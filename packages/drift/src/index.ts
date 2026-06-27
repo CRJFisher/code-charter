@@ -7,7 +7,7 @@
 // Hooks
 export { decide_stop_action, build_reconcile_instruction, RECONCILER_AGENT_NAME } from "./hooks/stop_decision";
 export type { StopDecision } from "./hooks/stop_decision";
-export { parse_worked_on_files, EDIT_TOOL_NAMES } from "./hooks/transcript_parser";
+export { parse_worked_on_files } from "./hooks/transcript_parser";
 
 // Reconcile engine (task-27.1.6 — the drift-sync skill body)
 export { reconcile, make_ariadne_adapter, HeadlessProject } from "./reconcile";

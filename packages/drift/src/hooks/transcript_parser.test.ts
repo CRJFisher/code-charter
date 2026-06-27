@@ -30,4 +30,15 @@ describe("parse_worked_on_files", () => {
   it("returns [] for empty input", () => {
     expect(parse_worked_on_files("")).toEqual([]);
   });
+
+  it("skips edit tool-uses whose file_path is an empty string", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [{ type: "tool_use", name: "Edit", id: "t1", input: { file_path: "" } }],
+      },
+    });
+    expect(parse_worked_on_files(line)).toEqual([]);
+  });
 });
