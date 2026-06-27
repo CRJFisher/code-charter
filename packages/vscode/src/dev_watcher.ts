@@ -1,19 +1,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-/**
- * Watch for changes in the UI package during development
- */
 export class UIDevWatcher {
   private watcher: vscode.FileSystemWatcher | undefined;
-  private on_change_callback: () => void;
 
   constructor(
     private context: vscode.ExtensionContext,
-    on_change_callback: () => void
-  ) {
-    this.on_change_callback = on_change_callback;
-  }
+    private on_change_callback: () => void
+  ) {}
 
   start(): void {
     if (this.watcher) {
@@ -41,6 +35,8 @@ export class UIDevWatcher {
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
     let debounce_timer: NodeJS.Timeout;
+    // The bundler rewrites the file in several rapid passes; debounce so the
+    // webview reloads once the write has settled rather than mid-build.
     const debounced_callback = () => {
       clearTimeout(debounce_timer);
       debounce_timer = setTimeout(() => {
@@ -57,12 +53,5 @@ export class UIDevWatcher {
     vscode.window.showInformationMessage(
       'Code Charter: Development mode enabled. Webview will reload when UI package changes.'
     );
-  }
-
-  stop(): void {
-    if (this.watcher) {
-      this.watcher.dispose();
-      this.watcher = undefined;
-    }
   }
 }
