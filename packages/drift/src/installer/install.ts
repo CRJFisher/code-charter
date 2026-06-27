@@ -40,7 +40,7 @@ function bin_path(package_root: string, bin_filename: string): string {
  * wherever the target repo and the package each sit. The installer re-asserts this on every install, so
  * a move of the package (e.g. an extension update to a new versioned folder) self-heals on the next run.
  */
-export function hook_command(package_root: string, bin_filename: string): string {
+function hook_command(package_root: string, bin_filename: string): string {
   return `node "${bin_path(package_root, bin_filename)}"`;
 }
 
@@ -87,7 +87,7 @@ function assert_bin_built(package_root: string, bin_filename: string): void {
 }
 
 /** The hook specs the installer writes, with their identity tokens for idempotency. */
-export function build_hook_specs(package_root: string): HookArtifactSpec[] {
+function build_hook_specs(package_root: string): HookArtifactSpec[] {
   return [
     {
       event_name: "Stop",

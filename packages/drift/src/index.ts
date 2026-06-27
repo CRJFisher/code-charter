@@ -14,7 +14,7 @@ export { reconcile, make_ariadne_adapter, HeadlessProject } from "./reconcile";
 export type { AriadneAdapter, DeferredRetirement, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./reconcile";
 
 // Installer
-export { install_drift, build_hook_specs, hook_command } from "./installer/install";
+export { install_drift } from "./installer/install";
 export { resolve_db_path } from "./hooks/resolve_db_path";
 export {
   CLAUDE_CODE_LAYOUT,

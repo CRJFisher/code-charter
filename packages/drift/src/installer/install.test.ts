@@ -76,6 +76,21 @@ describe("install_drift (idempotency + asset install)", () => {
     }
   });
 
+  it("refuses to install when the hook bins are not built", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-install-"));
+    const unbuilt_root = fs.mkdtempSync(path.join(os.tmpdir(), "drift-unbuilt-"));
+    try {
+      expect(() => install_drift(target, CLAUDE_CODE_LAYOUT, unbuilt_root)).toThrow(
+        /not found.*npm run build/s,
+      );
+      // It fails before writing anything into the target.
+      expect(fs.existsSync(path.join(target, ".claude"))).toBe(false);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+      fs.rmSync(unbuilt_root, { recursive: true, force: true });
+    }
+  });
+
   it("refuses to overwrite a present-but-malformed settings.json (no silent data loss)", () => {
     const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-install-"));
     try {
