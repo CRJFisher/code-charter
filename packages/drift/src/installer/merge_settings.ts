@@ -38,8 +38,8 @@ export function hook_group_is_ours(group: unknown, identity_token: string): bool
   });
 }
 
-/** Merge one hook spec into `settings`, replacing any prior drift group for that event. */
-export function merge_hook_entry(
+/** Replaces any prior drift group for the event, keeping the merge idempotent across re-installs. */
+function merge_hook_entry(
   settings: unknown,
   layout: HostLayout,
   spec: HookArtifactSpec,
@@ -53,7 +53,6 @@ export function merge_hook_entry(
   return root;
 }
 
-/** Merge every hook spec into `settings`. */
 export function merge_all_hooks(
   settings: unknown,
   layout: HostLayout,

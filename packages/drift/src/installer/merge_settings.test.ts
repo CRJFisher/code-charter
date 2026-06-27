@@ -40,6 +40,18 @@ describe("merge_all_hooks", () => {
     expect(stop[0].hooks[0].command).toBe(STOP_SPEC.command);
   });
 
+  it("seeds a fresh envelope when settings are absent", () => {
+    const merged = merge_all_hooks(undefined, CLAUDE_CODE_LAYOUT, SPECS);
+    const stop = read_hook_groups(merged, CLAUDE_CODE_LAYOUT, "Stop");
+    expect(stop).toHaveLength(1);
+    expect(stop[0].hooks[0].command).toBe(STOP_SPEC.command);
+  });
+
+  it("adds no hooks key when there are no specs to install", () => {
+    const merged = merge_all_hooks({ permissions: { allow: [] } }, CLAUDE_CODE_LAYOUT, []);
+    expect(merged).toEqual({ permissions: { allow: [] } });
+  });
+
   it("preserves the user's own hooks and other settings keys", () => {
     const seeded = {
       $schema: "https://example/schema.json",
@@ -56,6 +68,28 @@ describe("merge_all_hooks", () => {
   });
 });
 
+describe("read_hook_groups", () => {
+  it("excludes malformed groups that fail the command-shape check", () => {
+    const settings = {
+      hooks: {
+        Stop: [
+          { hooks: [{ type: "command", command: "node /valid.js" }] },
+          { hooks: [{ type: "command" }] },
+          { hooks: [{ type: "ask", command: "node /wrong-type.js" }] },
+          { hooks: "not-an-array" },
+        ],
+      },
+    };
+    const stop = read_hook_groups(settings, CLAUDE_CODE_LAYOUT, "Stop");
+    expect(stop).toHaveLength(1);
+    expect(stop[0].hooks[0].command).toBe("node /valid.js");
+  });
+
+  it("returns nothing for an event with no installed hooks", () => {
+    expect(read_hook_groups({}, CLAUDE_CODE_LAYOUT, "Stop")).toEqual([]);
+  });
+});
+
 describe("hook_group_is_ours", () => {
   it("recognises a group by its command identity token", () => {
     expect(
@@ -63,5 +97,9 @@ describe("hook_group_is_ours", () => {
     ).toBe(true);
     expect(hook_group_is_ours({ hooks: [{ type: "command", command: "other" }] }, "drift_stop_hook")).toBe(false);
     expect(hook_group_is_ours("not-a-group", "drift_stop_hook")).toBe(false);
+  });
+
+  it("ignores hooks whose command is not a string", () => {
+    expect(hook_group_is_ours({ hooks: [{ type: "command", command: 42 }] }, "drift_stop_hook")).toBe(false);
   });
 });

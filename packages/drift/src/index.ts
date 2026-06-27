@@ -17,12 +17,6 @@ export type { AriadneAdapter, DeferredRetirement, FlowAction, FlowOutcome, Recon
 export { install_drift, build_hook_specs, hook_command } from "./installer/install";
 export { resolve_db_path } from "./hooks/resolve_db_path";
 export {
-  merge_all_hooks,
-  merge_hook_entry,
-  hook_group_is_ours,
-  read_hook_groups,
-} from "./installer/merge_settings";
-export {
   CLAUDE_CODE_LAYOUT,
   HOST_LAYOUTS,
   build_hook_group,
