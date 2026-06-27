@@ -10,8 +10,7 @@
  * The projected `code.function` rows are render-only: their `id` is the Ariadne `symbol_id` (unique and
  * deterministic within a graph), `path` is the defining file, and `anchor` is null (no body hashing
  * happens here — the rows are never persisted). The adapter reads `attributes.label` for the display
- * name, so the id format is irrelevant to rendering. A persisted, hydrated flow (task-27.1.6) is layered
- * over this same seam later.
+ * name, so the id format is irrelevant to rendering.
  *
  * Budget (AC#6, minimal): under budget, leaves render nested in their file-module groups (the adapter
  * turns `agentic.contains` into `parentId`). Over budget, the flow collapses to module granularity —

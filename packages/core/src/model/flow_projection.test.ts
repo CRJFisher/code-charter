@@ -1,6 +1,24 @@
-import { build_skeleton_flows, UNATTRIBUTED_FLOW_ID } from "./flow";
-import { DEFAULT_FLOW_BUDGET, project_flow } from "./flow_projection";
+import type { SymbolId } from "@ariadnejs/types";
+import type { NodeRow } from "@code-charter/types";
+
+import { build_skeleton_flows, type FlowMembership, UNATTRIBUTED_FLOW_ID } from "./flow";
+import { DEFAULT_FLOW_BUDGET, project_flow, project_hydrated_flow } from "./flow_projection";
 import { make_graph, type NodeSpec } from "./__fixtures__/call_graph";
+
+function doc_node(id: string, path: string): NodeRow {
+  return {
+    id,
+    kind: "agentic.doc",
+    path,
+    anchor: null,
+    layer: "agentic",
+    attributes: { label: id },
+    field_ownership: {},
+    origin: "doc-link",
+    intent_source: "agentic",
+    deleted_at: null,
+  };
+}
 
 const graph = make_graph(
   [
@@ -107,5 +125,38 @@ describe("project_flow — unattributed bucket (AC#8)", () => {
     const { nodes } = project_flow(unattributed, with_dead);
     const labels = nodes.filter((n) => n.kind === "code.function").map((n) => n.attributes.label).sort();
     expect(labels).toEqual(["orphan", "orphan_helper"]);
+  });
+});
+
+describe("project_hydrated_flow (task-27.1.6)", () => {
+  it("renders the code members exactly as the skeleton path does", () => {
+    const membership: FlowMembership = { id: "main", seeds: ["main" as SymbolId] };
+    const { nodes, edges } = project_hydrated_flow(membership, graph, []);
+    const functions = nodes.filter((n) => n.kind === "code.function");
+    expect(functions.map((n) => n.attributes.label).sort()).toEqual(["helper", "main", "send"]);
+    expect(nodes.find((n) => n.id === "main")?.attributes.is_entry_point).toBe(true);
+    const calls = edges.filter((e) => e.kind === "code.calls").map((e) => e.key).sort();
+    expect(calls).toEqual(["code.calls:helper->send", "code.calls:main->helper", "code.calls:main->send"]);
+  });
+
+  it("appends doc-node rows for linked_docs that are genuine members", () => {
+    const membership: FlowMembership = { id: "main", seeds: ["main" as SymbolId], linked_docs: ["doc:readme"] };
+    const { nodes } = project_hydrated_flow(membership, graph, [doc_node("doc:readme", "docs/readme.md")]);
+    expect(nodes.some((n) => n.id === "doc:readme" && n.kind === "agentic.doc")).toBe(true);
+  });
+
+  it("renders a docs-only flow whose members are docs, not callables", () => {
+    const membership: FlowMembership = { id: "skill", seeds: [], linked_docs: ["doc:skill"] };
+    const { nodes } = project_hydrated_flow(membership, graph, [doc_node("doc:skill", "skills/x.md")]);
+    expect(nodes.some((n) => n.id === "doc:skill")).toBe(true);
+    expect(nodes.some((n) => n.kind === "code.function")).toBe(false);
+  });
+
+  it("drops a doc node that is not a linked_doc member (stale link)", () => {
+    const membership: FlowMembership = { id: "main", seeds: ["main" as SymbolId], linked_docs: ["doc:readme"] };
+    const doc_nodes = [doc_node("doc:readme", "docs/readme.md"), doc_node("doc:stale", "docs/stale.md")];
+    const { nodes } = project_hydrated_flow(membership, graph, doc_nodes);
+    expect(nodes.some((n) => n.id === "doc:readme")).toBe(true);
+    expect(nodes.some((n) => n.id === "doc:stale")).toBe(false);
   });
 });
