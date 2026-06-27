@@ -24,6 +24,7 @@ describe("decide_stop_action", () => {
       expect(decision.instruction).not.toContain("src/a.ts");
       expect(decision.instruction).not.toContain("src/b.ts");
       expect(decision.system_message).toContain("2 changed file");
+      expect(decision.system_message).toContain(RECONCILER_AGENT_NAME);
     }
   });
 

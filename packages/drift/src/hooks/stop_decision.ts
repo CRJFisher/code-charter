@@ -40,7 +40,7 @@ export function build_reconcile_instruction(): string {
 }
 
 /** The short user-facing note (the `Stop` output `systemMessage`). */
-export function build_system_message(count: number): string {
+function build_system_message(count: number): string {
   return `Code Charter: reconciling diagrams for ${count} changed file(s) via ${RECONCILER_AGENT_NAME}.`;
 }
 
