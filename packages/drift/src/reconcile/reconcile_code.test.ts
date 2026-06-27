@@ -323,6 +323,35 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
   });
 
+  it("caps full hydration at the per-turn ceiling, writing the overflow as describe-less stubs (AC#8)", async () => {
+    // One file with 51 independent entrypoints — one over the ceiling — so the overflow exercises the
+    // stub branch. None call each other, so each is its own singleton flow.
+    const ceiling = 50;
+    const count = ceiling + 1;
+    const src = Array.from({ length: count }, (_, i) => `export function f${i}() {\n  return ${i};\n}`).join("\n\n") + "\n";
+    write("many.ts", src);
+
+    const logs: string[] = [];
+    const project = new HeadlessProject(repo);
+    await project.initialize();
+    const deps: ReconcileDeps = {
+      store,
+      adapter: make_ariadne_adapter(project, () => {}),
+      repo_root_abs: repo,
+      analyzed_root: "",
+      now: () => new Date(2026, 0, 1, 0, 0, clock++).toISOString(),
+      log: (m) => logs.push(m),
+    };
+    await reconcile(["many.ts"], deps);
+
+    // Every entrypoint hydrates — the cap throttles descriptions, never drops a flow.
+    expect(read_persisted_flows(store).filter((f) => f.node.id.startsWith("many.ts#"))).toHaveLength(count);
+    // Exactly the ceiling many carry a description; the single overflow stub carries none.
+    const described = store.all_nodes().filter((n) => n.kind === DESCRIPTION_NODE_KIND && n.id.includes("many.ts#"));
+    expect(described).toHaveLength(ceiling);
+    expect(logs).toContainEqual(expect.stringContaining(`capped full hydration at ${ceiling} of ${count}`));
+  });
+
   it("re-syncs in place and advances last_synced_at without duplicating the flow (AC#1)", async () => {
     await run(["main.ts"]);
     const flow_id = read_persisted_flows(store)[0].node.id;
