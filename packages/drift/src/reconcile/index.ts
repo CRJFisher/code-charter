@@ -1,42 +1,11 @@
 /**
- * The reconcile engine: the body of the `drift-sync` skill (task-27.1.6). Public surface for the
- * `drift-reconcile` bin and for tests.
+ * The reconcile engine's public surface, re-exported by the package root (`@code-charter/drift`).
+ * Internal reconcile collaborators and the `drift-reconcile` bin import directly from the sibling
+ * modules; only the symbols the package root publishes are grouped here.
  */
 
 export { reconcile } from "./reconcile";
 export { make_ariadne_adapter } from "./ariadne_adapter";
 export type { AriadneAdapter } from "./ariadne_adapter";
-export { HeadlessProject, is_supported_source } from "./headless_project";
-export { find_skill_root, ingest_skill_dir } from "./skill_dir";
-export { filter_flow_relevant, is_flow_relevant } from "./flow_relevance";
-export type { FlowRelevancePartition } from "./flow_relevance";
-export { affected_persisted_flows } from "./affected_flows";
-export { read_persisted_flow, read_persisted_flows, write_flow } from "./flow_store";
-export type { PersistedFlow, WriteFlowArgs } from "./flow_store";
-export { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
-export type { CodeUmbrella, SkillUmbrella } from "./hydrate";
-export { existing_descriptions, resolve_descriptions } from "./describe";
-export {
-  apply_descriptions,
-  apply_stitch,
-  build_entrypoint_inventory,
-  parse_apply_descriptions,
-  parse_apply_stitch,
-  STITCH_EXTRACTOR_ID,
-  STITCH_EXTRACTOR_VERSION,
-} from "./agentic_modes";
-export type {
-  ApplyDescriptionsInput,
-  ApplyDescriptionsResult,
-  ApplyStitchFlow,
-  ApplyStitchInput,
-  ApplyStitchResult,
-  EntrypointInventory,
-  InventoryEntrypoint,
-  StitchBridgeInput,
-  StitchUmbrellaInput,
-  UnresolvedSite,
-} from "./agentic_modes";
-export { to_abs, to_repo_relative } from "./paths";
-export { read_only_store } from "./dry_run_store";
-export type { DeferredRetirement, DetectionGoal, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";
+export { HeadlessProject } from "./headless_project";
+export type { DeferredRetirement, FlowAction, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";
