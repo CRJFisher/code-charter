@@ -1,10 +1,13 @@
 import type { SymbolId } from "@ariadnejs/types";
-import type { FlowSummary } from "@code-charter/types";
+import type { EdgeRow, FlowSummary } from "@code-charter/types";
 
 import {
+  BRIDGE_EDGE_KIND,
   build_flow_member_edges,
   build_flow_node,
   build_skeleton_flows,
+  build_symbol_path_index,
+  collect_persisted_flow,
   FLOW_MEMBER_EDGE_KIND,
   FLOW_NODE_KIND,
   flow_id_of,
@@ -12,8 +15,10 @@ import {
   hydrated_seed_paths,
   induce_members,
   order_flows,
+  paths_of,
   reachable_from,
   read_hydrated_flows,
+  reconstruct_flow_membership,
   skeleton_to_summary,
   UNATTRIBUTED_FLOW_ID,
 } from "./flow";
@@ -125,6 +130,50 @@ describe("flow_of_leaf (AC#2)", () => {
     expect(flow_of_leaf("shared" as SymbolId, flows, graph).sort()).toEqual(
       ["c.ts#cli:function", "m.ts#main:function"].sort(),
     );
+  });
+});
+
+describe("paths_of", () => {
+  const graph = make_graph(
+    [
+      { id: "main", name: "main", file: "src/main.ts" },
+      { id: "helper", name: "helper", file: "src/helper.ts" },
+    ],
+    ["main"],
+  );
+
+  it("maps symbol ids to sorted symbol_paths, dropping ids absent from the graph", () => {
+    const paths = paths_of(new Set(["helper", "main", "ghost"] as SymbolId[]), graph);
+    expect(paths).toEqual(["src/helper.ts#helper:function", "src/main.ts#main:function"]);
+  });
+
+  it("dedupes two ids that collapse to one symbol_path", () => {
+    const collapsing = make_graph(
+      [
+        { id: "run#1", name: "run", file: "svc.ts" },
+        { id: "run#2", name: "run", file: "svc.ts" },
+      ],
+      [],
+    );
+    expect(paths_of(new Set(["run#1", "run#2"] as SymbolId[]), collapsing)).toEqual(["svc.ts#run:function"]);
+  });
+});
+
+describe("build_symbol_path_index", () => {
+  it("maps each symbol_path back to its symbol id (the inverse of flow_id_of)", () => {
+    const graph = make_graph([{ id: "main", name: "main", file: "src/main.ts" }], ["main"]);
+    expect(build_symbol_path_index(graph).get("src/main.ts#main:function")).toBe("main");
+  });
+
+  it("keeps the first id in sorted order when two ids collapse to one symbol_path", () => {
+    const graph = make_graph(
+      [
+        { id: "run#2", name: "run", file: "svc.ts" },
+        { id: "run#1", name: "run", file: "svc.ts" },
+      ],
+      [],
+    );
+    expect(build_symbol_path_index(graph).get("svc.ts#run:function")).toBe("run#1");
   });
 });
 
@@ -257,6 +306,85 @@ describe("read_hydrated_flows (AC#7)", () => {
       },
     ]);
   });
+
+  it("falls back to the node id for a missing label and zero for a missing member_count", () => {
+    const [flow] = read_hydrated_flows([
+      {
+        id: "src/x.ts#run:function",
+        kind: FLOW_NODE_KIND,
+        path: "",
+        anchor: null,
+        layer: "agentic",
+        attributes: {},
+        field_ownership: {},
+        origin: "flow-detector",
+        intent_source: "code-edit",
+        deleted_at: null,
+      },
+    ]);
+    expect(flow).toMatchObject({ label: "src/x.ts#run:function", member_count: 0 });
+  });
+});
+
+describe("collect_persisted_flow", () => {
+  const flow_id = "src/main.ts#main:function";
+  const member_id = "src/api.ts#send:function";
+  const flow_node = build_flow_node({ id: flow_id, label: "Main", entry_points: [flow_id], exit_points: [], rationale: "" });
+  const member_edges = build_flow_member_edges(flow_id, [member_id]);
+
+  it("returns undefined when no live flow node matches the id", () => {
+    expect(collect_persisted_flow("missing", [flow_node], [])).toBeUndefined();
+  });
+
+  it("gathers the flow's member edges and only the bridge edges incident to a member", () => {
+    const incident = edge({ key: "b1", src_id: member_id, dst_id: "src/other.ts#run:function", kind: BRIDGE_EDGE_KIND });
+    const unrelated = edge({ key: "b2", src_id: "x", dst_id: "y", kind: BRIDGE_EDGE_KIND });
+    const rows = collect_persisted_flow(flow_id, [flow_node], [...member_edges, incident, unrelated]);
+    expect(rows?.member_edges.map((e) => e.dst_id)).toEqual([member_id]);
+    expect(rows?.bridge_edges.map((e) => e.key)).toEqual(["b1"]);
+  });
+});
+
+describe("reconstruct_flow_membership (task-27.1.6)", () => {
+  const graph = make_graph(
+    [
+      { id: "main", name: "main", file: "src/main.ts" },
+      { id: "other", name: "other", file: "src/other.ts" },
+    ],
+    ["main"],
+  );
+
+  it("resolves stored entry_points to live seeds and routes the unresolvable ones to linked docs", () => {
+    const flow_node = build_flow_node({
+      id: "src/main.ts#main:function",
+      label: "Main",
+      entry_points: ["src/main.ts#main:function", "docs/readme.md"],
+      exit_points: [],
+      rationale: "",
+    });
+    const membership = reconstruct_flow_membership({ flow_node, member_edges: [], bridge_edges: [] }, graph);
+    expect(membership.id).toBe("src/main.ts#main:function");
+    expect(membership.seeds).toEqual(["main"]);
+    expect(membership.linked_docs).toEqual(["docs/readme.md"]);
+  });
+
+  it("resolves a bridge dst to a live symbol id and routes a doc-target bridge to linked docs", () => {
+    const flow_node = build_flow_node({
+      id: "src/main.ts#main:function",
+      label: "Main",
+      entry_points: ["src/main.ts#main:function"],
+      exit_points: [],
+      rationale: "",
+    });
+    const bridge_to_code = edge({ key: "b1", src_id: "src/main.ts#main:function", dst_id: "src/other.ts#other:function", kind: BRIDGE_EDGE_KIND });
+    const bridge_to_doc = edge({ key: "b2", src_id: "src/main.ts#main:function", dst_id: "skills/foo.md", kind: BRIDGE_EDGE_KIND });
+    const membership = reconstruct_flow_membership(
+      { flow_node, member_edges: [], bridge_edges: [bridge_to_code, bridge_to_doc] },
+      graph,
+    );
+    expect(membership.bridges).toEqual([{ src_id: "src/main.ts#main:function", dst_id: "other" }]);
+    expect(membership.linked_docs).toEqual(["skills/foo.md"]);
+  });
 });
 
 describe("hydrated_seed_paths", () => {
@@ -317,6 +445,23 @@ describe("skeleton_to_summary", () => {
     expect(skeleton_to_summary(flow)).toMatchObject({ is_hydrated: false, last_synced_at: null });
   });
 });
+
+function edge(over: { key: string; src_id: string; dst_id: string; kind: string }): EdgeRow {
+  return {
+    key: over.key,
+    src_id: over.src_id,
+    dst_id: over.dst_id,
+    kind: over.kind,
+    confidence: 1,
+    layer: "agentic",
+    attributes: {},
+    field_ownership: {},
+    origin: "flow-detector",
+    intent_source: "code-edit",
+    adjudication: null,
+    deleted_at: null,
+  };
+}
 
 function summary(over: Partial<FlowSummary> & { id: string }): FlowSummary {
   return {
