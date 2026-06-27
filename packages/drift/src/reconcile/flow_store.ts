@@ -16,14 +16,13 @@ import {
   FLOW_NODE_KIND,
 } from "@code-charter/core";
 
-/** A persisted flow and its incident agentic edges. */
 export interface PersistedFlow {
   node: NodeRow;
   member_edges: readonly EdgeRow[];
   bridge_edges: readonly EdgeRow[];
 }
 
-/** Read every live persisted `agentic.flow` with its member + incident bridge edges. */
+/** Reads only live flows: `deleted_at === null` excludes soft-deleted (retired) nodes. */
 export function read_persisted_flows(store: GraphStore): PersistedFlow[] {
   const edges = store.all_edges();
   return store
@@ -99,7 +98,6 @@ export function write_flow(store: GraphStore, args: WriteFlowArgs): void {
 
   store.upsert_node(node);
 
-  // Member edges: upsert the fresh set, retire any prior member edge no longer present.
   const fresh = build_flow_member_edges(args.id, args.member_ids);
   const fresh_keys = new Set(fresh.map((e) => e.key));
   for (const stale of store.all_edges()) {
