@@ -5,8 +5,7 @@
  * `node:fs`, no `vscode` API, no file watchers, no debounce.
  *
  * It owns exactly what the reconcile engine needs: build the project over a repo root, hand back the
- * `CallGraph`, expose each file's `SemanticIndex` + source for the resolver/raw-extraction walk, and
- * re-index a changed file set on demand (the RE-SYNC path).
+ * `CallGraph`, and expose each file's `SemanticIndex` + source for the resolver/raw-extraction walk.
  */
 
 import * as fs from "node:fs";
@@ -100,7 +99,6 @@ export class HeadlessProject {
     return this.omitted;
   }
 
-  /** The semantic index for a repo-relative path. */
   get_index_single_file(rel: string): SemanticIndex | undefined {
     return this.project?.get_index_single_file(rel as FilePath);
   }
