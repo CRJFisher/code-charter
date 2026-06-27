@@ -14,7 +14,7 @@ describe('MockBackend', () => {
       if (!result) throw new Error('expected call graph');
       expect(result.nodes).toBeInstanceOf(Map);
       expect(result.nodes.size).toBe(3);
-      expect(result.entry_points.length).toBe(1);
+      expect(result.entry_points).toEqual(['main.ts:main']);
     });
 
     it('returns nodes with correct structure', async () => {
@@ -24,7 +24,18 @@ describe('MockBackend', () => {
       if (!main_node) throw new Error('expected main node');
       expect(main_node.symbol_id).toBe('main.ts:main');
       expect(main_node.definition).toBeDefined();
-      expect(main_node.enclosed_calls.length).toBe(2);
+      expect(main_node.enclosed_calls.map((c) => c.resolutions[0].symbol_id)).toEqual([
+        'utils.ts:processData',
+        'api.ts:fetch_data',
+      ]);
+    });
+
+    it('keys each node in the map by its own symbol_id', async () => {
+      const result = await backend.get_call_graph();
+      if (!result) throw new Error('expected call graph');
+      for (const [id, node] of result.nodes) {
+        expect(node.symbol_id).toBe(id);
+      }
     });
   });
 
@@ -53,6 +64,24 @@ describe('MockBackend', () => {
         expect(ids.has(edge.dst_id)).toBe(true);
       }
       expect(result.edges.some((e) => e.kind === 'code.calls')).toBe(true);
+    });
+
+    it('marks only the entry-point leaf with is_entry_point', async () => {
+      const result = await backend.render_flow('main.ts#main:function');
+      const functions = result.nodes.filter((n) => n.kind === 'code.function');
+      const flagged = functions.filter((n) => n.attributes.is_entry_point === true);
+      expect(flagged.map((n) => n.attributes.label)).toEqual(['main']);
+    });
+
+    it('points every call edge at an emitted leaf node', async () => {
+      const result = await backend.render_flow('main.ts#main:function');
+      const leaf_ids = new Set(result.nodes.filter((n) => n.kind === 'code.function').map((n) => n.id));
+      const call_edges = result.edges.filter((e) => e.kind === 'code.calls');
+      expect(call_edges.length).toBe(3);
+      for (const edge of call_edges) {
+        expect(leaf_ids.has(edge.src_id)).toBe(true);
+        expect(leaf_ids.has(edge.dst_id)).toBe(true);
+      }
     });
   });
 
