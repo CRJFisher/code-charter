@@ -1,4 +1,4 @@
-/** Read all of stdin to a string (hook payloads arrive as a single JSON document on stdin). */
+/** Hook payloads arrive as a single JSON document on stdin, so the whole stream must be drained before parsing. */
 export async function read_stdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
