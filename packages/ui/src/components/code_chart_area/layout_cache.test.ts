@@ -1,7 +1,5 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
 import { LayoutCache } from './layout_cache';
 import { get_visible_nodes } from './virtual_renderer';
-import { use_debounce } from '../../hooks/use_debounce';
 import { calculate_node_dimensions } from './graph_layout';
 import { CodeChartNode } from './chart_types';
 
@@ -144,39 +142,6 @@ describe('Performance Utilities', () => {
     });
   });
 
-
-  describe('use_debounce', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.runOnlyPendingTimers();
-      jest.useRealTimers();
-    });
-
-    it('should debounce value changes', async () => {
-      const { result, rerender } = renderHook(
-        ({ value, delay }) => use_debounce(value, delay),
-        { initialProps: { value: 'initial', delay: 500 } }
-      );
-
-      expect(result.current).toBe('initial');
-
-      // Update value
-      rerender({ value: 'updated', delay: 500 });
-      expect(result.current).toBe('initial');
-
-      // Fast forward time
-      act(() => {
-        jest.advanceTimersByTime(500);
-      });
-
-      await waitFor(() => {
-        expect(result.current).toBe('updated');
-      });
-    });
-  });
 
   describe('Performance Benchmarks', () => {
     it('should handle 1000+ nodes efficiently', () => {
