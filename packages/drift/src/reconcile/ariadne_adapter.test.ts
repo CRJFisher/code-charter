@@ -12,6 +12,8 @@ import {
   type GraphStore,
 } from "@code-charter/core";
 
+import type { SymbolId } from "@ariadnejs/types";
+
 import { build_dedup_index, make_ariadne_adapter } from "./ariadne_adapter";
 import { HeadlessProject } from "./headless_project";
 import type { AriadneAdapter } from "./ariadne_adapter";
@@ -51,10 +53,9 @@ afterEach(() => {
 
 describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", () => {
   it("the fixture really contains >= 2 bodied anonymous callables (collision guard, at the Ariadne layer)", () => {
-    // Asserted against the raw Ariadne index, not the resolver output (do not rewrite this against
-    // adapter/resolver output): the resolver now skips anonymous callables, so this guard pins the
-    // fixture's triggering property independently of the fix and stays green before and after it. If it
-    // ever drops below 2, the regression no longer exercises the bug.
+    // Asserted against the raw Ariadne index, not the resolver output: the resolver skips anonymous
+    // callables, so pinning the fixture's triggering property at the Ariadne layer keeps this guard
+    // independent of resolver behavior. If it ever drops below 2, the regression no longer exercises the bug.
     const index = project.get_index_single_file(REL);
     expect(index).toBeDefined();
     const anon = [...index!.functions.values()].filter((f) => f.name === "<anonymous>" && f.body_scope_id);
@@ -64,8 +65,8 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
   it("(AC#1/#2/#4a) build_index returns a populated index with the named symbol and no <anonymous> record", () => {
     const index = adapter.build_index([REL]);
 
-    // The duplicate anonymous callables no longer empty the index (the bug), and they are not symbols:
-    // the fixture's only resolver symbol is the named function, so the index holds exactly one entry.
+    // The duplicate anonymous callables are not resolver symbols, so the fixture's only resolver symbol
+    // is the named function and the index holds exactly one entry.
     expect(index.by_symbol_path.size).toBe(1);
     expect(index.by_symbol_path.has(NAMED_SYMBOL_PATH)).toBe(true);
     expect(index.by_symbol_path.has(ANON_SYMBOL_PATH)).toBe(false);
@@ -121,5 +122,37 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     expect(kept?.content_hash).toBe(derive_code_state(first).content_hash);
     expect(kept?.content_hash).not.toBe(derive_code_state(second).content_hash);
     expect(messages.some((m) => m.includes("dropped duplicate symbol_path") && m.includes("x.ts#f:function"))).toBe(true);
+  });
+});
+
+describe("ariadne_adapter — code accessors over the live project", () => {
+  it("source_line returns the trimmed source at a 1-based line", () => {
+    expect(adapter.source_line(REL, 6)).toBe("const inputs = [1, 2, 3];");
+  });
+
+  it("source_line returns undefined past the end of the file", () => {
+    expect(adapter.source_line(REL, 9999)).toBeUndefined();
+  });
+
+  it("source_line returns undefined for a file the project never indexed", () => {
+    expect(adapter.source_line("does_not_exist.ts", 1)).toBeUndefined();
+  });
+
+  it("file_of maps a call-graph node back to its repo-relative defining file", () => {
+    const graph = adapter.call_graph();
+    const [symbol_id, node] = [...graph.nodes.entries()][0];
+    expect(node).toBeDefined();
+    expect(adapter.file_of(symbol_id)).toBe(node.location.file_path);
+    expect(adapter.file_of(symbol_id)).toBe(REL);
+  });
+
+  it("file_of returns undefined for a symbol id absent from the graph", () => {
+    expect(adapter.file_of("nope#missing:function" as SymbolId)).toBeUndefined();
+  });
+
+  it("call_graph exposes the named symbol as a node", () => {
+    const graph = adapter.call_graph();
+    const files = [...graph.nodes.values()].map((n) => n.location.file_path);
+    expect(files).toContain(REL);
   });
 });
