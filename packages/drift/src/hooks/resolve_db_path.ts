@@ -7,8 +7,8 @@
 
 import * as path from "node:path";
 
-export const DRIFT_DB_ENV_VAR = "CODE_CHARTER_DB";
-export const DEFAULT_DB_RELATIVE_PATH = path.join(".code-charter", "graph.db");
+const DRIFT_DB_ENV_VAR = "CODE_CHARTER_DB";
+const DEFAULT_DB_RELATIVE_PATH = path.join(".code-charter", "graph.db");
 
 export function resolve_db_path(env: NodeJS.ProcessEnv, cwd: string): string {
   const override = env[DRIFT_DB_ENV_VAR];
