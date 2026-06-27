@@ -10,7 +10,7 @@
 /**
  * Bumped on a disposable-table layout change; a mismatch drops and recreates the disposable
  * tables. Preserved tables (nodes/edges/...) are not auto-migrated — a layout change to them is
- * recovered from the agentic/user tiers and git-tracked sidecars (task-27.0), never by ALTER.
+ * recovered from the agentic/user tiers and git-tracked sidecars, never by ALTER.
  */
 export const CURRENT_SCHEMA_VERSION = 1;
 
