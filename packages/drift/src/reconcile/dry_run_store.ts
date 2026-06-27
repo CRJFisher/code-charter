@@ -7,7 +7,6 @@
 
 import type { GraphStore } from "@code-charter/core";
 
-/** Wrap `store` so reads pass through and writes are discarded. */
 export function read_only_store(store: GraphStore): GraphStore {
   return {
     all_nodes: (opts) => store.all_nodes(opts),
@@ -19,7 +18,6 @@ export function read_only_store(store: GraphStore): GraphStore {
     file_changed_since_recorded: (path) => store.file_changed_since_recorded(path),
     table_disposition: () => store.table_disposition(),
     schema_version: () => store.schema_version(),
-    // --- writes: no-op ---
     upsert_node: () => {},
     upsert_edge: () => {},
     write_fields: () => ({ skipped: [] }),
