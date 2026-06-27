@@ -41,8 +41,6 @@ export class SqliteGraphStore implements GraphStore {
     this.initialize_schema();
   }
 
-  // --- schema lifecycle -----------------------------------------------------
-
   private initialize_schema(): void {
     this.with_transaction(() => {
       this.db.exec(CREATE_META_TABLES_SQL);
@@ -89,8 +87,6 @@ export class SqliteGraphStore implements GraphStore {
     this.seed_registry();
   }
 
-  // --- statement cache + transactions --------------------------------------
-
   private sql(query: string): StatementSync {
     let statement = this.statement_cache.get(query);
     if (!statement) {
@@ -127,8 +123,6 @@ export class SqliteGraphStore implements GraphStore {
       this.in_transaction = false;
     }
   }
-
-  // --- reads ----------------------------------------------------------------
 
   all_nodes(opts?: { include_deleted?: boolean }): NodeRow[] {
     const query = opts?.include_deleted
@@ -199,8 +193,6 @@ export class SqliteGraphStore implements GraphStore {
       .all(...paths)
       .map(row_to_edge);
   }
-
-  // --- writes ---------------------------------------------------------------
 
   upsert_node(row: NodeRow): void {
     this.sql(
@@ -298,8 +290,6 @@ export class SqliteGraphStore implements GraphStore {
     });
   }
 
-  // --- file incidence (the diff/drift seam) --------------------------------
-
   record_file_hash(path: string): void {
     const { sha256, size } = hash_file(path);
     this.sql(
@@ -342,8 +332,6 @@ export class SqliteGraphStore implements GraphStore {
     });
   }
 
-  // --- soft delete ----------------------------------------------------------
-
   soft_delete(target: GraphTarget): void {
     const table = target.kind === "node" ? "nodes" : "edges";
     const id_col = target.kind === "node" ? "id" : "key";
@@ -352,8 +340,6 @@ export class SqliteGraphStore implements GraphStore {
       target.id,
     );
   }
-
-  // --- disposition + rebuild ------------------------------------------------
 
   table_disposition(): Array<{ table: string; disposable: boolean }> {
     return this.sql("SELECT table_name, disposable FROM table_registry ORDER BY table_name")
@@ -392,8 +378,6 @@ export class SqliteGraphStore implements GraphStore {
     this.db.close();
   }
 }
-
-// --- module helpers ---------------------------------------------------------
 
 function as_text(value: SQLOutputValue): string {
   if (typeof value !== "string") {
