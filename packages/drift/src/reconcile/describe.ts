@@ -1,12 +1,12 @@
 /**
- * The describe step of hydration — deterministic, no model in the loop.
+ * The describe step of hydration — deterministic, with no model in the loop.
  *
- * task-27.1.4 ships the pure description *policy* (`plan_descriptions`) and the agentic-owned *writer*
- * (`write_descriptions`). This module runs the policy over a flow's anchorable members and combines
- * the `from_docstring` / `placeholder` buckets into the `ResolvedDescription[]` the writer persists.
- * Agent-authored text never flows through here: the drift-sync skill's judgement phases persist it
- * directly via the `drift-reconcile --apply-descriptions` mode, and the content-hash cache makes the
- * deterministic pass a no-op for members the agent already described at their current hash.
+ * Runs the description policy (`plan_descriptions`) over a flow's anchorable members and combines the
+ * `from_docstring`, `needs_llm`, and `placeholder` buckets into the `ResolvedDescription[]` the writer
+ * (`write_descriptions`) persists: docstrings verbatim, the symbol name as a placeholder for the rest.
+ * Agent-authored text never flows through here — the drift-sync skill persists it directly via
+ * `drift-reconcile --apply-descriptions`, and the content-hash cache makes this deterministic pass a
+ * no-op for members the agent already described at their current hash.
  */
 
 import type { AnchoredSymbol, GraphStore, ResolvedDescription } from "@code-charter/core";
