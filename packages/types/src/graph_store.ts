@@ -35,7 +35,7 @@ export type Origin = string;
 
 /**
  * Whose intent a row reflects (the authority axis, distinct from {@link Layer}).
- * Reserved values are documented but not enforced; 27.1 writes 'code-edit', 27.2 the rest.
+ * Reserved values are documented but not enforced.
  */
 export type IntentSource = "code-edit" | "diagram-edit" | "explicit-pin" | (string & {});
 
@@ -88,14 +88,6 @@ export interface ProvenanceRow {
   extractor_version: string;
 }
 
-/** Per-file content hash for change detection (task-21.1). */
-export interface FileHashRow {
-  path: string;
-  sha256: string;
-  size: number;
-  last_seen_at: string;
-}
-
 /**
  * A stable reference from custom content to a code element — `(symbol_path, content_hash)`,
  * NEVER a line number or bare name, so it follows a renamed/moved element.
@@ -116,8 +108,8 @@ export interface CodeState {
 }
 
 /**
- * Output of the single reusable anchor resolver (impl in @code-charter/core). Both directions call it:
- * 27.1 to detect/repair drift, 27.2 to snapshot and re-validate proposals.
+ * Output of the single reusable anchor resolver (impl in @code-charter/core). Both the drift-repair
+ * and proposal-validation passes call it.
  *   - 'hit'       symbol_path AND content_hash match — content is correctly attached.
  *   - 'downgrade' relocated/body-changed but still resolvable — re-anchor to `state`.
  *                 'relocated' = content_hash matches at a different symbol_path (renamed
@@ -131,8 +123,8 @@ export type ResolveResult =
   | { status: "miss" };
 
 /**
- * One entry in the open, ordered list that render() composes (AC1/AC6). A later 'proposed'
- * overlay (27.2) is one more entry, not a signature change. render()'s return type is a
+ * One entry in the open, ordered list that render() composes (AC1/AC6). The 'overlay' arm composes
+ * proposed rows as one more entry rather than a signature change. render()'s return type is a
  * graphology graph, so its signature lives in @code-charter/core — only this pure-data input lives here.
  */
 export type LayerSpec =
