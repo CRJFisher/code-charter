@@ -9,6 +9,7 @@ import {
   file_of_symbol_path,
   module_group_id,
   MODULE_GROUP_PREFIX,
+  path_module_resolver,
 } from "./module_scaffold";
 
 /** A valid 64-char lowercase hex sha256, required by parse_anchor (content_hash is irrelevant here). */
@@ -96,7 +97,6 @@ describe("build_module_scaffold (AC#9)", () => {
     const external = scaffold.module_nodes.find((n) => n.id === EXTERNAL_GROUP_ID)!;
     expect(external.attributes.label).toBe(EXTERNAL_GROUP_LABEL);
     expect(external.path).toBe("");
-    // both vendor leaves collapse into the one external group
     expect(scaffold.contains_edges.filter((e) => e.dst_id === EXTERNAL_GROUP_ID)).toHaveLength(2);
   });
 
@@ -117,5 +117,48 @@ describe("build_module_scaffold (AC#9)", () => {
     const whole_repo = file_module_resolver("");
     const scaffold = build_module_scaffold([leaf("vendor/x.ts#v:function")], whole_repo);
     expect(scaffold.module_nodes[0].id).toBe(module_group_id("vendor/x.ts"));
+  });
+
+  it("strips a trailing slash from the analyzed root when testing containment", () => {
+    const scaffold = build_module_scaffold(
+      [leaf("src/app.ts#a:function"), leaf("vendor/x.ts#v:function")],
+      file_module_resolver("src/"),
+    );
+    expect(scaffold.module_nodes.map((n) => n.id)).toEqual([EXTERNAL_GROUP_ID, module_group_id("src/app.ts")]);
+  });
+});
+
+describe("path_module_resolver", () => {
+  const resolver = path_module_resolver("src");
+
+  it("buckets anchorless projected rows by their path column", () => {
+    const scaffold = build_module_scaffold(
+      [leaf("src/app.ts#a:function", { anchor: null }), leaf("src/app.ts#b:function", { anchor: null })],
+      resolver,
+    );
+    expect(scaffold.module_nodes.map((n) => n.id)).toEqual([module_group_id("src/app.ts")]);
+    expect(scaffold.contains_edges).toHaveLength(2);
+  });
+
+  it("yields group ids byte-identical to the anchor-parsing resolver", () => {
+    const leaves = [leaf("src/app.ts#a:function"), leaf("vendor/x.ts#v:function")];
+    const by_path = build_module_scaffold(leaves, path_module_resolver("src"));
+    const by_anchor = build_module_scaffold(leaves, file_module_resolver("src"));
+    expect(by_path.module_nodes.map((n) => n.id)).toEqual(by_anchor.module_nodes.map((n) => n.id));
+  });
+
+  it("skips rows with an empty path (no group, no edge)", () => {
+    const scaffold = build_module_scaffold([leaf("src/app.ts#a:function", { path: "" })], resolver);
+    expect(scaffold.module_nodes).toEqual([]);
+    expect(scaffold.contains_edges).toEqual([]);
+  });
+
+  it("buckets paths outside the analyzed root under the single <external> group", () => {
+    const scaffold = build_module_scaffold(
+      [leaf("vendor/x.ts#v:function"), leaf("vendor/y.ts#w:function")],
+      resolver,
+    );
+    expect(scaffold.module_nodes.map((n) => n.id)).toEqual([EXTERNAL_GROUP_ID]);
+    expect(scaffold.contains_edges.filter((e) => e.dst_id === EXTERNAL_GROUP_ID)).toHaveLength(2);
   });
 });
