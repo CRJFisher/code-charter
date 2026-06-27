@@ -86,6 +86,30 @@ describe("custom_graph_to_react_flow (AC#6)", () => {
     expect(edges).toHaveLength(0);
   });
 
+  it("leaves a leaf's parentId unset when its containing module is not emitted", () => {
+    const leaf = node();
+    const unregistered_module = node({ id: MODULE_ID, kind: "doc.markdown", anchor: null });
+    const contains = edge({ key: "c1", src_id: leaf.id, dst_id: MODULE_ID, kind: "agentic.contains", layer: "agentic" });
+
+    const { nodes } = custom_graph_to_react_flow({ nodes: [leaf, unregistered_module], edges: [contains] });
+
+    const rendered_leaf = nodes.find((n) => n.id === leaf.id)!;
+    expect(rendered_leaf.parentId).toBeUndefined();
+    expect(rendered_leaf.extent).toBeUndefined();
+    expect(rendered_leaf.expandParent).toBeUndefined();
+  });
+
+  it("reads line_number from attributes, falling back to 1 when absent", () => {
+    const with_line = node({ id: "src/app.ts#a:function", attributes: { line_number: 42 } });
+    const without_line = node({ id: "src/app.ts#b:function" });
+    const { nodes } = custom_graph_to_react_flow({ nodes: [with_line, without_line], edges: [] });
+    const a = nodes.find((n) => n.id === with_line.id)!;
+    const b = nodes.find((n) => n.id === without_line.id)!;
+    expect(is_code_node(a)).toBe(true);
+    if (is_code_node(a)) expect(a.data.line_number).toBe(42);
+    if (is_code_node(b)) expect(b.data.line_number).toBe(1);
+  });
+
   it("sets data.is_entry_point when the row has attributes.is_entry_point = true (AC#4)", () => {
     const entry = node({ attributes: { is_entry_point: true } });
     const non_entry = node({ id: "src/app.ts#helper:function" });
