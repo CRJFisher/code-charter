@@ -55,9 +55,15 @@ interface FixtureExpectation {
    */
   kind: "stitch" | "stitch_seeds_only" | "decline";
   expected_flow_count: number;
-  /** Flow-layer member symbol_paths the umbrella's induced membership must cover (stitch only). */
+  /**
+   * Flow-layer member symbol_paths the umbrella's induced membership must cover. Checked for both
+   * positive kinds ("stitch" and "stitch_seeds_only"); empty for the "decline" control.
+   */
   expected_members: string[];
-  /** Anchor symbol_paths whose descriptions must be agent-authored, source "llm" (stitch only). */
+  /**
+   * Anchor symbol_paths whose descriptions must be agent-authored, source "llm". Checked for both
+   * positive kinds ("stitch" and "stitch_seeds_only"); empty for the "decline" control.
+   */
   expected_description_anchors: string[];
 }
 
