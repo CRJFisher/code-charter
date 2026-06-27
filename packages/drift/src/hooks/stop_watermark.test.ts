@@ -54,6 +54,21 @@ describe("worked_on_since (per-turn watermark)", () => {
     expect(worked_on).toEqual([]);
     expect(next.lines_processed).toBe(0);
   });
+
+  it("counts real records when the transcript ends with a newline (cursor not inflated)", () => {
+    const text = `${[edit_line("a.ts"), edit_line("b.ts")].join("\n")}\n`;
+    const { worked_on, next } = worked_on_since(text, "/t/s.jsonl", null);
+    expect(worked_on).toEqual(["a.ts", "b.ts"]);
+    expect(next.lines_processed).toBe(2);
+  });
+
+  it("sees a newly appended edit after a newline-terminated fire", () => {
+    const first = `${edit_line("a.ts")}\n`;
+    const { next } = worked_on_since(first, "/t/s.jsonl", null);
+    const second = `${[edit_line("a.ts"), edit_line("b.ts")].join("\n")}\n`;
+    const { worked_on } = worked_on_since(second, "/t/s.jsonl", next);
+    expect(worked_on).toEqual(["b.ts"]);
+  });
 });
 
 describe("parse_watermark / serialize_watermark", () => {
