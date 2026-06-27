@@ -1,22 +1,13 @@
-// Export all backend types
 export * from './backend';
-
-// Export the flow-keyed backend surface (task-27.1.3)
 export * from './flows';
-
-// Export the task-27.0 custom-graph store contract
 export * from './graph_store';
-
-// Export theme types
 export * from './theme';
-
-// Export docstring helper
 export { get_docstring } from './docstring';
 
-// Re-export commonly used types from ariadnejs
+// Ariadne types surface through this barrel so consumers depend on @code-charter/types alone.
 export type { CallableNode, CallGraph, CallReference, IndirectReachability, SymbolId, SymbolName, AnyDefinition } from '@ariadnejs/types';
 
-// Call graph wire-format serialization for postMessage
+// Maps don't survive JSON.stringify, so the call graph crosses the postMessage boundary in this wire format.
 export {
   serialize_call_graph,
   deserialize_call_graph,
