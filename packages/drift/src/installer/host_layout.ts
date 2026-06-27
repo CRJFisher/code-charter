@@ -1,28 +1,27 @@
 /**
- * The host-keyed install layout. Each host describes WHERE the drift substrate lands — the
- * settings file and its hooks envelope key, and the asset directories — so the installer never
- * hardcodes `.claude/settings.json`. Adding a Cursor / `.agents` / `.codex` target is a new
- * {@link HostLayout} entry in {@link HOST_LAYOUTS}, not a caller refactor (task-27.1.8 keeps
- * the portability decision open). v1 ships only the Claude-Code target.
+ * The host-keyed install layout: each host describes WHERE the drift substrate lands — the
+ * settings file and its hooks envelope key, plus the asset directories — so the installer never
+ * hardcodes `.claude/settings.json`. A new host (Cursor, `.agents`, `.codex`) is a new
+ * {@link HostLayout} entry in {@link HOST_LAYOUTS}, not a caller change. Only the Claude-Code
+ * target ships today.
  */
 
 export type HostKey = "claude_code";
 
 export type HookEventName = "Stop";
 
-/** A `{ type: "command", command }` hook (the only hook type this substrate installs). */
+/** The only hook type this substrate installs. */
 export interface HookCommand {
   type: "command";
   command: string;
 }
 
-/** A matcher-group as nested under `settings.hooks.<event>`; foreign groups may carry a matcher. */
+/** Foreign groups under `settings.hooks.<event>` may carry a `matcher`; ours never do. */
 export interface HookGroup {
   matcher?: string;
   hooks: HookCommand[];
 }
 
-/** One hook entry to install: its event, command, and the idempotency token. */
 export interface HookArtifactSpec {
   event_name: HookEventName;
   command: string;
@@ -30,7 +29,7 @@ export interface HookArtifactSpec {
   identity_token: string;
 }
 
-/** A directory of assets to copy from the package's `assets/` tree into the host. */
+/** `source_subdir` is relative to the package's `assets/` tree; `target_subdir` to the install root. */
 export interface AssetDirSpec {
   source_subdir: string;
   target_subdir: string;
@@ -38,9 +37,9 @@ export interface AssetDirSpec {
 
 export interface HostLayout {
   host_key: HostKey;
-  /** Settings file (relative to the install root) holding the hook entries. */
+  /** Holds the hook entries, relative to the install root. */
   settings_file: string;
-  /** Top-level key in the settings envelope under which per-event hook arrays live. */
+  /** Top-level settings key under which per-event hook arrays live. */
   hooks_key: string;
   agents: AssetDirSpec;
   skills: AssetDirSpec;
@@ -60,7 +59,7 @@ export const HOST_LAYOUTS: Record<HostKey, HostLayout> = {
   claude_code: CLAUDE_CODE_LAYOUT,
 };
 
-/** Build the matcher-group object for a hook spec (the substrate's own groups carry no matcher). */
+/** The substrate's own groups carry no matcher. */
 export function build_hook_group(spec: HookArtifactSpec): HookGroup {
   return { hooks: [{ type: "command", command: spec.command }] };
 }
