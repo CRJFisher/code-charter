@@ -283,6 +283,28 @@ describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
     expect(read_store().flow_ids).toEqual(["handler.ts#dispatch:function"]);
   });
 
+  it("a seed claimed by an earlier umbrella is not double-claimed: the later umbrella drops it", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+
+    const result = run([
+      "--apply-stitch",
+      write_payload("stitch.json", {
+        umbrellas: [
+          GOLDEN_UMBRELLAS.umbrellas[0],
+          { label: "second claimant", seeds: ["router.ts#handle_request:function"], rationale: "wants the same seed" },
+        ],
+      }),
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain(
+      "seed already claimed by an earlier umbrella, skipped: router.ts#handle_request:function",
+    );
+    expect(result.stderr).toContain("umbrella 'second claimant' has no resolvable seeds, skipped");
+
+    expect(JSON.parse(result.stdout).flows).toHaveLength(1);
+    expect(read_store().flow_ids).toEqual(["handler.ts#dispatch:function"]);
+  });
+
   it("malformed wire JSON is a contract error: exit 2, store untouched", () => {
     run(["--list-entrypoints", "--files", FILES]);
     const before = read_store();

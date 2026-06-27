@@ -1,7 +1,7 @@
 /**
  * The three agentic modes of the `drift-reconcile` bin — the deterministic, store-facing verbs the
- * `drift-sync` skill orchestrates the drift-reconciler sub-agent over (task-27.1.6.6). The judgement
- * lives in the agent; everything here is a dumb read or a scoped write:
+ * `drift-sync` skill orchestrates the drift-reconciler sub-agent over. The judgement lives in the
+ * agent; everything here is a dumb read or a scoped write:
  *
  *  - `--list-entrypoints` → {@link build_entrypoint_inventory}: the changed neighbourhood's entrypoint
  *    inventory — every entrypoint Ariadne promoted in the changed files, flagged orphan or not, with
