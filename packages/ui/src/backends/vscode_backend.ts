@@ -25,9 +25,6 @@ interface ResponseMessage<T = unknown> {
 // promise dangles forever and the UI spinner sits there indefinitely.
 const REQUEST_TIMEOUT_MS = 30_000;
 
-/**
- * VSCode backend adapter that wraps the existing postMessage API
- */
 interface PendingRequest {
   resolve: (response: ResponseMessage) => void;
   reject: (error: Error) => void;
