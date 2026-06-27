@@ -6,7 +6,6 @@ export { MockBackend } from "./backends/mock_backend";
 // Hooks
 export { use_backend } from "./hooks/use_backend";
 export { use_debounce } from "./hooks/use_debounce";
-export { use_throttle } from "./hooks/use_throttle";
 
 // Components
 export { App } from "./components/app";
