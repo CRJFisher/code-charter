@@ -17,7 +17,7 @@ export interface ReconcileDeps {
   repo_root_abs: string;
   /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold. */
   analyzed_root: string;
-  /** Detection goal. Defaults to `orient-in-code-tree`. */
+  /** Defaults to `orient-in-code-tree` when omitted. */
   goal?: DetectionGoal;
   /** Injected clock → ISO-8601, so `last_synced_at` is deterministic in tests. */
   now: () => string;
