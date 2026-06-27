@@ -1,11 +1,11 @@
 /**
- * Skill-directory detection + ingestion — the v1 first-target path. A changed file whose directory (or
- * an ancestor up to the repo root) contains a `SKILL.md` belongs to a skill bundle; that bundle is the
- * flow boundary. The literal skill extractor (`ingest_skill`, task-21.2's port) writes the bundle's doc
- * nodes + `skill.to_*` edges into the raw tier, which the hydration engine groups into one flow.
+ * Skill-directory detection and ingestion. A changed file whose directory (or an ancestor up to the repo
+ * root) contains a `SKILL.md` belongs to a skill bundle, and that bundle is the flow boundary.
+ * `ingest_skill` writes the bundle's doc nodes and `skill.to_*` edges into the raw tier, which the
+ * hydration engine groups into one flow.
  *
- * File IO is `node:fs` here (the bin runs headless); `ingest_skill` itself stays filesystem-agnostic via
- * the injected readers, exactly as it is unit-tested.
+ * File IO uses `node:fs` here because the bin runs headless; `ingest_skill` stays filesystem-agnostic via
+ * injected readers so it can be unit-tested without disk.
  */
 
 import * as fs from "node:fs";
@@ -16,7 +16,7 @@ import { ingest_skill } from "@code-charter/core";
 
 const SKILL_FILE = "SKILL.md";
 
-/** True when `p` exists and is a directory, never throwing (a stat race / EACCES / ELOOP yields false). */
+/** Whether `p` is an existing directory, swallowing stat errors (race / EACCES / ELOOP) as `false`. */
 function is_directory(p: string): boolean {
   try {
     return fs.statSync(p).isDirectory();
@@ -26,10 +26,10 @@ function is_directory(p: string): boolean {
 }
 
 /**
- * The absolute path of the skill bundle a file belongs to, or undefined. Walks from the file's directory
- * up to (and including) the repo root, returning the nearest ancestor that holds a `SKILL.md`. Never
- * throws — it runs inside the never-throw `Stop` hook (flow-relevance pre-filter), so a filesystem error
- * degrades to "no skill root" rather than aborting the walk.
+ * The absolute path of the skill bundle a file belongs to, or undefined: the nearest ancestor (from the
+ * file's directory up to and including the repo root) that holds a `SKILL.md`. Never throws — it runs
+ * inside the never-throw `Stop` hook, so a filesystem error degrades to "no skill root" rather than
+ * aborting the walk.
  */
 export function find_skill_root(abs_file: string, repo_root_abs: string): string | undefined {
   let dir = is_directory(abs_file) ? abs_file : path.dirname(abs_file);
