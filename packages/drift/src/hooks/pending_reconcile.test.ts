@@ -17,7 +17,12 @@ describe("pending_reconcile", () => {
     expect(parse_pending_reconcile("not json")).toBeNull();
     expect(parse_pending_reconcile('{"files": "src/a.ts"}')).toBeNull();
     expect(parse_pending_reconcile('{"files": [1, 2]}')).toBeNull();
+    expect(parse_pending_reconcile('{"other": []}')).toBeNull();
     expect(parse_pending_reconcile("null")).toBeNull();
+  });
+
+  it("parses an empty staged set as an empty list, distinct from nothing pending", () => {
+    expect(parse_pending_reconcile('{"files": []}')).toEqual([]);
   });
 
   it("unions an unconsumed prior set with this turn's set, preserving first-seen order", () => {

@@ -15,32 +15,31 @@
 
 import * as path from "node:path";
 
-/** Lives beside the store and the Stop watermark. Mirrored in `drift_sync.js`. */
-export const PENDING_RECONCILE_FILE = "drift_pending_reconcile.json";
+/** Mirrored in `drift_sync.js`. */
+const PENDING_RECONCILE_FILE = "drift_pending_reconcile.json";
 
 export function pending_reconcile_path(store_path: string): string {
   return path.join(path.dirname(store_path), PENDING_RECONCILE_FILE);
 }
 
-/** Parse a staged set, or null when absent/malformed (treated as nothing pending). */
+/** Returns null for absent/malformed input so callers treat it as nothing pending. */
 export function parse_pending_reconcile(raw: string): string[] | null {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      Array.isArray((parsed as Record<string, unknown>).files) &&
-      ((parsed as Record<string, unknown>).files as unknown[]).every((f) => typeof f === "string")
-    ) {
-      return (parsed as { files: string[] }).files;
-    }
+    parsed = JSON.parse(raw);
   } catch {
-    /* malformed → nothing pending */
+    return null;
+  }
+  if (typeof parsed === "object" && parsed !== null && "files" in parsed) {
+    const files = parsed.files;
+    if (Array.isArray(files) && files.every((f): f is string => typeof f === "string")) {
+      return files;
+    }
   }
   return null;
 }
 
-/** Union an unconsumed prior set with this turn's set, preserving first-seen order. */
+/** Preserves first-seen order so a retried handoff keeps stable file ordering. */
 export function merge_pending_reconcile(prior: readonly string[], current: readonly string[]): string[] {
   return [...new Set([...prior, ...current])];
 }
