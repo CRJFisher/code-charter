@@ -132,6 +132,15 @@ describe('Error Handling', () => {
   });
 
   describe('with_retry', () => {
+    it('returns immediately when the operation succeeds on the first attempt', async () => {
+      const operation = jest.fn(async () => 'success');
+
+      const result = await with_retry(operation, { max_attempts: 3, delay_ms: 10 });
+
+      expect(result).toBe('success');
+      expect(operation).toHaveBeenCalledTimes(1);
+    });
+
     it('should retry failed operations', async () => {
       let attempts = 0;
       const operation = jest.fn(async () => {
@@ -220,21 +229,15 @@ describe('Error Handling', () => {
       expect(on_fallback).toHaveBeenCalledWith(expect.any(Error));
     });
 
-    it('should gracefully degrade with default value', () => {
-      const operation = jest.fn(() => {
-        throw new Error('Operation failed');
-      });
-      const on_error = jest.fn();
+    it('returns primary result when primary succeeds without invoking fallback', async () => {
+      const primary = jest.fn(async () => 'primary result');
+      const fallback = jest.fn(async () => 'fallback result');
 
-      const result = ErrorRecovery.graceful_degrade(
-        operation,
-        'default value',
-        on_error
-      );
+      const result = await ErrorRecovery.try_with_fallback(primary, fallback);
 
-      expect(result).toBe('default value');
-      expect(operation).toHaveBeenCalled();
-      expect(on_error).toHaveBeenCalledWith(expect.any(Error));
+      expect(result).toBe('primary result');
+      expect(primary).toHaveBeenCalled();
+      expect(fallback).not.toHaveBeenCalled();
     });
   });
 
