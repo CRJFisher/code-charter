@@ -14,7 +14,7 @@ export { affected_persisted_flows } from "./affected_flows";
 export { read_persisted_flow, read_persisted_flows, write_flow } from "./flow_store";
 export type { PersistedFlow, WriteFlowArgs } from "./flow_store";
 export { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
-export type { CodeUmbrella, SkillUmbrella, Umbrella } from "./hydrate";
+export type { CodeUmbrella, SkillUmbrella } from "./hydrate";
 export { existing_descriptions, resolve_descriptions } from "./describe";
 export {
   apply_descriptions,

@@ -62,9 +62,7 @@ export interface CodeUmbrella {
   rationale?: string;
 }
 
-export type Umbrella = SkillUmbrella | CodeUmbrella;
-
-export interface HydrateOptions {
+interface HydrateOptions {
   /** Run the (cost-bearing) describe step. False for the singleton-stub overflow above the cap (AC#8). */
   describe?: boolean;
 }
