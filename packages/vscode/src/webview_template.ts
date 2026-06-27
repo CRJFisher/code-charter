@@ -1,8 +1,5 @@
 import * as vscode from 'vscode';
 
-/**
- * Generate HTML content for the webview that loads the UI package
- */
 export function get_webview_content(
   webview: vscode.Webview,
   extension_uri: vscode.Uri,
