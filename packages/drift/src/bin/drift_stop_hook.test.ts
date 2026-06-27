@@ -25,9 +25,13 @@ function edit_line(file_path: string, id: string): string {
   });
 }
 
-function run_stop_hook(payload: Record<string, unknown>): { status: number | null; stdout: string } {
-  const result = spawnSync("node", [BIN], { input: JSON.stringify(payload), encoding: "utf8" });
+function run_stop_hook_raw(input: string): { status: number | null; stdout: string } {
+  const result = spawnSync("node", [BIN], { input, encoding: "utf8" });
   return { status: result.status, stdout: result.stdout };
+}
+
+function run_stop_hook(payload: Record<string, unknown>): { status: number | null; stdout: string } {
+  return run_stop_hook_raw(JSON.stringify(payload));
 }
 
 /** The staged set the hook wrote beside the store, or null when nothing was staged. */
@@ -149,6 +153,18 @@ describe("drift_stop_hook bin", () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("no-ops (exit 0, empty stdout) on malformed stdin so a garbage payload never breaks the session", () => {
+    const result = run_stop_hook_raw("not json at all");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it("no-ops on a well-formed payload that lacks transcript_path", () => {
+    const result = run_stop_hook_raw(JSON.stringify({ session_id: "s1", cwd: "/tmp", hook_event_name: "Stop" }));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
   });
 
   it("no-ops (empty stdout) when stop_hook_active is set", () => {
