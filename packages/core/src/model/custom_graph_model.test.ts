@@ -8,7 +8,7 @@ import type {
 } from "@code-charter/types";
 
 import { SqliteGraphStore } from "../storage/sqlite_graph_store";
-import { CustomGraphModel } from "./custom_graph_model";
+import { CustomGraphModel, graph_to_rows } from "./custom_graph_model";
 
 function make_node(over: Partial<NodeRow> = {}): NodeRow {
   return {
@@ -498,6 +498,23 @@ describe("CustomGraphModel", () => {
       expect(merged.attributes.description).toBe("raw-desc"); // earlier field survives
     });
 
+    it("folds an edge's attribute bag across layers: later wins, earlier field survives", () => {
+      store.upsert_node(make_node({ id: "a", layer: "raw" }));
+      store.upsert_node(make_node({ id: "b", layer: "raw" }));
+      store.upsert_edge(
+        make_edge({ key: "e", src_id: "a", dst_id: "b", layer: "raw", attributes: { note: "raw-note", weight: 1 } }),
+        [],
+      );
+      const model = CustomGraphModel.hydrate(store);
+
+      const overlay_edge = make_edge({ key: "e", src_id: "a", dst_id: "b", layer: "user", attributes: { note: "user-note" } });
+      const view = model.render([{ kind: "raw" }, { kind: "overlay", rows: { nodes: [], edges: [overlay_edge] } }]);
+
+      const merged = view.getEdgeAttributes("e").row;
+      expect(merged.attributes.note).toBe("user-note");
+      expect(merged.attributes.weight).toBe(1);
+    });
+
     it("does not consult or stamp field_ownership in the fold", () => {
       // The base row claims user owns `label`, yet a later agentic overlay still wins by list order.
       store.upsert_node(
@@ -614,6 +631,28 @@ describe("CustomGraphModel", () => {
 
       expect(recording.writes).toEqual([]);
       expect(store.all_nodes({ include_deleted: true })).toEqual(before);
+    });
+  });
+
+  describe("graph_to_rows", () => {
+    it("flattens a rendered graph to its plain node and edge row arrays", () => {
+      store.upsert_node(make_node({ id: "a", layer: "raw", attributes: { label: "A" } }));
+      store.upsert_node(make_node({ id: "b", layer: "raw" }));
+      store.upsert_edge(make_edge({ key: "e", src_id: "a", dst_id: "b", layer: "raw" }), []);
+      const model = CustomGraphModel.hydrate(store);
+
+      const { nodes, edges } = graph_to_rows(model.render([{ kind: "raw" }]));
+
+      expect(nodes.map((n) => n.id).sort()).toEqual(["a", "b"]);
+      expect(nodes.find((n) => n.id === "a")?.attributes.label).toBe("A");
+      expect(edges.map((edge) => edge.key)).toEqual(["e"]);
+      expect(edges[0].src_id).toBe("a");
+    });
+
+    it("flattens an empty graph to empty arrays", () => {
+      const model = CustomGraphModel.hydrate(store);
+
+      expect(graph_to_rows(model.render([]))).toEqual({ nodes: [], edges: [] });
     });
   });
 });
