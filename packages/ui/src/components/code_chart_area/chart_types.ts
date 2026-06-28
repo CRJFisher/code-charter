@@ -3,7 +3,6 @@ import type { EdgeRow } from "@code-charter/types";
 import { CodeNodeData } from "./code_function_node";
 import { ModuleNodeData } from "./chart_node_types";
 
-// Discriminated node types for proper generic parameterization
 export type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
 export type ModuleGroupNodeType = Node<ModuleNodeData, 'module_group'>;
 
@@ -12,11 +11,9 @@ export interface CodeEdgeData extends Record<string, unknown> {
   row?: EdgeRow;
 }
 
-// Define the specific node types used in our React Flow implementation
 export type CodeChartNode = Node<CodeNodeData | ModuleNodeData>;
 export type CodeChartEdge = Edge<CodeEdgeData>;
 
-// Type guard functions
 export function is_code_node(node: CodeChartNode): node is CodeFunctionNodeType {
   return node.type === "code_function";
 }
