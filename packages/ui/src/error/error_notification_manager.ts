@@ -34,7 +34,6 @@ export class ErrorNotificationManager {
     this.notifications.push(notification);
     this.notify_listeners();
 
-    // Auto-dismiss info notifications after configured delay
     if (severity === 'info') {
       setTimeout(() => this.dismiss(notification.id), this.auto_dismiss_delay);
     }
@@ -68,5 +67,4 @@ export class ErrorNotificationManager {
   }
 }
 
-// Global notification manager instance
 export const error_notification_manager = new ErrorNotificationManager();
