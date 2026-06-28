@@ -1,15 +1,12 @@
-// Re-export generic error infrastructure from src/error/
-export { error_logger, ErrorLogger } from '../../error/error_logger';
-export { with_retry, ErrorRecovery, type RetryOptions } from '../../error/retry';
-export { error_notification_manager, ErrorNotificationManager, type ErrorNotification } from '../../error/error_notification_manager';
+export { error_logger } from '../../error/error_logger';
+export { with_retry, ErrorRecovery } from '../../error/retry';
+export { error_notification_manager } from '../../error/error_notification_manager';
 
 import { error_notification_manager } from '../../error/error_notification_manager';
 
-function noop(): void {
-  // intentionally empty — placeholder action for dismiss-style notifications
-}
+// The dismiss button only needs the notification framework to close itself, so its action is a no-op.
+function noop(): void {}
 
-// Chart-specific error types
 export class LayoutError extends Error {
   constructor(message: string, public readonly node_count?: number, public readonly edge_count?: number) {
     super(message);
@@ -17,7 +14,6 @@ export class LayoutError extends Error {
   }
 }
 
-// Helper function to handle common React Flow errors
 export function handle_react_flow_error(error: Error): void {
   if (error.message.includes('Cannot read properties of undefined')) {
     error_notification_manager.notify(

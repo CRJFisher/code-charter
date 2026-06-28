@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ErrorBoundary } from '../../error/error_boundary';
-import { with_retry, ErrorRecovery, LayoutError, error_logger, error_notification_manager } from './error_handling';
+import { with_retry, ErrorRecovery, LayoutError, error_logger, error_notification_manager, handle_react_flow_error } from './error_handling';
 import { ErrorNotifications } from '../../error/error_notifications';
 import { ThemeProviderComponent } from '../../theme/theme_context';
 import '@testing-library/jest-dom';
@@ -40,7 +40,7 @@ describe('Error Handling', () => {
       console.error = originalError;
     });
 
-    it('should catch errors and display fallback UI', () => {
+    it('catches errors and displays fallback UI', () => {
       const on_error = jest.fn();
 
       render(
@@ -57,7 +57,7 @@ describe('Error Handling', () => {
       expect(on_error).toHaveBeenCalled();
     });
 
-    it('should allow retry with retry button', () => {
+    it('allows retry with the retry button', () => {
       should_throw = true;
       render(
         <ThemeProviderComponent force_standalone>
@@ -77,7 +77,7 @@ describe('Error Handling', () => {
       expect(screen.getByText('No error')).toBeInTheDocument();
     });
 
-    it('should limit retry attempts', () => {
+    it('limits retry attempts', () => {
       const { rerender } = render(
         <ThemeProviderComponent force_standalone>
           <ErrorBoundary max_retries={2}>
@@ -86,7 +86,6 @@ describe('Error Handling', () => {
         </ThemeProviderComponent>
       );
 
-      // First retry
       fireEvent.click(screen.getByText(/Try Again.*1\/2/));
 
       rerender(
@@ -97,7 +96,6 @@ describe('Error Handling', () => {
         </ThemeProviderComponent>
       );
 
-      // Second retry
       fireEvent.click(screen.getByText(/Try Again.*2\/2/));
 
       rerender(
@@ -108,12 +106,11 @@ describe('Error Handling', () => {
         </ThemeProviderComponent>
       );
 
-      // No more retry button
       expect(screen.queryByText(/Try Again/)).not.toBeInTheDocument();
       expect(screen.getByText(/Maximum retry attempts reached/)).toBeInTheDocument();
     });
 
-    it('should use custom fallback component', () => {
+    it('uses a custom fallback component', () => {
       const customFallback = jest.fn((error: Error) => (
         <div>Custom error: {error.message}</div>
       ));
@@ -141,7 +138,7 @@ describe('Error Handling', () => {
       expect(operation).toHaveBeenCalledTimes(1);
     });
 
-    it('should retry failed operations', async () => {
+    it('retries failed operations', async () => {
       let attempts = 0;
       const operation = jest.fn(async () => {
         attempts++;
@@ -160,7 +157,7 @@ describe('Error Handling', () => {
       expect(operation).toHaveBeenCalledTimes(3);
     });
 
-    it('should throw after max attempts', async () => {
+    it('throws after max attempts', async () => {
       const operation = jest.fn(async () => {
         throw new Error('Persistent failure');
       });
@@ -175,7 +172,7 @@ describe('Error Handling', () => {
       expect(operation).toHaveBeenCalledTimes(2);
     });
 
-    it('should call on_retry callback', async () => {
+    it('calls the on_retry callback', async () => {
       const on_retry = jest.fn();
       const operation = jest.fn(async () => {
         throw new Error('Failure');
@@ -194,7 +191,7 @@ describe('Error Handling', () => {
       expect(on_retry).toHaveBeenCalledWith(1, expect.any(Error));
     });
 
-    it('should timeout long operations', async () => {
+    it('times out long operations', async () => {
       const operation = jest.fn(async () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         return 'success';
@@ -210,7 +207,7 @@ describe('Error Handling', () => {
   });
 
   describe('ErrorRecovery', () => {
-    it('should try fallback on primary failure', async () => {
+    it('tries the fallback on primary failure', async () => {
       const primary = jest.fn(async () => {
         throw new Error('Primary failed');
       });
@@ -242,7 +239,7 @@ describe('Error Handling', () => {
   });
 
   describe('ErrorLogger', () => {
-    it('should log errors with severity', () => {
+    it('logs errors with severity', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
       error_logger.log(new Error('Test error'), 'error', { context: 'test' });
@@ -253,7 +250,7 @@ describe('Error Handling', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should generate error summary', () => {
+    it('generates an error summary', () => {
       error_logger.log(new LayoutError('Layout failed'), 'error');
       error_logger.log(new Error('Generic error'), 'warning');
       error_logger.log(new Error('Info'), 'info');
@@ -267,8 +264,7 @@ describe('Error Handling', () => {
       expect(summary.by_type.get('LayoutError')).toBe(1);
     });
 
-    it('should limit stored errors', () => {
-      // Log more than 100 errors
+    it('limits stored errors to the most recent 100', () => {
       for (let i = 0; i < 110; i++) {
         error_logger.log(new Error(`Error ${i}`), 'info');
       }
@@ -278,7 +274,7 @@ describe('Error Handling', () => {
   });
 
   describe('ErrorNotifications', () => {
-    it('should display notifications', async () => {
+    it('displays notifications', async () => {
       render_with_theme(<ErrorNotifications />);
       
       error_notification_manager.notify('Test notification', 'error');
@@ -289,7 +285,7 @@ describe('Error Handling', () => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
     });
 
-    it('should dismiss notifications', async () => {
+    it('dismisses notifications', async () => {
       render_with_theme(<ErrorNotifications />);
       
       error_notification_manager.notify('Test notification', 'error');
@@ -306,7 +302,7 @@ describe('Error Handling', () => {
       });
     });
 
-    it('should show action buttons', async () => {
+    it('shows action buttons', async () => {
       const action = jest.fn();
       render_with_theme(<ErrorNotifications />);
       
@@ -324,7 +320,7 @@ describe('Error Handling', () => {
       expect(action).toHaveBeenCalled();
     });
 
-    it('should limit displayed notifications', async () => {
+    it('limits displayed notifications', async () => {
       render_with_theme(<ErrorNotifications max_notifications={2} />);
       
       error_notification_manager.notify('Notification 1', 'info');
@@ -340,7 +336,7 @@ describe('Error Handling', () => {
       expect(screen.getByText('Notification 3')).toBeInTheDocument();
     });
 
-    it('should use correct icons and colors', async () => {
+    it('uses correct icons and colors', async () => {
       render_with_theme(<ErrorNotifications />);
       
       error_notification_manager.notify('Info', 'info');
@@ -360,13 +356,53 @@ describe('Error Handling', () => {
   });
 
   describe('Custom Error Types', () => {
-    it('should create LayoutError with metadata', () => {
+    it('creates LayoutError with metadata', () => {
       const error = new LayoutError('Layout failed', 100, 50);
-      
+
       expect(error.name).toBe('LayoutError');
       expect(error.message).toBe('Layout failed');
       expect(error.node_count).toBe(100);
       expect(error.edge_count).toBe(50);
+    });
+  });
+
+  describe('handle_react_flow_error', () => {
+    it('maps undefined-property reads to a warning with a reload action', () => {
+      handle_react_flow_error(new Error("Cannot read properties of undefined (reading 'x')"));
+
+      const [notification] = error_notification_manager.get_notifications();
+      expect(notification.message).toBe('Data loading error. Some nodes may not be displayed correctly.');
+      expect(notification.severity).toBe('warning');
+      expect(notification.actions?.map(a => a.label)).toEqual(['Reload']);
+    });
+
+    it('maps update-depth overflows to an error notification', () => {
+      handle_react_flow_error(new Error('Maximum update depth exceeded'));
+
+      const [notification] = error_notification_manager.get_notifications();
+      expect(notification.message).toBe('Performance issue detected. Try reducing the number of nodes.');
+      expect(notification.severity).toBe('error');
+      expect(notification.actions).toBeUndefined();
+    });
+
+    it('maps ELK layout failures to a fallback-layout warning', () => {
+      handle_react_flow_error(new Error('ELK layout failed'));
+
+      const [notification] = error_notification_manager.get_notifications();
+      expect(notification.message).toBe('Layout calculation failed. Using fallback layout.');
+      expect(notification.severity).toBe('warning');
+    });
+
+    it('maps unrecognised errors to a dismissible unexpected-error notification', () => {
+      handle_react_flow_error(new Error('Something weird happened'));
+
+      const [notification] = error_notification_manager.get_notifications();
+      expect(notification.message).toBe('Unexpected error: Something weird happened');
+      expect(notification.severity).toBe('error');
+      expect(notification.actions?.map(a => a.label)).toEqual(['Dismiss']);
+
+      const dismiss = notification.actions?.find(a => a.label === 'Dismiss');
+      expect(() => dismiss?.action()).not.toThrow();
     });
   });
 });
