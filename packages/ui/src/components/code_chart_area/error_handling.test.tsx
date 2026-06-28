@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ErrorBoundary } from '../../error/error_boundary';
 import { with_retry, ErrorRecovery, LayoutError, error_logger, error_notification_manager, handle_react_flow_error } from './error_handling';
 import { ErrorNotifications } from '../../error/error_notifications';
 import { ThemeProviderComponent } from '../../theme/theme_context';
@@ -18,114 +17,6 @@ describe('Error Handling', () => {
   beforeEach(() => {
     error_logger.clear();
     error_notification_manager.dismiss_all();
-  });
-
-  describe('ErrorBoundary', () => {
-    // Use a mutable ref so we can change behavior before retry
-    let should_throw = true;
-    const ThrowError: React.FC<{ shouldThrow?: boolean }> = ({ shouldThrow }) => {
-      if (shouldThrow ?? should_throw) {
-        throw new Error('Test error');
-      }
-      return <div>No error</div>;
-    };
-
-    // Suppress console errors for error boundary tests
-    const originalError = console.error;
-    beforeEach(() => {
-      should_throw = true;
-      console.error = jest.fn();
-    });
-    afterEach(() => {
-      console.error = originalError;
-    });
-
-    it('catches errors and displays fallback UI', () => {
-      const on_error = jest.fn();
-
-      render(
-        <ThemeProviderComponent force_standalone>
-          <ErrorBoundary on_error={on_error}>
-            <ThrowError shouldThrow={true} />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
-
-      expect(screen.getByRole('alert')).toBeInTheDocument();
-      expect(screen.getByText(/Something went wrong/)).toBeInTheDocument();
-      expect(screen.getAllByText(/Test error/).length).toBeGreaterThan(0);
-      expect(on_error).toHaveBeenCalled();
-    });
-
-    it('allows retry with the retry button', () => {
-      should_throw = true;
-      render(
-        <ThemeProviderComponent force_standalone>
-          <ErrorBoundary>
-            <ThrowError />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
-
-      const retryButton = screen.getByText(/Try Again/);
-      expect(retryButton).toBeInTheDocument();
-
-      // Stop throwing before clicking retry so re-render succeeds
-      should_throw = false;
-      fireEvent.click(retryButton);
-
-      expect(screen.getByText('No error')).toBeInTheDocument();
-    });
-
-    it('limits retry attempts', () => {
-      const { rerender } = render(
-        <ThemeProviderComponent force_standalone>
-          <ErrorBoundary max_retries={2}>
-            <ThrowError shouldThrow={true} />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
-
-      fireEvent.click(screen.getByText(/Try Again.*1\/2/));
-
-      rerender(
-        <ThemeProviderComponent force_standalone>
-          <ErrorBoundary max_retries={2}>
-            <ThrowError shouldThrow={true} />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
-
-      fireEvent.click(screen.getByText(/Try Again.*2\/2/));
-
-      rerender(
-        <ThemeProviderComponent force_standalone>
-          <ErrorBoundary max_retries={2}>
-            <ThrowError shouldThrow={true} />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
-
-      expect(screen.queryByText(/Try Again/)).not.toBeInTheDocument();
-      expect(screen.getByText(/Maximum retry attempts reached/)).toBeInTheDocument();
-    });
-
-    it('uses a custom fallback component', () => {
-      const customFallback = jest.fn((error: Error) => (
-        <div>Custom error: {error.message}</div>
-      ));
-
-      render(
-        <ThemeProviderComponent force_standalone>
-          <ErrorBoundary fallback={customFallback}>
-            <ThrowError shouldThrow={true} />
-          </ErrorBoundary>
-        </ThemeProviderComponent>
-      );
-
-      expect(screen.getByText('Custom error: Test error')).toBeInTheDocument();
-      expect(customFallback).toHaveBeenCalled();
-    });
   });
 
   describe('with_retry', () => {

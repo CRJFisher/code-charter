@@ -6,14 +6,14 @@ function noop_retry(): void {
   // intentionally empty — used when retries are exhausted but the fallback still needs a callable
 }
 
-export interface ErrorBoundaryState {
+interface ErrorBoundaryState {
   has_error: boolean;
   error: Error | null;
   error_info: ErrorInfo | null;
   error_count: number;
 }
 
-export interface ErrorBoundaryProps {
+interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: (error: Error, error_info: ErrorInfo, retry: () => void) => ReactNode;
   on_error?: (error: Error, error_info: ErrorInfo) => void;
@@ -97,7 +97,7 @@ interface DefaultErrorFallbackProps {
   max_retries: number;
 }
 
-export const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
+const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   error,
   error_info,
   on_retry,
