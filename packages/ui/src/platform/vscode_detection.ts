@@ -15,7 +15,6 @@ declare global {
 }
 /* eslint-enable @typescript-eslint/naming-convention */
 
-// Helper to check if we're in a VS Code context
 export function is_vscode_context(): boolean {
   return typeof globalThis.acquireVsCodeApi === "function";
 }
