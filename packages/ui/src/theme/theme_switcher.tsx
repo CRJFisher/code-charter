@@ -1,13 +1,10 @@
 import React from 'react';
 import { use_theme } from './theme_context';
 
-/**
- * Theme switcher component for standalone mode
- */
 export function ThemeSwitcher() {
   const { theme, set_theme, available_themes, is_standalone } = use_theme();
-  
-  // Don't show in VSCode context
+
+  // VSCode owns the theme, so there is nothing for the user to switch.
   if (!is_standalone || !set_theme || !available_themes) {
     return null;
   }
