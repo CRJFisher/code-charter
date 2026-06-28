@@ -57,10 +57,8 @@ const MyComponent = () => {
 - `get_node_style(selected, is_entry_point)`: Node styling
 - `get_edge_style(selected)`: Edge styling
 - `get_button_style(variant)`: Button styling (primary/secondary/danger)
-- `get_panel_style()`: Panel/container styling
 - `get_overlay_style()`: Overlay/popup styling
 - `get_error_style()`: Error message styling
-- `get_text_style(variant)`: Text styling (primary/secondary)
 
 ## Theme Colors
 
