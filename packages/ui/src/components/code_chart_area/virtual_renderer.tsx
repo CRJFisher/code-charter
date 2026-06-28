@@ -9,7 +9,6 @@ interface ViewportNode {
   height?: number;
 }
 
-// Virtualization helper to determine visible nodes
 export function get_visible_nodes(
   nodes: ViewportNode[],
   viewport: { x: number; y: number; zoom: number },
@@ -19,7 +18,6 @@ export function get_visible_nodes(
 ): Set<string> {
   const visible_node_ids = new Set<string>();
 
-  // Calculate viewport bounds with buffer
   const view_bounds = {
     left: -viewport.x / viewport.zoom - buffer,
     right: (-viewport.x + container_width) / viewport.zoom + buffer,
@@ -27,7 +25,6 @@ export function get_visible_nodes(
     bottom: (-viewport.y + container_height) / viewport.zoom + buffer,
   };
 
-  // Check each node if it's within viewport
   nodes.forEach(node => {
     const node_right = node.position.x + (node.width || 200);
     const node_bottom = node.position.y + (node.height || 100);
@@ -52,10 +49,6 @@ export interface VirtualRendererProps {
   render_buffer?: number;
 }
 
-/**
- * Virtual rendering component that filters nodes and edges based on visibility
- * This significantly improves performance for large graphs
- */
 export function use_virtual_nodes({
   nodes,
   edges,
@@ -66,13 +59,14 @@ export function use_virtual_nodes({
   virtual_edges: CodeChartEdge[];
   hidden_node_count: number;
 } {
-  // Memoize virtual nodes to prevent unnecessary recalculations
   const virtual_nodes = useMemo(() => {
+    // An empty visibility set means culling is off: render everything.
     if (visible_node_ids.size === 0) {
-      return nodes; // Return all nodes if no visibility info
+      return nodes;
     }
-    
-    // Add buffer nodes (nodes connected to visible nodes)
+
+    // Pull in nodes adjacent to visible ones so edges crossing the viewport
+    // edge still have both endpoints to attach to.
     const expanded_visible_ids = new Set(visible_node_ids);
     
     if (render_buffer > 0) {
@@ -89,16 +83,14 @@ export function use_virtual_nodes({
     return nodes.filter(node => expanded_visible_ids.has(node.id));
   }, [nodes, visible_node_ids, edges, render_buffer]);
   
-  // Memoize virtual edges
   const virtual_edges = useMemo(() => {
     if (visible_node_ids.size === 0) {
-      return edges; // Return all edges if no visibility info
+      return edges;
     }
-    
+
     const node_id_set = new Set(virtual_nodes.map(n => n.id));
-    
-    // Only include edges where both source and target are rendered
-    return edges.filter(edge => 
+
+    return edges.filter(edge =>
       node_id_set.has(edge.source) && node_id_set.has(edge.target)
     );
   }, [edges, virtual_nodes, visible_node_ids]);
@@ -112,10 +104,6 @@ export function use_virtual_nodes({
   };
 }
 
-/**
- * Placeholder component for nodes that are outside viewport
- * This can be used to show indicators at the edges of the viewport
- */
 export interface ViewportIndicatorProps {
   direction: 'top' | 'bottom' | 'left' | 'right';
   count: number;

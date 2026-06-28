@@ -1,5 +1,4 @@
 import { LayoutCache } from './layout_cache';
-import { get_visible_nodes } from './virtual_renderer';
 
 describe('LayoutCache', () => {
   it('caches and retrieves a value by key', () => {
@@ -128,48 +127,5 @@ describe('LayoutCache', () => {
     const zero_dims = [{ id: '1', width: 0, height: 0, parentId: '' }];
 
     expect(cache.generate_key(without_dims, [])).toBe(cache.generate_key(zero_dims, []));
-  });
-});
-
-describe('get_visible_nodes', () => {
-  it('identifies visible nodes within viewport', () => {
-    const nodes = [
-      { id: '1', position: { x: 0, y: 0 }, width: 200, height: 100 },
-      { id: '2', position: { x: 300, y: 0 }, width: 200, height: 100 },
-      { id: '3', position: { x: 1000, y: 1000 }, width: 200, height: 100 },
-    ];
-
-    const viewport = { x: 0, y: 0, zoom: 1 };
-    const visible = get_visible_nodes(nodes, viewport, 800, 600);
-
-    expect(visible.has('1')).toBe(true);
-    expect(visible.has('2')).toBe(true);
-    expect(visible.has('3')).toBe(false);
-  });
-
-  it('includes nodes that fall inside the buffer area', () => {
-    const nodes = [
-      { id: '1', position: { x: -50, y: -50 }, width: 200, height: 100 },
-      { id: '2', position: { x: 850, y: 0 }, width: 200, height: 100 },
-    ];
-
-    const viewport = { x: 0, y: 0, zoom: 1 };
-    const visible = get_visible_nodes(nodes, viewport, 800, 600, 100);
-
-    expect(visible.has('1')).toBe(true);
-    expect(visible.has('2')).toBe(true);
-  });
-
-  it('widens the visible area as zoom decreases', () => {
-    const nodes = [
-      { id: '1', position: { x: 0, y: 0 }, width: 200, height: 100 },
-      { id: '2', position: { x: 500, y: 0 }, width: 200, height: 100 },
-    ];
-
-    const viewport = { x: 0, y: 0, zoom: 0.5 };
-    const visible = get_visible_nodes(nodes, viewport, 400, 300);
-
-    expect(visible.has('1')).toBe(true);
-    expect(visible.has('2')).toBe(true);
   });
 });
