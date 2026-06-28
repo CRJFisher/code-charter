@@ -2,9 +2,6 @@ import React from 'react';
 import { ThemeProviderComponent } from '../theme';
 import { App, AppProps } from './app';
 
-/**
- * App component wrapped with theme provider
- */
 export interface ThemedAppProps extends AppProps {
   force_standalone?: boolean;
 }
