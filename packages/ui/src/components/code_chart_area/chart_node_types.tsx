@@ -42,8 +42,7 @@ const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props
 
   if (is_zoomed_out) {
     const simplified_aria_label = `${data.is_entry_point ? 'Entry point' : 'Function'}: ${data.function_name}. Press Enter to open source code.`;
-    
-    // Simplified view when zoomed out
+
     return (
       <div
         style={{
@@ -96,11 +95,9 @@ const ZoomAwareNodeComponent: React.FC<NodeProps<CodeFunctionNodeType>> = (props
     );
   }
 
-  // Full detail view when zoomed in
   return <CodeFunctionNode {...props} />;
 };
 
-// Module group node for clustering
 export interface ModuleNodeData extends Record<string, unknown> {
   module_name: string;
   description: string;
@@ -124,7 +121,6 @@ const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (prop
   const { selected } = props;
   const theme_styles = use_flow_theme_styles();
 
-  // Only show module groups when zoomed out
   if (!is_zoomed_out) {
     return null;
   }
@@ -228,7 +224,6 @@ const ModuleGroupNodeComponent: React.FC<NodeProps<ModuleGroupNodeType>> = (prop
   );
 };
 
-// Memoize components for performance
 export const ZoomAwareNode = React.memo(ZoomAwareNodeComponent, (prev_props, next_props) => {
   return (
     prev_props.data.function_name === next_props.data.function_name &&
