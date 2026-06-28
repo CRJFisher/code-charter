@@ -1,10 +1,8 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
+import { VsCodeApi } from '../platform/vscode_detection';
 import { ThemeProviderComponent, use_theme } from './theme_context';
 
-/**
- * Helper component that consumes the theme context
- */
 function ThemeConsumer() {
   const ctx = use_theme();
   return (
@@ -16,8 +14,25 @@ function ThemeConsumer() {
   );
 }
 
+function ThemeSwitchConsumer() {
+  const ctx = use_theme();
+  const other = ctx.available_themes?.find(t => t.name !== ctx.theme.name);
+  return (
+    <div>
+      <span data-testid="theme-name">{ctx.theme.name}</span>
+      <span data-testid="available-count">{ctx.available_themes?.length ?? 0}</span>
+      <span data-testid="has-set-theme">{String(Boolean(ctx.set_theme))}</span>
+      <button onClick={() => other && ctx.set_theme?.(other)}>switch</button>
+    </div>
+  );
+}
+
 describe('ThemeProviderComponent', () => {
-  // Force standalone mode so the provider does not try to use VS Code APIs
+  afterEach(() => {
+    localStorage.clear();
+    globalThis.acquireVsCodeApi = undefined;
+  });
+
   it('renders children', () => {
     const { getByText } = render(
       <ThemeProviderComponent force_standalone>
@@ -35,16 +50,54 @@ describe('ThemeProviderComponent', () => {
       </ThemeProviderComponent>
     );
 
-    // In standalone / force_standalone mode the default theme should be present
     expect(getByTestId('theme-name').textContent).toBeTruthy();
     expect(getByTestId('is-standalone').textContent).toBe('true');
   });
 
+  it('selects the VSCode provider when running inside a VSCode webview', () => {
+    const fake_api: VsCodeApi = {
+      postMessage: () => undefined,
+      getState: () => undefined,
+      setState: () => undefined,
+    };
+    globalThis.acquireVsCodeApi = () => fake_api;
+
+    const { getByTestId } = render(
+      <ThemeProviderComponent>
+        <ThemeConsumer />
+      </ThemeProviderComponent>
+    );
+
+    expect(getByTestId('is-standalone').textContent).toBe('false');
+  });
+
+  it('exposes set_theme and available themes in standalone mode', () => {
+    const { getByTestId } = render(
+      <ThemeProviderComponent force_standalone>
+        <ThemeSwitchConsumer />
+      </ThemeProviderComponent>
+    );
+
+    expect(getByTestId('available-count').textContent).toBe('2');
+    expect(getByTestId('has-set-theme').textContent).toBe('true');
+  });
+
+  it('propagates theme changes from the provider to consumers', () => {
+    const { getByTestId, getByText } = render(
+      <ThemeProviderComponent force_standalone>
+        <ThemeSwitchConsumer />
+      </ThemeProviderComponent>
+    );
+
+    const initial = getByTestId('theme-name').textContent;
+    fireEvent.click(getByText('switch'));
+
+    expect(getByTestId('theme-name').textContent).not.toBe(initial);
+  });
+
   it('throws when use_theme() is used outside the provider', () => {
-    // Suppress the React error boundary console output
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {
-      // silence React's expected error log during this test
-    });
+    // React logs the thrown render error to console.error; silence it for this expected throw.
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     expect(() => render(<ThemeConsumer />)).toThrow(
       'use_theme must be used within a ThemeProvider'

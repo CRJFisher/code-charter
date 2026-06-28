@@ -11,22 +11,14 @@ export interface ThemeContextValue {
   is_standalone: boolean;
 }
 
-/**
- * Theme context
- */
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-/**
- * Theme provider component props
- */
 interface ThemeProviderProps {
   children: ReactNode;
-  force_standalone?: boolean; // For testing standalone mode
+  // Bypasses VSCode detection so standalone rendering can be exercised in tests and non-editor hosts.
+  force_standalone?: boolean;
 }
 
-/**
- * Theme provider component
- */
 export function ThemeProviderComponent({ children, force_standalone = false }: ThemeProviderProps) {
   const [provider] = useState<ThemeProvider>(() => {
     if (!force_standalone && is_vscode_context()) {
@@ -39,12 +31,10 @@ export function ThemeProviderComponent({ children, force_standalone = false }: T
   const is_standalone = force_standalone || !is_vscode_context();
 
   useEffect(() => {
-    // Subscribe to theme changes
     const unsubscribe = provider.on_theme_change(set_theme_state);
-    
+
     return () => {
       unsubscribe();
-      // Clean up provider if it has a dispose method
       if ('dispose' in provider && typeof provider.dispose === 'function') {
         provider.dispose();
       }
@@ -65,9 +55,6 @@ export function ThemeProviderComponent({ children, force_standalone = false }: T
   );
 }
 
-/**
- * Hook to use theme context
- */
 export function use_theme(): ThemeContextValue {
   const context = useContext(ThemeContext);
   if (!context) {
