@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { useReactFlow, useStore, ReactFlowState } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 import { error_notification_manager } from './error_handling';
 import { use_flow_theme_styles } from './use_chart_theme_styles';
@@ -10,12 +10,9 @@ export interface KeyboardNavigationProps {
 
 export function use_keyboard_navigation(props?: KeyboardNavigationProps) {
   const { getNodes: get_nodes, getEdges: get_edges, setNodes: set_nodes, fitView: fit_view } = useReactFlow<CodeChartNode, CodeChartEdge>();
-  const selected_node_id = useStore((state: ReactFlowState) => 
-    state.nodes.find(n => n.selected)?.id
-  );
 
   const handle_key_navigation = useCallback((event: KeyboardEvent) => {
-    // Skip if user is typing in an input field
+    // Don't hijack navigation keys while the user is typing into a field.
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
       return;
     }
@@ -26,40 +23,36 @@ export function use_keyboard_navigation(props?: KeyboardNavigationProps) {
 
     switch (event.key) {
       case 'Tab':
-        // Let default tab behavior work for focus management
+        // Intentional no-op: leave Tab to the browser's native focus order.
         break;
 
       case 'ArrowUp':
       case 'ArrowDown':
       case 'ArrowLeft':
       case 'ArrowRight':
-        // Navigate between connected nodes
         if (selected_node) {
           event.preventDefault();
-          
+
           let target_node_id: string | undefined;
-          
+
           if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-            // Find parent nodes (incoming edges)
+            // Up/left moves toward the caller (incoming edge source).
             const incoming_edge = edges.find(e => e.target === selected_node.id);
             target_node_id = incoming_edge?.source;
           } else {
-            // Find child nodes (outgoing edges)
+            // Down/right moves toward the callee (outgoing edge target).
             const outgoing_edge = edges.find(e => e.source === selected_node.id);
             target_node_id = outgoing_edge?.target;
           }
-          
+
           if (target_node_id) {
-            // Deselect all nodes and select target
             set_nodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: n.id === target_node_id })));
-            
-            // Focus on the target node element
+
             const target_element = document.querySelector(`[data-id="${target_node_id}"]`);
             if (target_element instanceof HTMLElement) {
               target_element.focus();
             }
-            
-            // Notify parent component
+
             if (props?.on_node_navigate) {
               props.on_node_navigate(target_node_id);
             }
@@ -69,7 +62,6 @@ export function use_keyboard_navigation(props?: KeyboardNavigationProps) {
 
       case 'f':
       case 'F':
-        // Fit view to show all nodes
         if (event.ctrlKey || event.metaKey) {
           event.preventDefault();
           fit_view({ padding: 0.2, duration: 500 });
@@ -77,18 +69,15 @@ export function use_keyboard_navigation(props?: KeyboardNavigationProps) {
         break;
 
       case '/':
-        // Focus search - handled by SearchPanel component
-        // SearchPanel listens for the '/' key globally
+        // Intentional no-op: SearchPanel owns the global '/' shortcut.
         break;
 
       case 'Escape':
-        // Deselect all nodes
         event.preventDefault();
         set_nodes((current_nodes) => current_nodes.map(n => ({ ...n, selected: false })));
         break;
 
       case '?':
-        // Show keyboard shortcuts help
         if (event.shiftKey) {
           event.preventDefault();
           show_keyboard_shortcuts();
@@ -103,8 +92,6 @@ export function use_keyboard_navigation(props?: KeyboardNavigationProps) {
       window.removeEventListener('keydown', handle_key_navigation);
     };
   }, [handle_key_navigation]);
-
-  return { selected_node_id };
 }
 
 function show_keyboard_shortcuts() {
@@ -114,7 +101,6 @@ function show_keyboard_shortcuts() {
   );
 }
 
-// Skip link component for accessibility
 export function SkipToGraph() {
   const theme_styles = use_flow_theme_styles();
 
