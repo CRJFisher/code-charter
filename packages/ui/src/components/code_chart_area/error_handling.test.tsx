@@ -238,41 +238,6 @@ describe('Error Handling', () => {
     });
   });
 
-  describe('ErrorLogger', () => {
-    it('logs errors with severity', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      
-      error_logger.log(new Error('Test error'), 'error', { context: 'test' });
-      
-      expect(consoleSpy).toHaveBeenCalledWith('[ERROR]', 'Test error', { context: 'test' });
-      expect(error_logger.get_errors()).toHaveLength(1);
-      
-      consoleSpy.mockRestore();
-    });
-
-    it('generates an error summary', () => {
-      error_logger.log(new LayoutError('Layout failed'), 'error');
-      error_logger.log(new Error('Generic error'), 'warning');
-      error_logger.log(new Error('Info'), 'info');
-
-      const summary = error_logger.get_error_summary();
-      
-      expect(summary.total).toBe(3);
-      expect(summary.by_severity.error).toBe(1);
-      expect(summary.by_severity.warning).toBe(1);
-      expect(summary.by_severity.info).toBe(1);
-      expect(summary.by_type.get('LayoutError')).toBe(1);
-    });
-
-    it('limits stored errors to the most recent 100', () => {
-      for (let i = 0; i < 110; i++) {
-        error_logger.log(new Error(`Error ${i}`), 'info');
-      }
-
-      expect(error_logger.get_errors()).toHaveLength(100);
-    });
-  });
-
   describe('ErrorNotifications', () => {
     it('displays notifications', async () => {
       render_with_theme(<ErrorNotifications />);

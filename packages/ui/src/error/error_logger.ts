@@ -63,5 +63,4 @@ export class ErrorLogger {
   }
 }
 
-// Global error logger instance
 export const error_logger = new ErrorLogger();
