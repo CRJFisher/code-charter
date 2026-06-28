@@ -57,4 +57,25 @@ describe("Sidebar flow selector (AC#7)", () => {
     expect(on_select).toHaveBeenCalledWith("agentic.flow:unattributed");
     expect(navigate_to_doc).not.toHaveBeenCalled();
   });
+
+  it("renders the member count for an attributed flow", () => {
+    const flows = [flow({ id: "main", label: "main", member_count: 5 })];
+    render(<Sidebar flows={flows} selected_flow_id={null} on_select={() => undefined} />);
+    expect(screen.getByText("5 functions")).toBeInTheDocument();
+  });
+
+  it("marks a hydrated flow with the agentic-diagram badge", () => {
+    const flows = [flow({ id: "hot", label: "hot", is_hydrated: true }), flow({ id: "cold", label: "cold", is_hydrated: false })];
+    render(<Sidebar flows={flows} selected_flow_id={null} on_select={() => undefined} />);
+    expect(screen.getAllByTitle("This flow has an agentic diagram")).toHaveLength(1);
+  });
+
+  it("toggles the sidebar open and collapsed", () => {
+    const flows = [flow({ id: "main", label: "main" })];
+    render(<Sidebar flows={flows} selected_flow_id={null} on_select={() => undefined} />);
+    expect(screen.getByText("◀")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("◀"));
+    expect(screen.queryByText("◀")).toBeNull();
+    expect(screen.getByText("☰")).toBeInTheDocument();
+  });
 });
