@@ -5,10 +5,9 @@ import type { EdgeRow, NodeRow } from "@code-charter/types";
 import { navigate_to_file } from "./editor_navigation";
 
 /**
- * task-27.1.2 AC#8 — the selection-driven provenance panel. It is driven off the React Flow
- * selection (`onSelectionChange`/`selected`), NOT by overloading a node's `navigate_to_file`
- * `onClick`. Navigation stays available as a secondary action — the "Open in editor" button here —
- * so selecting a node reveals its provenance while a click on the node still jumps to the source.
+ * Driven off the React Flow selection rather than overloading a node's `navigate_to_file`
+ * onClick, so selecting a node reveals its provenance while clicking the node still jumps to
+ * source (task-27.1.2 AC#8).
  */
 
 export interface ProvenanceSelection {
