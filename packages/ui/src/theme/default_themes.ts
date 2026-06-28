@@ -1,8 +1,6 @@
 import { Theme } from '@code-charter/types';
 
-/**
- * Default dark theme based on VSCode's Dark+ theme
- */
+// Color values mirror VSCode's Dark+ theme so the standalone webview matches the editor.
 export const dark_theme: Theme = {
   name: 'Dark',
   type: 'dark',
@@ -13,9 +11,7 @@ export const dark_theme: Theme = {
   },
 };
 
-/**
- * Default light theme based on VSCode's Light+ theme
- */
+// Color values mirror VSCode's Light+ theme so the standalone webview matches the editor.
 export const light_theme: Theme = {
   name: 'Light',
   type: 'light',
@@ -26,7 +22,4 @@ export const light_theme: Theme = {
   },
 };
 
-/**
- * Default themes collection
- */
 export const default_themes = [dark_theme, light_theme];
