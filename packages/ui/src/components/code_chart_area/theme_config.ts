@@ -1,16 +1,11 @@
 import { Theme } from '@code-charter/types';
 
-/**
- * Theme-aware color configuration for React Flow components
- * Maps theme colors to component-specific colors
- */
 export interface ClusterColor {
   background: string;
   border: string;
 }
 
 export interface ThemeColorConfig {
-  // Node colors
   node: {
     background: {
       default: string;
@@ -29,16 +24,13 @@ export interface ThemeColorConfig {
       tertiary: string;
     };
   };
-  // Edge colors
   edge: {
     stroke: string;
     strokeSelected: string;
   };
-  // Cluster palette (12 distinguishable colors)
   cluster: {
     palette: ClusterColor[];
   };
-  // UI colors
   ui: {
     background: {
       overlay: string;
@@ -83,24 +75,19 @@ export interface ThemeColorConfig {
       track: string;
     };
   };
-  // Shadow effects
   shadow: {
     default: string;
     hover: string;
   };
-  // Background patterns
   background: {
     dots: string;
     grid: string;
   };
 }
 
-/**
- * Generate theme colors for React Flow based on VSCode theme
- */
 export function get_theme_colors(theme: Theme): ThemeColorConfig {
   const is_dark = theme.type === 'dark';
-  
+
   return {
     node: {
       background: {
@@ -208,39 +195,12 @@ export function get_theme_colors(theme: Theme): ThemeColorConfig {
   };
 }
 
-/**
- * Get CSS variables for theme colors
- */
-function is_string_record(value: unknown): value is { [k: string]: unknown } {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-export function get_theme_css_variables(colors: ThemeColorConfig): Record<string, string> {
-  const vars: Record<string, string> = {};
-
-  function walk(value: unknown, prefix: string) {
-    if (typeof value === 'string') {
-      vars[`--flow-${prefix}`] = value;
-    } else if (is_string_record(value)) {
-      for (const [k, v] of Object.entries(value)) {
-        walk(v, `${prefix}-${k}`);
-      }
-    }
-    // Arrays (cluster palette) are intentionally skipped — not representable as a single CSS var
-  }
-
-  walk(colors, 'theme');
-  return vars;
-}
-
-/**
- * Get the color pair for a given cluster index (wraps around the palette).
- */
+// Wraps around the palette so any cluster index maps to a color.
 export function get_cluster_color(
   colors: ThemeColorConfig,
   cluster_index: number
 ): ClusterColor {
   const palette = colors.cluster.palette;
-  // Guard against negative indices (JS modulo returns negative for negative operands)
+  // Double modulo keeps the index in range for negative operands, where JS `%` returns negative.
   return palette[((cluster_index % palette.length) + palette.length) % palette.length];
 }
