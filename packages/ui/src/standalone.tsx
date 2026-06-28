@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ThemedApp, create_backend, BackendType } from './index';
+import { ThemedApp } from './index';
 import './styles/index.css';
 
 export function init(config?: { force_standalone?: boolean }): void {
@@ -17,5 +17,3 @@ export function init(config?: { force_standalone?: boolean }): void {
     </React.StrictMode>
   );
 }
-
-export { create_backend, BackendType };
