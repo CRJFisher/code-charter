@@ -75,7 +75,8 @@ export function compute_parent_resize(
   const new_width = (max_x + child_dx) + pad_side;
   const new_height = (max_y + child_dy) + pad_side;
 
-  // No-op early-out: nothing changed.
+  // Return null when nothing changed so the caller can skip the state update
+  // entirely, avoiding a redundant React Flow re-render on every drag-stop.
   const current_width = parent.width ?? parent.measured?.width;
   const current_height = parent.height ?? parent.measured?.height;
   if (

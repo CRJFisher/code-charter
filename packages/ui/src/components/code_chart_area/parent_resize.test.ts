@@ -218,4 +218,24 @@ describe("apply_parent_resize", () => {
     expect(top_level.position).toEqual({ x: 0, y: 0 });
   });
 
+  it("resizes the parent without moving children when there is no shift", () => {
+    // Children already flush against the top-left padding (child_dx/dy === 0)
+    // but slack remains on the right/bottom: only the parent shrinks.
+    const nodes: CodeChartNode[] = [
+      module_node("m", 100, 200, 500, 300),
+      fn_node("a", "m", PAD, PAD_TOP, 100, 50),
+    ];
+    const r = expect_present(compute_parent_resize("m", nodes));
+    expect(r.child_dx).toBe(0);
+    expect(r.child_dy).toBe(0);
+
+    const updated = apply_parent_resize(nodes, r);
+    const parent = expect_present(updated.find(n => n.id === "m"));
+    const child = expect_present(updated.find(n => n.id === "a"));
+
+    expect(parent.width).toBe(100 + 2 * PAD);
+    expect(parent.height).toBe(50 + PAD_TOP + PAD);
+    expect(parent.position).toEqual({ x: 100, y: 200 });
+    expect(child.position).toEqual({ x: PAD, y: PAD_TOP });
+  });
 });
