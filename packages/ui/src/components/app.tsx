@@ -14,7 +14,8 @@ async function load_flows(
 ) {
   set_status_message(CodeIndexStatus.Indexing);
 
-  // Entrypoint detection (the call graph) is retained as the substrate the flow skeleton is built from.
+  // The call graph is the substrate flows are derived from; if it is unavailable the flow list
+  // cannot be trusted, so surface an error instead of loading flows.
   const call_graph = await backend.get_call_graph();
   if (!call_graph) {
     set_status_message(CodeIndexStatus.Error);
@@ -73,5 +74,3 @@ export const App: React.FC<AppProps> = ({ class_name = "" }) => {
     </div>
   );
 };
-
-export default App;
