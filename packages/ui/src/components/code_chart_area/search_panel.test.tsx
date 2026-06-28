@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { SearchPanel } from './search_panel';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@testing-library/jest-dom';
-
-// Test node data
 const test_nodes = [
   {
     id: 'node1',
@@ -40,8 +38,6 @@ const test_nodes = [
     },
   },
 ];
-
-// Mock React Flow hooks
 const mockSetCenter = jest.fn();
 const mockSetNodes = jest.fn();
 const mockGetNodes = jest.fn();
@@ -72,7 +68,7 @@ describe('SearchPanel', () => {
     );
   };
 
-  it('should render search button', () => {
+  it('renders the search button', () => {
     renderSearchPanel();
 
     const searchButton = screen.getByRole('button', { name: /search nodes/i });
@@ -80,7 +76,7 @@ describe('SearchPanel', () => {
     expect(searchButton).toHaveTextContent('/');
   });
 
-  it('should open search panel when button is clicked', async () => {
+  it('opens the panel when the button is clicked', async () => {
     renderSearchPanel();
 
     const searchButton = screen.getByRole('button', { name: /search nodes/i });
@@ -90,10 +86,8 @@ describe('SearchPanel', () => {
     expect(searchInput).toBeInTheDocument();
   });
 
-  it('should open search panel with / key', async () => {
+  it('opens the panel with the / key', async () => {
     renderSearchPanel();
-
-    // Simulate pressing '/' key
     fireEvent.keyDown(window, { key: '/' });
 
     await waitFor(() => {
@@ -102,15 +96,11 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('should not open search panel with / key when in input', () => {
+  it('ignores the / key while typing in an input', () => {
     renderSearchPanel();
-
-    // Create a temporary input element
     const input = document.createElement('input');
     document.body.appendChild(input);
     input.focus();
-
-    // Simulate pressing '/' key while focused on input
     fireEvent.keyDown(input, { key: '/' });
 
     const searchInput = screen.queryByPlaceholderText('Search functions, modules...');
@@ -119,14 +109,10 @@ describe('SearchPanel', () => {
     document.body.removeChild(input);
   });
 
-  it('should search for nodes by name', async () => {
+  it('searches nodes by name', async () => {
     renderSearchPanel();
-
-    // Open search panel
     const searchButton = screen.getByRole('button', { name: /search nodes/i });
     fireEvent.click(searchButton);
-
-    // Type search query
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'test');
 
@@ -138,39 +124,40 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('should highlight matching text', async () => {
+  it('matches a node by its description when the name does not match', async () => {
     renderSearchPanel();
+    fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
+    const searchInput = screen.getByPlaceholderText('Search functions, modules...');
+    await userEvent.type(searchInput, 'processing');
 
-    // Open search and search
+    await waitFor(() => {
+      const results = screen.getAllByRole('option');
+      expect(results).toHaveLength(1);
+      expect(results[0]).toHaveTextContent('anotherFunction');
+    });
+  });
+
+  it('highlights matching text', async () => {
+    renderSearchPanel();
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'test');
-
-    // Check for highlighted text
     await waitFor(() => {
       const marks = screen.getAllByText('test', { selector: 'mark' });
       expect(marks.length).toBeGreaterThan(0);
     });
   });
 
-  it('should navigate search results with keyboard', async () => {
+  it('navigates results with arrow keys', async () => {
     renderSearchPanel();
-
-    // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'test');
-
-    // Wait for results
     await waitFor(() => {
       expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
     });
-
-    // First option should be selected by default
     const options = screen.getAllByRole('option');
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
-
-    // Navigate with arrow keys
     fireEvent.keyDown(searchInput, { key: 'ArrowDown' });
     expect(options[1]).toHaveAttribute('aria-selected', 'true');
 
@@ -178,16 +165,12 @@ describe('SearchPanel', () => {
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('should select node on Enter key', async () => {
+  it('selects the node on Enter', async () => {
     const on_node_select = jest.fn();
     renderSearchPanel({ on_node_select });
-
-    // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'testFunction');
-
-    // Wait for results and press Enter
     await waitFor(() => {
       expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
     });
@@ -202,16 +185,12 @@ describe('SearchPanel', () => {
     expect(on_node_select).toHaveBeenCalledWith('node1');
   });
 
-  it('should select node on click', async () => {
+  it('selects the node on click', async () => {
     const on_node_select = jest.fn();
     renderSearchPanel({ on_node_select });
-
-    // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'test');
-
-    // Click on first result
     await waitFor(() => {
       expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
     });
@@ -224,14 +203,10 @@ describe('SearchPanel', () => {
     expect(on_node_select).toHaveBeenCalledWith('node1');
   });
 
-  it('should close search panel on Escape key', async () => {
+  it('closes the panel on Escape', async () => {
     renderSearchPanel();
-
-    // Open search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
-
-    // Press Escape
     fireEvent.keyDown(searchInput, { key: 'Escape' });
 
     await waitFor(() => {
@@ -239,10 +214,8 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('should show no results message', async () => {
+  it('shows the no-results message', async () => {
     renderSearchPanel();
-
-    // Open search and search for non-existent term
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'nonexistent');
@@ -252,23 +225,19 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('should perform fuzzy matching', async () => {
+  it('matches nodes fuzzily', async () => {
     renderSearchPanel();
-
-    // Open search and search with fuzzy term
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
-    await userEvent.type(searchInput, 'tsfn'); // Fuzzy match for testFunction
+    await userEvent.type(searchInput, 'tsfn');
 
     await waitFor(() => {
       expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
     });
   });
 
-  it('should show correct icons for node types', async () => {
+  it('shows the icon for each node type', async () => {
     renderSearchPanel();
-
-    // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'test');
@@ -282,7 +251,7 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('should limit search results', async () => {
+  it('limits results to max_results', async () => {
     const manyNodes = Array.from({ length: 20 }, (_, i) => ({
       id: `node${i}`,
       type: 'code_function',
@@ -297,8 +266,6 @@ describe('SearchPanel', () => {
     mockGetNode.mockImplementation((id: string) => manyNodes.find(n => n.id === id));
 
     renderSearchPanel({ max_results: 5 });
-
-    // Open search and search
     fireEvent.click(screen.getByRole('button', { name: /search nodes/i }));
     const searchInput = screen.getByPlaceholderText('Search functions, modules...');
     await userEvent.type(searchInput, 'test');

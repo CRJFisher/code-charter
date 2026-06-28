@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useReactFlow } from '@xyflow/react';
 import { CodeChartNode, CodeChartEdge } from './chart_types';
 
-export interface SearchResult {
+interface SearchResult {
   node_id: string;
   node_name: string;
   nodeType: string;
@@ -11,12 +11,11 @@ export interface SearchResult {
   score: number;
 }
 
-export interface SearchPanelProps {
+interface SearchPanelProps {
   on_node_select?: (node_id: string) => void;
   max_results?: number;
 }
 
-// Fuzzy matching algorithm (module-level to avoid TDZ issues)
 function fuzzy_match(query: string, target: string): number {
   let query_index = 0;
   let target_index = 0;
@@ -43,7 +42,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const input_ref = useRef<HTMLInputElement>(null);
   const { setCenter: set_center, setNodes: set_nodes, getNodes: get_nodes, getNode: get_node } = useReactFlow<CodeChartNode, CodeChartEdge>();
 
-  // Search algorithm with fuzzy matching
   const search_results = useMemo(() => {
     if (!query.trim()) return [];
 
@@ -62,24 +60,15 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
       let score = 0;
 
-      // Exact match gets highest score
       if (lower_name === lower_query) {
         score = 100;
-      }
-      // Starts with query
-      else if (lower_name.startsWith(lower_query)) {
+      } else if (lower_name.startsWith(lower_query)) {
         score = 80;
-      }
-      // Contains query
-      else if (lower_name.includes(lower_query)) {
+      } else if (lower_name.includes(lower_query)) {
         score = 60;
-      }
-      // Description contains query
-      else if (lower_description.includes(lower_query)) {
+      } else if (lower_description.includes(lower_query)) {
         score = 40;
-      }
-      // Fuzzy match
-      else {
+      } else {
         const fuzzy_score = fuzzy_match(lower_query, lower_name);
         if (fuzzy_score > 0) {
           score = fuzzy_score * 30;
@@ -98,7 +87,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       }
     });
 
-    // Sort by score and limit results
     return results
       .sort((a, b) => b.score - a.score)
       .slice(0, max_results);
@@ -106,34 +94,28 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   // so that search only recomputes on query/max_results changes, not on drag/selection
   }, [query, max_results, get_nodes]);
 
-  // Handle node selection
   const select_node = useCallback((node_id: string) => {
     const node = get_node(node_id);
     if (!node) return;
 
-    // Deselect all nodes and select the found one
     set_nodes((current_nodes) => current_nodes.map(n => ({
       ...n,
       selected: n.id === node_id,
     })));
 
-    // Center the view on the selected node
     set_center(node.position.x, node.position.y, {
       zoom: 1,
       duration: 500,
     });
 
-    // Close search panel
     set_is_open(false);
     set_query('');
 
-    // Notify parent component
     if (on_node_select) {
       on_node_select(node_id);
     }
   }, [get_node, set_nodes, set_center, on_node_select]);
 
-  // Keyboard navigation
   const handle_key_down = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
       case 'ArrowDown':
@@ -163,13 +145,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     }
   }, [search_results, selected_index, select_node]);
 
-  // Global keyboard shortcut for search
   useEffect(() => {
     const handle_global_key_down = (e: KeyboardEvent) => {
-      // Check for '/' key to open search
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const target = e.target as HTMLElement;
-        // Don't open if user is typing in an input
+        // Don't hijack '/' while the user is typing into a field
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
           e.preventDefault();
           set_is_open(true);
@@ -184,7 +164,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     return () => window.removeEventListener('keydown', handle_global_key_down);
   }, []);
 
-  // Reset selected index when results change
   useEffect(() => {
     if (search_results.length > 0) {
       set_selected_index(0);
@@ -193,11 +172,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   return (
     <>
-      {/* Search Button */}
       <button
         onClick={() => {
           set_is_open(true);
-          // Use requestAnimationFrame for more reliable focus
+          // Focus after the panel paints; the input is not yet mounted this tick
           requestAnimationFrame(() => {
             input_ref.current?.focus();
           });
@@ -230,7 +208,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         }}>/</kbd>
       </button>
 
-      {/* Search Panel */}
       {is_open && (
         <div
           style={{
@@ -249,7 +226,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             flexDirection: 'column',
           }}
         >
-          {/* Search Input */}
           <div style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
             <input
               ref={input_ref}
@@ -273,7 +249,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             />
           </div>
 
-          {/* Search Results */}
           <div
             id="search-results"
             style={{
@@ -367,7 +342,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             </ul>
           </div>
 
-          {/* Footer */}
           <div style={{
             padding: '8px 12px',
             borderTop: '1px solid #eee',
@@ -389,7 +363,6 @@ function escape_regex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Helper function to highlight matching text
 function highlight_match(text: string, query: string): React.ReactNode {
   if (!query) return text;
 
