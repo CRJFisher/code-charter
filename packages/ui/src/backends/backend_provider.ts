@@ -12,7 +12,7 @@ export interface BackendConfig {
   options?: Record<string, unknown>;
 }
 
-export function detect_backend_config(): BackendConfig {
+function detect_backend_config(): BackendConfig {
   if (typeof globalThis.acquireVsCodeApi === "function") {
     return { type: BackendType.VSCODE };
   }
