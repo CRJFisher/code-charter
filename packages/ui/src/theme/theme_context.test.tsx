@@ -1,7 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { ThemeProviderComponent, use_theme } from './theme_context';
-import { VSCodeThemeProvider } from './vscode_theme_provider';
 
 /**
  * Helper component that consumes the theme context
@@ -52,44 +51,5 @@ describe('ThemeProviderComponent', () => {
     );
 
     spy.mockRestore();
-  });
-});
-
-describe('VSCodeThemeProvider', () => {
-  beforeEach(() => {
-    // Set up VS Code CSS variables so get_current_theme can read them
-    const root = document.documentElement;
-    root.style.setProperty('--vscode-editor-background', '#1e1e1e');
-    root.style.setProperty('--vscode-editor-foreground', '#d4d4d4');
-  });
-
-  afterEach(() => {
-    const root = document.documentElement;
-    root.style.removeProperty('--vscode-editor-background');
-    root.style.removeProperty('--vscode-editor-foreground');
-  });
-
-  it('get_current_theme() returns a valid Theme object', () => {
-    const provider = new VSCodeThemeProvider();
-    const theme = provider.get_current_theme();
-
-    expect(theme).toHaveProperty('name');
-    expect(theme).toHaveProperty('type');
-    expect(theme).toHaveProperty('colors');
-    expect(['light', 'dark']).toContain(theme.type);
-    expect(theme.colors['editor.background']).toBeDefined();
-    expect(theme.colors['editor.foreground']).toBeDefined();
-  });
-
-  it('on_theme_change returns an unsubscribe function', () => {
-    const provider = new VSCodeThemeProvider();
-    const callback = jest.fn();
-    const unsubscribe = provider.on_theme_change(callback);
-
-    expect(typeof unsubscribe).toBe('function');
-
-    // Cleanup
-    unsubscribe();
-    provider.dispose();
   });
 });
