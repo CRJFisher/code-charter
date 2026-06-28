@@ -1,4 +1,3 @@
-// Navigation utilities for opening files in VS Code
 import { get_vscode_api, is_vscode_context } from '../../platform/vscode_detection';
 
 export interface NavigateOptions {
@@ -12,10 +11,9 @@ export function navigate_to_file(options: NavigateOptions): void {
 
   try {
     if (is_vscode_context()) {
-      // Fire-and-forget request to the extension's navigate_to_doc handler.
-      // The shared VS Code API instance is owned by vscode_detection so the
-      // backend bridge and these click handlers don't fight over the one-shot
-      // acquireVsCodeApi() call.
+      // Reuse the shared instance owned by vscode_detection: acquireVsCodeApi()
+      // may be called at most once per webview, so the backend bridge and these
+      // click handlers must not each acquire their own.
       get_vscode_api().postMessage({
         command: 'navigate_to_doc',
         file_path,
