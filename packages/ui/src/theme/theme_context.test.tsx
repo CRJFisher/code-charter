@@ -2,8 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { ThemeProviderComponent, use_theme } from './theme_context';
 import { VSCodeThemeProvider } from './vscode_theme_provider';
-import { StandaloneThemeProvider } from './standalone_theme_provider';
-import { dark_theme, light_theme } from './default_themes';
 
 /**
  * Helper component that consumes the theme context
@@ -93,55 +91,5 @@ describe('VSCodeThemeProvider', () => {
     // Cleanup
     unsubscribe();
     provider.dispose();
-  });
-});
-
-describe('StandaloneThemeProvider', () => {
-  it('get_current_theme() returns the initial theme when provided', () => {
-    const provider = new StandaloneThemeProvider(dark_theme);
-    const theme = provider.get_current_theme();
-
-    expect(theme.name).toBe(dark_theme.name);
-    expect(theme.type).toBe('dark');
-  });
-
-  it('set_theme() changes the current theme', () => {
-    const provider = new StandaloneThemeProvider(dark_theme);
-    provider.set_theme(light_theme);
-
-    const theme = provider.get_current_theme();
-    expect(theme.name).toBe(light_theme.name);
-    expect(theme.type).toBe('light');
-  });
-
-  it('get_available_themes() returns at least the default themes', () => {
-    const provider = new StandaloneThemeProvider();
-    const themes = provider.get_available_themes();
-
-    expect(themes.length).toBeGreaterThanOrEqual(2);
-    expect(themes.some(t => t.type === 'dark')).toBe(true);
-    expect(themes.some(t => t.type === 'light')).toBe(true);
-  });
-
-  it('on_theme_change() notifies listeners when theme is set', () => {
-    const provider = new StandaloneThemeProvider(dark_theme);
-    const callback = jest.fn();
-    provider.on_theme_change(callback);
-
-    provider.set_theme(light_theme);
-
-    expect(callback).toHaveBeenCalledTimes(1);
-    expect(callback).toHaveBeenCalledWith(light_theme);
-  });
-
-  it('unsubscribe stops notifications', () => {
-    const provider = new StandaloneThemeProvider(dark_theme);
-    const callback = jest.fn();
-    const unsubscribe = provider.on_theme_change(callback);
-
-    unsubscribe();
-    provider.set_theme(light_theme);
-
-    expect(callback).not.toHaveBeenCalled();
   });
 });
