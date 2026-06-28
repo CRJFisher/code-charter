@@ -15,12 +15,10 @@ export const ErrorNotifications: React.FC<ErrorNotificationsProps> = ({
   const [notifications, set_notifications] = useState<ErrorNotification[]>([]);
 
   useEffect(() => {
-    // Subscribe to notification updates
     const unsubscribe = error_notification_manager.subscribe((new_notifications) => {
       set_notifications(new_notifications.slice(-max_notifications));
     });
 
-    // Get initial notifications
     set_notifications(error_notification_manager.get_notifications().slice(-max_notifications));
 
     return unsubscribe;
@@ -184,7 +182,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, on_di
   );
 };
 
-// Hook for using error notifications
 export function use_error_notification() {
   const notify = React.useCallback((
     message: string,
@@ -194,13 +191,5 @@ export function use_error_notification() {
     return error_notification_manager.notify(message, severity, actions);
   }, []);
 
-  const dismiss = React.useCallback((id: string) => {
-    error_notification_manager.dismiss(id);
-  }, []);
-
-  const dismiss_all = React.useCallback(() => {
-    error_notification_manager.dismiss_all();
-  }, []);
-
-  return { notify, dismiss, dismiss_all };
+  return { notify };
 }
