@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drift Sync Deep Review — Overview</title>
+<style>
+:root {
+  --ivory: #f7f3ec;
+  --oat: #ece4d6;
+  --paper: #fffdf8;
+  --slate: #2f3338;
+  --ink: #1d2024;
+  --mute: #6c6f73;
+  --faint: #9a9b97;
+  --clay: #c06d4f;
+  --olive: #6f7a4f;
+  --rust: #a8412a;
+  --work: #4a6b8a;
+  --concept: #7d6699;
+  --line: #d8cfbe;
+  --hair: #e4ddce;
+  --serif: ui-serif, Georgia, "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, ui-monospace, monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--slate);font-family:var(--sans);line-height:1.6;font-size:15px}
+
+/* Cross-doc nav */
+nav.cross-doc-nav{position:sticky;top:0;z-index:10;background:var(--ivory);border-bottom:1px solid var(--line);padding:.5rem 1.5rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+nav.cross-doc-nav .nav-label{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-right:.25rem}
+nav.cross-doc-nav a,.nav-current{display:inline-block;padding:.2rem .65rem;border-radius:3px;font-family:var(--mono);font-size:.72rem;text-decoration:none;border:1px solid var(--line);color:var(--slate)}
+nav.cross-doc-nav a:hover{background:var(--oat)}
+.nav-current{background:var(--work);color:#fff;border-color:var(--work)}
+
+/* Header */
+header.page-header{padding:2.5rem 1.5rem 1.5rem;border-bottom:1px solid var(--hair);max-width:900px;margin:0 auto}
+.eyebrow{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mute);margin-bottom:.5rem}
+h1{font-family:var(--serif);font-size:2.1rem;font-weight:400;color:var(--ink);line-height:1.25;margin-bottom:.75rem}
+.meta-row{display:flex;flex-wrap:wrap;gap:.75rem;font-family:var(--mono);font-size:.72rem;color:var(--mute)}
+.badge{background:var(--oat);padding:.15rem .5rem;border-radius:2px;border:1px solid var(--line)}
+
+/* Preamble */
+.preamble{max-width:680px;margin:0 auto;padding:1.5rem;font-size:1.05rem;line-height:1.75;color:var(--ink)}
+
+/* Sections */
+.section{max-width:900px;margin:0 auto;padding:2rem 1.5rem}
+.section-title{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mute);margin-bottom:1rem;padding-bottom:.4rem;border-bottom:1px solid var(--hair)}
+h2{font-family:var(--serif);font-size:1.35rem;font-weight:400;color:var(--ink);margin-bottom:.75rem}
+
+/* System context map */
+.sys-map{overflow-x:auto;margin:1.5rem 0;padding:.75rem;background:var(--ivory);border:1px solid var(--line);border-radius:4px}
+
+/* Outbound hub nav */
+.hub-nav{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0}
+@media(max-width:600px){.hub-nav{grid-template-columns:1fr}}
+.hub-card{border:1px solid var(--line);border-radius:6px;padding:1.25rem;text-decoration:none;color:inherit;transition:box-shadow .15s,border-color .15s;display:block}
+.hub-card:hover{border-color:var(--work);box-shadow:0 2px 8px rgba(74,107,138,.15)}
+.hub-card-eyebrow{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mute);margin-bottom:.4rem}
+.hub-card-title{font-family:var(--serif);font-size:1.1rem;font-weight:400;color:var(--work);margin-bottom:.4rem}
+.hub-card-desc{font-size:.88rem;color:var(--mute);line-height:1.5}
+.hub-card-link{display:inline-block;margin-top:.75rem;font-family:var(--mono);font-size:.72rem;color:var(--work)}
+
+/* Accent callouts */
+.callout{border-left:4px solid var(--clay);padding:1rem 1.25rem;margin:1rem 0;background:var(--ivory);border-radius:0 4px 4px 0}
+.callout.rust{border-color:var(--rust);background:#fdf5f3}
+.callout.clay{border-color:var(--clay);background:#fdf3ee}
+.callout.olive{border-color:var(--olive);background:#f4f6f0}
+.callout.inv{border-color:var(--slate);background:var(--slate);color:var(--ivory)}
+.callout.inv h3{color:#fff}
+.callout.inv .callout-label{color:#b0b3b6}
+.callout.inv ol li{border-color:#4a4f54}
+.callout-label{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mute);margin-bottom:.5rem}
+h3{font-family:var(--sans);font-size:1rem;font-weight:600;color:var(--ink);margin-bottom:.3rem}
+.callout p{font-size:.9rem;line-height:1.6}
+
+/* Numbered step list */
+.step-list{list-style:none;margin:.75rem 0;counter-reset:steps}
+.step-list li{counter-increment:steps;padding:.5rem 0 .5rem 2rem;position:relative;border-bottom:1px solid var(--hair);font-size:.9rem}
+.step-list li:last-child{border-bottom:none}
+.step-list li::before{content:counter(steps);position:absolute;left:0;top:.5rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--olive);color:#fff;font-family:var(--mono);font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.step-list code{font-family:var(--mono);font-size:.8rem;background:var(--oat);padding:.1rem .3rem;border-radius:2px}
+
+/* Provenance */
+.provenance{background:var(--ivory);border:1px solid var(--line);border-radius:4px;padding:.75rem 1rem;font-family:var(--mono);font-size:.68rem;color:var(--mute);margin:1.5rem 0}
+.provenance strong{color:var(--slate)}
+
+/* Details / collapsible */
+details{margin:.75rem 0;border:1px solid var(--hair);border-radius:4px}
+summary{cursor:pointer;padding:.75rem 1rem;font-family:var(--mono);font-size:.78rem;color:var(--work);list-style:none;background:var(--ivory)}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▶ "}
+details[open] summary::before{content:"▼ "}
+.pipeline-gloss{padding:.75rem 1rem;font-size:.88rem;line-height:1.7}
+.pipeline-gloss dt{font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--slate);margin-top:.5rem}
+.pipeline-gloss dd{color:var(--mute);margin-left:1rem}
+</style>
+</head>
+<body>
+
+<nav class="cross-doc-nav">
+  <span class="nav-label">Drift Sync Review</span>
+  <span class="nav-current" aria-current="page">Overview</span>
+  <a href="drift-sync-review-implementation.implementation-review.html">Implementation Review</a>
+  <a href="drift-sync-review-feedback-loop.feedback-loop.html">Feedback Loop Review</a>
+</nav>
+
+<header class="page-header">
+  <p class="eyebrow">code-charter · Drift Sync · Deep Review</p>
+  <h1>One Silent Root Cause Behind Two Review Goals</h1>
+  <div class="meta-row">
+    <span class="badge">Overview · Family Landing</span>
+    <span class="badge">49 Agents · Sonnet → Opus ×5 → Fable</span>
+    <span class="badge">Recipe: task-family-overview</span>
+  </div>
+</header>
+
+<p class="preamble">
+  Drift sync keeps Code Charter's flow diagrams in step with your code. Edit a file, end your turn, and a background job re-reads what changed, updates a graph of "flows" — clusters of related functions with plain-language descriptions — and the VS Code extension redraws. A 49-agent multi-model review asks two questions of that machinery. First: is it correct? The engine that decides what changed is sound and well-tested, but three programs share one database file with no coordination, and the pipeline never got its final "refresh the UI" stage. Second: is it pleasant to work on? No — inspecting a sync means reverse-engineering a SQLite schema by hand, and half the debug steps fail silently. Both answers trace to one root cause: the system stays quiet, so healthy no-ops and real bugs look identical. This page is the map; the two reviews are the territory.
+</p>
+
+<div class="section">
+  <p class="section-title">System Context — What Drift Sync Connects</p>
+
+  <!-- System context map: developer → pipeline → extension -->
+  <div class="sys-map">
+  <svg viewBox="0 0 760 90" width="760" height="90" style="max-width:100%">
+    <defs>
+      <marker id="ac" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0,0 7,2.5 0,5" fill="#6c6f73"/></marker>
+    </defs>
+    <!-- developer -->
+    <rect x="0" y="25" width="90" height="36" rx="4" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="45" y="46" text-anchor="middle" font-size="11" fill="#2f3338">Developer</text>
+    <text x="45" y="58" text-anchor="middle" font-size="9" fill="#6c6f73">edits code</text>
+    <line x1="90" y1="43" x2="105" y2="43" stroke="#6c6f73" stroke-width="1.5" marker-end="url(#ac)"/>
+    <!-- stop hook -->
+    <rect x="105" y="25" width="80" height="36" rx="4" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="145" y="46" text-anchor="middle" font-size="10" fill="#2f3338">Stop Hook</text>
+    <line x1="185" y1="43" x2="200" y2="43" stroke="#6c6f73" stroke-width="1.5" marker-end="url(#ac)"/>
+    <!-- drift pipeline box -->
+    <rect x="200" y="10" width="310" height="66" rx="4" fill="#fdf3ee" stroke="#c06d4f" stroke-width="1.5"/>
+    <text x="355" y="24" text-anchor="middle" font-size="9" fill="#c06d4f" font-family="monospace">THIS REVIEW</text>
+    <text x="355" y="42" text-anchor="middle" font-size="11" fill="#c06d4f" font-weight="600">Drift Sync Pipeline</text>
+    <text x="355" y="58" text-anchor="middle" font-size="9" fill="#c06d4f">watermark → pending handoff → reconcile → stitch → graph.db</text>
+    <line x1="510" y1="43" x2="525" y2="43" stroke="#6c6f73" stroke-width="1.5" marker-end="url(#ac)"/>
+    <!-- graph.db -->
+    <ellipse cx="575" cy="43" rx="45" ry="22" fill="#ece4d6" stroke="#d8cfbe" stroke-width="1.5"/>
+    <text x="575" y="46" text-anchor="middle" font-size="11" fill="#2f3338">graph.db</text>
+    <line x1="620" y1="43" x2="635" y2="43" stroke="#6c6f73" stroke-width="1.5" marker-end="url(#ac)"/>
+    <!-- extension -->
+    <rect x="635" y="25" width="120" height="36" rx="4" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="695" y="42" text-anchor="middle" font-size="10" fill="#2f3338">VS Code Extension</text>
+    <text x="695" y="54" text-anchor="middle" font-size="9" fill="#6c6f73">diagram panels</text>
+  </svg>
+  </div>
+
+  <p class="section-title">How the Two Review Goals Compose</p>
+
+  <!-- Inline SVG flow diagram — one pipeline, two lenses, one shared root cause -->
+  <svg viewBox="0 0 760 220" width="760" height="220" style="max-width:100%;display:block;margin:1.5rem 0">
+    <defs>
+      <marker id="a-black" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0,0 7,2.5 0,5" fill="#6c6f73"/></marker>
+      <marker id="a-work" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0,0 7,2.5 0,5" fill="#4a6b8a"/></marker>
+      <marker id="a-concept" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0,0 7,2.5 0,5" fill="#7d6699"/></marker>
+      <marker id="a-rust" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0,0 7,2.5 0,5" fill="#a8412a"/></marker>
+    </defs>
+    <!-- Pipeline spine (top) -->
+    <!-- Stop hook -->
+    <rect x="0" y="10" width="68" height="28" rx="3" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="34" y="28" text-anchor="middle" font-size="9" fill="#2f3338">Stop Hook</text>
+    <line x1="68" y1="24" x2="80" y2="24" stroke="#6c6f73" stroke-width="1.3" marker-end="url(#a-black)"/>
+    <!-- Watermark -->
+    <rect x="80" y="10" width="68" height="28" rx="3" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="114" y="28" text-anchor="middle" font-size="9" fill="#2f3338">Watermark</text>
+    <line x1="148" y1="24" x2="160" y2="24" stroke="#6c6f73" stroke-width="1.3" marker-end="url(#a-black)"/>
+    <!-- Pending handoff — highlighted -->
+    <rect x="160" y="10" width="80" height="28" rx="3" fill="#fde8e2" stroke="#a8412a" stroke-width="1.5"/>
+    <text x="200" y="24" text-anchor="middle" font-size="9" fill="#a8412a">Pending Handoff</text>
+    <text x="200" y="34" text-anchor="middle" font-size="8" fill="#a8412a">⚠ non-atomic</text>
+    <line x1="240" y1="24" x2="252" y2="24" stroke="#6c6f73" stroke-width="1.3" marker-end="url(#a-black)"/>
+    <!-- Reconcile bin -->
+    <rect x="252" y="10" width="76" height="28" rx="3" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="290" y="28" text-anchor="middle" font-size="9" fill="#2f3338">Reconcile Bin</text>
+    <line x1="328" y1="24" x2="340" y2="24" stroke="#6c6f73" stroke-width="1.3" marker-end="url(#a-black)"/>
+    <!-- Deterministic engine -->
+    <rect x="340" y="10" width="90" height="28" rx="3" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="385" y="21" text-anchor="middle" font-size="9" fill="#2f3338">Deterministic</text>
+    <text x="385" y="31" text-anchor="middle" font-size="9" fill="#2f3338">Engine ✓</text>
+    <line x1="430" y1="24" x2="442" y2="24" stroke="#6c6f73" stroke-width="1.3" marker-end="url(#a-black)"/>
+    <!-- Stitch/describe -->
+    <rect x="442" y="10" width="74" height="28" rx="3" fill="#ece4d6" stroke="#d8cfbe"/>
+    <text x="479" y="21" text-anchor="middle" font-size="9" fill="#2f3338">Stitch /</text>
+    <text x="479" y="31" text-anchor="middle" font-size="9" fill="#2f3338">Describe</text>
+    <line x1="516" y1="24" x2="528" y2="24" stroke="#6c6f73" stroke-width="1.3" marker-end="url(#a-black)"/>
+    <!-- graph.db highlighted -->
+    <rect x="528" y="10" width="68" height="28" rx="3" fill="#fde8e2" stroke="#a8412a" stroke-width="1.5"/>
+    <text x="562" y="21" text-anchor="middle" font-size="9" fill="#a8412a">graph.db</text>
+    <text x="562" y="31" text-anchor="middle" font-size="8" fill="#a8412a">⚠ no WAL</text>
+    <line x1="596" y1="24" x2="608" y2="24" stroke="#a8412a" stroke-width="1.3" stroke-dasharray="3,2"/>
+    <!-- Webview (missing link) -->
+    <rect x="608" y="10" width="80" height="28" rx="3" fill="#ece4d6" stroke="#d8cfbe" stroke-dasharray="4,3"/>
+    <text x="648" y="21" text-anchor="middle" font-size="9" fill="#a8412a">Webview</text>
+    <text x="648" y="31" text-anchor="middle" font-size="8" fill="#a8412a">never notified</text>
+
+    <!-- Goal 1 lens (blue/work) -->
+    <line x1="200" y1="38" x2="200" y2="95" stroke="#4a6b8a" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#a-work)"/>
+    <line x1="562" y1="38" x2="562" y2="95" stroke="#4a6b8a" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#a-work)"/>
+    <rect x="130" y="95" width="500" height="28" rx="3" fill="#e8f0f8" stroke="#4a6b8a" stroke-width="1.3"/>
+    <text x="380" y="108" text-anchor="middle" font-size="10" fill="#4a6b8a" font-weight="600">Goal 1 — Implementation: does it produce correct results?</text>
+    <text x="380" y="118" text-anchor="middle" font-size="8.5" fill="#4a6b8a">concurrency vacuum at pending-handoff + graph.db · missing webview notify stage</text>
+
+    <!-- Goal 2 lens (concept/purple) -->
+    <line x1="562" y1="38" x2="562" y2="145" stroke="#7d6699" stroke-width="1" stroke-dasharray="4,2"/>
+    <!-- Stderr point -->
+    <rect x="420" y="145" width="180" height="28" rx="3" fill="#f0ecf4" stroke="#7d6699" stroke-width="1.3"/>
+    <text x="510" y="158" text-anchor="middle" font-size="10" fill="#7d6699" font-weight="600">Goal 2 — Feedback Loop</text>
+    <text x="510" y="167" text-anchor="middle" font-size="8.5" fill="#7d6699">can a developer see what it did?</text>
+    <!-- Stderr → Claude session annotation -->
+    <line x1="510" y1="145" x2="510" y2="133" stroke="#7d6699" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="430" y="142" font-size="8" fill="#7d6699">stderr into wrong process · no inspection tool</text>
+
+    <!-- Both converge on shared root cause -->
+    <line x1="380" y1="123" x2="340" y2="180" stroke="#a8412a" stroke-width="1.5" marker-end="url(#a-rust)"/>
+    <line x1="510" y1="173" x2="390" y2="185" stroke="#a8412a" stroke-width="1.5" marker-end="url(#a-rust)"/>
+    <rect x="250" y="180" width="200" height="34" rx="5" fill="#fde8e2" stroke="#a8412a" stroke-width="2"/>
+    <text x="350" y="196" text-anchor="middle" font-size="11" fill="#a8412a" font-weight="600">Silence by design</text>
+    <text x="350" y="208" text-anchor="middle" font-size="9" fill="#a8412a">shared root cause of both goals</text>
+
+    <!-- Legend -->
+    <line x1="0" y1="210" x2="20" y2="210" stroke="#4a6b8a" stroke-width="2" stroke-dasharray="4,2"/>
+    <text x="25" y="214" font-size="9" fill="#4a6b8a">Goal 1 — Implementation</text>
+    <line x1="160" y1="210" x2="180" y2="210" stroke="#7d6699" stroke-width="2" stroke-dasharray="4,2"/>
+    <text x="185" y="214" font-size="9" fill="#7d6699">Goal 2 — Feedback Loop</text>
+    <rect x="330" y="204" width="12" height="12" rx="2" fill="#fde8e2" stroke="#a8412a"/>
+    <text x="347" y="214" font-size="9" fill="#a8412a">Shared root cause</text>
+  </svg>
+
+  <details>
+    <summary>Pipeline stage glossary</summary>
+    <dl class="pipeline-gloss">
+      <dt>Stop Hook</dt><dd>Claude Code hook that fires after every turn; parses the transcript for changed files</dd>
+      <dt>Transcript Watermark</dt><dd>Per-session cursor that tracks how far the transcript has been processed</dd>
+      <dt>Pending-Reconcile Handoff</dt><dd><code>drift_pending_reconcile.json</code> — the staged file set passed to the reconcile subprocess</dd>
+      <dt>drift_sync.js</dt><dd>Skill script (JS) that reads the pending file, deduplicates, and invokes the <code>drift-reconcile</code> bin</dd>
+      <dt>Deterministic Reconcile Engine</dt><dd>Hydrate / resync / retire dispatch driven by Ariadne call-graph analysis — no AI involved</dd>
+      <dt>Stitch / Describe (agentic)</dt><dd>AI agent phase: groups related flows into "stitches" and writes plain-language descriptions</dd>
+      <dt>graph.db</dt><dd>SQLite store at <code>&lt;repo&gt;/.code-charter/graph.db</code> — the single source of truth for all flows, nodes, and edges</dd>
+    </dl>
+  </details>
+</div>
+
+<div class="section">
+  <p class="section-title">The Three Structural Gaps</p>
+
+  <div class="callout rust">
+    <div class="callout-label">Gap 1 — Critical</div>
+    <h3>Concurrency Vacuum</h3>
+    <p>Three uncoordinated actors — the Stop-hook reconcile subprocess, an occasional manual <code>/drift</code> reconcile, and the VS Code extension — share <code>graph.db</code> and <code>drift_pending_reconcile.json</code> with no WAL, no <code>busy_timeout</code>, no lockfile, and non-atomic JSON writes. Any overlap causes a silent dropped reconcile (<code>SQLITE_BUSY</code> → exit 1) or a data-loss window (edits staged mid-reconcile deleted by the post-success unlink).</p>
+  </div>
+
+  <div class="callout clay">
+    <div class="callout-label">Gap 2 — High</div>
+    <h3>Missing Final Pipeline Stage</h3>
+    <p>The pipeline's stated contract ends in "flow store update → UI notification" but that link was never built. Nothing watches <code>graph.db</code>, so stitched flows and LLM descriptions landing there out-of-process are invisible until the developer manually re-runs Generate Diagram. The debounced-watcher pattern already exists in <code>dev_watcher.ts</code> — it just needs to be wired up.</p>
+  </div>
+
+  <div class="callout clay">
+    <div class="callout-label">Gap 3 — High (cross-cutting)</div>
+    <h3>Silence by Design</h3>
+    <p>The hook exits 0 on any error — stderr goes to the Claude session, not VS Code, and nothing records the outcome. No run log, no inspection tool: correctness bugs and healthy no-ops are indistinguishable.</p>
+  </div>
+</div>
+
+<div class="section">
+  <p class="section-title">Go Deeper — The Two Reviews</p>
+
+  <div class="hub-nav">
+    <a class="hub-card" href="drift-sync-review-implementation.implementation-review.html">
+      <div class="hub-card-eyebrow">Goal 1 · Implementation Review</div>
+      <div class="hub-card-title">Why Three Uncoordinated Processes Break the Sync</div>
+      <div class="hub-card-desc">8 improvements ranked by severity — from the two PRAGMA lines that eliminate the entire <code>SQLITE_BUSY</code> class to unit-test gaps and lifecycle edge cases. Includes before/after concurrency topology diagrams and the exact code spots to change first.</div>
+      <span class="hub-card-link">→ Implementation Review</span>
+    </a>
+    <a class="hub-card" href="drift-sync-review-feedback-loop.feedback-loop.html">
+      <div class="hub-card-eyebrow">Goal 2 · Feedback Loop Review</div>
+      <div class="hub-card-title">Why Iterating on Drift Sync Is Painful — and the Fix</div>
+      <div class="hub-card-desc">Maps the 7-step debug loop across 3 process contexts with silent failure at half the steps. Ranks 7 friction points, surfaces 4 hidden but built assets, and proposes the single-command path that collapses the loop to seconds.</div>
+      <span class="hub-card-link">→ Feedback Loop Review</span>
+    </a>
+  </div>
+</div>
+
+<div class="section">
+  <p class="section-title">Recommended Next Session — The Observability &amp; Safety Spine</p>
+
+  <div class="callout inv">
+    <div class="callout-label">Four steps · small, self-contained, unblocks all subsequent work on both goals</div>
+    <ol class="step-list">
+      <li><code>PRAGMA journal_mode=WAL</code> + <code>busy_timeout=5000</code> in <code>sqlite_graph_store.ts</code>; open extension connection read-only (~30 lines) — eliminates the entire <code>SQLITE_BUSY</code> class</li>
+      <li>Persist a reconcile run log (JSONL beside <code>graph.db</code>: timestamp, file set, per-flow action + reason, deferrals, placeholder counts)</li>
+      <li>Ship a <code>drift-inspect</code> bin reading store + run log — run immediately against <code>~/workspace/bergamot/.code-charter/graph.db</code> to diagnose the verified 0-bridge-edges anomaly</li>
+      <li>Add a <code>Code Charter</code> OutputChannel + debounced <code>graph.db</code> FileSystemWatcher in <code>extension.ts</code> so syncs surface in-editor and the webview refreshes automatically</li>
+    </ol>
+  </div>
+</div>
+
+<div class="section" style="padding-top:0">
+  <div class="provenance">
+    <strong>Provenance:</strong> produced by a 49-agent multi-model workflow — Sonnet (wide file-read fan-out) → Opus ×5 (domain analysis: concurrency, agentic layer, feedback loop, test coverage, lifecycle) → Fable (final synthesis). Source docs at <code>backlog/drafts/drift-sync-*.md</code>. Review date: 2026-07-05.
+  </div>
+</div>
+
+</body>
+</html>

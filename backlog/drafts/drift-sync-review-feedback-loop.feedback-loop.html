@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback Loop Review — Drift Sync</title>
+<style>
+:root {
+  --ivory: #f7f3ec;
+  --oat: #ece4d6;
+  --paper: #fffdf8;
+  --slate: #2f3338;
+  --ink: #1d2024;
+  --mute: #6c6f73;
+  --faint: #9a9b97;
+  --clay: #c06d4f;
+  --olive: #6f7a4f;
+  --rust: #a8412a;
+  --work: #4a6b8a;
+  --concept: #7d6699;
+  --line: #d8cfbe;
+  --hair: #e4ddce;
+  --serif: ui-serif, Georgia, "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ── Cross-doc nav ── */
+#cross-doc-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--ivory);
+  border-bottom: 1px solid var(--hair);
+  width: 100%;
+}
+
+.nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+
+.nav-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-right: 0.75rem;
+  white-space: nowrap;
+}
+
+.doc-link, .doc-link-current {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  padding: 0.25rem 0.7rem;
+  border-radius: 3px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.doc-link {
+  color: var(--work);
+  border: 1px solid var(--work);
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+.doc-link:hover { opacity: 1; }
+
+.doc-link-current {
+  background: var(--work);
+  color: var(--ivory);
+  border: 1px solid var(--work);
+  cursor: default;
+}
+
+/* ── Layout ── */
+.page-body {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ── Identity header ── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-bottom: 0.6rem;
+}
+
+h1 {
+  font-family: var(--serif);
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 2rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--mute);
+}
+
+.meta-pill {
+  background: var(--oat);
+  border-radius: 2px;
+  padding: 0.15rem 0.5rem;
+}
+
+/* ── Preamble ── */
+.prose { max-width: 70ch; }
+
+p.preamble.prose {
+  font-family: var(--serif);
+  font-size: 1.08rem;
+  line-height: 1.75;
+  color: var(--slate);
+  margin-bottom: 2.5rem;
+}
+
+/* ── Prompt provenance ── */
+.prompt-box {
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 2.5rem;
+  background: var(--ivory);
+}
+.prompt-box .label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+  display: block;
+  margin-bottom: 0.4rem;
+}
+.prompt-box .files {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.prompt-box .files li code {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--slate);
+}
+
+/* ── Section headings ── */
+h2 {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 1.25rem;
+  margin-top: 2.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--hair);
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--slate);
+  margin-bottom: 0.5rem;
+  margin-top: 0;
+}
+
+/* ── Before/After state diagram ── */
+.before-after-container {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 2.5rem;
+  overflow-x: auto;
+}
+
+.ba-panel {
+  min-width: 0;
+}
+
+.ba-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.ba-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0.5rem;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  gap: 0.35rem;
+  min-width: 40px;
+}
+
+.ba-divider svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.ba-svg-wrap {
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  background: var(--ivory);
+  overflow: hidden;
+}
+
+.ba-svg-wrap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.ba-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--mute);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Risk jump nav ── */
+.risk-jump-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 2.5rem;
+  align-items: center;
+}
+
+.risk-jump-nav .nav-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-right: 0.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.chip:hover { opacity: 0.75; }
+
+.chip .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip.rust {
+  background: color-mix(in srgb, var(--rust) 12%, transparent);
+  color: var(--rust);
+  border: 1px solid color-mix(in srgb, var(--rust) 30%, transparent);
+}
+.chip.rust .dot { background: var(--rust); }
+
+.chip.clay {
+  background: color-mix(in srgb, var(--clay) 12%, transparent);
+  color: var(--clay);
+  border: 1px solid color-mix(in srgb, var(--clay) 30%, transparent);
+}
+.chip.clay .dot { background: var(--clay); }
+
+.chip.olive {
+  background: color-mix(in srgb, var(--olive) 12%, transparent);
+  color: var(--olive);
+  border: 1px solid color-mix(in srgb, var(--olive) 30%, transparent);
+}
+.chip.olive .dot { background: var(--olive); }
+
+/* ── Vertical timeline ── */
+.v-timeline {
+  position: relative;
+  padding-left: 0;
+  list-style: none;
+  margin-bottom: 2.5rem;
+}
+
+.v-timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--hair);
+}
+
+.tl-item {
+  position: relative;
+  padding-left: 2.5rem;
+  margin-bottom: 1.75rem;
+  scroll-margin-top: 90px;
+}
+
+.tl-item:last-child { margin-bottom: 0; }
+
+.tl-dot {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid var(--paper);
+  box-shadow: 0 0 0 2px var(--line);
+  background: var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tl-dot.rust { background: var(--rust); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rust) 30%, transparent); }
+.tl-dot.clay { background: var(--clay); box-shadow: 0 0 0 2px color-mix(in srgb, var(--clay) 30%, transparent); }
+.tl-dot.olive { background: var(--olive); box-shadow: 0 0 0 2px color-mix(in srgb, var(--olive) 30%, transparent); }
+
+.tl-num {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--paper);
+  line-height: 1;
+}
+
+.tl-title {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tl-tag {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 2px;
+}
+
+.tl-tag.rust { background: color-mix(in srgb, var(--rust) 15%, transparent); color: var(--rust); }
+.tl-tag.clay { background: color-mix(in srgb, var(--clay) 15%, transparent); color: var(--clay); }
+.tl-tag.olive { background: color-mix(in srgb, var(--olive) 15%, transparent); color: var(--olive); }
+
+.tl-body {
+  font-size: 0.88rem;
+  color: var(--mute);
+  line-height: 1.55;
+  margin-bottom: 0.35rem;
+}
+
+.tl-solution {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--olive);
+  background: color-mix(in srgb, var(--olive) 8%, transparent);
+  border-left: 2px solid var(--olive);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0 2px 2px 0;
+  margin-top: 0.35rem;
+}
+
+.step-loc {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--faint);
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* ── Friction sections ── */
+.friction-section {
+  margin-bottom: 2.5rem;
+  scroll-margin-top: 90px;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.friction-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--ivory);
+  border-bottom: 1px solid var(--hair);
+}
+
+.friction-num {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--paper);
+  background: var(--rust);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.friction-num.clay { background: var(--clay); }
+.friction-num.olive { background: var(--olive); }
+
+.friction-title {
+  font-family: var(--sans);
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.friction-body {
+  padding: 1rem 1.25rem;
+}
+
+.friction-impact, .friction-solution {
+  margin-bottom: 0.75rem;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.friction-impact p, .friction-solution p {
+  font-size: 0.88rem;
+  color: var(--slate);
+  line-height: 1.6;
+}
+
+.friction-solution p {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  background: color-mix(in srgb, var(--olive) 6%, transparent);
+  border-left: 3px solid var(--olive);
+  padding: 0.6rem 0.75rem;
+  border-radius: 0 3px 3px 0;
+  color: var(--slate);
+  line-height: 1.55;
+}
+
+/* ── Accent callout ── */
+.accent-callout {
+  border-left: 4px solid var(--clay);
+  background: var(--ivory);
+  border-radius: 0 4px 4px 0;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.accent-callout.olive { border-left-color: var(--olive); }
+.accent-callout.rust { border-left-color: var(--rust); background: color-mix(in srgb, var(--rust) 4%, var(--ivory)); }
+
+.callout-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.accent-callout.olive .callout-label { color: var(--olive); }
+.accent-callout.rust .callout-label { color: var(--rust); }
+
+.callout-title {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.6rem;
+}
+
+.callout-body {
+  font-size: 0.88rem;
+  color: var(--slate);
+  line-height: 1.6;
+}
+
+.callout-body p + p { margin-top: 0.5rem; }
+
+/* ── Metric chip row ── */
+.metric-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.m-chip {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 3px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--slate);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.m-chip .m-name { font-weight: 600; color: var(--olive); }
+.m-chip .m-desc { font-size: 0.63rem; color: var(--mute); }
+
+/* ── Feature matrix ── */
+.feature-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-bottom: 2rem;
+}
+
+.feature-matrix th {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--mute);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  background: var(--ivory);
+  border-bottom: 2px solid var(--hair);
+}
+
+.feature-matrix th:not(:first-child) { text-align: center; }
+
+.feature-matrix td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: middle;
+  color: var(--slate);
+}
+
+.feature-matrix td:not(:first-child) { text-align: center; }
+
+.feature-matrix tr:last-child td { border-bottom: none; }
+
+.feature-matrix tr:hover td { background: var(--ivory); }
+
+.cell-disc {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.cell-disc.full { background: var(--olive); }
+.cell-disc.half {
+  background: linear-gradient(90deg, var(--clay) 50%, transparent 50%);
+  border: 1.5px solid var(--clay);
+}
+.cell-disc.empty { background: transparent; border: 1.5px solid var(--faint); }
+
+.matrix-legend {
+  display: flex;
+  gap: 1rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--mute);
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.matrix-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ── Interactive checklist ── */
+.checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0;
+}
+
+.checklist li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.checklist input[type=checkbox] {
+  margin-top: 0.15rem;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--olive);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checklist label {
+  font-size: 0.88rem;
+  color: var(--slate);
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.checklist input[type=checkbox]:checked + label {
+  text-decoration: line-through;
+  color: var(--faint);
+}
+
+.check-tag {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  background: var(--oat);
+  color: var(--mute);
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+/* ── Icon glyph set ── */
+svg.ic { display: inline-block; vertical-align: middle; width: 16px; height: 16px; }
+
+/* ── Responsive ── */
+@media (max-width: 780px) {
+  .before-after-container {
+    grid-template-columns: 1fr;
+  }
+  .ba-divider {
+    flex-direction: row;
+    padding: 0.5rem 0;
+    justify-content: center;
+  }
+  h1 { font-size: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Icon glyph sprite -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-warn" viewBox="0 0 16 16">
+    <path d="M8 1.5L1 14h14L8 1.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+    <line x1="8" y1="6" x2="8" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="8" cy="12.5" r="0.75" fill="currentColor"/>
+  </symbol>
+  <symbol id="ic-check" viewBox="0 0 16 16">
+    <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <polyline points="5,8.5 7,10.5 11,6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="ic-clock" viewBox="0 0 16 16">
+    <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <polyline points="8,4.5 8,8 10.5,9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="ic-flow" viewBox="0 0 16 16">
+    <rect x="1" y="1" width="5" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <rect x="10" y="1" width="5" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <rect x="5.5" y="11" width="5" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="3.5" y1="5" x2="3.5" y2="8" stroke="currentColor" stroke-width="1.2"/>
+    <line x1="12.5" y1="5" x2="12.5" y2="8" stroke="currentColor" stroke-width="1.2"/>
+    <line x1="3.5" y1="8" x2="12.5" y2="8" stroke="currentColor" stroke-width="1.2"/>
+    <line x1="8" y1="8" x2="8" y2="11" stroke="currentColor" stroke-width="1.2"/>
+  </symbol>
+</svg>
+
+<!-- cross-doc-nav-index: first element inside body, position:sticky top:0 -->
+<nav id="cross-doc-nav" aria-label="Drift sync review companion pages">
+  <div class="nav-inner">
+    <span class="nav-eyebrow">Drift Sync Review</span>
+    <a class="doc-link" href="drift-sync-deep-review.overview.html">Overview</a>
+    <a class="doc-link" href="drift-sync-review-implementation.implementation-review.html">Implementation Review</a>
+    <span class="doc-link-current" aria-current="page">Feedback Loop Review</span>
+  </div>
+</nav>
+
+<div class="page-body">
+
+  <!-- Identity header -->
+  <p class="eyebrow">Drift Sync &middot; Feedback Loop Review</p>
+  <h1>The Debug Loop Is the Binding Constraint</h1>
+  <div class="meta-row">
+    <span class="meta-pill">49-agent workflow</span>
+    <span class="meta-pill">Sonnet &rarr; Opus &times; 5 &rarr; Fable</span>
+    <span class="meta-pill">Goal 2 of 2</span>
+    <span class="meta-pill">7 friction points</span>
+    <span class="meta-pill">8 missing tools</span>
+  </div>
+
+  <!-- Preamble — verbatim from manifest -->
+  <p class="preamble prose">When you change how drift sync works, you need to see what your change did. Right now you can&#8217;t &#8212; not easily. Today&#8217;s loop runs seven steps across three separate programs: rebuild the code (silently ignored if you forget), arm a test repo (fails invisibly if the build broke), start a whole Claude session to trigger a sync, then read the results in the Claude transcript, then open a SQLite command line and hand-write queries against a schema you have to reverse-engineer, then switch windows and manually redraw the diagram because nothing refreshes it. Three of those steps fail silently, and there is no &#8220;show me the before-and-after&#8221; anywhere. This review maps that loop, ranks its friction points, and proposes the missing tools &#8212; chiefly a store-inspection command and a single deterministic preview &#8212; that would shrink it to something you can run in seconds.</p>
+
+  <!-- Prompt provenance -->
+  <div class="prompt-box">
+    <span class="label">Sources</span>
+    <ul class="files">
+      <li><code>backlog/drafts/drift-sync-review-feedback-loop.md</code></li>
+      <li><code>backlog/drafts/drift-sync-deep-review.md</code></li>
+    </ul>
+  </div>
+
+  <!-- Section A: Before/After state diagram (LOAD-BEARING lead visual) -->
+  <h2>
+    <svg class="ic" style="color:var(--rust)"><use href="#ic-warn"/></svg>
+    The Debug Loop: Before and After
+  </h2>
+
+  <div class="before-after-container">
+
+    <!-- CURRENT panel -->
+    <div class="ba-panel">
+      <span class="ba-label">Current</span>
+      <div class="ba-svg-wrap">
+        <svg viewBox="0 0 340 590" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Current 7-step debug loop across 3 process contexts with silent failures at steps 2, 3, 4">
+          <defs>
+            <marker id="arr-gray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#6c6f73"/>
+            </marker>
+            <marker id="arr-rust" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#a8412a"/>
+            </marker>
+          </defs>
+
+          <!-- Context 1: Build Tooling -->
+          <rect x="6" y="6" width="328" height="128" rx="5" fill="#ece4d6" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="16" y="22" font-family="'SF Mono',monospace" font-size="8" fill="#6c6f73" letter-spacing="0.08em">BUILD TOOLING</text>
+
+          <!-- Node 1 -->
+          <rect x="22" y="28" width="296" height="36" rx="3" fill="#f7f3ec" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="170" y="47" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#1d2024" font-weight="500">1 &#x2022; Edit reconcile/*.ts</text>
+          <text x="170" y="60" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8" fill="#6c6f73">packages/drift/src/reconcile/</text>
+
+          <!-- Node 2: Rebuild (rust, silent-fail) -->
+          <rect x="22" y="82" width="296" height="36" rx="3" fill="#fdf0ed" stroke="#a8412a" stroke-width="1.5"/>
+          <text x="150" y="101" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#a8412a" font-weight="700">2 &#x2022; Rebuild</text>
+          <text x="268" y="98" font-family="'SF Mono',monospace" font-size="8" fill="#a8412a">&#x26A0; silent-fail</text>
+          <text x="170" y="113" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#a8412a">easy to forget &#x2014; unbuilt change silently ignored</text>
+
+          <line x1="170" y1="64" x2="170" y2="81" stroke="#6c6f73" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+
+          <!-- Context 2: Extension Dev Host -->
+          <rect x="6" y="146" width="328" height="80" rx="5" fill="#e8e1d5" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="16" y="162" font-family="'SF Mono',monospace" font-size="8" fill="#6c6f73" letter-spacing="0.08em">EXTENSION DEV HOST</text>
+
+          <!-- Node 3: Arm target (rust, silent-fail) -->
+          <rect x="22" y="168" width="296" height="44" rx="3" fill="#fdf0ed" stroke="#a8412a" stroke-width="1.5"/>
+          <text x="148" y="186" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#a8412a" font-weight="700">3 &#x2022; Arm target repo</text>
+          <text x="264" y="183" font-family="'SF Mono',monospace" font-size="8" fill="#a8412a">&#x26A0; silent-fail</text>
+          <text x="170" y="203" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#a8412a">no "drift armed" indicator anywhere</text>
+
+          <line x1="170" y1="118" x2="170" y2="145" stroke="#a8412a" stroke-width="1.2" stroke-dasharray="4 2" marker-end="url(#arr-rust)"/>
+
+          <!-- Context 3: Claude Session + SQLite CLI -->
+          <rect x="6" y="238" width="328" height="318" rx="5" fill="#e3ddd4" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="16" y="254" font-family="'SF Mono',monospace" font-size="8" fill="#6c6f73" letter-spacing="0.08em">CLAUDE SESSION + SQLITE CLI</text>
+
+          <!-- Node 4: Trigger sync (rust, silent-fail) -->
+          <rect x="22" y="260" width="296" height="52" rx="3" fill="#fdf0ed" stroke="#a8412a" stroke-width="1.5"/>
+          <text x="170" y="278" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#a8412a" font-weight="700">4 &#x2022; Trigger sync via full Claude session</text>
+          <text x="170" y="294" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#a8412a">&#x26A0; silent-fail &#x2022; token cost &#x2022; own latency</text>
+          <text x="170" y="307" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#a8412a">or hand-reconstruct --files/--store args from memory</text>
+
+          <!-- Node 5 -->
+          <rect x="22" y="330" width="296" height="36" rx="3" fill="#f7f3ec" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="170" y="350" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#1d2024" font-weight="500">5 &#x2022; Read stderr in Claude transcript</text>
+          <text x="170" y="363" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6c6f73">diagnostics in different process from VS Code</text>
+
+          <!-- Node 6 -->
+          <rect x="22" y="384" width="296" height="44" rx="3" fill="#f7f3ec" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="170" y="403" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#1d2024" font-weight="500">6 &#x2022; sqlite3 + hand-write json_extract</text>
+          <text x="170" y="419" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6c6f73">reverse-engineer schema each time</text>
+
+          <!-- Node 7 -->
+          <rect x="22" y="446" width="296" height="36" rx="3" fill="#f7f3ec" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="170" y="465" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#1d2024" font-weight="500">7 &#x2022; Manually re-run Generate Diagram</text>
+          <text x="170" y="478" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6c6f73">nothing watches graph.db</text>
+
+          <!-- Arrows inside context 3 -->
+          <line x1="170" y1="212" x2="170" y2="237" stroke="#a8412a" stroke-width="1.2" stroke-dasharray="4 2" marker-end="url(#arr-rust)"/>
+          <line x1="170" y1="312" x2="170" y2="329" stroke="#6c6f73" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+          <line x1="170" y1="366" x2="170" y2="383" stroke="#6c6f73" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+          <line x1="170" y1="428" x2="170" y2="445" stroke="#6c6f73" stroke-width="1.2" marker-end="url(#arr-gray)"/>
+
+          <!-- "no diff view" annotation bar -->
+          <rect x="10" y="262" width="6" height="218" rx="2" fill="none" stroke="#a8412a" stroke-width="1" stroke-dasharray="3 2" opacity="0.45"/>
+          <text x="9" y="380" font-family="'SF Mono',monospace" font-size="7" fill="#a8412a" opacity="0.65" writing-mode="tb" text-anchor="middle">no diff view at any point</text>
+
+          <!-- Total label -->
+          <rect x="6" y="500" width="328" height="84" rx="5" fill="none" stroke="#a8412a" stroke-width="1" stroke-dasharray="4 2" opacity="0.3"/>
+          <text x="170" y="528" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#a8412a" font-weight="600">7 steps &#x2022; 3 process contexts</text>
+          <text x="170" y="544" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#a8412a">silent failure at steps 2, 3, 4</text>
+          <text x="170" y="560" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#6c6f73">minutes per iteration cycle</text>
+          <text x="170" y="576" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#6c6f73">token cost for deterministic changes</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="ba-divider">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 11h14M13 6l5 5-5 5" stroke="#9a9b97" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <!-- PLANNED panel -->
+    <div class="ba-panel">
+      <span class="ba-label">Planned</span>
+      <div class="ba-svg-wrap">
+        <svg viewBox="0 0 340 590" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Planned collapsed debug loop: drift:dev for deterministic diff, drift-inspect for store inspection, auto-refresh webview">
+          <defs>
+            <marker id="arr-olive" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#6f7a4f"/>
+            </marker>
+            <marker id="arr-g2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#9a9b97"/>
+            </marker>
+          </defs>
+
+          <!-- Context: Deterministic shell -->
+          <rect x="6" y="6" width="328" height="220" rx="5" fill="#eef0e9" stroke="#c8cebc" stroke-width="1"/>
+          <text x="16" y="22" font-family="'SF Mono',monospace" font-size="8" fill="#6f7a4f" letter-spacing="0.08em">DETERMINISTIC SHELL (no agent needed)</text>
+
+          <!-- Node: Edit -->
+          <rect x="22" y="28" width="296" height="36" rx="3" fill="#f7f3ec" stroke="#d8cfbe" stroke-width="1"/>
+          <text x="170" y="47" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#1d2024" font-weight="500">Edit reconcile/*.ts</text>
+          <text x="170" y="60" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8" fill="#6c6f73">packages/drift/src/reconcile/</text>
+
+          <!-- Node: drift:dev (new, olive) -->
+          <rect x="22" y="82" width="296" height="52" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="2"/>
+          <text x="170" y="102" text-anchor="middle" font-family="'SF Mono',monospace" font-size="11" fill="#6f7a4f" font-weight="700">npm run drift:dev</text>
+          <text x="170" y="117" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#6f7a4f">--repo &lt;path&gt; --files &lt;changed&gt;</text>
+          <text x="170" y="130" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">wraps existing --dry-run &#x2022; scratch store &#x2022; no tokens</text>
+          <rect x="286" y="84" width="28" height="13" rx="2" fill="#6f7a4f"/>
+          <text x="300" y="94" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7" fill="#f7f3ec" font-weight="700">NEW</text>
+
+          <!-- Node: before/after diff output -->
+          <rect x="22" y="152" width="296" height="36" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="170" y="171" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10.5" fill="#6f7a4f" font-weight="600">Before/after diff printed to terminal</text>
+          <text x="170" y="183" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">flows / descriptions / bridges</text>
+
+          <line x1="170" y1="64" x2="170" y2="81" stroke="#9a9b97" stroke-width="1.2" marker-end="url(#arr-g2)"/>
+          <line x1="170" y1="134" x2="170" y2="151" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#arr-olive)"/>
+
+          <!-- Context: Inspection + visibility -->
+          <rect x="6" y="240" width="328" height="162" rx="5" fill="#eef0e9" stroke="#c8cebc" stroke-width="1"/>
+          <text x="16" y="256" font-family="'SF Mono',monospace" font-size="8" fill="#6f7a4f" letter-spacing="0.08em">INSPECTION + VISIBILITY (NEW TOOLS)</text>
+
+          <!-- drift-inspect -->
+          <rect x="22" y="264" width="140" height="52" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="92" y="282" text-anchor="middle" font-family="'SF Mono',monospace" font-size="9.5" fill="#6f7a4f" font-weight="700">drift-inspect</text>
+          <text x="92" y="297" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">store summary</text>
+          <text x="92" y="310" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">--lint &#x2022; --flow &#x2022; --json</text>
+
+          <!-- OutputChannel -->
+          <rect x="178" y="264" width="140" height="52" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="248" y="282" text-anchor="middle" font-family="'SF Mono',monospace" font-size="9.5" fill="#6f7a4f" font-weight="700">OutputChannel</text>
+          <text x="248" y="297" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">"Code Charter" panel</text>
+          <text x="248" y="310" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">routes all console.* sites</text>
+
+          <!-- Armed indicator -->
+          <rect x="22" y="334" width="296" height="36" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="170" y="353" text-anchor="middle" font-family="'SF Mono',monospace" font-size="9.5" fill="#6f7a4f" font-weight="700">status-bar: "drift armed" / "drift NOT installed"</text>
+          <text x="170" y="366" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">replaces silent steps 2&#x2013;4</text>
+
+          <line x1="170" y1="188" x2="170" y2="239" stroke="#6f7a4f" stroke-width="1.2" stroke-dasharray="4 2" marker-end="url(#arr-olive)"/>
+
+          <!-- Context: Extension window -->
+          <rect x="6" y="416" width="328" height="80" rx="5" fill="#eef0e9" stroke="#c8cebc" stroke-width="1"/>
+          <text x="16" y="432" font-family="'SF Mono',monospace" font-size="8" fill="#6f7a4f" letter-spacing="0.08em">EXTENSION WINDOW (AUTO)</text>
+
+          <!-- graph.db watcher -->
+          <rect x="22" y="440" width="140" height="40" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="92" y="457" text-anchor="middle" font-family="'SF Mono',monospace" font-size="9" fill="#6f7a4f" font-weight="700">graph.db watcher</text>
+          <text x="92" y="472" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">webview auto-refresh</text>
+
+          <!-- Dev mode -->
+          <rect x="178" y="440" width="140" height="40" rx="3" fill="#e2e8d8" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="248" y="457" text-anchor="middle" font-family="'SF Mono',monospace" font-size="9" fill="#6f7a4f" font-weight="700">dev mode extended</text>
+          <text x="248" y="472" text-anchor="middle" font-family="'SF Mono',monospace" font-size="7.5" fill="#6f7a4f">Dump Store &#x2022; Preview Reconcile</text>
+
+          <line x1="170" y1="370" x2="170" y2="415" stroke="#6f7a4f" stroke-width="1.2" stroke-dasharray="4 2" marker-end="url(#arr-olive)"/>
+
+          <!-- Summary box -->
+          <rect x="6" y="506" width="328" height="78" rx="5" fill="#d8e0cc" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="170" y="528" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="#3a4e28" font-weight="700">Deterministic path: edit &#x2192; diff in seconds</text>
+          <text x="170" y="545" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#6f7a4f">no Claude session &#x2022; no token cost</text>
+          <text x="170" y="561" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#6f7a4f">diff always visible &#x2022; anomalies surfaced automatically</text>
+          <text x="170" y="577" text-anchor="middle" font-family="'SF Mono',monospace" font-size="8.5" fill="#6f7a4f">armed status always known</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="ba-legend">
+    <span class="legend-item"><span class="legend-dot" style="background:var(--rust)"></span> Silent failure today</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--olive)"></span> New tooling (proposed)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#e8e1d5; border:1px solid var(--line)"></span> Process context boundary</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--faint)"></span> Unchanged step</span>
+  </div>
+
+  <!-- Section B: Friction register (vertical timeline) -->
+  <h2>
+    <svg class="ic" style="color:var(--clay)"><use href="#ic-clock"/></svg>
+    Friction Register
+  </h2>
+
+  <!-- Risk jump nav chip row -->
+  <div class="risk-jump-nav">
+    <span class="nav-label">Jump to</span>
+    <a class="chip rust" href="#fp1"><span class="dot"></span>#1 No inspect tool</a>
+    <a class="chip clay" href="#fp2"><span class="dot"></span>#2 Stale docs</a>
+    <a class="chip clay" href="#fp3"><span class="dot"></span>#3 3-context loop</a>
+    <a class="chip clay" href="#fp4"><span class="dot"></span>#4 Silent failures</a>
+    <a class="chip olive" href="#fp5"><span class="dot"></span>#5 No webview refresh</a>
+    <a class="chip olive" href="#fp6"><span class="dot"></span>#6 Eval blind spots</a>
+    <a class="chip olive" href="#fp7"><span class="dot"></span>#7 Dev mode gap</a>
+  </div>
+
+  <ul class="v-timeline">
+    <li class="tl-item">
+      <div class="tl-dot rust"><span class="tl-num">1</span></div>
+      <div class="tl-title">
+        No first-party way to inspect sync results
+        <span class="tl-tag rust">Binding constraint</span>
+      </div>
+      <p class="tl-body">Reconcile stderr goes to the Claude session transcript; the extension has no OutputChannel; no dump/inspect/query script exists anywhere. Must reverse-engineer the SQLite schema and hand-write json_extract queries to answer "did my change do what I expected?"</p>
+      <div class="tl-solution">&#x2192; drift-inspect bin: summary, --json, --flow &lt;id&gt;, --lint &#x2022; OutputChannel wired on every Generate Diagram</div>
+      <code class="step-loc">packages/drift/src/bin/ &#x2022; packages/code-charter-vscode/src/extension.ts</code>
+    </li>
+    <li class="tl-item">
+      <div class="tl-dot clay"><span class="tl-num">2</span></div>
+      <div class="tl-title">
+        Canonical developer docs are entirely stale
+        <span class="tl-tag clay">High friction</span>
+      </div>
+      <p class="tl-body">DEBUGGING.md and DEVELOPMENT.md reference files and launch configs that do not exist, describe a three-package layout when there are five, and never mention drift, graph.db, the Stop hook, or the reconcile loop.</p>
+      <div class="tl-solution">&#x2192; Rewrite against reality: five packages, target-repo model, install/reconcile chain, graph.db location, stitch_eval as quality loop</div>
+      <code class="step-loc">docs/DEBUGGING.md &#x2022; docs/DEVELOPMENT.md</code>
+    </li>
+    <li class="tl-item">
+      <div class="tl-dot clay"><span class="tl-num">3</span></div>
+      <div class="tl-title">
+        Edit&#x2192;observe loop spans 3 process contexts
+        <span class="tl-tag clay">High friction</span>
+      </div>
+      <p class="tl-body">Iterating on reconcile logic requires rebuild + a full Claude session + manual sqlite3, even for purely deterministic changes. dry_run_store + --dry-run already exist as the perfect preview primitive but are unreachable and documented nowhere.</p>
+      <div class="tl-solution">&#x2192; npm run drift:dev -- --repo &lt;path&gt; --files &lt;changed&gt;: before/after diff, no Claude session &#x2022; drift:dryrun wrapper, documented</div>
+      <code class="step-loc">packages/drift/package.json &#x2022; packages/drift/src/bin/drift_sync.ts</code>
+    </li>
+    <li class="tl-item">
+      <div class="tl-dot clay"><span class="tl-num">4</span></div>
+      <div class="tl-title">
+        Every intermediate failure is silent
+        <span class="tl-tag clay">High friction</span>
+      </div>
+      <p class="tl-body">preLaunchTask install is presentation:silent; ensure_drift_installed swallows errors into console.error; drift_stop_hook exits 0 on any error; stale dist runs old code with no version-mismatch signal. Failure clues scattered across Claude transcript, devtools console, graph.db, and loose JSON.</p>
+      <div class="tl-solution">&#x2192; status-bar drift-armed indicator &#x2022; preLaunchTask reveal-on-problem &#x2022; persist last-sync status &#x2022; GC 22 stale watermark files</div>
+      <code class="step-loc">.vscode/tasks.json &#x2022; packages/code-charter-vscode/src/extension.ts &#x2022; packages/drift/src/stop_hook/drift_stop_hook.ts</code>
+    </li>
+    <li class="tl-item">
+      <div class="tl-dot olive"><span class="tl-num">5</span></div>
+      <div class="tl-title">
+        No webview refresh after a sync
+        <span class="tl-tag olive">Medium</span>
+      </div>
+      <p class="tl-body">Nothing watches graph.db and the panel caches its call graph, so seeing a sync's visual effect requires manually re-running Generate Diagram. Easy to misattribute a stale panel to a broken reconcile.</p>
+      <div class="tl-solution">&#x2192; FileSystemWatcher on graph.db &#x2192; debounced webview auto-refresh (shared fix with Goal 1 improvement #2)</div>
+      <code class="step-loc">packages/code-charter-vscode/src/extension.ts</code>
+    </li>
+    <li class="tl-item">
+      <div class="tl-dot olive"><span class="tl-num">6</span></div>
+      <div class="tl-title">
+        Quality eval covers only stitch structure, cheapest model, undiscoverable
+        <span class="tl-tag olive">Medium</span>
+      </div>
+      <p class="tl-body">stitch_eval.ts is the best tooling in the system but scores only structural collapse, has minimal single-hop fixtures with no partitioning/fan-out/decoy controls, production runs model:inherit while eval defaults to haiku, and no doc mentions the harness.</p>
+      <div class="tl-solution">&#x2192; Description-quality scoring &#x2022; multi-umbrella/deep-chain/fan-out fixtures &#x2022; two-model convention &#x2022; CI hash-guard on prompt assets &#x2022; document prominently</div>
+      <code class="step-loc">packages/drift/scripts/stitch_eval.ts &#x2022; packages/drift/test/fixtures/</code>
+    </li>
+    <li class="tl-item">
+      <div class="tl-dot olive"><span class="tl-num">7</span></div>
+      <div class="tl-title">
+        CODE_CHARTER_DEV_MODE does nothing for the drift loop
+        <span class="tl-tag olive">Medium</span>
+      </div>
+      <p class="tl-body">Dev mode toggles only webview command URIs, the find widget, and the UI-bundle watcher &#8212; no store instrumentation, verbose logging, DB watching, or inspection affordance for the mechanism actually under development.</p>
+      <div class="tl-solution">&#x2192; Extend dev mode: reveal OutputChannel, watch graph.db, print store summary on generate, expose "Dump Drift Store" and "Preview Drift Reconcile" commands</div>
+      <code class="step-loc">packages/code-charter-vscode/src/extension.ts</code>
+    </li>
+  </ul>
+
+  <!-- Friction point numbered sections -->
+  <h2>Friction Points &#x2014; Detail</h2>
+
+  <div class="friction-section" id="fp1">
+    <div class="friction-header">
+      <div class="friction-num">1</div>
+      <span class="friction-title">No First-Party Way to Inspect Sync Results</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label">
+          <svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg>
+          Impact
+        </span>
+        <p>The core iteration question &#8212; is the sync working, and is it good? &#8212; is unanswerable without bespoke manual spelunking. Verified consequence: the live bergamot store's 0-bridge/1-member-edge anomaly sat unnoticed.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label">
+          <svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg>
+          Solution
+        </span>
+        <p>Ship a <code>drift-inspect</code> bin: summary mode (flow counts, per-flow members, bridge rationale, deferred retirements), <code>--json</code>, <code>--flow &lt;id&gt;</code> drill-down, and <code>--lint</code> (0-member flows, unpersisted stitch payloads, high placeholder ratio). Wire the same summary into the <code>Code Charter</code> OutputChannel.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="friction-section" id="fp2">
+    <div class="friction-header">
+      <div class="friction-num clay">2</div>
+      <span class="friction-title">Canonical Developer Docs Are Entirely Stale and Drift-Free</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label"><svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg> Impact</span>
+        <p>A developer following the docs is led entirely astray; the actual loop, including stitch_eval, is undiscoverable. A stale canonical doc is worse than none.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label"><svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg> Solution</span>
+        <p>Rewrite both docs against reality: five packages, target-repo model (Dev Host &#x2192; ~/workspace/bergamot), the install/reconcile chain, where graph.db lives, the full change&#x2192;rebuild&#x2192;trigger&#x2192;inspect loop, the actual launch configs, stitch_eval as the quality loop, and the meaning of each .code-charter/ artifact.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="friction-section" id="fp3">
+    <div class="friction-header">
+      <div class="friction-num clay">3</div>
+      <span class="friction-title">Edit&#x2192;Observe Loop Spans 3 Process Contexts, No Single-Command Path</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label"><svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg> Impact</span>
+        <p>Minutes-long, error-prone iteration for what should be a seconds-long deterministic loop; agent latency and token cost paid even for non-judgement changes; the hidden --dry-run capability goes unused.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label"><svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg> Solution</span>
+        <p>Add npm run drift:dev -- --repo &lt;path&gt; --files &lt;changed&gt;: runs the deterministic reconcile against a scratch copy of the store and prints a before/after diff of flows/descriptions/bridges (no Claude session). Expose --dry-run as a documented drift:dryrun wrapper and a dev-mode "Preview Drift Reconcile" command printing would-be outcomes to the OutputChannel.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="friction-section" id="fp4">
+    <div class="friction-header">
+      <div class="friction-num clay">4</div>
+      <span class="friction-title">Every Intermediate Failure Is Silent</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label"><svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg> Impact</span>
+        <p>"Why did my sync do nothing?" is the most common debug question and currently has no starting point; the developer can iterate for a whole session against a disarmed or stale hook.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label"><svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg> Solution</span>
+        <p>On activation/generate, verify the Stop hook in the target's .claude/settings.json and show a status-bar item ("drift armed" / "drift NOT installed &#x2014; click to fix"); change the preLaunchTask to reveal-on-problem; persist last-attempt/last-success/last-error sync status beside the store and surface it in the OutputChannel; GC the 22 stale watermark files accumulated in bergamot.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="friction-section" id="fp5">
+    <div class="friction-header">
+      <div class="friction-num olive">5</div>
+      <span class="friction-title">No Webview Refresh After a Sync</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label"><svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg> Impact</span>
+        <p>Seeing a sync's visual effect requires manually re-running Generate Diagram. Makes it easy to misattribute a stale panel to a broken reconcile. Shared root cause with Goal 1 improvement #2.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label"><svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg> Solution</span>
+        <p>FileSystemWatcher on graph.db &#x2192; debounced webview auto-refresh. Same fix as Goal 1 improvement #2 &#x2014; shared root cause, shared solution.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="friction-section" id="fp6">
+    <div class="friction-header">
+      <div class="friction-num olive">6</div>
+      <span class="friction-title">Quality Eval Covers Only Stitch Structure, at Cheapest Model, Undiscoverable</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label"><svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg> Impact</span>
+        <p>The only quality signal for the mechanism's actual value proposition (correct stitching + informative descriptions) has large blind spots; a prompt regression in SKILL.md/drift-reconciler.md ships undetected by CI.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label"><svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg> Solution</span>
+        <p>Add a description-quality scoring pass (name-restatement heuristic or <code>expected_description_contains</code> goldens); add multi-umbrella and deep-chain fixtures; a CI guard on <code>stitch_eval</code>&rsquo;s prompt-asset hashes; document the harness prominently.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="friction-section" id="fp7">
+    <div class="friction-header">
+      <div class="friction-num olive">7</div>
+      <span class="friction-title">CODE_CHARTER_DEV_MODE Does Nothing for the Drift Loop</span>
+    </div>
+    <div class="friction-body">
+      <div class="friction-impact">
+        <span class="field-label"><svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg> Impact</span>
+        <p>Dev mode toggles only webview command URIs, the find widget, and the UI-bundle watcher &#8212; no store instrumentation, verbose logging, DB watching, or inspection affordance for the mechanism actually under development.</p>
+      </div>
+      <div class="friction-solution">
+        <span class="field-label"><svg class="ic" style="color:var(--olive); width:12px; height:12px"><use href="#ic-check"/></svg> Solution</span>
+        <p>Extend dev mode: reveal the OutputChannel, watch graph.db and auto-refresh, print a store summary on each generate, expose "Dump Drift Store" and "Preview Drift Reconcile" commands.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section C: Hidden assets (olive accent-callout + metric-chip-row) -->
+  <h2>
+    <svg class="ic" style="color:var(--olive)"><use href="#ic-check"/></svg>
+    Hidden Assets Already Built
+  </h2>
+
+  <div class="accent-callout olive">
+    <span class="callout-label">Surface, don&#8217;t build</span>
+    <div class="callout-title">Much of the feedback-loop fix is surfacing what already exists, not building new machinery.</div>
+    <div class="callout-body">
+      <p>Four substantial capabilities exist in the codebase today but are unreachable, undiscoverable, or discarded. The path of least resistance is exposure &#8212; documentation, wiring, a wrapper script &#8212; not net-new construction.</p>
+    </div>
+    <div class="metric-chip-row" style="margin-top:0.9rem">
+      <div class="m-chip">
+        <span class="m-name">dry_run_store / --dry-run</span>
+        <span class="m-desc">Exists and works &#x2022; unreachable &amp; undocumented</span>
+      </div>
+      <div class="m-chip">
+        <span class="m-name">stitch_eval.ts</span>
+        <span class="m-desc">Best tooling in the system &#x2022; undiscoverable from docs</span>
+      </div>
+      <div class="m-chip">
+        <span class="m-name">Rich ReconcileResult diagnostics</span>
+        <span class="m-desc">Produced correctly &#x2022; discarded to ephemeral stderr</span>
+      </div>
+      <div class="m-chip">
+        <span class="m-name">on_call_graph_changed</span>
+        <span class="m-desc">Subscription hook on AriadneProjectManager &#x2022; never wired</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section D: Verified consequence (rust accent-callout) -->
+  <div class="accent-callout rust">
+    <span class="callout-label">
+      <svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-warn"/></svg>
+      Verified consequence of friction point #1
+    </span>
+    <div class="callout-title">A real anomaly sat unnoticed in the live store.</div>
+    <div class="callout-body">
+      <p>The bergamot store contains 34 flows and a <code style="font-family:var(--mono); font-size:0.85em">stitch.json</code> but <strong>zero</strong> <code style="font-family:var(--mono); font-size:0.85em">agentic.bridge</code> edges, only 1 <code style="font-family:var(--mono); font-size:0.85em">flow_member</code> edge, and 24 placeholder descriptions. The developer has no tool to notice it.</p>
+      <p>This is the human cost of friction point #1, made concrete. <code style="font-family:var(--mono); font-size:0.85em">drift-inspect --lint</code> would surface this class of anomaly on every run.</p>
+    </div>
+  </div>
+
+  <!-- Section E: Feature matrix for 8 missing tooling items -->
+  <h2>
+    <svg class="ic" style="color:var(--work)"><use href="#ic-flow"/></svg>
+    Missing Tooling &#x2014; Status Matrix
+  </h2>
+
+  <div class="matrix-legend">
+    <span class="matrix-legend-item"><span class="cell-disc full" style="display:inline-block"></span> Yes / complete</span>
+    <span class="matrix-legend-item"><span class="cell-disc half" style="display:inline-block"></span> Partial / hidden</span>
+    <span class="matrix-legend-item"><span class="cell-disc empty" style="display:inline-block"></span> Missing</span>
+  </div>
+
+  <table class="feature-matrix">
+    <thead>
+      <tr>
+        <th>Tooling item</th>
+        <th>Exists now</th>
+        <th>Quick win</th>
+        <th>Unblocks</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>drift-inspect bin</strong> &#x2014; summary, --json, --flow, --lint anomaly detection</td>
+        <td><span class="cell-disc empty" title="Missing"></span></td>
+        <td><span class="cell-disc empty" title="Requires new bin, not trivial"></span></td>
+        <td>All other tooling; anomaly detection</td>
+      </tr>
+      <tr>
+        <td><strong>Persisted reconcile run log</strong> &#x2014; JSONL sidecar: timestamp, file set, per-flow action+reason</td>
+        <td><span class="cell-disc empty" title="Missing"></span></td>
+        <td><span class="cell-disc empty" title="Requires new output path"></span></td>
+        <td>drift-inspect; quality eval; diagnostics</td>
+      </tr>
+      <tr>
+        <td><strong>Code Charter OutputChannel</strong> + status-bar drift-armed indicator</td>
+        <td><span class="cell-disc empty" title="Missing"></span></td>
+        <td><span class="cell-disc full" title="~1 session, ~20 lines"></span></td>
+        <td>Visible install failures; sync results in-editor</td>
+      </tr>
+      <tr>
+        <td><strong>drift:dev deterministic diff loop</strong> &#x2014; scratch store, before/after diff, no Claude session</td>
+        <td><span class="cell-disc half" title="dry_run_store exists but unreachable"></span></td>
+        <td><span class="cell-disc full" title="Wrap existing --dry-run, 1 session"></span></td>
+        <td>Fast iteration; removes agent dependency</td>
+      </tr>
+      <tr>
+        <td><strong>graph.db FileSystemWatcher</strong> &#x2192; webview auto-refresh</td>
+        <td><span class="cell-disc empty" title="Missing"></span></td>
+        <td><span class="cell-disc full" title="~1 session"></span></td>
+        <td>Visual feedback; removes manual re-run</td>
+      </tr>
+      <tr>
+        <td><strong>Description-quality eval</strong> + --no-agent fast mode for deterministic output</td>
+        <td><span class="cell-disc half" title="stitch_eval.ts exists but structural-only"></span></td>
+        <td><span class="cell-disc empty" title="Requires scoring pass, fixture expansion"></span></td>
+        <td>Prompt regression detection; CI gate</td>
+      </tr>
+      <tr>
+        <td><strong>Documentation of .code-charter/ artifacts</strong> &#x2014; graph.db, watermarks, pending files</td>
+        <td><span class="cell-disc empty" title="Missing — existing docs are stale"></span></td>
+        <td><span class="cell-disc full" title="Write-only, 1 session"></span></td>
+        <td>Onboarding; loose-file diagnosability</td>
+      </tr>
+      <tr>
+        <td><strong>Watermark-file GC</strong> &#x2014; one cursor file or drop cursors older than N days</td>
+        <td><span class="cell-disc empty" title="Missing — 22 stale files in bergamot"></span></td>
+        <td><span class="cell-disc full" title="Simple file cleanup, 1 session"></span></td>
+        <td>Clean working state; reduced confusion</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Quick wins (rust-highlighted accent-callout) -->
+  <div class="accent-callout rust">
+    <span class="callout-label">
+      <svg class="ic" style="color:var(--rust); width:12px; height:12px"><use href="#ic-check"/></svg>
+      Quick wins &#x2014; one session each
+    </span>
+    <div class="callout-title">Eight independently shippable improvements, no coordination required.</div>
+    <div class="callout-body" style="margin-top:0.75rem">
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" id="qw1">
+          <label for="qw1">Two PRAGMA lines (<code style="font-family:var(--mono);font-size:0.85em">journal_mode=WAL</code>, <code style="font-family:var(--mono);font-size:0.85em">busy_timeout=5000</code>) in <code style="font-family:var(--mono);font-size:0.85em">sqlite_graph_store.ts</code> &#x2014; eliminates the entire SQLITE_BUSY class <span class="check-tag">&#x223C;30 lines</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw2">
+          <label for="qw2">Change "Install Drift Into Target Repo" task <code style="font-family:var(--mono);font-size:0.85em">presentation</code> from <code style="font-family:var(--mono);font-size:0.85em">silent</code> to <code style="font-family:var(--mono);font-size:0.85em">reveal-on-problem</code> in <code style="font-family:var(--mono);font-size:0.85em">.vscode/tasks.json</code> <span class="check-tag">1 line</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw3">
+          <label for="qw3">Create the <code style="font-family:var(--mono);font-size:0.85em">Code Charter</code> OutputChannel and route the 3 existing <code style="font-family:var(--mono);font-size:0.85em">console.*</code> sites plus install results through it <span class="check-tag">&#x223C;20 lines</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw4">
+          <label for="qw4"><code style="font-family:var(--mono);font-size:0.85em">npm run drift:dryrun</code> wrapper exposing the already-built <code style="font-family:var(--mono);font-size:0.85em">--dry-run</code> path, plus a README paragraph on it and on <code style="font-family:var(--mono);font-size:0.85em">stitch_eval</code> <span class="check-tag">config only</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw5">
+          <label for="qw5">Anti-divergence test: write pending file via <code style="font-family:var(--mono);font-size:0.85em">serialize_pending_reconcile</code> (TS), consume via <code style="font-family:var(--mono);font-size:0.85em">drift_sync.js</code> &#x2014; pins the duplicated contract <span class="check-tag">new test</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw6">
+          <label for="qw6">CI hash-guard on <code style="font-family:var(--mono);font-size:0.85em">SKILL.md</code>/<code style="font-family:var(--mono);font-size:0.85em">drift-reconciler.md</code> (hashes already computed by <code style="font-family:var(--mono);font-size:0.85em">stitch_eval</code>) flagging prompt changes as needing a manual Tier-2 run <span class="check-tag">CI config</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw7">
+          <label for="qw7">Delete or stub the stale <code style="font-family:var(--mono);font-size:0.85em">DEBUGGING.md</code>/<code style="font-family:var(--mono);font-size:0.85em">DEVELOPMENT.md</code> content immediately &#x2014; stop actively misleading <span class="check-tag">delete</span></label>
+        </li>
+        <li>
+          <input type="checkbox" id="qw8">
+          <label for="qw8">Log a diagnostic when a <code style="font-family:var(--mono);font-size:0.85em">delta.modified</code> symbol_path fails the <code style="font-family:var(--mono);font-size:0.85em">anchored_symbols</code> join in <code style="font-family:var(--mono);font-size:0.85em">reconcile.ts</code> &#x2014; one stderr line, closes a silent-staleness hole <span class="check-tag">1 line</span></label>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- end page-body -->
+
+<script>
+// Risk-jump-nav: smooth scroll + arrival highlight
+document.querySelectorAll('.risk-jump-nav a.chip').forEach(function(chip) {
+  chip.addEventListener('click', function(e) {
+    var href = chip.getAttribute('href');
+    var target = document.querySelector(href);
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.style.transition = 'box-shadow 0.2s ease';
+    target.style.boxShadow = '0 0 0 3px var(--clay)';
+    setTimeout(function() {
+      target.style.boxShadow = '';
+    }, 1400);
+  });
+});
+</script>
+</body>
+</html>

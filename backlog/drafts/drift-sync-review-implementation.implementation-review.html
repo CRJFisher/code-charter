@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implementation Review — Drift Sync</title>
+<style>
+:root {
+  --ivory: #f7f3ec;
+  --oat: #ece4d6;
+  --paper: #fffdf8;
+  --slate: #2f3338;
+  --ink: #1d2024;
+  --mute: #6c6f73;
+  --faint: #9a9b97;
+  --clay: #c06d4f;
+  --olive: #6f7a4f;
+  --rust: #a8412a;
+  --work: #4a6b8a;
+  --concept: #7d6699;
+  --line: #d8cfbe;
+  --hair: #e4ddce;
+  --serif: ui-serif, Georgia, "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ivory);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ── Cross-doc nav ── */
+.cross-doc-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  width: 100%;
+  background: var(--oat);
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cross-doc-nav .nav-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mute);
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+.cross-doc-nav a.doc-link {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--work);
+  text-decoration: none;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--work);
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.cross-doc-nav a.doc-link:hover {
+  background: var(--work);
+  color: var(--ivory);
+}
+.cross-doc-nav .doc-link[aria-current="page"] {
+  background: var(--work);
+  color: var(--ivory);
+  cursor: default;
+  pointer-events: none;
+  border-color: var(--work);
+}
+
+/* ── Layout ── */
+.page-wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ── Identity header ── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+  margin-bottom: 0.4rem;
+}
+h1 {
+  font-family: var(--serif);
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.meta-pill {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--mute);
+  background: var(--hair);
+  padding: 0.2rem 0.55rem;
+  border-radius: 2px;
+}
+.meta-pill.work { background: var(--work); color: var(--ivory); }
+
+/* ── Preamble ── */
+.preamble.prose {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--slate);
+  max-width: 68ch;
+  margin-bottom: 2.5rem;
+  font-family: var(--serif);
+}
+
+/* ── Prompt provenance box ── */
+.prompt-box {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 2.5rem;
+  background: var(--paper);
+}
+.prompt-box .label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+  margin-bottom: 0.4rem;
+}
+.prompt-box p {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--slate);
+  line-height: 1.5;
+}
+.prompt-box code {
+  color: var(--clay);
+}
+
+/* ── Section headings ── */
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+  margin-bottom: 0.3rem;
+}
+h2 {
+  font-family: var(--serif);
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 3.5rem;
+}
+h3 {
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--slate);
+  margin-bottom: 0.4rem;
+}
+
+section { margin-bottom: 3rem; }
+
+/* ── System context map ── */
+.context-map-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.context-map-caption {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--mute);
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+/* ── Before/after state diagram ── */
+.before-after-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+}
+.before-after-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 6rem;
+  gap: 0.4rem;
+}
+.ba-panel-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+.ba-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  margin-bottom: 2rem;
+}
+.ba-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--mute);
+}
+.ba-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Flow diagram (Section B) ── */
+.flow-diagram-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Vertical timeline ── */
+.timeline {
+  position: relative;
+  padding-left: 2.5rem;
+  margin-bottom: 2rem;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.7rem;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  width: 2px;
+  background: var(--line);
+}
+.tl-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+.tl-item:last-child { margin-bottom: 0; }
+.tl-dot {
+  position: absolute;
+  left: -2.5rem;
+  top: 0.3rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--ivory);
+}
+.tl-dot.rust { background: var(--rust); box-shadow: 0 0 0 2px var(--rust); }
+.tl-dot.clay { background: var(--clay); box-shadow: 0 0 0 2px var(--clay); }
+.tl-dot.olive { background: var(--olive); box-shadow: 0 0 0 2px var(--olive); }
+.tl-rank {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.15rem;
+}
+.tl-rank.rust { color: var(--rust); }
+.tl-rank.clay { color: var(--clay); }
+.tl-rank.olive { color: var(--olive); }
+.tl-title {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+}
+.tl-cause {
+  font-size: 0.82rem;
+  color: var(--mute);
+  margin-bottom: 0.3rem;
+}
+.source-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--faint);
+}
+.source-pin .file { color: var(--work); }
+
+/* ── Risk jump nav ── */
+.risk-jump-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 2.5rem;
+}
+.risk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-decoration: none;
+  padding: 0.3rem 0.7rem;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--slate);
+  transition: background 0.15s, border-color 0.15s;
+}
+.risk-chip:hover { background: var(--hair); border-color: var(--oat); }
+.risk-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.risk-chip.rust .dot { background: var(--rust); }
+.risk-chip.clay .dot { background: var(--clay); }
+.risk-chip.olive .dot { background: var(--olive); }
+
+/* ── Improvement sections ── */
+.improvement {
+  border-left: 3px solid var(--line);
+  padding-left: 1.25rem;
+  margin-bottom: 2.5rem;
+  scroll-margin-top: 3.5rem;
+}
+.improvement.rust { border-color: var(--rust); }
+.improvement.clay { border-color: var(--clay); }
+.improvement.olive { border-color: var(--olive); }
+.imp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.imp-num {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.imp-num.rust { color: var(--rust); }
+.imp-num.clay { color: var(--clay); }
+.imp-num.olive { color: var(--olive); }
+.imp-title {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.imp-body {
+  font-size: 0.88rem;
+  color: var(--slate);
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+  max-width: 70ch;
+}
+.imp-body code, .imp-body strong { font-family: var(--mono); font-size: 0.82rem; color: var(--slate); }
+.imp-actions { margin-bottom: 0.75rem; }
+.imp-actions ul { list-style: none; padding: 0; }
+.imp-actions li {
+  font-size: 0.84rem;
+  color: var(--slate);
+  line-height: 1.6;
+  padding: 0.2rem 0 0.2rem 1.1rem;
+  position: relative;
+}
+.imp-actions li::before {
+  content: '\2192';
+  position: absolute;
+  left: 0;
+  color: var(--mute);
+  font-size: 0.8rem;
+}
+.imp-actions code { font-family: var(--mono); font-size: 0.8rem; }
+.imp-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+.file-pin {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--work);
+  background: var(--oat);
+  padding: 0.15rem 0.45rem;
+  border-radius: 2px;
+  border: 1px solid var(--hair);
+}
+
+/* ── Code panel highlight ── */
+.code-panel {
+  background: #1a1d21;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.file-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a9099;
+  padding: 0.5rem 1rem;
+  background: #13161a;
+  border-bottom: 1px solid #2a2e33;
+}
+.code-panel pre {
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: #c9d1d9;
+  margin: 0;
+}
+.code-panel .kw { color: #ff7b72; }
+.code-panel .str { color: #a5d6ff; }
+.code-panel .cm { color: #6e7681; font-style: italic; }
+.code-panel .fn { color: #d2a8ff; }
+.code-panel .add {
+  display: inline-block;
+  width: calc(100% + 2rem);
+  margin-left: -1rem;
+  padding-left: 1rem;
+  background: rgba(111, 122, 79, 0.25);
+  color: #adc98a;
+}
+.code-panel .add::before {
+  content: '+ ';
+  color: #6f7a4f;
+  font-weight: 700;
+}
+
+/* ── Accent callout ── */
+.accent-callout {
+  border-left: 4px solid var(--rust);
+  background: var(--slate);
+  color: var(--ivory);
+  padding: 1.25rem 1.5rem;
+  border-radius: 0 5px 5px 0;
+  margin-bottom: 2.5rem;
+}
+.accent-callout .callout-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rust);
+  margin-bottom: 0.5rem;
+}
+.accent-callout h3 {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ivory);
+  margin-bottom: 0.6rem;
+}
+.accent-callout p {
+  font-size: 0.88rem;
+  color: #c5c0b8;
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+}
+.accent-callout ul {
+  list-style: none;
+  padding: 0;
+  counter-reset: ritem;
+}
+.accent-callout li {
+  font-size: 0.85rem;
+  color: #c5c0b8;
+  line-height: 1.6;
+  padding: 0.3rem 0 0.3rem 1.8rem;
+  position: relative;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  counter-increment: ritem;
+}
+.accent-callout li:last-child { border-bottom: none; }
+.accent-callout li::before {
+  content: counter(ritem);
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--rust);
+  background: rgba(168,65,42,0.25);
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.2rem;
+}
+.accent-callout code { font-family: var(--mono); font-size: 0.8rem; color: #e8d5c8; }
+
+/* ── Collapsible disclosure ── */
+details.disclosure {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+details.disclosure summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid transparent;
+  user-select: none;
+  transition: background 0.15s;
+}
+details.disclosure[open] summary {
+  border-bottom-color: var(--line);
+  background: var(--hair);
+}
+details.disclosure summary::-webkit-details-marker { display: none; }
+details.disclosure summary::before {
+  content: '\25B6';
+  font-size: 0.6rem;
+  color: var(--mute);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+details.disclosure[open] summary::before {
+  transform: rotate(90deg);
+}
+details.disclosure summary:hover { background: var(--hair); }
+.disclosure-body {
+  padding: 1.25rem 1.5rem;
+}
+.strength-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--hair);
+  font-size: 0.86rem;
+  color: var(--slate);
+  line-height: 1.55;
+}
+.strength-item:last-child { border-bottom: none; }
+.strength-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--olive);
+  flex-shrink: 0;
+  margin-top: 0.45rem;
+}
+.strength-item code { font-family: var(--mono); font-size: 0.8rem; }
+
+/* ── Divider ── */
+hr.section-rule {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 2.5rem 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 680px) {
+  .before-after-wrap {
+    grid-template-columns: 1fr;
+  }
+  .before-after-divider {
+    padding-top: 0;
+    flex-direction: row;
+    justify-content: center;
+  }
+  h1 { font-size: 1.6rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- cross-doc-nav-index: first element inside body, position:sticky top:0 -->
+<nav class="cross-doc-nav" aria-label="Document family navigation">
+  <span class="nav-label">Drift Sync Review</span>
+  <a class="doc-link" href="drift-sync-deep-review.overview.html">Overview</a>
+  <a class="doc-link" href="drift-sync-review-implementation.implementation-review.html" aria-current="page">Implementation Review</a>
+  <a class="doc-link" href="drift-sync-review-feedback-loop.feedback-loop.html">Feedback Loop Review</a>
+</nav>
+
+<div class="page-wrap">
+
+  <!-- identity-header -->
+  <p class="eyebrow">Code Charter &middot; Drift Sync &middot; Goal 1</p>
+  <h1>Concurrency, Completeness, and the Missing Final Stage</h1>
+  <div class="meta-row">
+    <span class="meta-pill work">Implementation Review</span>
+    <span class="meta-pill">49-agent &middot; Sonnet reads &rarr; Opus &times;5 &rarr; Fable synthesis</span>
+    <span class="meta-pill">8 improvements ranked</span>
+  </div>
+
+  <!-- plain-language-preamble: verbatim from manifest section 2 -->
+  <p class="preamble prose">Drift sync is the machinery that keeps Code Charter&#8217;s flow diagrams honest: when you edit code, a background job re-reads the changed files and updates the stored graph the extension draws from. This review asks whether that machinery is correct. The engine that decides what changed is solid and well-tested. The trouble is upstream of it: three separate programs &#8212; the edit-triggered reconcile job, an occasional manual reconcile, and the VS Code extension &#8212; all read and write the same SQLite database file with no traffic control. No lock, no wait-your-turn setting, no atomic hand-off of the pending work list. So under any overlap a reconcile can silently die, staged edits can be deleted before they&#8217;re processed, and two runs can quietly overwrite each other. Every serious finding traces back to that missing coordination &#8212; and to a pipeline that never got its final &#8220;tell the UI&#8221; stage.</p>
+
+  <!-- prompt-provenance-box -->
+  <div class="prompt-box">
+    <p class="label">Provenance</p>
+    <p>49-agent multi-model workflow &mdash; Sonnet file reads &rarr; Opus domain analysis &times;5 &rarr; Fable synthesis.<br>
+    Sources: <code>drift-sync-review-implementation.md</code> &middot; <code>drift-sync-deep-review.md</code><br>
+    Verified code: <code>packages/core/src/storage/sqlite_graph_store.ts:38-42</code></p>
+  </div>
+
+  <!-- system-context-map: 8-stage pipeline strip -->
+  <section aria-labelledby="ctx-map-h">
+    <p class="section-label">Orientation</p>
+    <h2 id="ctx-map-h" style="font-size:1.05rem;margin-bottom:0.5rem;">Pipeline overview</h2>
+    <div class="context-map-wrap">
+      <svg viewBox="0 0 860 110" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;" role="img" aria-label="8-stage drift sync pipeline; clay region marks this work">
+        <defs>
+          <marker id="cm-arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#9a9b97"/>
+          </marker>
+          <marker id="cm-clay" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#c06d4f"/>
+          </marker>
+        </defs>
+        <!-- Nodes (gray) -->
+        <rect x="2" y="34" width="82" height="40" rx="3" fill="#d8cfbe" stroke="#9a9b97" stroke-width="1"/>
+        <text x="43" y="51" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#2f3338">Stop</text>
+        <text x="43" y="63" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#2f3338">hook</text>
+        <line x1="84" y1="54" x2="97" y2="54" stroke="#9a9b97" stroke-width="1.5" marker-end="url(#cm-arr)"/>
+
+        <rect x="98" y="34" width="82" height="40" rx="3" fill="#d8cfbe" stroke="#9a9b97" stroke-width="1"/>
+        <text x="139" y="51" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">transcript</text>
+        <text x="139" y="63" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">watermark</text>
+        <line x1="180" y1="54" x2="193" y2="54" stroke="#9a9b97" stroke-width="1.5" marker-end="url(#cm-arr)"/>
+
+        <!-- Clay: pending handoff -->
+        <rect x="194" y="26" width="98" height="56" rx="3" fill="#f0ddd5" stroke="#c06d4f" stroke-width="1.5"/>
+        <text x="243" y="46" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">pending-reconcile</text>
+        <text x="243" y="58" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">handoff</text>
+        <text x="243" y="74" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" font-weight="700" fill="#c06d4f">THIS WORK</text>
+        <line x1="292" y1="54" x2="305" y2="54" stroke="#9a9b97" stroke-width="1.5" marker-end="url(#cm-arr)"/>
+
+        <rect x="306" y="34" width="78" height="40" rx="3" fill="#d8cfbe" stroke="#9a9b97" stroke-width="1"/>
+        <text x="345" y="51" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#2f3338">drift_sync</text>
+        <text x="345" y="63" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#2f3338">.js</text>
+        <line x1="384" y1="54" x2="397" y2="54" stroke="#9a9b97" stroke-width="1.5" marker-end="url(#cm-arr)"/>
+
+        <rect x="398" y="34" width="86" height="40" rx="3" fill="#d8cfbe" stroke="#9a9b97" stroke-width="1"/>
+        <text x="441" y="51" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">drift-reconcile</text>
+        <text x="441" y="63" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">bin</text>
+        <line x1="484" y1="54" x2="497" y2="54" stroke="#9a9b97" stroke-width="1.5" marker-end="url(#cm-arr)"/>
+
+        <rect x="498" y="34" width="88" height="40" rx="3" fill="#d8cfbe" stroke="#9a9b97" stroke-width="1"/>
+        <text x="542" y="51" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">deterministic</text>
+        <text x="542" y="63" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">reconcile</text>
+        <line x1="586" y1="54" x2="599" y2="54" stroke="#9a9b97" stroke-width="1.5" marker-end="url(#cm-arr)"/>
+
+        <rect x="600" y="34" width="86" height="40" rx="3" fill="#d8cfbe" stroke="#9a9b97" stroke-width="1"/>
+        <text x="643" y="51" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">agent stitch</text>
+        <text x="643" y="63" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#2f3338">/ describe</text>
+        <line x1="686" y1="54" x2="699" y2="54" stroke="#c06d4f" stroke-width="1.5" marker-end="url(#cm-clay)"/>
+
+        <!-- Clay: graph.db -->
+        <rect x="700" y="26" width="78" height="56" rx="3" fill="#f0ddd5" stroke="#c06d4f" stroke-width="1.5"/>
+        <text x="739" y="46" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" font-weight="700" fill="#a8412a">graph.db</text>
+        <text x="739" y="74" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" font-weight="700" fill="#c06d4f">THIS WORK</text>
+
+        <!-- Dashed region outline -->
+        <rect x="190" y="22" width="592" height="64" rx="4" fill="none" stroke="#c06d4f" stroke-width="1" stroke-dasharray="5 3" opacity="0.35"/>
+      </svg>
+    </div>
+    <p class="context-map-caption">Three actors collide inside the dashed region: the pending handoff JSON, the reconcile bin, and <code>graph.db</code> itself &mdash; coordinated by nothing.</p>
+  </section>
+
+  <hr class="section-rule">
+
+  <!-- Section A: before-after-state-diagram (LOAD-BEARING lead visual) -->
+  <section aria-labelledby="ba-heading">
+    <p class="section-label">Section A &mdash; The Crux</p>
+    <h2 id="ba-heading">Before / After: Concurrency Topology</h2>
+    <p style="font-size:0.87rem;color:var(--mute);margin-bottom:1.25rem;max-width:68ch;">Today three processes share <code>graph.db</code> and <code>drift_pending_reconcile.json</code> with zero coordination. The fix serializes them via WAL mode, a lockfile, and a read-only extension connection.</p>
+
+    <div class="before-after-wrap">
+      <!-- CURRENT panel -->
+      <div>
+        <p class="ba-panel-label">CURRENT</p>
+        <svg viewBox="0 0 310 290" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;" role="img" aria-label="Current uncoordinated architecture">
+          <defs>
+            <marker id="ba-rust" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="#a8412a"/>
+            </marker>
+          </defs>
+          <!-- Actor boxes -->
+          <rect x="4" y="6" width="136" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+          <text x="72" y="24" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">Stop-hook reconcile</text>
+          <text x="72" y="39" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#6c6f73">subprocess (writer)</text>
+
+          <rect x="4" y="68" width="136" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+          <text x="72" y="86" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">manual /drift</text>
+          <text x="72" y="101" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#6c6f73">reconcile (2nd writer)</text>
+
+          <rect x="4" y="130" width="136" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+          <text x="72" y="148" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">VS Code extension</text>
+          <text x="72" y="163" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#6c6f73">(read-write, 2 stmts)</text>
+
+          <!-- Shared danger nodes -->
+          <rect x="178" y="52" width="124" height="52" rx="3" fill="#f5ddd6" stroke="#a8412a" stroke-width="2"/>
+          <text x="240" y="73" text-anchor="middle" font-family="SF Mono,monospace" font-size="9" font-weight="700" fill="#a8412a">graph.db</text>
+          <text x="240" y="89" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#a8412a">&#9888; SHARED</text>
+
+          <rect x="178" y="154" width="124" height="52" rx="3" fill="#f5ddd6" stroke="#a8412a" stroke-width="2"/>
+          <text x="240" y="172" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" font-weight="700" fill="#a8412a">drift_pending</text>
+          <text x="240" y="186" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" font-weight="700" fill="#a8412a">_reconcile.json</text>
+          <text x="240" y="199" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" fill="#a8412a">&#9888; SHARED</text>
+
+          <!-- Contention edges -->
+          <line x1="140" y1="26" x2="176" y2="64" stroke="#a8412a" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#ba-rust)"/>
+          <line x1="140" y1="90" x2="176" y2="82" stroke="#a8412a" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#ba-rust)"/>
+          <line x1="140" y1="152" x2="176" y2="90" stroke="#a8412a" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#ba-rust)"/>
+          <line x1="140" y1="34" x2="176" y2="163" stroke="#a8412a" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#ba-rust)"/>
+          <line x1="140" y1="98" x2="176" y2="170" stroke="#a8412a" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#ba-rust)"/>
+
+          <!-- Annotations -->
+          <text x="4" y="232" font-family="SF Mono,monospace" font-size="7" fill="#a8412a">SQLITE_BUSY &#x2192; drift-reconcile exits 1,</text>
+          <text x="4" y="244" font-family="SF Mono,monospace" font-size="7" fill="#a8412a">pending set never consumed</text>
+          <text x="4" y="260" font-family="SF Mono,monospace" font-size="7" fill="#a8412a">unlink deletes edits staged mid-reconcile</text>
+        </svg>
+      </div>
+
+      <!-- Divider -->
+      <div class="before-after-divider">
+        <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M4 14 L24 14 M16 8 L24 14 L16 20" stroke="var(--mute)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="font-family:var(--mono);font-size:0.55rem;color:var(--mute);text-transform:uppercase;letter-spacing:0.1em;writing-mode:vertical-rl;">fix</span>
+      </div>
+
+      <!-- PLANNED panel -->
+      <div>
+        <p class="ba-panel-label">PLANNED</p>
+        <svg viewBox="0 0 310 290" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;" role="img" aria-label="Planned coordinated architecture with WAL, lockfile, read-only extension">
+          <defs>
+            <marker id="ba-olive" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="#6f7a4f"/>
+            </marker>
+          </defs>
+          <!-- Actor boxes -->
+          <rect x="4" y="6" width="136" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+          <text x="72" y="24" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">Stop-hook reconcile</text>
+          <text x="72" y="39" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#6c6f73">subprocess (writer)</text>
+
+          <rect x="4" y="68" width="136" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+          <text x="72" y="86" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">manual /drift</text>
+          <text x="72" y="101" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#6c6f73">reconcile (2nd writer)</text>
+
+          <!-- NEW: lockfile node (olive=added) -->
+          <rect x="148" y="38" width="36" height="62" rx="3" fill="#dde8d5" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="166" y="57" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">lock</text>
+          <text x="166" y="69" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">file</text>
+          <text x="166" y="82" text-anchor="middle" font-family="SF Mono,monospace" font-size="6.5" fill="#6f7a4f">O_EXCL</text>
+          <text x="166" y="93" text-anchor="middle" font-family="SF Mono,monospace" font-size="6.5" fill="#6f7a4f">wx</text>
+
+          <!-- Extension: read-only (olive=modified) -->
+          <rect x="4" y="130" width="136" height="44" rx="3" fill="#dde8d5" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="72" y="148" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">VS Code extension</text>
+          <text x="72" y="163" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6f7a4f">read-only, single read txn</text>
+
+          <!-- graph.db: WAL mode (olive=modified safer) -->
+          <rect x="186" y="52" width="120" height="58" rx="3" fill="#dde8d5" stroke="#6f7a4f" stroke-width="1.5"/>
+          <text x="246" y="72" text-anchor="middle" font-family="SF Mono,monospace" font-size="9" font-weight="700" fill="#2f3338">graph.db</text>
+          <text x="246" y="88" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6f7a4f">WAL + busy_timeout</text>
+          <text x="246" y="102" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6f7a4f">=5000</text>
+
+          <!-- Pending: atomic rename (clay=modified) -->
+          <rect x="186" y="158" width="120" height="52" rx="3" fill="#f0ddd5" stroke="#c06d4f" stroke-width="1.5"/>
+          <text x="246" y="178" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" font-weight="700" fill="#c06d4f">pending file</text>
+          <text x="246" y="192" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#c06d4f">temp-file +</text>
+          <text x="246" y="204" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#c06d4f">atomic rename</text>
+
+          <!-- Edges: writers gated through lockfile -->
+          <line x1="140" y1="26" x2="148" y2="56" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#ba-olive)"/>
+          <line x1="140" y1="90" x2="148" y2="74" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#ba-olive)"/>
+          <line x1="184" y1="66" x2="186" y2="72" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#ba-olive)"/>
+          <!-- read-only edge from extension -->
+          <line x1="140" y1="152" x2="184" y2="92" stroke="#6f7a4f" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#ba-olive)"/>
+          <!-- pending edge -->
+          <line x1="140" y1="36" x2="184" y2="166" stroke="#c06d4f" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#ba-olive)"/>
+
+          <!-- Annotations -->
+          <text x="4" y="234" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">Writers serialized via O_EXCL lockfile</text>
+          <text x="4" y="246" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">Extension: consistent snapshot, read-only</text>
+          <text x="4" y="258" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">Pending: rename-before-start, atomic</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="ba-legend">
+      <div class="ba-legend-item">
+        <div class="ba-legend-swatch" style="background:var(--olive);"></div>
+        <span>olive = added safeguard</span>
+      </div>
+      <div class="ba-legend-item">
+        <div class="ba-legend-swatch" style="background:var(--clay);"></div>
+        <span>clay = modified</span>
+      </div>
+      <div class="ba-legend-item">
+        <div class="ba-legend-swatch" style="background:var(--rust);"></div>
+        <span>rust = unsafe shared resource</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section B: inline-svg-flow-diagram: missing final stage -->
+  <section aria-labelledby="final-stage-h">
+    <p class="section-label">Section B &mdash; Missing Final Stage</p>
+    <h2 id="final-stage-h">The pipeline ends before the UI</h2>
+    <p style="font-size:0.87rem;color:var(--mute);margin-bottom:1rem;max-width:68ch;">The pipeline&rsquo;s contract ends at &ldquo;flow store update &rarr; UI notification&rdquo; but that last edge was never built. Reconcile results land in <code>graph.db</code> invisibly &mdash; the webview stays stale until the user manually re-runs.</p>
+    <div class="flow-diagram-wrap">
+      <svg viewBox="0 0 740 128" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;" role="img" aria-label="Missing graph.db to webview edge; planned FileSystemWatcher fix">
+        <defs>
+          <marker id="fs-rust" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#a8412a"/>
+          </marker>
+          <marker id="fs-olive" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#6f7a4f"/>
+          </marker>
+        </defs>
+        <!-- graph.db -->
+        <rect x="4" y="40" width="88" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+        <text x="48" y="59" text-anchor="middle" font-family="SF Mono,monospace" font-size="9" font-weight="700" fill="#2f3338">graph.db</text>
+        <text x="48" y="74" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6c6f73">flow store</text>
+
+        <!-- TODAY: dashed rust missing edge (top arc) -->
+        <path d="M92 52 Q 235 10 365 52" fill="none" stroke="#a8412a" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#fs-rust)"/>
+        <text x="228" y="12" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" fill="#a8412a">no watcher &mdash; TODAY (gap)</text>
+
+        <!-- PLANNED path: FSWatcher -->
+        <rect x="100" y="40" width="128" height="44" rx="3" fill="#dde8d5" stroke="#6f7a4f" stroke-width="1.5"/>
+        <text x="164" y="57" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#2f3338">FileSystemWatcher</text>
+        <text x="164" y="70" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6f7a4f">on graph.db (debounced)</text>
+        <text x="164" y="81" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">dev_watcher.ts settle</text>
+
+        <!-- post store_changed -->
+        <rect x="240" y="40" width="128" height="44" rx="3" fill="#dde8d5" stroke="#6f7a4f" stroke-width="1.5"/>
+        <text x="304" y="57" text-anchor="middle" font-family="SF Mono,monospace" font-size="8" fill="#2f3338">post store_changed</text>
+        <text x="304" y="70" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6f7a4f">+ invalidate</text>
+        <text x="304" y="81" text-anchor="middle" font-family="SF Mono,monospace" font-size="7" fill="#6f7a4f">project_manager cache</text>
+
+        <!-- webview -->
+        <rect x="380" y="40" width="128" height="44" rx="3" fill="#ece4d6" stroke="#9a9b97" stroke-width="1.2"/>
+        <text x="444" y="57" text-anchor="middle" font-family="SF Mono,monospace" font-size="8.5" fill="#2f3338">webview</text>
+        <text x="444" y="70" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6c6f73">re-runs list_flows</text>
+        <text x="444" y="81" text-anchor="middle" font-family="SF Mono,monospace" font-size="7.5" fill="#6c6f73">/ render_flow</text>
+
+        <!-- Planned edges -->
+        <line x1="92" y1="62" x2="100" y2="62" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#fs-olive)"/>
+        <line x1="228" y1="62" x2="240" y2="62" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#fs-olive)"/>
+        <line x1="368" y1="62" x2="380" y2="62" stroke="#6f7a4f" stroke-width="1.5" marker-end="url(#fs-olive)"/>
+
+        <!-- Mini legend -->
+        <line x1="528" y1="52" x2="570" y2="52" stroke="#6f7a4f" stroke-width="1.5"/>
+        <text x="575" y="56" font-family="SF Mono,monospace" font-size="7.5" fill="#6f7a4f">= built by this fix</text>
+        <line x1="528" y1="72" x2="570" y2="72" stroke="#a8412a" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="575" y="76" font-family="SF Mono,monospace" font-size="7.5" fill="#a8412a">= gap today</text>
+      </svg>
+    </div>
+  </section>
+
+  <hr class="section-rule">
+
+  <!-- Section C: vertical-timeline — 8 ranked improvements -->
+  <section aria-labelledby="timeline-h">
+    <p class="section-label">Section C &mdash; Ranked Risk Register</p>
+    <h2 id="timeline-h">8 Improvements, Severity-Ordered</h2>
+    <p style="font-size:0.87rem;color:var(--mute);margin-bottom:1.5rem;max-width:68ch;">The top improvement unblocks the rest. Every high-severity data-integrity finding traces to the shared-SQLite concurrency vacuum.</p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot rust"></div>
+        <div class="tl-rank rust">#1 &middot; CRITICAL</div>
+        <div class="tl-title">SQLite concurrency: WAL + busy_timeout, read-only extension, single-reconcile lock</div>
+        <div class="tl-cause">Three uncoordinated actors share <code>graph.db</code> with no WAL, no timeout &mdash; SQLITE_BUSY silently drops reconciles without consuming the pending set.</div>
+        <div class="source-pin"><span class="file">sqlite_graph_store.ts</span><span>:38-42</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot clay"></div>
+        <div class="tl-rank clay">#2 &middot; HIGH</div>
+        <div class="tl-title">Close the missing final pipeline stage: graph.db change &rarr; webview refresh</div>
+        <div class="tl-cause">Reconcile results land in <code>graph.db</code> but nothing notifies the open webview &mdash; UI stays stale until the user manually re-runs Generate Diagram.</div>
+        <div class="source-pin"><span class="file">extension.ts</span> &middot; <span class="file">dev_watcher.ts</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot clay"></div>
+        <div class="tl-rank clay">#3 &middot; HIGH</div>
+        <div class="tl-title">Make the pending-reconcile handoff atomic</div>
+        <div class="tl-cause">Post-success unlink deletes edits staged during a long reconcile; watermark advances unconditionally &mdash; edits are permanently skipped with no recovery.</div>
+        <div class="source-pin"><span class="file">pending_reconcile.ts</span> &middot; <span class="file">drift_stop_hook.ts</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot clay"></div>
+        <div class="tl-rank clay">#4 &middot; HIGH</div>
+        <div class="tl-title">Enrich the stitch inventory with semantic context</div>
+        <div class="tl-cause">Inventory discards member names, docstrings, and descriptions already computed &mdash; agent stitches on zero semantic signal, under-stitching reads as &ldquo;correct&rdquo;.</div>
+        <div class="source-pin"><span class="file">agentic_modes.ts</span> &middot; <span class="file">SKILL.md</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot clay"></div>
+        <div class="tl-rank clay">#5 &middot; HIGH</div>
+        <div class="tl-title">Persist a reconcile run log</div>
+        <div class="tl-cause">All outcomes go to stderr in a different process &mdash; nothing records why a flow changed or whether a sync was silently dropped vs. a healthy no-op.</div>
+        <div class="source-pin"><span class="file">reconcile.ts</span> &middot; <span class="file">drift_reconcile.ts</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot olive"></div>
+        <div class="tl-rank olive">#6 &middot; MEDIUM</div>
+        <div class="tl-title">Unit-test agentic_modes.ts and affected_flows.ts</div>
+        <div class="tl-cause">The agent write surface and membership-drift trigger have no dedicated tests &mdash; failures are silent quality loss, exercised only via slow subprocess suites.</div>
+        <div class="source-pin"><span class="file">agentic_modes.ts</span> &middot; <span class="file">affected_flows.ts</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot olive"></div>
+        <div class="tl-rank olive">#7 &middot; MEDIUM</div>
+        <div class="tl-title">Harden reconcile against partial/degraded writes</div>
+        <div class="tl-cause">No turn-spanning transaction; skill path lacks deferred-retirement guards for truncated files; placeholder descriptions may persist if describe pass never runs.</div>
+        <div class="source-pin"><span class="file">reconcile.ts</span> &middot; <span class="file">skill_dir.ts</span></div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot olive"></div>
+        <div class="tl-rank olive">#8 &middot; MEDIUM</div>
+        <div class="tl-title">Resolve test-entrypoint asymmetry and add stale-flow sweep</div>
+        <div class="tl-cause">Test flows are hydrated but invisible to agent and un-retirable; skill flows have no retirement path &mdash; deleting SKILL.md leaves the flow live.</div>
+        <div class="source-pin"><span class="file">reconcile.ts</span> &middot; <span class="file">affected_flows.ts</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- risk-jump-nav chip row -->
+  <section aria-labelledby="jump-h">
+    <p class="section-label">Jump to improvement</p>
+    <div class="risk-jump-nav" role="navigation" aria-label="Improvement jump links">
+      <a class="risk-chip rust" href="#imp-1"><span class="dot"></span>#1 CRITICAL &middot; SQLite concurrency</a>
+      <a class="risk-chip clay" href="#imp-2"><span class="dot"></span>#2 HIGH &middot; Missing final stage</a>
+      <a class="risk-chip clay" href="#imp-3"><span class="dot"></span>#3 HIGH &middot; Atomic pending handoff</a>
+      <a class="risk-chip clay" href="#imp-4"><span class="dot"></span>#4 HIGH &middot; Stitch inventory</a>
+      <a class="risk-chip clay" href="#imp-5"><span class="dot"></span>#5 HIGH &middot; Run log</a>
+      <a class="risk-chip olive" href="#imp-6"><span class="dot"></span>#6 MEDIUM &middot; Unit tests</a>
+      <a class="risk-chip olive" href="#imp-7"><span class="dot"></span>#7 MEDIUM &middot; Partial writes</a>
+      <a class="risk-chip olive" href="#imp-8"><span class="dot"></span>#8 MEDIUM &middot; Entrypoint asymmetry</a>
+    </div>
+  </section>
+
+  <hr class="section-rule">
+
+  <!-- Numbered improvement sections with source-location-pins -->
+  <section aria-labelledby="imp-heading">
+    <p class="section-label">Improvements in detail</p>
+    <h2 id="imp-heading">Each Improvement</h2>
+
+    <!-- #1 CRITICAL -->
+    <div class="improvement rust" id="imp-1">
+      <div class="imp-header">
+        <span class="imp-num rust">#1 &middot; CRITICAL</span>
+        <span class="imp-title">SQLite concurrency: WAL + busy_timeout, read-only extension, single-reconcile lock</span>
+      </div>
+      <p class="imp-body">The <code>SqliteGraphStore</code> opens with no WAL and no <code>busy_timeout</code>. Three concurrent writers &mdash; Stop-hook subprocess, manual <code>/drift</code>, and the VS Code extension &mdash; share <code>graph.db</code>. Any contention throws <code>SQLITE_BUSY</code>: reconcile exits 1, pending set never consumed.</p>
+      <div class="imp-actions">
+        <ul>
+          <li>In <code>SqliteGraphStore</code> constructor (<code>packages/core/src/storage/sqlite_graph_store.ts:38-42</code>), set <code>PRAGMA journal_mode=WAL</code> and <code>PRAGMA busy_timeout=5000</code> immediately after open</li>
+          <li>Open the extension&rsquo;s store connection read-only (<code>extension.ts read_store_rows</code> never writes) so it never competes for the write lock; wrap the nodes+edges fetch in one read transaction for a consistent snapshot</li>
+          <li>Add a process-level reconcile mutex beside the store (O_EXCL <code>wx</code> lockfile in <code>.code-charter/</code> or <code>BEGIN IMMEDIATE</code> advisory row); a second reconcile waits or exits 0 as a no-op since its files are already unioned into the pending set</li>
+        </ul>
+      </div>
+      <!-- Code panel: spot 1 — exact constructor lines -->
+      <div class="code-panel">
+        <div class="file-label">packages/core/src/storage/sqlite_graph_store.ts &nbsp;&middot;&nbsp; lines 38&ndash;42 &nbsp;&middot;&nbsp; CURRENT + FIX</div>
+        <pre><span class="kw">constructor</span>(<span class="fn">db_path</span>: <span class="fn">string</span>) {
+  <span class="kw">this</span>.db = <span class="kw">new</span> <span class="fn">DatabaseSync</span>(db_path);
+  <span class="kw">this</span>.db.<span class="fn">exec</span>(<span class="str">"PRAGMA foreign_keys = ON"</span>);
+<span class="add">  this.db.exec("PRAGMA journal_mode = WAL");</span>
+<span class="add">  this.db.exec("PRAGMA busy_timeout = 5000");</span>
+  <span class="kw">this</span>.<span class="fn">initialize_schema</span>();
+}</pre>
+      </div>
+      <div class="imp-files">
+        <span class="file-pin">packages/core/src/storage/sqlite_graph_store.ts</span>
+        <span class="file-pin">packages/vscode/src/extension.ts</span>
+        <span class="file-pin">packages/drift/src/bin/drift_reconcile.ts</span>
+        <span class="file-pin">packages/drift/src/reconcile/reconcile.ts</span>
+      </div>
+    </div>
+
+    <!-- #2 HIGH -->
+    <div class="improvement clay" id="imp-2">
+      <div class="imp-header">
+        <span class="imp-num clay">#2 &middot; HIGH</span>
+        <span class="imp-title">Close the missing final pipeline stage: graph.db change &rarr; webview refresh</span>
+      </div>
+      <p class="imp-body">The stated contract ends at &ldquo;flow store update &rarr; UI notification&rdquo; but that link was never built. <code>extension.ts</code> reads the store on demand only; <code>AriadneProjectManager.on_call_graph_changed</code> exists but is never subscribed. Stitched flows landing in <code>graph.db</code> are invisible until the user manually re-runs Generate Diagram.</p>
+      <div class="imp-actions">
+        <ul>
+          <li>Add a <code>vscode.FileSystemWatcher</code> on <code>&lt;workspace&gt;/.code-charter/graph.db</code>, debounced with <code>UIDevWatcher</code>&rsquo;s settle logic, that posts a <code>store_changed</code> message so the webview re-runs <code>list_flows</code>/<code>render_flow</code></li>
+          <li>Invalidate project_manager&rsquo;s cached call graph on the same event so a reconciled code change is reflected without disposing the panel</li>
+          <li>Keep the store open-per-request model; the watcher only triggers a re-read</li>
+        </ul>
+      </div>
+      <div class="imp-files">
+        <span class="file-pin">packages/vscode/src/extension.ts</span>
+        <span class="file-pin">packages/vscode/src/dev_watcher.ts</span>
+        <span class="file-pin">packages/vscode/src/ariadne/project_manager.ts</span>
+      </div>
+    </div>
+
+    <!-- #3 HIGH -->
+    <div class="improvement clay" id="imp-3">
+      <div class="imp-header">
+        <span class="imp-num clay">#3 &middot; HIGH</span>
+        <span class="imp-title">Make the pending-reconcile handoff atomic</span>
+      </div>
+      <p class="imp-body">Two data-loss windows share one root. (a) Consume race: <code>drift_sync.js</code> unlinks the pending file after success &mdash; edits staged during the run are silently deleted. (b) Watermark divergence: the cursor advances on every Stop fire regardless of outcome; lost pending files are permanently skipped.</p>
+      <!-- Code panel: spot 2 — consume race -->
+      <div class="code-panel">
+        <div class="file-label">packages/drift/assets/skills/drift-sync/scripts/drift_sync.js &nbsp;&middot;&nbsp; consume race + fix</div>
+        <pre><span class="cm">// TODAY: unlink after success &mdash; new edits staged</span>
+<span class="cm">// during the run are silently deleted here.</span>
+<span class="fn">reconcile</span>() <span class="cm">/* ... succeeds */</span>
+fs.<span class="fn">unlinkSync</span>(pending_path)   <span class="cm">// &larr; data-loss window</span>
+
+<span class="cm">// FIX: rename to private name BEFORE starting</span>
+<span class="add">  const work = pending_path + ".work";</span>
+<span class="add">  fs.renameSync(pending_path, work); // atomic, same fs</span>
+<span class="add">  // delete on success, union back on failure</span></pre>
+      </div>
+      <div class="imp-actions">
+        <ul>
+          <li>Have the reconciler rename the pending file to a private working name (atomic on same filesystem) BEFORE starting; delete on success, union back on failure</li>
+          <li>Write the pending file via temp-file + atomic rename in both <code>drift_stop_hook.ts</code> and <code>drift_sync.js</code></li>
+          <li>Advance the watermark only after the staged set is durably written</li>
+          <li>Add a cross-check test that writes via <code>serialize_pending_reconcile</code> (TS) and consumes via <code>drift_sync.js</code> (duplicated JS parser) to guard against format divergence</li>
+        </ul>
+      </div>
+      <div class="imp-files">
+        <span class="file-pin">packages/drift/src/hooks/pending_reconcile.ts</span>
+        <span class="file-pin">packages/drift/src/bin/drift_stop_hook.ts</span>
+        <span class="file-pin">packages/drift/src/hooks/stop_watermark.ts</span>
+        <span class="file-pin">packages/drift/assets/skills/drift-sync/scripts/drift_sync.js</span>
+      </div>
+    </div>
+
+    <!-- #4 HIGH -->
+    <div class="improvement clay" id="imp-4">
+      <div class="imp-header">
+        <span class="imp-num clay">#4 &middot; HIGH</span>
+        <span class="imp-title">Enrich the stitch inventory with semantic context</span>
+      </div>
+      <p class="imp-body">The inventory strips all semantic context &mdash; member names, docstrings, existing descriptions &mdash; from the walk it already runs. The stitch agent must reconstruct these via Read/Grep. Under-stitching reads as &ldquo;correct&rdquo; and is a silent quality loss.</p>
+      <div class="imp-actions">
+        <ul>
+          <li>Extend <code>InventoryEntrypoint</code> in <code>agentic_modes.ts</code> with <code>members: [{name, kind, docstring_first_line?}]</code> from the existing <code>reachable_from</code> walk, plus each member&rsquo;s existing description text where present</li>
+          <li>Update <code>SKILL.md</code> phase-1 guidance to rank candidates by name/description similarity first, then confirm top candidates by reading the call site</li>
+          <li>Report per-flow described-coverage (placeholder vs llm counts) in the list-entrypoints output</li>
+        </ul>
+      </div>
+      <div class="imp-files">
+        <span class="file-pin">packages/drift/src/reconcile/agentic_modes.ts</span>
+        <span class="file-pin">packages/drift/assets/skills/drift-sync/SKILL.md</span>
+        <span class="file-pin">packages/core/src/agentic/gap_detection.ts</span>
+      </div>
+    </div>
+
+    <!-- #5 HIGH -->
+    <div class="improvement clay" id="imp-5">
+      <div class="imp-header">
+        <span class="imp-num clay">#5 &middot; HIGH</span>
+        <span class="imp-title">Persist a reconcile run log</span>
+      </div>
+      <p class="imp-body">Reconcile diagnostics &mdash; <code>FlowOutcome</code>, <code>DeferredRetirement</code>, hydration-cap notices &mdash; go to stderr in the Claude session, a different process, and are discarded. Nothing durable in <code>graph.db</code> answers &ldquo;why was flow X retired?&rdquo; or &ldquo;which file set drove the sync?&rdquo;</p>
+      <div class="imp-actions">
+        <ul>
+          <li>Append per turn to a JSONL sidecar (<code>drift_reconcile_log.jsonl</code> beside <code>graph.db</code>) or a disposable <code>reconcile_log</code> table: timestamp, file set, per-flow action + reason, deferred retirements with reasons, placeholder-vs-llm description counts</li>
+          <li>Include a last-attempt/last-success/last-error sync-status record so a silently dropped or failed reconcile is distinguishable from &ldquo;nothing changed&rdquo;</li>
+          <li>Log when a <code>delta.modified</code> symbol_path fails to resolve in <code>body_modified_member_ids</code></li>
+        </ul>
+      </div>
+      <div class="imp-files">
+        <span class="file-pin">packages/drift/src/reconcile/types.ts</span>
+        <span class="file-pin">packages/drift/src/reconcile/reconcile.ts</span>
+        <span class="file-pin">packages/drift/src/bin/drift_reconcile.ts</span>
+      </div>
+    </div>
+
+    <!-- #6 MEDIUM -->
+    <div class="improvement olive" id="imp-6">
+      <div class="imp-header">
+        <span class="imp-num olive">#6 &middot; MEDIUM</span>
+        <span class="imp-title">Unit-test agentic_modes.ts and affected_flows.ts</span>
+      </div>
+      <p class="imp-body"><code>agentic_modes.ts</code> is the entire agent-facing write surface; <code>affected_flows.ts</code> is the drift-trigger core. A false negative in either fails silently. Neither has a dedicated test &mdash; both are exercised only via slow subprocess suites.</p>
+      <div class="imp-actions">
+        <ul>
+          <li>Add <code>agentic_modes.test.ts</code>: parse/apply per contract-breach shape, bridge-endpoint-not-in-graph skip, unresolved call span corroboration, <code>apply_descriptions</code> last-wins duplicate collapse &mdash; against an in-memory store and hand-built <code>CallGraph</code></li>
+          <li>Add <code>affected_flows.test.ts</code>: body-drift only, membership-drift only, both, neither, missing <code>anchor_set</code> self-heal, both zero-seed shapes</li>
+        </ul>
+      </div>
+      <div class="imp-files">
+        <span class="file-pin">packages/drift/src/reconcile/agentic_modes.ts</span>
+        <span class="file-pin">packages/drift/src/reconcile/affected_flows.ts</span>
+      </div>
+    </div>
+
+    <!-- #7 MEDIUM -->
+    <div class="improvement olive" id="imp-7">
+      <div class="imp-header">
+        <span class="imp-num olive">#7 &middot; MEDIUM</span>
+        <span class="imp-title">Harden reconcile against partial/degraded writes</span>
+      </div>
+      <p class="imp-body">Three integrity gaps: (a) no turn-spanning transaction in <code>reconcile()</code> &mdash; a mid-turn crash leaves half a turn applied; (b) truncated <code>SKILL.md</code> is unconditionally re-ingested and overwrites the flow; (c) placeholder descriptions persist when the describe pass doesn&rsquo;t run.</p>
+      <div class="imp-files">
+        <span class="file-pin">packages/drift/src/reconcile/reconcile.ts</span>
+        <span class="file-pin">packages/drift/src/reconcile/skill_dir.ts</span>
+        <span class="file-pin">packages/drift/src/reconcile/describe.ts</span>
+      </div>
+    </div>
+
+    <!-- #8 MEDIUM -->
+    <div class="improvement olive" id="imp-8">
+      <div class="imp-header">
+        <span class="imp-num olive">#8 &middot; MEDIUM</span>
+        <span class="imp-title">Resolve test-entrypoint asymmetry and add stale-flow sweep</span>
+      </div>
+      <p class="imp-body"><code>build_skeleton_flows</code> hydrates test-file entrypoints as flows, but the inventory and orphan-finder both skip <code>is_test</code> &mdash; leaving test-rooted flows persisted, invisible to the agent, and unretirable. Skill flows have no retirement path; deleting <code>SKILL.md</code> leaves the flow live.</p>
+      <div class="imp-files">
+        <span class="file-pin">packages/drift/src/reconcile/reconcile.ts</span>
+        <span class="file-pin">packages/core/src/model/flow.ts</span>
+        <span class="file-pin">packages/drift/src/reconcile/affected_flows.ts</span>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-rule">
+
+  <!-- accent-callout: rust-bordered for critical risks / recommendation -->
+  <section aria-labelledby="rec-h">
+    <p class="section-label">Section E &mdash; Recommendation</p>
+    <h2 id="rec-h" style="margin-bottom:0.75rem;">Recommended Next Session</h2>
+    <aside class="accent-callout" aria-label="Recommended next session">
+      <p class="callout-label">Critical recommendation</p>
+      <h3>Build the observability-and-safety spine first</h3>
+      <p>Small, self-contained, and unblocks all subsequent work on both review goals. These four items together create the durable record and traffic-control infrastructure that makes every other improvement verifiable.</p>
+      <ul>
+        <li><code>PRAGMA journal_mode=WAL</code> + <code>busy_timeout=5000</code> in <code>sqlite_graph_store.ts</code>, open extension connection read-only (~30 lines)</li>
+        <li>Persist a reconcile run log (JSONL beside <code>graph.db</code>: timestamp, file set, per-flow action + reason, deferrals, placeholder counts)</li>
+        <li>Ship a <code>drift-inspect</code> bin reading store + run log &mdash; run immediately against <code>~/workspace/bergamot/.code-charter/graph.db</code> to diagnose the verified 0-bridge-edges anomaly</li>
+        <li>Add <code>Code Charter</code> OutputChannel + debounced <code>graph.db</code> FileSystemWatcher in <code>extension.ts</code> so syncs surface in-editor and the webview refreshes</li>
+      </ul>
+    </aside>
+  </section>
+
+  <!-- collapsible-disclosure: implementation strengths -->
+  <section aria-labelledby="strengths-h">
+    <p class="section-label">Implementation strengths</p>
+    <h2 id="strengths-h" style="margin-bottom:0.75rem;">What the Engine Gets Right</h2>
+    <details class="disclosure">
+      <summary>The deterministic core is architecturally sound and unusually well-tested</summary>
+      <div class="disclosure-body">
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>Clean deterministic/agentic split with a graph-corroboration evidence bar: <code>apply_stitch</code> rejects invented bridges unless corroborated by an unresolved call site in the live graph &mdash; the agent can propose but not fabricate structure.</div>
+        </div>
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>Scoped-upsert write model (<code>flow_store.write_flow</code>, <code>re_extract</code>) never does a store-global rebuild, preserving other flows&rsquo; agentic content; writes are idempotent and deterministic.</div>
+        </div>
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>Careful within-process retirement discipline: deferred retirement when the graph is untrustworthy (empty graph, omitted seed file, zero-symbol parse), resurrection guards, and double-retire race defenses.</div>
+        </div>
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>Rename-stable <code>symbol_path</code> anchor identity and a disciplined path-normalization funnel (<code>paths.ts</code>) across the hook &rarr; reconcile &rarr; store chain.</div>
+        </div>
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>Unusually strong test coverage for deterministic paths: every hooks-layer and installer module has dedicated unit tests, and the delta/membership/code/stitch integration suites use real filesystems, real SQLite, and a real headless Ariadne pipeline.</div>
+        </div>
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>The two-tier eval design (Tier 1 golden-wire structural + Tier 2 live <code>stitch_eval</code> with scaffolded fixture repos) is the right shape for measuring agentic judgement.</div>
+        </div>
+        <div class="strength-item">
+          <div class="strength-dot"></div>
+          <div>Error handling correctly prioritizes never breaking the host Claude session (hook exits 0 on any failure).</div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</div><!-- /page-wrap -->
+
+<script>
+// Arrival highlight ring for risk-jump-nav chips
+document.querySelectorAll('.risk-chip').forEach(function(chip) {
+  chip.addEventListener('click', function() {
+    var targetId = this.getAttribute('href').slice(1);
+    var target = document.getElementById(targetId);
+    if (!target) return;
+    setTimeout(function() {
+      target.style.transition = 'box-shadow 0.2s';
+      target.style.boxShadow = '0 0 0 3px var(--clay)';
+      setTimeout(function() { target.style.boxShadow = ''; }, 900);
+    }, 350);
+  });
+});
+</script>
+</body>
+</html>
