@@ -15,8 +15,9 @@
  *
  * The format is duplicated (by necessity) in `assets/skills/drift-sync/scripts/drift_sync.js`,
  * which runs standalone from an installed `.claude` directory and cannot import this module. The
- * claim lifecycle lives only there (only the consumer claims); the duplicated byte format is
- * pinned by the cross-check tests in `src/skill/drift_sync_contract.test.ts`.
+ * claim lifecycle is implemented only there — this module carries only the shared format and the
+ * staging writer; the duplicated byte format is pinned by the cross-check tests in
+ * `src/skill/drift_sync_contract.test.ts`.
  */
 
 import * as fs from "node:fs";
@@ -58,8 +59,9 @@ export function serialize_pending_reconcile(files: readonly string[]): string {
 /**
  * Write the staged set via a same-directory temp file + atomic rename. A plain write can be torn
  * by a crash or observed half-written by the concurrent consumer, which parses it as null and
- * silently drops the whole staged union. Throws on failure so the caller can withhold the
- * transcript watermark and retry the same edits next fire.
+ * silently drops the whole staged union. Atomic against concurrent readers and process crashes;
+ * power-loss durability (fsync) is deliberately not promised. Throws on failure so the caller can
+ * withhold the transcript watermark and retry the same edits next fire.
  */
 export function write_pending_reconcile_atomic(pending_path: string, files: readonly string[]): void {
   fs.mkdirSync(path.dirname(pending_path), { recursive: true });

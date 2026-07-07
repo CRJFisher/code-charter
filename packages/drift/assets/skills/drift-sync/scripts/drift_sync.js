@@ -19,10 +19,11 @@
 //     reconcile starts, the pending file is CLAIMED — renamed (atomic, same directory) to the
 //     pid-stamped `drift_pending_reconcile.claim.<pid>.json` — so the post-run settle can never touch
 //     a set the Stop hook stages mid-reconcile. The claim is deleted after a successful run and
-//     unioned back into the live pending file (temp-file + atomic rename) on failure; a claim whose
-//     pid is dead (a crashed run) is unioned back on the next launch. `--dry-run` reads the pending
-//     file without claiming (detection is side-effect-free). The manual `/drift` path passes
-//     `--files <a,b,...>` explicitly and leaves the staged set untouched.
+//     unioned back into the live pending file (temp-file + atomic rename) on failure; a claim left
+//     by a crashed run (dead, recycled-own, or zero pid) is unioned back on the next launch.
+//     `--dry-run` reads the pending file without claiming (detection is side-effect-free). The
+//     manual `/drift` path passes `--files <a,b,...>` explicitly and leaves the staged set
+//     untouched.
 //   - `--apply-stitch <json_path>` / `--apply-descriptions <json_path>`: the agent's judgement
 //     phases. No file set is involved and the pending file is never read or consumed.
 
@@ -35,9 +36,11 @@ const USAGE =
 
 // Mirrored from src/hooks/pending_reconcile.ts (the Stop-hook side of the handoff).
 const PENDING_RECONCILE_FILE = "drift_pending_reconcile.json";
-// The consumer's private working name. Pid-stamped so a leftover claim's owner is decidable:
-// a dead pid marks a crashed run whose set must be recovered, a live one a running peer whose
-// claim must not be stolen.
+// The consumer's private working name. Pid-stamped so a leftover claim's owner is decidable —
+// the same dead-pid test as reconcile_lock's reclaim_if_stale: a dead pid marks a crashed run
+// whose set must be recovered, a live one a running peer whose claim must not be stolen. A pid
+// recycled by an unrelated process is indistinguishable from a live peer; that residual window
+// is accepted.
 const PENDING_CLAIM_PATTERN = /^drift_pending_reconcile\.claim\.(\d+)\.json$/;
 
 function claim_path_for(pending_path) {
@@ -62,9 +65,10 @@ function union_files(prior, current) {
 }
 
 /**
- * Union `files` into whatever is staged NOW. The Stop hook may have re-created the pending file
- * mid-reconcile, so this reads-merges-renames rather than blindly renaming a claim back — a blind
- * rename would clobber the newly staged set (the original consume race, in reverse).
+ * Union `files` into whatever is staged NOW, with `files` taking first-seen precedence over the
+ * staged set. The Stop hook may have re-created the pending file mid-reconcile, so this
+ * reads-merges-renames rather than blindly renaming a claim back — a blind rename would clobber
+ * the newly staged set (the original consume race, in reverse).
  */
 function union_into_pending(pending_path, files) {
   const current = read_pending_files(pending_path) ?? [];
@@ -84,7 +88,11 @@ function is_pid_alive(pid) {
 /**
  * Fold claims orphaned by a crashed run back into the pending file so their edits are reconciled
  * on this launch — the transcript watermark has already advanced past them, so the claim file is
- * the only remaining record. A malformed orphan is discarded: it was never a recoverable set.
+ * the only remaining record. A claim stamped with this process's own pid is always stale (this
+ * run has not claimed yet), and one whose pid parses to 0 could probe the whole process group —
+ * both are recovered without a liveness check. A malformed orphan is discarded: it was never a
+ * recoverable set. Each orphan settles independently so one unrecoverable claim cannot block the
+ * others or this run's own claim.
  */
 function recover_orphaned_claims(pending_path) {
   let names;
@@ -95,11 +103,20 @@ function recover_orphaned_claims(pending_path) {
   }
   for (const name of names) {
     const match = PENDING_CLAIM_PATTERN.exec(name);
-    if (match === null || is_pid_alive(Number(match[1]))) continue;
+    if (match === null) continue;
+    const pid = Number(match[1]);
+    if (pid > 0 && pid !== process.pid && is_pid_alive(pid)) continue;
     const orphan_path = path.join(path.dirname(pending_path), name);
-    const files = read_pending_files(orphan_path);
-    if (files !== null && files.length > 0) union_into_pending(pending_path, files);
-    fs.rmSync(orphan_path, { force: true });
+    try {
+      const files = read_pending_files(orphan_path);
+      if (files !== null && files.length > 0) {
+        union_into_pending(pending_path, files);
+        process.stderr.write(`drift-sync: recovered ${files.length} file(s) from a crashed reconcile (pid ${pid})\n`);
+      }
+      fs.rmSync(orphan_path, { force: true });
+    } catch {
+      /* left for a later launch */
+    }
   }
 }
 
@@ -296,9 +313,11 @@ function main() {
     } else {
       try {
         union_into_pending(pending_path, files);
+        process.stderr.write(`drift-sync: reconcile failed, restaged ${files.length} file(s) for retry\n`);
         fs.rmSync(claim, { force: true });
       } catch {
-        /* the claim file stays; the next launch recovers it by its dead pid */
+        // The claim stays and the next launch recovers it by its dead pid; if only the rm
+        // failed, the recovery re-unions an already-restaged set, which dedups to a no-op.
       }
     }
   }

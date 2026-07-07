@@ -167,6 +167,9 @@ describe("drift_stop_hook bin", () => {
       const failed = run_stop_hook(payload);
       expect(failed.status).toBe(0);
       expect(failed.stdout).toBe(""); // nothing staged → no block dispatched
+      // the failed atomic write must clean up its temp sibling
+      const residue = fs.readdirSync(path.join(dir, ".code-charter")).filter((name) => name.endsWith(".tmp"));
+      expect(residue).toEqual([]);
       fs.rmdirSync(pending); // the obstruction clears...
       const retried = run_stop_hook(payload); // ...and the SAME transcript re-fires the edit
       expect(JSON.parse(retried.stdout).decision).toBe("block");

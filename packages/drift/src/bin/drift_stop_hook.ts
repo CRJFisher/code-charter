@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
   // The cursor covers the FULL worked-on set (including dropped non-flow files), so a doc/config edit
   // is never re-considered next turn. It is persisted on every path EXCEPT a failed stage: advancing
-  // past edits that never durably landed in the pending file would skip them forever.
+  // past edits that never landed in the pending file would skip them forever.
   const persist_watermark = (): void => {
     try {
       fs.mkdirSync(path.dirname(state_path), { recursive: true });

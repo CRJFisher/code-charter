@@ -29,7 +29,7 @@ priority: medium
 - [ ] #1 Immediately stub or delete the stale DEBUGGING.md/DEVELOPMENT.md content so it stops actively misleading
 - [ ] #2 Rewrite both docs against reality: five packages, target-repo model (Dev Host -> ~/workspace/bergamot), the install/reconcile chain, where graph.db lives, the full change->rebuild->trigger->inspect loop, the actual launch configs
 - [ ] #3 Document stitch_eval as the quality loop, and the new drift-inspect (.4) and drift:dev (.7) tools
-- [ ] #4 Document each .code-charter/ artifact: graph.db, drift_pending_reconcile.json, stitch.json, descriptions.json, watermark files, drift_reconcile_log.jsonl
+- [ ] #4 Document each .code-charter/ artifact: graph.db, drift_pending_reconcile.json, `drift_pending_reconcile.claim.<pid>.json` (the reconcile's claimed working set), stitch.json, descriptions.json, watermark files, drift_reconcile.lock, drift_reconcile_log.jsonl
 
 <!-- AC:END -->
 
