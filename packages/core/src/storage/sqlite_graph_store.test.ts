@@ -741,6 +741,109 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     check.close();
   });
 
+  describe("concurrency discipline (task-27.1.20.1)", () => {
+    it("sets journal_mode=wal on a fresh store", () => {
+      const path = temp_db_path();
+      new SqliteGraphStore(path).close();
+
+      // WAL is persisted in the file header, so a fresh raw connection observes it. busy_timeout
+      // is per-connection and has no read seam from a second connection; it is covered by the
+      // constructor setting it unconditionally before any statement runs.
+      const raw = new DatabaseSync(path);
+      expect(raw.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
+      raw.close();
+    });
+
+    it("upgrades an existing rollback-journal db to WAL on open", () => {
+      const path = temp_db_path();
+      const raw = new DatabaseSync(path);
+      raw.exec("PRAGMA journal_mode = DELETE");
+      raw.exec("CREATE TABLE probe (x)");
+      raw.close();
+
+      new SqliteGraphStore(path).close();
+
+      const check = new DatabaseSync(path);
+      expect(check.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
+      check.close();
+    });
+
+    it("two writer stores on the same path coexist", () => {
+      const path = temp_db_path();
+      const a = new SqliteGraphStore(path);
+      a.upsert_node(make_node({ id: "from_a", anchor: null }));
+      const b = new SqliteGraphStore(path);
+      b.upsert_node(make_node({ id: "from_b", anchor: null }));
+      expect(new Set(b.all_nodes().map((n) => n.id))).toEqual(new Set(["from_a", "from_b"]));
+      a.close();
+      b.close();
+    });
+
+    it("a read-only store snapshots the nodes and edges a writer persisted", () => {
+      const path = temp_db_path();
+      const writer = new SqliteGraphStore(path);
+      writer.upsert_node(make_node({ id: "n", anchor: null }));
+      writer.upsert_edge(make_edge({ key: "e" }), [make_prov({ edge_key: "e" })]);
+      writer.close();
+
+      const reader = new SqliteGraphStore(path, { read_only: true });
+      const snap = reader.snapshot();
+      expect(snap.nodes.map((n) => n.id)).toEqual(["n"]);
+      expect(snap.edges.map((e) => e.key)).toEqual(["e"]);
+      reader.close();
+    });
+
+    it("a read-only open on a missing db file throws", () => {
+      // Documents the contract the extension's existsSync guard is load-bearing for: a read-only
+      // connection cannot create the file.
+      expect(() => new SqliteGraphStore(temp_db_path(), { read_only: true })).toThrow();
+    });
+
+    it("a read-only store rejects writes", () => {
+      const path = temp_db_path();
+      new SqliteGraphStore(path).close();
+
+      const reader = new SqliteGraphStore(path, { read_only: true });
+      expect(() => reader.upsert_node(make_node({ anchor: null }))).toThrow();
+      reader.close();
+    });
+
+    it("open_graph_store threads read_only through to the store", () => {
+      const path = temp_db_path();
+      const writer = open_graph_store(path);
+      writer.upsert_node(make_node({ id: "n", anchor: null }));
+      writer.close();
+
+      const reader = open_graph_store(path, { read_only: true });
+      expect(reader.snapshot().nodes.map((n) => n.id)).toEqual(["n"]);
+      expect(() => reader.upsert_node(make_node({ id: "n2", anchor: null }))).toThrow();
+      reader.close();
+    });
+
+    it("a deferred read transaction pins one snapshot while a writer commits", () => {
+      // The WAL property snapshot() relies on: both reads inside one read transaction see the
+      // same committed state even when a writer commits between them — never a torn pair.
+      const path = temp_db_path();
+      const writer = new SqliteGraphStore(path);
+      writer.upsert_node(make_node({ id: "before", anchor: null }));
+
+      const reader = new DatabaseSync(path, { readOnly: true });
+      reader.exec("BEGIN DEFERRED");
+      expect(reader.prepare("SELECT COUNT(*) AS n FROM nodes").get()).toEqual({ n: 1 });
+
+      writer.upsert_node(make_node({ id: "mid_read", anchor: null }));
+      writer.upsert_edge(make_edge({ key: "mid_e" }), [make_prov({ edge_key: "mid_e" })]);
+
+      expect(reader.prepare("SELECT COUNT(*) AS n FROM nodes").get()).toEqual({ n: 1 });
+      expect(reader.prepare("SELECT COUNT(*) AS n FROM edges").get()).toEqual({ n: 0 });
+      reader.exec("COMMIT");
+
+      expect(reader.prepare("SELECT COUNT(*) AS n FROM nodes").get()).toEqual({ n: 2 });
+      reader.close();
+      writer.close();
+    });
+  });
+
   it("drops a disposable table registered after seeding on a version mismatch", () => {
     const path = temp_db_path();
     new SqliteGraphStore(path).close();

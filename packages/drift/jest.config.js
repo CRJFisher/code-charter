@@ -8,7 +8,7 @@ const config = {
     "^@code-charter/core$": "<rootDir>/../core/src/index.ts",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "packages/drift/tsconfig.jest.json" }],
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.jest.json" }],
   },
 };
 

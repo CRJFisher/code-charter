@@ -17,6 +17,10 @@ export class NullGraphStore implements GraphStore {
     return [];
   }
 
+  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
+    return { nodes: [], edges: [] };
+  }
+
   provenance_for_edge(): ProvenanceRow[] {
     return [];
   }

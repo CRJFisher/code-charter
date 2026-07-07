@@ -19,6 +19,12 @@
  * and builds the headless Ariadne call graph over the repo. Exit 0 = success or no-op, 2 = usage or
  * wire-contract error, 1 = fatal. Mode JSON goes to stdout; diagnostics go to stderr with the
  * `drift-reconcile:` prefix.
+ *
+ * Every store-mutating run holds the process-level reconcile mutex (a lockfile beside the store),
+ * so a Stop-hook reconcile and a manual one can never interleave writes. Contention past the
+ * bounded wait exits 1 — nonzero, so drift_sync.js leaves the pending handoff file for the next
+ * launch instead of consuming it over work that never ran. `--dry-run` never mutates and takes no
+ * lock.
  */
 
 import * as fs from "node:fs";
@@ -35,6 +41,7 @@ import {
 import { make_ariadne_adapter } from "../reconcile/ariadne_adapter";
 import { HeadlessProject } from "../reconcile/headless_project";
 import { read_only_store } from "../reconcile/dry_run_store";
+import { acquire_reconcile_lock, type ReconcileLock } from "../reconcile/reconcile_lock";
 import { reconcile } from "../reconcile/reconcile";
 import { to_repo_relative } from "../reconcile/paths";
 import type { ReconcileDeps, ReconcileResult } from "../reconcile/types";
@@ -128,6 +135,26 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
   };
 }
 
+/** Read, JSON-parse, and contract-validate an `--apply-stitch` payload; a breach exits 2. */
+function parse_stitch_payload(payload_path: string): Parameters<typeof apply_stitch>[1] {
+  const parsed = parse_apply_stitch(read_payload(payload_path));
+  if ("error" in parsed) {
+    process.stderr.write(`drift-reconcile: invalid --apply-stitch payload: ${parsed.error}\n`);
+    process.exit(2);
+  }
+  return parsed.input;
+}
+
+/** Read, JSON-parse, and contract-validate an `--apply-descriptions` payload; a breach exits 2. */
+function parse_descriptions_payload(payload_path: string): Parameters<typeof apply_descriptions>[1] {
+  const parsed = parse_apply_descriptions(read_payload(payload_path));
+  if ("error" in parsed) {
+    process.stderr.write(`drift-reconcile: invalid --apply-descriptions payload: ${parsed.error}\n`);
+    process.exit(2);
+  }
+  return parsed.input;
+}
+
 /** Read and JSON-parse a mode payload file; a contract breach exits 2. */
 function read_payload(payload_path: string): unknown {
   let text: string;
@@ -175,6 +202,26 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Payload contract errors exit 2 here, before the lock exists, so no exit path inside the
+  // lock-held region below can bypass release.
+  const stitch_input = args.mode === "apply_stitch" ? parse_stitch_payload(args.payload_path!) : undefined;
+  const descriptions_input =
+    args.mode === "apply_descriptions" ? parse_descriptions_payload(args.payload_path!) : undefined;
+
+  // --dry-run never mutates the store (writes go through the read-only wrapper), so it neither
+  // needs the mutex nor should be blocked by one.
+  let lock: ReconcileLock | undefined;
+  if (!args.dry_run) {
+    const acquired = await acquire_reconcile_lock(args.store, { wait_ms: lock_wait_ms() });
+    if (acquired === null) {
+      process.stderr.write(
+        "drift-reconcile: another reconcile is running (drift_reconcile.lock held); exiting without touching the store\n",
+      );
+      process.exit(1);
+    }
+    lock = acquired;
+  }
+
   const store = open_graph_store(args.store);
   try {
     const project = new HeadlessProject(args.repo_root);
@@ -210,25 +257,15 @@ async function main(): Promise<void> {
         return;
       }
       case "apply_stitch": {
-        const parsed_payload = parse_apply_stitch(read_payload(args.payload_path!));
-        if ("error" in parsed_payload) {
-          process.stderr.write(`drift-reconcile: invalid --apply-stitch payload: ${parsed_payload.error}\n`);
-          process.exit(2);
-        }
-        const result = await apply_stitch(deps, parsed_payload.input, adapter.call_graph());
+        const result = await apply_stitch(deps, stitch_input!, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
         process.stderr.write(
-          `drift-reconcile: applied ${result.flows.length} umbrella(s) from ${parsed_payload.input.umbrellas.length} proposed\n`,
+          `drift-reconcile: applied ${result.flows.length} umbrella(s) from ${stitch_input!.umbrellas.length} proposed\n`,
         );
         return;
       }
       case "apply_descriptions": {
-        const parsed_payload = parse_apply_descriptions(read_payload(args.payload_path!));
-        if ("error" in parsed_payload) {
-          process.stderr.write(`drift-reconcile: invalid --apply-descriptions payload: ${parsed_payload.error}\n`);
-          process.exit(2);
-        }
-        const result = apply_descriptions(deps, parsed_payload.input, adapter.call_graph());
+        const result = apply_descriptions(deps, descriptions_input!, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
         process.stderr.write(
           `drift-reconcile: wrote ${result.written.length} description(s), skipped ${result.skipped.length}\n`,
@@ -237,8 +274,20 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    store.close();
+    try {
+      store.close();
+    } finally {
+      lock?.release();
+    }
   }
+}
+
+/** The bounded lock wait. The env override is a test seam — bin tests hold the lock and need a sub-second wait. */
+function lock_wait_ms(): number {
+  const raw = process.env.DRIFT_RECONCILE_LOCK_WAIT_MS;
+  if (raw === undefined || raw === "") return 10_000;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 10_000;
 }
 
 main().catch((error: unknown) => {

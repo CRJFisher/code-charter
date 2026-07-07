@@ -18,7 +18,7 @@ import {
   reconstruct_flow_membership,
   skeleton_to_summary,
 } from "@code-charter/core";
-import type { FlowSummary, NodeRow, RenderedRows } from "@code-charter/types";
+import type { EdgeRow, FlowSummary, NodeRow, RenderedRows } from "@code-charter/types";
 import { HOST_LAYOUTS, install_drift } from "@code-charter/drift";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
@@ -145,14 +145,18 @@ async function show_webview_diagram(
 
   // Read the persisted store rows (the on-disk graph the Stop-hook reconcile sub-agent writes). Returns
   // null on a cold repo that has never been hydrated, in which case the surface is pure skeleton.
-  const read_store_rows = (): { nodes: ReturnType<ReturnType<typeof open_graph_store>["all_nodes"]>; edges: ReturnType<ReturnType<typeof open_graph_store>["all_edges"]> } | null => {
+  // Read-only: the extension must never compete for the write lock a reconcile holds (a read-write
+  // open would also run schema init — a write); snapshot() reads nodes+edges in one transaction so
+  // a reconcile committing mid-read can never produce a torn pair. The existsSync guard is
+  // load-bearing — a read-only open of a missing file throws rather than creating it.
+  const read_store_rows = (): { nodes: NodeRow[]; edges: EdgeRow[] } | null => {
     const db_path = path.join(work_folder.fsPath, graph_db_file);
     if (!fs.existsSync(db_path)) {
       return null;
     }
-    const store = open_graph_store(db_path);
+    const store = open_graph_store(db_path, { read_only: true });
     try {
-      return { nodes: store.all_nodes(), edges: store.all_edges() };
+      return store.snapshot();
     } finally {
       store.close();
     }

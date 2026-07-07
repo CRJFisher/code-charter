@@ -60,6 +60,10 @@ class RecordingStore implements GraphStore {
     this.record("all_edges", [opts]);
     return [EDGE];
   }
+  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
+    this.record("snapshot", []);
+    return { nodes: [NODE], edges: [EDGE] };
+  }
   provenance_for_edge(edge_key: string): ProvenanceRow[] {
     this.record("provenance_for_edge", [edge_key]);
     return PROVENANCE;
@@ -131,6 +135,12 @@ describe("read_only_store", () => {
     const inner = new RecordingStore();
     expect(read_only_store(inner).all_edges({ include_deleted: false })).toEqual([EDGE]);
     expect(inner.args_for("all_edges")).toEqual([{ include_deleted: false }]);
+  });
+
+  it("forwards snapshot and returns the underlying pair", () => {
+    const inner = new RecordingStore();
+    expect(read_only_store(inner).snapshot()).toEqual({ nodes: [NODE], edges: [EDGE] });
+    expect(inner.called("snapshot")).toBe(true);
   });
 
   it("forwards provenance_for_edge with the edge key", () => {

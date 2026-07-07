@@ -13,13 +13,17 @@ const require_module = createRequire(__filename);
  * On a host with the built-in SQLite engine this returns a {@link SqliteGraphStore}; on an
  * older or non-Node host it returns a degraded {@link NullGraphStore}, never throwing. The
  * real store is loaded lazily so the SQLite engine is never imported on unsupported hosts.
+ *
+ * `read_only` opens a connection that never competes for the write lock and never runs schema
+ * init — the extension's read path. It requires an existing db file (opening a missing file
+ * throws), so callers guard with an existence check first.
  */
-export function open_graph_store(db_path: string): GraphStore {
+export function open_graph_store(db_path: string, opts?: { read_only?: boolean }): GraphStore {
   if (!is_node_sqlite_supported(current_node_version())) {
     return new NullGraphStore();
   }
   const module = require_module("./storage/sqlite_graph_store") as typeof import("./storage/sqlite_graph_store");
-  return new module.SqliteGraphStore(db_path);
+  return new module.SqliteGraphStore(db_path, opts);
 }
 
 export { CustomGraphModel, graph_to_rows } from "./model/custom_graph_model";

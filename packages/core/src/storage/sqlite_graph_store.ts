@@ -35,8 +35,24 @@ export class SqliteGraphStore implements GraphStore {
   private readonly statement_cache = new Map<string, StatementSync>();
   private in_transaction = false;
 
-  constructor(db_path: string) {
-    this.db = new DatabaseSync(db_path);
+  constructor(db_path: string, opts?: { read_only?: boolean }) {
+    this.db = new DatabaseSync(db_path, { readOnly: opts?.read_only ?? false });
+    // busy_timeout first, so the WAL switch below and every later statement wait on a contended
+    // lock (up to 5s) instead of throwing SQLITE_BUSY instantly.
+    this.db.exec("PRAGMA busy_timeout = 5000");
+    if (opts?.read_only) {
+      // A reader can neither rewrite the journal-mode header nor run schema init (both write);
+      // it inherits WAL from the file and reads concurrently with the reconcile writer.
+      return;
+    }
+    // WAL is a persistent property of the db file: once a writer sets it, readers and the writer
+    // coexist without blocking each other. The pragma returns the resulting mode rather than
+    // throwing, so a silent fallback to a rollback journal must be surfaced here (":memory:"
+    // reports its own mode and has no cross-process contention to discipline).
+    const journal_mode = this.db.prepare("PRAGMA journal_mode = WAL").get()?.journal_mode;
+    if (journal_mode !== "wal" && journal_mode !== "memory") {
+      throw new Error(`could not enable WAL on ${db_path} (journal_mode=${String(journal_mode)})`);
+    }
     this.db.exec("PRAGMA foreign_keys = ON");
     this.initialize_schema();
   }
@@ -101,12 +117,17 @@ export class SqliteGraphStore implements GraphStore {
    * forbids a nested BEGIN — an inner call runs `fn` inline within the open transaction. On
    * error the outermost call rolls back and rethrows; a failing ROLLBACK never masks the
    * original error.
+   *
+   * Writers default to BEGIN IMMEDIATE: it takes the write lock at BEGIN, where busy_timeout is
+   * honored, whereas a deferred transaction that upgrades to its first write mid-flight gets
+   * SQLITE_BUSY back without the busy handler ever running. Pure reads pass BEGIN DEFERRED,
+   * which never competes for the write lock (and is the only mode a read-only connection allows).
    */
-  private with_transaction<T>(fn: () => T): T {
+  private with_transaction<T>(fn: () => T, begin: "BEGIN IMMEDIATE" | "BEGIN DEFERRED" = "BEGIN IMMEDIATE"): T {
     if (this.in_transaction) {
       return fn();
     }
-    this.db.exec("BEGIN");
+    this.db.exec(begin);
     this.in_transaction = true;
     try {
       const result = fn();
@@ -136,6 +157,10 @@ export class SqliteGraphStore implements GraphStore {
       ? "SELECT * FROM edges"
       : "SELECT * FROM edges WHERE deleted_at IS NULL";
     return this.sql(query).all().map(row_to_edge);
+  }
+
+  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
+    return this.with_transaction(() => ({ nodes: this.all_nodes(), edges: this.all_edges() }), "BEGIN DEFERRED");
   }
 
   provenance_for_edge(edge_key: string): ProvenanceRow[] {
