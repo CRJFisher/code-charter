@@ -11,8 +11,10 @@
  * other's cursor); the `transcript_path` field guards rotation within a session — a different
  * transcript under the same session id resets the cursor to 0.
  *
- * The cursor is advanced on every fire (a declined or failed reconcile is not lost: the staged pending
- * set unions across fires until consumed), so a turn is never reconciled twice.
+ * The cursor advances only once the turn is durably accounted for — its edits staged atomically in the
+ * pending file, or legitimately nothing to stage — so a turn is never reconciled twice and a failed
+ * stage re-fires the same edits next turn. A declined or failed reconcile is still not lost: the
+ * staged pending set unions across fires until consumed.
  */
 
 import { parse_worked_on_files } from "./transcript_parser";

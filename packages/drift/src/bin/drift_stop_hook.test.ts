@@ -155,6 +155,40 @@ describe("drift_stop_hook bin", () => {
     }
   });
 
+  it("holds the watermark when staging fails, so the same edits re-fire and recover next turn", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    const payload = { session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" };
+    const pending = path.join(dir, ".code-charter", "drift_pending_reconcile.json");
+    // A directory at the pending path defeats the atomic rename, forcing a staging failure.
+    fs.mkdirSync(pending, { recursive: true });
+    try {
+      const failed = run_stop_hook(payload);
+      expect(failed.status).toBe(0);
+      expect(failed.stdout).toBe(""); // nothing staged → no block dispatched
+      fs.rmdirSync(pending); // the obstruction clears...
+      const retried = run_stop_hook(payload); // ...and the SAME transcript re-fires the edit
+      expect(JSON.parse(retried.stdout).decision).toBe("block");
+      expect(read_pending(dir)).toEqual(["src/a.ts"]); // the cursor never advanced past it
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves no temp-file residue beside the store after staging", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
+      const residue = fs.readdirSync(path.join(dir, ".code-charter")).filter((name) => name.endsWith(".tmp"));
+      expect(residue).toEqual([]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("no-ops (exit 0, empty stdout) on malformed stdin so a garbage payload never breaks the session", () => {
     const result = run_stop_hook_raw("not json at all");
     expect(result.status).toBe(0);
