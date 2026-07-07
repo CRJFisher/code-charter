@@ -17,13 +17,20 @@
  *
  * It opens the graph store (degrading to a no-op `NullGraphStore` on a host without the SQLite engine)
  * and builds the headless Ariadne call graph over the repo. Exit 0 = success or no-op, 2 = usage or
- * wire-contract error, 1 = fatal. Mode JSON goes to stdout; diagnostics go to stderr with the
+ * wire-contract error, 1 = fatal or reconcile contention (another reconcile holds the mutex; staged
+ * work is preserved and retried). Mode JSON goes to stdout; diagnostics go to stderr with the
  * `drift-reconcile:` prefix.
+ *
+ * Every store-mutating run holds the process-level reconcile mutex (a lockfile beside the store),
+ * so a Stop-hook reconcile and a manual one can never interleave writes. Contention past the
+ * bounded wait exits 1 — nonzero, so drift_sync.js leaves the pending handoff file for the next
+ * launch instead of consuming it over work that never ran. `--dry-run` never mutates and takes no
+ * lock.
  */
 
 import * as fs from "node:fs";
 
-import { open_graph_store } from "@code-charter/core";
+import { NullGraphStore, open_graph_store, type GraphStore } from "@code-charter/core";
 
 import {
   apply_descriptions,
@@ -34,7 +41,8 @@ import {
 } from "../reconcile/agentic_modes";
 import { make_ariadne_adapter } from "../reconcile/ariadne_adapter";
 import { HeadlessProject } from "../reconcile/headless_project";
-import { read_only_store } from "../reconcile/dry_run_store";
+import { dry_run_store } from "../reconcile/dry_run_store";
+import { acquire_reconcile_lock, type ReconcileLock } from "../reconcile/reconcile_lock";
 import { reconcile } from "../reconcile/reconcile";
 import { to_repo_relative } from "../reconcile/paths";
 import type { ReconcileDeps, ReconcileResult } from "../reconcile/types";
@@ -128,6 +136,26 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
   };
 }
 
+/** Read, JSON-parse, and contract-validate an `--apply-stitch` payload; a breach exits 2. */
+function parse_stitch_payload(payload_path: string): Parameters<typeof apply_stitch>[1] {
+  const parsed = parse_apply_stitch(read_payload(payload_path));
+  if ("error" in parsed) {
+    process.stderr.write(`drift-reconcile: invalid --apply-stitch payload: ${parsed.error}\n`);
+    process.exit(2);
+  }
+  return parsed.input;
+}
+
+/** Read, JSON-parse, and contract-validate an `--apply-descriptions` payload; a breach exits 2. */
+function parse_descriptions_payload(payload_path: string): Parameters<typeof apply_descriptions>[1] {
+  const parsed = parse_apply_descriptions(read_payload(payload_path));
+  if ("error" in parsed) {
+    process.stderr.write(`drift-reconcile: invalid --apply-descriptions payload: ${parsed.error}\n`);
+    process.exit(2);
+  }
+  return parsed.input;
+}
+
 /** Read and JSON-parse a mode payload file; a contract breach exits 2. */
 function read_payload(payload_path: string): unknown {
   let text: string;
@@ -175,7 +203,28 @@ async function main(): Promise<void> {
     return;
   }
 
-  const store = open_graph_store(args.store);
+  // Payload contract errors exit 2 here, before the lock exists, so no exit path inside the
+  // lock-held region below can bypass release.
+  const stitch_input = args.mode === "apply_stitch" ? parse_stitch_payload(args.payload_path!) : undefined;
+  const descriptions_input =
+    args.mode === "apply_descriptions" ? parse_descriptions_payload(args.payload_path!) : undefined;
+
+  // Every non-dry-run mode mutates the store (list_entrypoints runs the full deterministic
+  // reconcile before its inventory read), so every one holds the mutex. --dry-run opens the
+  // connection itself read-only below, so it neither needs the mutex nor should be blocked by one.
+  let lock: ReconcileLock | undefined;
+  if (!args.dry_run) {
+    const acquired = await acquire_reconcile_lock(args.store, { wait_ms: lock_wait_ms() });
+    if (acquired === null) {
+      process.stderr.write(
+        "drift-reconcile: another reconcile is running (drift_reconcile.lock held); exiting without touching the store\n",
+      );
+      process.exit(1);
+    }
+    lock = acquired;
+  }
+
+  const store = open_reconcile_store(args, lock);
   try {
     const project = new HeadlessProject(args.repo_root);
     await project.initialize();
@@ -183,7 +232,7 @@ async function main(): Promise<void> {
     const adapter = make_ariadne_adapter(project, log);
 
     const deps: ReconcileDeps = {
-      store: args.dry_run ? read_only_store(store) : store,
+      store: args.dry_run ? dry_run_store(store) : store,
       adapter,
       repo_root_abs: args.repo_root,
       analyzed_root: "",
@@ -210,25 +259,15 @@ async function main(): Promise<void> {
         return;
       }
       case "apply_stitch": {
-        const parsed_payload = parse_apply_stitch(read_payload(args.payload_path!));
-        if ("error" in parsed_payload) {
-          process.stderr.write(`drift-reconcile: invalid --apply-stitch payload: ${parsed_payload.error}\n`);
-          process.exit(2);
-        }
-        const result = await apply_stitch(deps, parsed_payload.input, adapter.call_graph());
+        const result = await apply_stitch(deps, stitch_input!, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
         process.stderr.write(
-          `drift-reconcile: applied ${result.flows.length} umbrella(s) from ${parsed_payload.input.umbrellas.length} proposed\n`,
+          `drift-reconcile: applied ${result.flows.length} umbrella(s) from ${stitch_input!.umbrellas.length} proposed\n`,
         );
         return;
       }
       case "apply_descriptions": {
-        const parsed_payload = parse_apply_descriptions(read_payload(args.payload_path!));
-        if ("error" in parsed_payload) {
-          process.stderr.write(`drift-reconcile: invalid --apply-descriptions payload: ${parsed_payload.error}\n`);
-          process.exit(2);
-        }
-        const result = apply_descriptions(deps, parsed_payload.input, adapter.call_graph());
+        const result = apply_descriptions(deps, descriptions_input!, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
         process.stderr.write(
           `drift-reconcile: wrote ${result.written.length} description(s), skipped ${result.skipped.length}\n`,
@@ -237,8 +276,39 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    store.close();
+    try {
+      store.close();
+    } finally {
+      lock?.release();
+    }
   }
+}
+
+/**
+ * Open the store for the run. Dry-run must be dry at the CONNECTION level, not just via the
+ * write-swallowing wrapper: a read-write open would run schema init (a write), flip the journal
+ * mode, and create the db file on a cold repo — a cold repo gets the empty degraded store instead.
+ * An open failure releases the mutex before propagating, so a throwing constructor cannot leak it.
+ */
+function open_reconcile_store(args: Args, lock: ReconcileLock | undefined): GraphStore {
+  try {
+    if (!args.dry_run) return open_graph_store(args.store);
+    return fs.existsSync(args.store) ? open_graph_store(args.store, { read_only: true }) : new NullGraphStore();
+  } catch (err) {
+    lock?.release();
+    throw err;
+  }
+}
+
+/**
+ * The bounded lock wait — undefined defers to acquire_reconcile_lock's default, keeping one source
+ * of truth. The env override is a test seam: bin tests hold the lock and need a sub-second wait.
+ */
+function lock_wait_ms(): number | undefined {
+  const raw = process.env.DRIFT_RECONCILE_LOCK_WAIT_MS;
+  if (raw === undefined || raw === "") return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 main().catch((error: unknown) => {

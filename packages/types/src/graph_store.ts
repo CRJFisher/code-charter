@@ -143,6 +143,14 @@ export type GraphTarget = { kind: "node" | "edge"; id: string };
 export interface GraphStore {
   all_nodes(opts?: { include_deleted?: boolean }): NodeRow[];
   all_edges(opts?: { include_deleted?: boolean }): EdgeRow[];
+
+  /**
+   * All live nodes and edges read in ONE transaction, so a writer committing between the two
+   * reads can never produce a torn nodes/edges pair. Concurrent readers (the extension webview)
+   * read through this, never through back-to-back all_nodes/all_edges calls.
+   */
+  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] };
+
   provenance_for_edge(edge_key: string): ProvenanceRow[];
 
   upsert_node(row: NodeRow): void;

@@ -76,6 +76,9 @@ class RecordingStore implements GraphStore {
   all_edges(opts?: { include_deleted?: boolean }): EdgeRow[] {
     return this.inner.all_edges(opts);
   }
+  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
+    return this.inner.snapshot();
+  }
   provenance_for_edge(edge_key: string): ProvenanceRow[] {
     return this.inner.provenance_for_edge(edge_key);
   }

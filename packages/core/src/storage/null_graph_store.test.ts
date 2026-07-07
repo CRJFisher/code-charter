@@ -6,6 +6,7 @@ describe("NullGraphStore (AC#3 degraded store)", () => {
   it("returns empty reads and undefined lookups", () => {
     expect(store.all_nodes()).toEqual([]);
     expect(store.all_edges()).toEqual([]);
+    expect(store.snapshot()).toEqual({ nodes: [], edges: [] });
     expect(store.provenance_for_edge()).toEqual([]);
     expect(store.node()).toBeUndefined();
     expect(store.neighborhood()).toEqual({ nodes: [], edges: [] });

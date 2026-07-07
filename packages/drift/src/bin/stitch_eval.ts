@@ -159,10 +159,17 @@ interface StoreFlows {
 }
 
 function read_store(store_path: string): StoreFlows {
-  const store = open_graph_store(store_path);
+  // A pure reader: read-only so it never competes for the write lock nor runs schema init, and
+  // snapshot() so a reconcile committing mid-read cannot tear the flows/bridges pair. A repo the
+  // eval never reconciled has no db — that is the empty result, not an error (a read-only open
+  // of a missing file throws).
+  if (!fs.existsSync(store_path)) {
+    return { flows: [], bridges: [], descriptions: new Map() };
+  }
+  const store = open_graph_store(store_path, { read_only: true });
   try {
-    const flows = store
-      .all_nodes()
+    const { nodes, edges } = store.snapshot();
+    const flows = nodes
       .filter((n) => n.kind === FLOW_NODE_KIND && n.deleted_at === null)
       .map((n) => ({
         id: n.id,
@@ -171,8 +178,7 @@ function read_store(store_path: string): StoreFlows {
         anchor_set: as_string_array(n.attributes.anchor_set),
       }))
       .sort((a, b) => (a.id < b.id ? -1 : 1));
-    const bridges = store
-      .all_edges()
+    const bridges = edges
       .filter((e) => e.kind === BRIDGE_EDGE_KIND && e.deleted_at === null)
       .map((e) => ({
         src_id: e.src_id,
@@ -180,7 +186,7 @@ function read_store(store_path: string): StoreFlows {
         rationale: typeof e.attributes.inference_rationale === "string" ? e.attributes.inference_rationale : "",
       }));
     const descriptions = new Map<string, { text: string; source: string }>();
-    for (const n of store.all_nodes()) {
+    for (const n of nodes) {
       if (n.kind !== DESCRIPTION_NODE_KIND || n.deleted_at !== null) continue;
       descriptions.set(n.id.slice(DESCRIPTION_NODE_KIND.length + 1), {
         text: typeof n.attributes.description === "string" ? n.attributes.description : "",

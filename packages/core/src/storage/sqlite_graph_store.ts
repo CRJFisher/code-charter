@@ -29,14 +29,35 @@ type DbRow = Record<string, SQLOutputValue>;
  *
  * Use {@link open_graph_store} rather than constructing this directly — the factory gates on
  * host support and returns a degraded store on unsupported hosts.
+ *
+ * The connection discipline here (WAL, busy_timeout, BEGIN IMMEDIATE) serializes individual
+ * transactions; whole reconcile RUNS are serialized one level up by the process mutex in
+ * packages/drift/src/reconcile/reconcile_lock.ts — that file carries the end-to-end
+ * concurrency story.
  */
 export class SqliteGraphStore implements GraphStore {
   private readonly db: DatabaseSync;
   private readonly statement_cache = new Map<string, StatementSync>();
   private in_transaction = false;
 
-  constructor(db_path: string) {
-    this.db = new DatabaseSync(db_path);
+  constructor(db_path: string, opts?: { read_only?: boolean }) {
+    this.db = new DatabaseSync(db_path, { readOnly: opts?.read_only ?? false });
+    // busy_timeout first, so the WAL switch below and every later statement wait on a contended
+    // lock (up to 5s) instead of throwing SQLITE_BUSY instantly.
+    this.db.exec("PRAGMA busy_timeout = 5000");
+    if (opts?.read_only) {
+      // A reader can neither rewrite the journal-mode header nor run schema init (both write); it
+      // inherits whatever journal mode the file carries — WAL once any writer has opened it, so
+      // reads never block the reconcile writer. foreign_keys is a write-time constraint and is
+      // safely skipped here.
+      return;
+    }
+    // WAL is a persistent property of the db file: once a writer sets it, readers and the writer
+    // coexist without blocking each other. The pragma reports the resulting mode rather than
+    // throwing; a filesystem that refuses WAL (some network mounts) keeps its rollback journal
+    // and still gets the rest of the discipline (busy_timeout, BEGIN IMMEDIATE, the reconcile
+    // process mutex), so a degraded mode must not brick the open.
+    this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec("PRAGMA foreign_keys = ON");
     this.initialize_schema();
   }
@@ -101,12 +122,17 @@ export class SqliteGraphStore implements GraphStore {
    * forbids a nested BEGIN — an inner call runs `fn` inline within the open transaction. On
    * error the outermost call rolls back and rethrows; a failing ROLLBACK never masks the
    * original error.
+   *
+   * Writers default to BEGIN IMMEDIATE: it takes the write lock at BEGIN, where busy_timeout is
+   * honored, whereas a deferred transaction that upgrades to its first write mid-flight gets
+   * SQLITE_BUSY back without the busy handler ever running. Pure reads pass BEGIN DEFERRED,
+   * which never competes for the write lock (and is the only mode a read-only connection allows).
    */
-  private with_transaction<T>(fn: () => T): T {
+  private with_transaction<T>(fn: () => T, begin: "BEGIN IMMEDIATE" | "BEGIN DEFERRED" = "BEGIN IMMEDIATE"): T {
     if (this.in_transaction) {
       return fn();
     }
-    this.db.exec("BEGIN");
+    this.db.exec(begin);
     this.in_transaction = true;
     try {
       const result = fn();
@@ -136,6 +162,10 @@ export class SqliteGraphStore implements GraphStore {
       ? "SELECT * FROM edges"
       : "SELECT * FROM edges WHERE deleted_at IS NULL";
     return this.sql(query).all().map(row_to_edge);
+  }
+
+  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
+    return this.with_transaction(() => ({ nodes: this.all_nodes(), edges: this.all_edges() }), "BEGIN DEFERRED");
   }
 
   provenance_for_edge(edge_key: string): ProvenanceRow[] {
