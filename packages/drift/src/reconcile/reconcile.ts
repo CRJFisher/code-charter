@@ -38,7 +38,7 @@ import { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
 import type { CodeUmbrella, SkillUmbrella } from "./hydrate";
 import { to_abs, to_repo_relative } from "./paths";
 import { is_supported_source } from "./headless_project";
-import type { DeferredRetirement, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";
+import type { DeferredRetirement, DescriptionCounts, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";
 
 const SKILL_FILE = "SKILL.md";
 const META_FILE = "meta.json";
@@ -51,7 +51,8 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   const changed = [...new Set(file_set.map((f) => to_repo_relative(f, deps.repo_root_abs)))]
     .filter((f) => f.length > 0 && !f.startsWith(".."))
     .sort();
-  if (changed.length === 0) return { file_set: changed, outcomes: [], deferred_retirements: [] };
+  const description_counts: DescriptionCounts = { docstring: 0, placeholder: 0, llm: 0 };
+  if (changed.length === 0) return { file_set: changed, outcomes: [], deferred_retirements: [], description_counts };
 
   // 1. Partition: a file under a SKILL.md ancestor belongs to that bundle; everything else is code.
   const skill_roots = new Map<string, string>(); // abs skill root → skill name (basename)
@@ -119,6 +120,7 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     const result = await resync_persisted_flow(deps, flow, graph);
     if (result.kind === "outcome") {
       outcomes.push(result.outcome);
+      add_description_counts(description_counts, result.description_counts);
       handled.add(flow.node.id);
       if (result.outcome.action === "retire") retired.add(flow.node.id);
       else retire_flows_subsumed_by(deps, flow.node.id, result.seeds, persisted, graph, state);
@@ -146,7 +148,13 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   );
   for (const [index, umbrella] of new_code.entries()) {
     const full = index < MAX_FULL_CODE_HYDRATIONS;
-    outcomes.push(await hydrate_code_flow(deps, umbrella, graph, { describe: full }));
+    const hydrated = await hydrate_code_flow(deps, umbrella, graph, { describe: full });
+    outcomes.push(
+      full
+        ? hydrated.outcome
+        : { ...hydrated.outcome, reason: "new entrypoint (singleton stub: over the full-hydration cap)" },
+    );
+    add_description_counts(description_counts, hydrated.description_counts);
     handled.add(umbrella.id);
     retire_flows_subsumed_by(deps, umbrella.id, umbrella.seeds, persisted, graph, state);
   }
@@ -157,12 +165,18 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     );
   }
 
-  return { file_set: changed, outcomes, deferred_retirements };
+  return { file_set: changed, outcomes, deferred_retirements, description_counts };
 }
 
 type ResyncResult =
-  | { kind: "outcome"; outcome: FlowOutcome; seeds: readonly SymbolId[] }
+  | { kind: "outcome"; outcome: FlowOutcome; seeds: readonly SymbolId[]; description_counts: DescriptionCounts }
   | { kind: "deferred"; deferred: DeferredRetirement };
+
+function add_description_counts(total: DescriptionCounts, part: DescriptionCounts): void {
+  total.docstring += part.docstring;
+  total.placeholder += part.placeholder;
+  total.llm += part.llm;
+}
 
 /** The turn's accumulating record, shared with the demotion-retirement check. */
 interface TurnState {
@@ -227,6 +241,7 @@ function retire_flows_subsumed_by(
       kind: "code",
       member_count: 0,
       last_synced_at: null,
+      reason: `seed entrypoint demoted; subsumed by ${new_flow_id}`,
     });
     state.handled.add(other.node.id);
     state.retired.add(other.node.id);
@@ -275,8 +290,16 @@ async function resync_persisted_flow(
     deps.log(`retired flow ${flow.node.id} (seed entrypoint gone)`);
     return {
       kind: "outcome",
-      outcome: { flow_id: flow.node.id, action: "retire", kind: "code", member_count: 0, last_synced_at: null },
+      outcome: {
+        flow_id: flow.node.id,
+        action: "retire",
+        kind: "code",
+        member_count: 0,
+        last_synced_at: null,
+        reason: "seed entrypoint gone (deleted or renamed away)",
+      },
       seeds: [],
+      description_counts: { docstring: 0, placeholder: 0, llm: 0 },
     };
   }
   const umbrella: CodeUmbrella = {
@@ -285,10 +308,12 @@ async function resync_persisted_flow(
     label: typeof flow.node.attributes.label === "string" ? flow.node.attributes.label : flow.node.id,
     seeds,
   };
+  const hydrated = await hydrate_code_flow(deps, umbrella, graph);
   return {
     kind: "outcome",
-    outcome: { ...(await hydrate_code_flow(deps, umbrella, graph)), action: "resync" },
+    outcome: { ...hydrated.outcome, action: "resync", reason: "body or membership drifted this turn" },
     seeds,
+    description_counts: hydrated.description_counts,
   };
 }
 
@@ -364,9 +389,19 @@ function body_modified_member_ids(deps: ReconcileDeps, code_files: readonly stri
   if (delta.modified.length === 0) return new Set();
   const path_to_id = new Map(deps.adapter.anchored_symbols([...code_files]).map((a) => [a.symbol_path, a.symbol_id]));
   const ids = new Set<SymbolId>();
+  const unjoined: string[] = [];
   for (const symbol_path of delta.modified) {
     const id = path_to_id.get(symbol_path);
     if (id !== undefined) ids.add(id);
+    else unjoined.push(symbol_path);
+  }
+  // A modified body whose symbol_path finds no call-graph id cannot drive its flow's body-drift
+  // re-sync — the flow silently stays stale. Made loud so the two-id-space seam is observable.
+  if (unjoined.length > 0) {
+    deps.log(
+      `body-drift: ${unjoined.length} modified symbol(s) missed the anchored_symbols join ` +
+        `(flows containing them stay stale): ${unjoined.sort().join(", ")}`,
+    );
   }
   return ids;
 }

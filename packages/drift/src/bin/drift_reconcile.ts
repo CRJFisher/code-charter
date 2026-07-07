@@ -26,6 +26,11 @@
  * bounded wait exits 1 — nonzero, so drift_sync.js leaves the pending handoff file for the next
  * launch instead of consuming it over work that never ran. `--dry-run` never mutates and takes no
  * lock.
+ *
+ * Every mutating run also leaves a durable record beside the store (reconcile_log.ts): a per-turn
+ * JSONL line in `drift_reconcile_log.jsonl` and a last-attempt/last-success/last-error rollup in
+ * `drift_reconcile_status.json` — so a failed or dropped reconcile is distinguishable from a
+ * healthy no-op after the session transcript is gone. `--dry-run` writes neither.
  */
 
 import * as fs from "node:fs";
@@ -43,9 +48,10 @@ import { make_ariadne_adapter } from "../reconcile/ariadne_adapter";
 import { HeadlessProject } from "../reconcile/headless_project";
 import { dry_run_store } from "../reconcile/dry_run_store";
 import { acquire_reconcile_lock, type ReconcileLock } from "../reconcile/reconcile_lock";
+import { append_reconcile_log, update_sync_status, type ReconcileLogRecord } from "../reconcile/reconcile_log";
 import { reconcile } from "../reconcile/reconcile";
 import { to_repo_relative } from "../reconcile/paths";
-import type { ReconcileDeps, ReconcileResult } from "../reconcile/types";
+import type { DescriptionCounts, ReconcileDeps, ReconcileResult } from "../reconcile/types";
 
 const USAGE = [
   "usage: drift-reconcile --files <a,b,...> --store <db_path> --repo-root <abs> [--goal <name>] [--json] [--dry-run]",
@@ -188,6 +194,15 @@ function report_outcomes(result: ReconcileResult, file_count: number): void {
   );
 }
 
+/**
+ * Sync-status target for the fatal catch, which fires outside `main`'s scope after the store is
+ * closed and the lock released. Unset until args parse; never set for --dry-run (which must leave
+ * no trace on disk).
+ */
+let status_target: { store: string } | undefined;
+
+const now = (): string => new Date().toISOString();
+
 async function main(): Promise<void> {
   const parsed = parse_args(process.argv.slice(2));
   if ("error" in parsed) {
@@ -195,11 +210,27 @@ async function main(): Promise<void> {
     process.exit(2);
   }
   const { args } = parsed;
+  if (!args.dry_run) status_target = { store: args.store };
+
+  // Every stderr diagnostic is also collected into the turn's durable record — the run log exists
+  // because these lines used to die with the session transcript.
+  const diagnostics: string[] = [];
+  const log = (message: string): void => {
+    process.stderr.write(`drift-reconcile: ${message}\n`);
+    diagnostics.push(message);
+  };
+  const finish_run = (record: Omit<ReconcileLogRecord, "timestamp" | "mode" | "diagnostics">): void => {
+    if (args.dry_run) return;
+    append_reconcile_log(args.store, { timestamp: now(), mode: args.mode, diagnostics, ...record }, log);
+    update_sync_status(args.store, { last_success_at: now() }, log);
+  };
 
   if ((args.mode === "default" || args.mode === "list_entrypoints") && args.files.length === 0) {
     if (args.mode === "list_entrypoints") process.stdout.write(JSON.stringify({ entrypoints: [] }) + "\n");
     else if (args.json) process.stdout.write("[]\n");
-    process.stderr.write("drift-reconcile: empty file set, no-op\n");
+    log("empty file set, no-op");
+    if (!args.dry_run) update_sync_status(args.store, { last_attempt_at: now() }, log);
+    finish_run({ file_set: [], outcomes: [], deferred_retirements: [], description_counts: zero_counts() });
     return;
   }
 
@@ -214,10 +245,18 @@ async function main(): Promise<void> {
   // connection itself read-only below, so it neither needs the mutex nor should be blocked by one.
   let lock: ReconcileLock | undefined;
   if (!args.dry_run) {
+    // Stamped before any work: a run killed mid-flight leaves attempt > success with no error,
+    // which is what makes a dropped reconcile distinguishable from nothing-changed.
+    update_sync_status(args.store, { last_attempt_at: now() }, log);
     const acquired = await acquire_reconcile_lock(args.store, { wait_ms: lock_wait_ms() });
     if (acquired === null) {
       process.stderr.write(
         "drift-reconcile: another reconcile is running (drift_reconcile.lock held); exiting without touching the store\n",
+      );
+      update_sync_status(
+        args.store,
+        { last_error: { at: now(), message: "reconcile contention: another reconcile holds the lock" } },
+        log,
       );
       process.exit(1);
     }
@@ -228,7 +267,6 @@ async function main(): Promise<void> {
   try {
     const project = new HeadlessProject(args.repo_root);
     await project.initialize();
-    const log = (message: string) => process.stderr.write(`drift-reconcile: ${message}\n`);
     const adapter = make_ariadne_adapter(project, log);
 
     const deps: ReconcileDeps = {
@@ -246,6 +284,7 @@ async function main(): Promise<void> {
         const result = await reconcile(args.files, deps);
         if (args.json) process.stdout.write(JSON.stringify(result.outcomes) + "\n");
         report_outcomes(result, args.files.length);
+        finish_run(turn_record(result));
         return;
       }
       case "list_entrypoints": {
@@ -256,22 +295,27 @@ async function main(): Promise<void> {
         const changed = args.files.map((f) => to_repo_relative(f, args.repo_root));
         const inventory = build_entrypoint_inventory(deps, changed, adapter.call_graph());
         process.stdout.write(JSON.stringify(inventory) + "\n");
+        finish_run(turn_record(result));
         return;
       }
       case "apply_stitch": {
         const result = await apply_stitch(deps, stitch_input!, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
-        process.stderr.write(
-          `drift-reconcile: applied ${result.flows.length} umbrella(s) from ${stitch_input!.umbrellas.length} proposed\n`,
-        );
+        log(`applied ${result.flows.length} umbrella(s) from ${stitch_input!.umbrellas.length} proposed`);
+        finish_run({ file_set: [], outcomes: [], deferred_retirements: [], description_counts: zero_counts() });
         return;
       }
       case "apply_descriptions": {
         const result = apply_descriptions(deps, descriptions_input!, adapter.call_graph());
         process.stdout.write(JSON.stringify(result) + "\n");
-        process.stderr.write(
-          `drift-reconcile: wrote ${result.written.length} description(s), skipped ${result.skipped.length}\n`,
-        );
+        log(`wrote ${result.written.length} description(s), skipped ${result.skipped.length}`);
+        finish_run({
+          file_set: [],
+          outcomes: [],
+          deferred_retirements: [],
+          // Agent-authored text is the one source of llm-bucket descriptions.
+          description_counts: { docstring: 0, placeholder: 0, llm: result.written.length },
+        });
         return;
       }
     }
@@ -282,6 +326,20 @@ async function main(): Promise<void> {
       lock?.release();
     }
   }
+}
+
+function zero_counts(): DescriptionCounts {
+  return { docstring: 0, placeholder: 0, llm: 0 };
+}
+
+/** The reconcile-bearing modes' run-record fields, straight off the engine result. */
+function turn_record(result: ReconcileResult): Omit<ReconcileLogRecord, "timestamp" | "mode" | "diagnostics"> {
+  return {
+    file_set: result.file_set,
+    outcomes: result.outcomes,
+    deferred_retirements: result.deferred_retirements,
+    description_counts: result.description_counts,
+  };
 }
 
 /**
@@ -313,5 +371,15 @@ function lock_wait_ms(): number | undefined {
 
 main().catch((error: unknown) => {
   process.stderr.write(`drift-reconcile: fatal: ${String(error)}\n`);
+  // The durable last-error record (the store is closed and the lock released by now, which is why
+  // the status lives in a sidecar). Best-effort inside update_sync_status — it can never mask the
+  // fatal exit code.
+  if (status_target !== undefined) {
+    update_sync_status(
+      status_target.store,
+      { last_error: { at: now(), message: String(error) } },
+      (message) => process.stderr.write(`drift-reconcile: ${message}\n`),
+    );
+  }
   process.exit(1);
 });
