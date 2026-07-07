@@ -746,12 +746,20 @@ describe("on-disk schema + rebuild (file-backed)", () => {
       const path = temp_db_path();
       new SqliteGraphStore(path).close();
 
-      // WAL is persisted in the file header, so a fresh raw connection observes it. busy_timeout
-      // is per-connection and has no read seam from a second connection; it is covered by the
-      // constructor setting it unconditionally before any statement runs.
+      // WAL is persisted in the file header, so a fresh raw connection observes it.
       const raw = new DatabaseSync(path);
       expect(raw.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
       raw.close();
+    });
+
+    it("sets busy_timeout=5000 on its own connection", () => {
+      // busy_timeout is per-connection state with no seam from a second connection, so this reads
+      // the pragma back through the store's private handle (bracket access is the deliberate
+      // test-only escape hatch) rather than adding a production accessor for one assertion.
+      const store = new SqliteGraphStore(temp_db_path());
+      const db = store["db"];
+      expect(db.prepare("PRAGMA busy_timeout").get()).toEqual({ timeout: 5000 });
+      store.close();
     });
 
     it("upgrades an existing rollback-journal db to WAL on open", () => {
@@ -820,25 +828,28 @@ describe("on-disk schema + rebuild (file-backed)", () => {
       reader.close();
     });
 
-    it("a deferred read transaction pins one snapshot while a writer commits", () => {
-      // The WAL property snapshot() relies on: both reads inside one read transaction see the
-      // same committed state even when a writer commits between them — never a torn pair.
+    it("snapshot pins one read transaction across both reads while a writer commits", () => {
       const path = temp_db_path();
       const writer = new SqliteGraphStore(path);
       writer.upsert_node(make_node({ id: "before", anchor: null }));
 
-      const reader = new DatabaseSync(path, { readOnly: true });
-      reader.exec("BEGIN DEFERRED");
-      expect(reader.prepare("SELECT COUNT(*) AS n FROM nodes").get()).toEqual({ n: 1 });
-
-      writer.upsert_node(make_node({ id: "mid_read", anchor: null }));
-      writer.upsert_edge(make_edge({ key: "mid_e" }), [make_prov({ edge_key: "mid_e" })]);
-
-      expect(reader.prepare("SELECT COUNT(*) AS n FROM nodes").get()).toEqual({ n: 1 });
-      expect(reader.prepare("SELECT COUNT(*) AS n FROM edges").get()).toEqual({ n: 0 });
-      reader.exec("COMMIT");
-
-      expect(reader.prepare("SELECT COUNT(*) AS n FROM nodes").get()).toEqual({ n: 2 });
+      // A reader whose all_nodes() triggers a concurrent commit mid-snapshot: if snapshot() ran
+      // its two reads as separate autocommit statements, the edge committed between them would
+      // surface — the torn pair AC#2 forbids.
+      class MidSnapshotCommit extends SqliteGraphStore {
+        all_nodes(opts?: { include_deleted?: boolean }): NodeRow[] {
+          const rows = super.all_nodes(opts);
+          writer.upsert_node(make_node({ id: "mid_read", anchor: null }));
+          writer.upsert_edge(make_edge({ key: "torn" }), [make_prov({ edge_key: "torn" })]);
+          return rows;
+        }
+      }
+      const reader = new MidSnapshotCommit(path, { read_only: true });
+      const snap = reader.snapshot();
+      expect(snap.nodes.map((n) => n.id)).toEqual(["before"]);
+      expect(snap.edges).toEqual([]);
+      // A fresh read after the snapshot's transaction closed sees the mid-snapshot commit.
+      expect(reader.all_edges().map((e) => e.key)).toEqual(["torn"]);
       reader.close();
       writer.close();
     });

@@ -17,7 +17,8 @@
  *
  * It opens the graph store (degrading to a no-op `NullGraphStore` on a host without the SQLite engine)
  * and builds the headless Ariadne call graph over the repo. Exit 0 = success or no-op, 2 = usage or
- * wire-contract error, 1 = fatal. Mode JSON goes to stdout; diagnostics go to stderr with the
+ * wire-contract error, 1 = fatal or reconcile contention (another reconcile holds the mutex; staged
+ * work is preserved and retried). Mode JSON goes to stdout; diagnostics go to stderr with the
  * `drift-reconcile:` prefix.
  *
  * Every store-mutating run holds the process-level reconcile mutex (a lockfile beside the store),
@@ -29,7 +30,7 @@
 
 import * as fs from "node:fs";
 
-import { open_graph_store } from "@code-charter/core";
+import { NullGraphStore, open_graph_store, type GraphStore } from "@code-charter/core";
 
 import {
   apply_descriptions,
@@ -40,7 +41,7 @@ import {
 } from "../reconcile/agentic_modes";
 import { make_ariadne_adapter } from "../reconcile/ariadne_adapter";
 import { HeadlessProject } from "../reconcile/headless_project";
-import { read_only_store } from "../reconcile/dry_run_store";
+import { dry_run_store } from "../reconcile/dry_run_store";
 import { acquire_reconcile_lock, type ReconcileLock } from "../reconcile/reconcile_lock";
 import { reconcile } from "../reconcile/reconcile";
 import { to_repo_relative } from "../reconcile/paths";
@@ -208,8 +209,9 @@ async function main(): Promise<void> {
   const descriptions_input =
     args.mode === "apply_descriptions" ? parse_descriptions_payload(args.payload_path!) : undefined;
 
-  // --dry-run never mutates the store (writes go through the read-only wrapper), so it neither
-  // needs the mutex nor should be blocked by one.
+  // Every non-dry-run mode mutates the store (list_entrypoints runs the full deterministic
+  // reconcile before its inventory read), so every one holds the mutex. --dry-run opens the
+  // connection itself read-only below, so it neither needs the mutex nor should be blocked by one.
   let lock: ReconcileLock | undefined;
   if (!args.dry_run) {
     const acquired = await acquire_reconcile_lock(args.store, { wait_ms: lock_wait_ms() });
@@ -222,7 +224,7 @@ async function main(): Promise<void> {
     lock = acquired;
   }
 
-  const store = open_graph_store(args.store);
+  const store = open_reconcile_store(args, lock);
   try {
     const project = new HeadlessProject(args.repo_root);
     await project.initialize();
@@ -230,7 +232,7 @@ async function main(): Promise<void> {
     const adapter = make_ariadne_adapter(project, log);
 
     const deps: ReconcileDeps = {
-      store: args.dry_run ? read_only_store(store) : store,
+      store: args.dry_run ? dry_run_store(store) : store,
       adapter,
       repo_root_abs: args.repo_root,
       analyzed_root: "",
@@ -282,12 +284,31 @@ async function main(): Promise<void> {
   }
 }
 
-/** The bounded lock wait. The env override is a test seam — bin tests hold the lock and need a sub-second wait. */
-function lock_wait_ms(): number {
+/**
+ * Open the store for the run. Dry-run must be dry at the CONNECTION level, not just via the
+ * write-swallowing wrapper: a read-write open would run schema init (a write), flip the journal
+ * mode, and create the db file on a cold repo — a cold repo gets the empty degraded store instead.
+ * An open failure releases the mutex before propagating, so a throwing constructor cannot leak it.
+ */
+function open_reconcile_store(args: Args, lock: ReconcileLock | undefined): GraphStore {
+  try {
+    if (!args.dry_run) return open_graph_store(args.store);
+    return fs.existsSync(args.store) ? open_graph_store(args.store, { read_only: true }) : new NullGraphStore();
+  } catch (err) {
+    lock?.release();
+    throw err;
+  }
+}
+
+/**
+ * The bounded lock wait — undefined defers to acquire_reconcile_lock's default, keeping one source
+ * of truth. The env override is a test seam: bin tests hold the lock and need a sub-second wait.
+ */
+function lock_wait_ms(): number | undefined {
   const raw = process.env.DRIFT_RECONCILE_LOCK_WAIT_MS;
-  if (raw === undefined || raw === "") return 10_000;
+  if (raw === undefined || raw === "") return undefined;
   const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 10_000;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 main().catch((error: unknown) => {

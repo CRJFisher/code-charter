@@ -137,6 +137,38 @@ describe("drift-reconcile bin — reconcile mutex (task-27.1.20.1)", () => {
     }
   });
 
+  it("a run that fails after acquiring the lock still releases it", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-fatal-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      // a garbage db file makes open_graph_store throw after the lock is acquired
+      fs.writeFileSync(path.join(repo, "graph.db"), "not a sqlite database");
+
+      const result = run_reconcile(repo, ["main.ts"]);
+
+      expect(result.status).toBe(1);
+      expect(fs.existsSync(path.join(repo, "drift_reconcile.lock"))).toBe(false);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("--dry-run takes no lock of its own", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-dry-free-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+
+      const result = run_reconcile(repo, ["main.ts"], { extra_args: ["--dry-run"] });
+
+      expect(result.status).toBe(0);
+      expect(fs.existsSync(path.join(repo, "drift_reconcile.lock"))).toBe(false);
+      // dry at the connection level: a cold repo's db is never created by a dry run
+      expect(fs.existsSync(path.join(repo, "graph.db"))).toBe(false);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it("--dry-run ignores a held lock", () => {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-dry-"));
     try {

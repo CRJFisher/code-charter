@@ -36,7 +36,10 @@ node <path-to>/packages/drift/dist/bin/drift_install.js   # the `drift-install` 
 ```
 
 The installer writes runtime artifacts under `.code-charter/` (the graph store); add that
-directory to the repo's `.gitignore` if it is not already ignored.
+directory to the repo's `.gitignore` if it is not already ignored. Beside the store you may also
+see `drift_pending_reconcile.json` (the staged changed-file handoff) and `drift_reconcile.lock` —
+the single-reconcile mutex, held only while a reconcile runs. A lock whose recorded pid is dead
+is reclaimed automatically; deleting it manually is safe when no reconcile is running.
 
 ## What it provides
 

@@ -30,6 +30,9 @@ not flood the main session. Your entire job is bounded:
 4. Return essentially nothing to the main session: a single acknowledgement line naming how many
    files were reconciled and how many flows were stitched/described, for example
    `drift-reconciler: reconciled N file(s), stitched M flow(s) via drift-sync.`
+5. If the skill reports another reconcile is already running (a nonzero exit whose stderr says
+   so), the run was deferred, not failed: the staged set is preserved and retried next launch.
+   Acknowledge the deferral in one line and stop — do not retry and do not report an error.
 
 Hard constraints:
 

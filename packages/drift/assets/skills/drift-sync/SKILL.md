@@ -206,8 +206,11 @@ rationale }] }` and returns the flow shape; `--apply-descriptions <json_path>` c
   with a stderr diagnostic; a malformed payload is a contract error.
 - `--dry-run` runs any mode against a read-only store and never consumes the staged set.
 - Exit 0 = success or no-op. Exit 2 = usage/contract error. Exit 1 = fatal (reconcile bin not
-  located, spawn failure, or an uncaught engine error). Mode JSON goes to stdout; diagnostics go
-  to stderr.
+  located, spawn failure, or an uncaught engine error) — or reconcile contention: another
+  reconcile already holds the per-repo mutex, this run touched nothing, and the staged set is
+  preserved for the next launch. Contention is a defer, not an error to escalate; the bin's
+  stderr says "another reconcile is running" when this is the cause. Mode JSON goes to stdout;
+  diagnostics go to stderr.
 - Hosts without the Skill tool run `scripts/drift_sync.js` directly with the same arguments — the
   deterministic list pass is complete on its own (singleton flows, docstring/placeholder
   descriptions); the judgement phases are the agent's refinement on top.

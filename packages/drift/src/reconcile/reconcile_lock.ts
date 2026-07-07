@@ -3,8 +3,9 @@
  *
  * A lockfile beside the store, not a db-level lock, because a reconcile spans a whole bin
  * invocation — Ariadne indexing plus many store transactions. Connection-level discipline
- * (busy_timeout, BEGIN IMMEDIATE) serializes individual transactions but cannot stop two
- * interleaved reconciles from clobbering each other's read-compute-write cycles.
+ * (busy_timeout, BEGIN IMMEDIATE — set in @code-charter/core's SqliteGraphStore constructor)
+ * serializes individual transactions but cannot stop two interleaved reconciles from clobbering
+ * each other's read-compute-write cycles.
  */
 
 import * as fs from "node:fs";
@@ -54,21 +55,24 @@ function make_lock(lock_path: string): ReconcileLock {
   };
 }
 
-/** O_CREAT|O_EXCL ("wx") — atomically create-or-fail, the actual mutual exclusion. */
+/**
+ * Atomically create-or-fail — the actual mutual exclusion. The owner record is written to a temp
+ * file and hard-linked into place: link(2) is atomic AND exclusive, so the lockfile can never be
+ * observed half-written — a crash mid-acquire can never leave an empty lock that no reclaim could
+ * ever parse.
+ */
 function try_create(lock_path: string): boolean {
-  let fd: number;
+  const tmp_path = `${lock_path}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp_path, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }));
   try {
-    fd = fs.openSync(lock_path, "wx");
+    fs.linkSync(tmp_path, lock_path);
+    return true;
   } catch (err) {
     if (is_errno(err, "EEXIST")) return false;
     throw err;
-  }
-  try {
-    fs.writeSync(fd, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }));
   } finally {
-    fs.closeSync(fd);
+    fs.rmSync(tmp_path, { force: true });
   }
-  return true;
 }
 
 /**
@@ -76,24 +80,45 @@ function try_create(lock_path: string): boolean {
  * that cannot be read or parsed is treated as held — never steal a lock whose owner is unknown.
  */
 function reclaim_if_stale(lock_path: string): boolean {
-  let pid: unknown;
+  let raw: string;
   try {
-    pid = (JSON.parse(fs.readFileSync(lock_path, "utf8")) as { pid?: unknown }).pid;
+    raw = fs.readFileSync(lock_path, "utf8");
   } catch {
-    return false;
+    return false; // vanished — the next try_create decides ownership
   }
-  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return false;
+  const pid = parse_pid(raw);
+  if (pid === undefined) return false;
   try {
     process.kill(pid, 0);
     return false;
   } catch (err) {
-    if (is_errno(err, "ESRCH")) {
-      fs.rmSync(lock_path, { force: true });
-      return true;
+    if (!is_errno(err, "ESRCH")) {
+      // EPERM: the holder is alive under another user — held.
+      return false;
     }
-    // EPERM: the holder is alive under another user — held.
+  }
+  // Re-read immediately before removing: another contender may have already reclaimed this stale
+  // lock and created its own live one, and removing THAT would let two reconciles run at once.
+  // Byte-equality shrinks the race to the instants between this read and the rm; the residual
+  // overlap degrades to transaction-level serialization (busy_timeout + BEGIN IMMEDIATE), never
+  // corruption.
+  try {
+    if (fs.readFileSync(lock_path, "utf8") !== raw) return false;
+  } catch {
     return false;
   }
+  fs.rmSync(lock_path, { force: true });
+  return true;
+}
+
+function parse_pid(raw: string): number | undefined {
+  let pid: unknown;
+  try {
+    pid = (JSON.parse(raw) as { pid?: unknown }).pid;
+  } catch {
+    return undefined;
+  }
+  return typeof pid === "number" && Number.isInteger(pid) && pid > 0 ? pid : undefined;
 }
 
 function is_errno(err: unknown, code: string): boolean {

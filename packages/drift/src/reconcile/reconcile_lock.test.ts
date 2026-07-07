@@ -59,6 +59,9 @@ describe("reconcile_lock", () => {
 
     const lock = await acquire_reconcile_lock(store, { wait_ms: 0 });
     expect(lock).not.toBeNull();
+    // the reclaimed lock records the new holder, not the dead pid it replaced
+    const record = JSON.parse(fs.readFileSync(reconcile_lock_path(store), "utf8")) as { pid: number };
+    expect(record.pid).toBe(process.pid);
     lock!.release();
   });
 
