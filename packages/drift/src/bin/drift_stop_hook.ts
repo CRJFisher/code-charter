@@ -8,9 +8,11 @@
  * four ways: the loop guard, no edits this turn, every edited file is non-flow (docs/config the
  * reconcile engine would drop anyway — filtering them here avoids launching a full-repo reconcile that
  * does nothing), or the pending set cannot be staged (blocking with nothing staged would dispatch an
- * empty reconcile). The watermark is advanced and persisted each fire (over the full set, including
- * dropped files) so a turn is reconciled once and idle turns no-op. Any failure degrades to a silent
- * no-op (exit 0); a hook must never break the session.
+ * empty reconcile). The watermark advances (over the full set, including dropped files) only once the
+ * turn is durably accounted for — the set staged atomically, or legitimately nothing to stage — so a
+ * turn is reconciled once, idle turns no-op, and a failed stage re-fires the same edits next turn
+ * instead of skipping them forever. Any failure degrades to a silent no-op (exit 0); a hook must
+ * never break the session.
  */
 
 import * as fs from "node:fs";
@@ -21,7 +23,7 @@ import {
   merge_pending_reconcile,
   parse_pending_reconcile,
   pending_reconcile_path,
-  serialize_pending_reconcile,
+  write_pending_reconcile_atomic,
 } from "../hooks/pending_reconcile";
 import { decide_stop_action } from "../hooks/stop_decision";
 import { parse_watermark, serialize_watermark, worked_on_since } from "../hooks/stop_watermark";
@@ -72,15 +74,17 @@ async function main(): Promise<void> {
 
   const { worked_on, next } = worked_on_since(transcript_text, payload.transcript_path, prev);
 
-  // Advance the cursor every fire so the next turn starts fresh — even on a no-op or a loop-guard skip.
-  // The cursor covers the FULL worked-on set (including dropped non-flow files), so a doc/config edit is
-  // never re-considered next turn.
-  try {
-    fs.mkdirSync(path.dirname(state_path), { recursive: true });
-    fs.writeFileSync(state_path, serialize_watermark(next));
-  } catch {
-    /* if the cursor cannot be persisted, the hook still works — it just may re-fire next turn */
-  }
+  // The cursor covers the FULL worked-on set (including dropped non-flow files), so a doc/config edit
+  // is never re-considered next turn. It is persisted on every path EXCEPT a failed stage: advancing
+  // past edits that never landed in the pending file would skip them forever.
+  const persist_watermark = (): void => {
+    try {
+      fs.mkdirSync(path.dirname(state_path), { recursive: true });
+      fs.writeFileSync(state_path, serialize_watermark(next));
+    } catch {
+      /* if the cursor cannot be persisted, the hook still works — it just may re-fire next turn */
+    }
+  };
 
   // Only files that can form a flow are worth reconciling; an all-docs/config turn drops to empty and the
   // no-new-drift guard no-ops it instead of launching a reconcile that would find nothing.
@@ -91,32 +95,38 @@ async function main(): Promise<void> {
   }
 
   const decision = decide_stop_action(payload, relevant);
-  if (decision.block) {
-    // Stage the changed-file set for the sub-agent's script to fetch — the instruction carries no
-    // file list. Union with any unconsumed prior set (the script deletes the file only after a
-    // successful reconcile), so a declined or failed handoff is retried, not overwritten. Staged
-    // paths are repo-relative forward-slash, the reconcile bin's `--files` contract.
-    const pending_path = pending_reconcile_path(resolve_db_path(process.env, payload.cwd));
-    const staged = relevant.map((file_path) => to_repo_relative(file_path, payload.cwd));
-    try {
-      let prior: string[] = [];
-      try {
-        prior = parse_pending_reconcile(fs.readFileSync(pending_path, "utf8")) ?? [];
-      } catch {
-        /* nothing pending */
-      }
-      fs.mkdirSync(path.dirname(pending_path), { recursive: true });
-      fs.writeFileSync(pending_path, serialize_pending_reconcile(merge_pending_reconcile(prior, staged)));
-    } catch {
-      return; // nothing staged → blocking would dispatch an empty reconcile; no-op instead
-    }
-    const output: StopHookOutput = {
-      decision: "block",
-      reason: decision.instruction,
-      systemMessage: decision.system_message,
-    };
-    process.stdout.write(JSON.stringify(output));
+  if (!decision.block) {
+    // Idle, all-dropped, or loop-guard turn: nothing to stage, so nothing the cursor could lose.
+    persist_watermark();
+    return;
   }
+
+  // Stage the changed-file set for the sub-agent's script to fetch — the instruction carries no
+  // file list. Union with any unconsumed prior set (the script claims and settles it per
+  // reconcile outcome), so a declined or failed handoff is retried, not overwritten. Staged
+  // paths are repo-relative forward-slash, the reconcile bin's `--files` contract.
+  const pending_path = pending_reconcile_path(resolve_db_path(process.env, payload.cwd));
+  const staged = relevant.map((file_path) => to_repo_relative(file_path, payload.cwd));
+  try {
+    let prior: string[] = [];
+    try {
+      prior = parse_pending_reconcile(fs.readFileSync(pending_path, "utf8")) ?? [];
+    } catch {
+      /* nothing pending */
+    }
+    write_pending_reconcile_atomic(pending_path, merge_pending_reconcile(prior, staged));
+  } catch {
+    // Nothing staged → blocking would dispatch an empty reconcile; no-op instead. The cursor is
+    // deliberately NOT advanced, so the same edits re-fire next turn instead of being lost.
+    return;
+  }
+  persist_watermark();
+  const output: StopHookOutput = {
+    decision: "block",
+    reason: decision.instruction,
+    systemMessage: decision.system_message,
+  };
+  process.stdout.write(JSON.stringify(output));
 }
 
 main()
