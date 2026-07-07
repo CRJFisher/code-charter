@@ -260,6 +260,92 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
     }
   });
 
+  it("a deferred retirement lands in the record with its reason, and the diagnostics carry the deferral line", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-defer-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      // A healthy sibling keeps the graph non-empty, so the deferral takes the zero-symbols path.
+      fs.writeFileSync(path.join(repo, "other.ts"), "export function other_entry() { return 3; }\n");
+      expect(run_reconcile(repo, ["main.ts", "other.ts"]).status).toBe(0);
+
+      // Broken source parses to zero symbols: the seed stops resolving on untrustworthy evidence.
+      fs.writeFileSync(path.join(repo, "main.ts"), "export funct entry( {{{\n  retur helper(1\n");
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const record = read_log(repo)[1];
+      expect(record.deferred_retirements).toContainEqual({
+        flow_id: "main.ts#entry:function",
+        reason: "seed file present but yields no indexed symbols: main.ts",
+      });
+      expect(record.diagnostics).toContainEqual(expect.stringMatching(/deferred retirement of main\.ts#entry:function/));
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("an apply-descriptions run records the written count as the llm bucket and stamps success", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-desc-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const payload = path.join(repo, "descriptions.json");
+      fs.writeFileSync(
+        payload,
+        JSON.stringify({ descriptions: [{ symbol_path: "main.ts#entry:function", text: "sums the helpers" }] }),
+      );
+      const result = run_bin([
+        "--apply-descriptions",
+        payload,
+        "--store",
+        path.join(repo, "graph.db"),
+        "--repo-root",
+        repo,
+      ]);
+
+      expect(result.status).toBe(0);
+      const record = read_log(repo)[1];
+      expect(record.mode).toBe("apply_descriptions");
+      expect(record.file_set).toEqual([]);
+      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 0, llm: 1 });
+      const status = read_sync_status(path.join(repo, "graph.db"));
+      expect(status.last_success_at).not.toBeNull();
+      expect(status.last_error).toBeNull();
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("an apply-stitch run records its hydration describe counts and the skip reasons for bogus seeds", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-stitch-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      const payload = path.join(repo, "stitch.json");
+      fs.writeFileSync(
+        payload,
+        JSON.stringify({
+          umbrellas: [
+            { label: "entry umbrella", seeds: ["main.ts#entry:function"], rationale: "groups the entry tree" },
+            { label: "ghost", seeds: ["main.ts#ghost:function"], rationale: "unresolvable" },
+          ],
+        }),
+      );
+
+      const result = run_bin(["--apply-stitch", payload, "--store", path.join(repo, "graph.db"), "--repo-root", repo]);
+
+      expect(result.status).toBe(0);
+      const record = read_log(repo)[0];
+      expect(record.mode).toBe("apply_stitch");
+      // The umbrella hydration ran the deterministic describe pass on a cold store: both members
+      // land in the placeholder bucket — not the zeros a dropped tally would show.
+      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
+      expect(record.diagnostics).toContainEqual(expect.stringContaining("seed not in the live graph"));
+      expect(record.diagnostics).toContainEqual(expect.stringContaining("no resolvable seeds, skipped"));
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it("a successful run stamps last_attempt_at and last_success_at with no error", () => {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-status-"));
     try {
@@ -315,6 +401,26 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       expect(status.last_attempt_at).not.toBeNull();
       expect(status.last_success_at).toBeNull();
       expect(status.last_error!.message).toMatch(/contention/);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("a later success clears last_error so a healed repo stops reading as failed", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-status-heal-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      fs.writeFileSync(
+        path.join(repo, "drift_reconcile.lock"),
+        JSON.stringify({ pid: process.pid, started_at: "t" }),
+      );
+      expect(run_reconcile(repo, ["main.ts"], { env: { DRIFT_RECONCILE_LOCK_WAIT_MS: "200" } }).status).toBe(1);
+      expect(read_sync_status(path.join(repo, "graph.db")).last_error).not.toBeNull();
+
+      fs.rmSync(path.join(repo, "drift_reconcile.lock"));
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      expect(read_sync_status(path.join(repo, "graph.db")).last_error).toBeNull();
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }

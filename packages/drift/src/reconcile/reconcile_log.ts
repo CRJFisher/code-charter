@@ -4,18 +4,21 @@
  * writable when the store itself cannot be — the fatal path fires after `store.close()`, and the
  * garbage-db path fires before the store ever opened.
  *
- *  - `drift_reconcile_log.jsonl` — append-only, one {@link ReconcileLogRecord} line per turn: which
- *    file set drove the sync, what happened to each flow and why, what was deferred and why, and the
- *    turn's describe-source split. Appends happen under the reconcile mutex (mutating runs hold it),
- *    one line per `appendFileSync`, so lines are never torn.
- *  - `drift_reconcile_status.json` — a single {@link SyncStatus} object, overwritten atomically
- *    (temp + rename) with a read-merge-write so `last_success_at`/`last_error` survive runs that do
- *    not set them. `last_attempt_at` is stamped BEFORE the work starts: a run killed mid-flight
- *    leaves attempt > success with no error — distinguishable from both "nothing changed" (attempt
- *    == success) and a recorded failure (last_error set).
+ *  - `drift_reconcile_log.jsonl` — append-only, one {@link ReconcileLogRecord} line per COMPLETED
+ *    turn (a failed or contended run leaves no line here; the status file is the record of those).
+ *    Store-mutating turns append while holding the reconcile mutex; the empty-file-set no-op
+ *    appends without it and relies on single-`appendFileSync` O_APPEND atomicity for its small line.
+ *  - `drift_reconcile_status.json` — a single {@link SyncStatus} object, rewritten via temp + rename
+ *    (a reader never sees a torn file) with a read-merge-write so the fields a run does not set
+ *    survive. The merge is NOT lost-update-safe across two racing processes (the attempt stamp and
+ *    the contention/fatal error stamps fire outside the mutex); the status is a best-effort,
+ *    last-writer-wins health snapshot, not a ledger. `last_attempt_at` is stamped BEFORE the work
+ *    starts: a run killed mid-flight leaves attempt > success with no error — distinguishable from
+ *    both "nothing changed" (attempt <= success) and a recorded failure (last_error set).
  *
  * Every write is best-effort: the record must never turn a healthy reconcile into a failure, so IO
- * errors degrade to a `log` diagnostic and are swallowed.
+ * errors degrade to a `log` diagnostic and are swallowed. The log grows without bound — accepted:
+ * one line per turn, disposable beside the store (delete it with the db).
  */
 
 import * as fs from "node:fs";
@@ -26,19 +29,35 @@ import type { DeferredRetirement, DescriptionCounts, FlowOutcome } from "./types
 const LOG_FILE = "drift_reconcile_log.jsonl";
 const STATUS_FILE = "drift_reconcile_status.json";
 
+/** The bin's dispatch mode a record was written under. */
+export type ReconcileMode = "default" | "list_entrypoints" | "apply_stitch" | "apply_descriptions";
+
 /** One turn's durable record — a single JSONL line. */
 export interface ReconcileLogRecord {
   timestamp: string;
-  mode: string;
+  mode: ReconcileMode;
+  /**
+   * The normalized (repo-relative, deduped, sorted) changed set for the reconcile-bearing modes;
+   * always empty for the apply modes. "Which file set drove the last sync?" = the file_set of the
+   * newest record whose mode is default | list_entrypoints.
+   */
   file_set: readonly string[];
   outcomes: readonly FlowOutcome[];
+  /**
+   * Retirements the graph-health guard skipped this turn. Whether one ever completed is answered
+   * across turns: a later record carrying a retire (or re-hydrate) outcome for the same flow_id.
+   */
   deferred_retirements: readonly DeferredRetirement[];
   description_counts: DescriptionCounts;
   /** Every diagnostic the run emitted to stderr — hydration-cap notices, stitch skips, join misses. */
   diagnostics: readonly string[];
 }
 
-/** The rolling health record: is the newest reconcile attempt accounted for? */
+/**
+ * The rolling health record: is the newest reconcile attempt accounted for? `last_error` describes
+ * the newest FAILED attempt and is cleared by the next success, so `last_error !== null` always
+ * means the repo's most recent outcome was a failure.
+ */
 export interface SyncStatus {
   last_attempt_at: string | null;
   last_success_at: string | null;
@@ -91,14 +110,20 @@ export function update_sync_status(
   log: (message: string) => void,
 ): void {
   const status_path = sync_status_path(store_path);
+  const tmp_path = `${status_path}.${process.pid}.tmp`;
   try {
     fs.mkdirSync(path.dirname(status_path), { recursive: true });
     const merged: SyncStatus = { ...read_sync_status(store_path), ...patch };
-    const tmp_path = `${status_path}.${process.pid}.tmp`;
     fs.writeFileSync(tmp_path, JSON.stringify(merged) + "\n");
     fs.renameSync(tmp_path, status_path);
   } catch (error) {
     log(`could not update ${STATUS_FILE}: ${String(error)}`);
+  } finally {
+    try {
+      fs.rmSync(tmp_path, { force: true });
+    } catch {
+      // force only covers ENOENT; an unreachable tmp path (ENOTDIR, EROFS) is equally fine to leave
+    }
   }
 }
 

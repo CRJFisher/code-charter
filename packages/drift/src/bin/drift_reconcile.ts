@@ -48,7 +48,12 @@ import { make_ariadne_adapter } from "../reconcile/ariadne_adapter";
 import { HeadlessProject } from "../reconcile/headless_project";
 import { dry_run_store } from "../reconcile/dry_run_store";
 import { acquire_reconcile_lock, type ReconcileLock } from "../reconcile/reconcile_lock";
-import { append_reconcile_log, update_sync_status, type ReconcileLogRecord } from "../reconcile/reconcile_log";
+import {
+  append_reconcile_log,
+  update_sync_status,
+  type ReconcileLogRecord,
+  type ReconcileMode,
+} from "../reconcile/reconcile_log";
 import { reconcile } from "../reconcile/reconcile";
 import { to_repo_relative } from "../reconcile/paths";
 import type { DescriptionCounts, ReconcileDeps, ReconcileResult } from "../reconcile/types";
@@ -60,10 +65,8 @@ const USAGE = [
   "       drift-reconcile --apply-descriptions <json_path> --store <db_path> --repo-root <abs> [--dry-run]",
 ].join("\n");
 
-type Mode = "default" | "list_entrypoints" | "apply_stitch" | "apply_descriptions";
-
 interface Args {
-  mode: Mode;
+  mode: ReconcileMode;
   files: string[];
   store: string;
   repo_root: string;
@@ -115,7 +118,7 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
   }
   const mode_flags = [raw.list_entrypoints, raw.apply_stitch !== undefined, raw.apply_descriptions !== undefined];
   if (mode_flags.filter(Boolean).length > 1) return { error: "at most one mode flag is allowed" };
-  const mode: Mode = raw.list_entrypoints
+  const mode: ReconcileMode = raw.list_entrypoints
     ? "list_entrypoints"
     : raw.apply_stitch !== undefined
       ? "apply_stitch"
@@ -197,9 +200,10 @@ function report_outcomes(result: ReconcileResult, file_count: number): void {
 /**
  * Sync-status target for the fatal catch, which fires outside `main`'s scope after the store is
  * closed and the lock released. Unset until args parse; never set for --dry-run (which must leave
- * no trace on disk).
+ * no trace on disk). `success_recorded` stops a post-success teardown failure (a throwing
+ * store.close()) from stamping last_error over a run whose mutation durably completed.
  */
-let status_target: { store: string } | undefined;
+let status_target: { store: string; success_recorded: boolean } | undefined;
 
 const now = (): string => new Date().toISOString();
 
@@ -210,7 +214,7 @@ async function main(): Promise<void> {
     process.exit(2);
   }
   const { args } = parsed;
-  if (!args.dry_run) status_target = { store: args.store };
+  if (!args.dry_run) status_target = { store: args.store, success_recorded: false };
 
   // Every stderr diagnostic is also collected into the turn's durable record — the run log exists
   // because these lines used to die with the session transcript.
@@ -222,7 +226,10 @@ async function main(): Promise<void> {
   const finish_run = (record: Omit<ReconcileLogRecord, "timestamp" | "mode" | "diagnostics">): void => {
     if (args.dry_run) return;
     append_reconcile_log(args.store, { timestamp: now(), mode: args.mode, diagnostics, ...record }, log);
-    update_sync_status(args.store, { last_success_at: now() }, log);
+    // A success clears last_error: the status answers "is the NEWEST attempt accounted for?", so a
+    // healed repo must not keep reading as failed.
+    update_sync_status(args.store, { last_success_at: now(), last_error: null }, log);
+    if (status_target !== undefined) status_target.success_recorded = true;
   };
 
   if ((args.mode === "default" || args.mode === "list_entrypoints") && args.files.length === 0) {
@@ -300,9 +307,16 @@ async function main(): Promise<void> {
       }
       case "apply_stitch": {
         const result = await apply_stitch(deps, stitch_input!, adapter.call_graph());
-        process.stdout.write(JSON.stringify(result) + "\n");
+        // The stdout wire is the agent's phase-2 input ({ flows }); the describe tally is
+        // log-internal and rides only the run record.
+        process.stdout.write(JSON.stringify({ flows: result.flows }) + "\n");
         log(`applied ${result.flows.length} umbrella(s) from ${stitch_input!.umbrellas.length} proposed`);
-        finish_run({ file_set: [], outcomes: [], deferred_retirements: [], description_counts: zero_counts() });
+        finish_run({
+          file_set: [],
+          outcomes: [],
+          deferred_retirements: [],
+          description_counts: result.description_counts,
+        });
         return;
       }
       case "apply_descriptions": {
@@ -373,8 +387,9 @@ main().catch((error: unknown) => {
   process.stderr.write(`drift-reconcile: fatal: ${String(error)}\n`);
   // The durable last-error record (the store is closed and the lock released by now, which is why
   // the status lives in a sidecar). Best-effort inside update_sync_status — it can never mask the
-  // fatal exit code.
-  if (status_target !== undefined) {
+  // fatal exit code. Skipped once success was recorded: a throwing store.close() after a durable
+  // commit is a teardown failure, not a failed reconcile.
+  if (status_target !== undefined && !status_target.success_recorded) {
     update_sync_status(
       status_target.store,
       { last_error: { at: now(), message: String(error) } },

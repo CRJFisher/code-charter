@@ -99,7 +99,9 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   //     that drives code re-sync; detecting them from the touched root is the correct join.)
   for (const umbrella of skill_umbrellas) {
     const action = persisted_ids.has(umbrella.id) ? "resync" : "hydrate";
-    outcomes.push({ ...(await hydrate_skill_flow(deps, umbrella)), action });
+    const reason =
+      action === "resync" ? "skill bundle files touched this turn (re-ingested in place)" : "skill bundle first touched this turn";
+    outcomes.push({ ...(await hydrate_skill_flow(deps, umbrella)), action, reason });
     handled.add(umbrella.id);
   }
 

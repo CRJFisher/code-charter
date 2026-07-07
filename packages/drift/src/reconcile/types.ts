@@ -34,7 +34,10 @@ export interface FlowOutcome {
   kind: "skill" | "code";
   member_count: number;
   last_synced_at: string | null;
-  /** Why the action fired — the durable answer to "why did flow X get retired/re-synced?". */
+  /**
+   * Why the action fired — the durable answer to "why did flow X get retired/re-synced?".
+   * Prose for display, not a code to branch on.
+   */
   reason: string;
 }
 
