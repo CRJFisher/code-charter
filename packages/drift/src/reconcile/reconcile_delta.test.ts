@@ -38,16 +38,27 @@ function write(rel: string, content: string): void {
   fs.writeFileSync(abs, content);
 }
 
-async function run(file_set: string[]): Promise<void> {
+async function run(
+  file_set: string[],
+  opts: { log?: (message: string) => void; hide_anchor?: string } = {},
+): Promise<void> {
   const project = new HeadlessProject(repo);
   await project.initialize();
+  const log = opts.log ?? (() => {});
+  const adapter = make_ariadne_adapter(project, log);
+  // The two-id-space seam under test: a resolver symbol_path the anchored_symbols join cannot see.
+  if (opts.hide_anchor !== undefined) {
+    const hidden = opts.hide_anchor;
+    const real = adapter.anchored_symbols.bind(adapter);
+    adapter.anchored_symbols = (files) => real(files).filter((a) => a.symbol_path !== hidden);
+  }
   const deps: ReconcileDeps = {
     store,
-    adapter: make_ariadne_adapter(project, () => {}),
+    adapter,
     repo_root_abs: repo,
     analyzed_root: "",
     now: () => new Date(2026, 0, 1, 0, 0, clock++).toISOString(),
-    log: () => {},
+    log,
   };
   await reconcile(file_set, deps);
 }
@@ -297,5 +308,30 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
 
     expect(flow_sync(flow_id) > before).toBe(true); // (b) fired despite (a) being empty
     expect(anchor_set(flow_id)).not.toContain("lib.ts#leaf:function"); // stale member dropped
+  });
+});
+
+describe("reconcile — anchored_symbols join-miss diagnostic (task-27.1.20.3 AC#3)", () => {
+  it("logs a diagnostic when a modified symbol_path misses the anchored_symbols join", async () => {
+    await run(["main.ts"]);
+
+    // alpha's body changes (delta.modified carries it), but its anchor is hidden from the join —
+    // the silent-staleness hole: the flow cannot re-sync on alpha's body drift.
+    write("main.ts", BASE.replace("return n + 1;", "return n + 1000;"));
+    const messages: string[] = [];
+    await run(["main.ts"], { log: (m) => messages.push(m), hide_anchor: "main.ts#alpha:function" });
+
+    expect(messages).toContainEqual(expect.stringMatching(/missed the anchored_symbols join/));
+    expect(messages).toContainEqual(expect.stringContaining("main.ts#alpha:function"));
+  });
+
+  it("logs no join-miss diagnostic when every modified symbol_path resolves", async () => {
+    await run(["main.ts"]);
+
+    write("main.ts", BASE.replace("return n + 1;", "return n + 1000;"));
+    const messages: string[] = [];
+    await run(["main.ts"], { log: (m) => messages.push(m) });
+
+    expect(messages).not.toContainEqual(expect.stringMatching(/missed the anchored_symbols join/));
   });
 });

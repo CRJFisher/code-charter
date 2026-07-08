@@ -4,6 +4,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import {
+  read_sync_status,
+  reconcile_log_path,
+  sync_status_path,
+  type ReconcileLogRecord,
+} from "../reconcile/reconcile_log";
+
 // Drives the built reconcile bin as a subprocess. Requires the package to be built (turbo `test`
 // depends on it).
 const BIN = path.resolve(__dirname, "..", "..", "dist", "bin", "drift_reconcile.js");
@@ -185,6 +192,268 @@ describe("drift-reconcile bin — reconcile mutex (task-27.1.20.1)", () => {
 
       expect(result.status).toBe(0);
       expect(result.stderr).not.toMatch(/another reconcile is running/);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () => {
+  const SOURCE = "export function entry() { return helper(); }\n\nfunction helper() { return 1; }\n";
+
+  function read_log(repo: string): ReconcileLogRecord[] {
+    const raw = fs.readFileSync(reconcile_log_path(path.join(repo, "graph.db")), "utf8");
+    return raw
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as ReconcileLogRecord);
+  }
+
+  it("a reconcile appends a run record with the file set, per-flow action and reason, and describe counts", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const records = read_log(repo);
+      expect(records).toHaveLength(1);
+      const record = records[0];
+      expect(record.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(record.mode).toBe("default");
+      expect(record.file_set).toEqual(["main.ts"]);
+      expect(record.outcomes).toContainEqual(
+        expect.objectContaining({
+          flow_id: "main.ts#entry:function",
+          action: "hydrate",
+          reason: expect.stringContaining("new entrypoint"),
+        }),
+      );
+      // Neither member surfaces an Ariadne docstring, so both land in the placeholder bucket.
+      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
+      expect(record.deferred_retirements).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("a retirement's run record carries the seed-entrypoint-gone reason", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-retire-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE.replace(/entry/g, "entry_renamed"));
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const records = read_log(repo);
+      expect(records).toHaveLength(2);
+      expect(records[1].outcomes).toContainEqual(
+        expect.objectContaining({
+          flow_id: "main.ts#entry:function",
+          action: "retire",
+          reason: expect.stringContaining("seed entrypoint gone"),
+        }),
+      );
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("a deferred retirement lands in the record with its reason, and the diagnostics carry the deferral line", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-defer-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      // A healthy sibling keeps the graph non-empty, so the deferral takes the zero-symbols path.
+      fs.writeFileSync(path.join(repo, "other.ts"), "export function other_entry() { return 3; }\n");
+      expect(run_reconcile(repo, ["main.ts", "other.ts"]).status).toBe(0);
+
+      // Broken source parses to zero symbols: the seed stops resolving on untrustworthy evidence.
+      fs.writeFileSync(path.join(repo, "main.ts"), "export funct entry( {{{\n  retur helper(1\n");
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const record = read_log(repo)[1];
+      expect(record.deferred_retirements).toContainEqual({
+        flow_id: "main.ts#entry:function",
+        reason: "seed file present but yields no indexed symbols: main.ts",
+      });
+      expect(record.diagnostics).toContainEqual(expect.stringMatching(/deferred retirement of main\.ts#entry:function/));
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("an apply-descriptions run records the written count as the llm bucket and stamps success", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-desc-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const payload = path.join(repo, "descriptions.json");
+      fs.writeFileSync(
+        payload,
+        JSON.stringify({ descriptions: [{ symbol_path: "main.ts#entry:function", text: "sums the helpers" }] }),
+      );
+      const result = run_bin([
+        "--apply-descriptions",
+        payload,
+        "--store",
+        path.join(repo, "graph.db"),
+        "--repo-root",
+        repo,
+      ]);
+
+      expect(result.status).toBe(0);
+      const record = read_log(repo)[1];
+      expect(record.mode).toBe("apply_descriptions");
+      expect(record.file_set).toEqual([]);
+      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 0, llm: 1 });
+      const status = read_sync_status(path.join(repo, "graph.db"));
+      expect(status.last_success_at).not.toBeNull();
+      expect(status.last_error).toBeNull();
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("an apply-stitch run records its hydration describe counts and the skip reasons for bogus seeds", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-stitch-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      const payload = path.join(repo, "stitch.json");
+      fs.writeFileSync(
+        payload,
+        JSON.stringify({
+          umbrellas: [
+            { label: "entry umbrella", seeds: ["main.ts#entry:function"], rationale: "groups the entry tree" },
+            { label: "ghost", seeds: ["main.ts#ghost:function"], rationale: "unresolvable" },
+          ],
+        }),
+      );
+
+      const result = run_bin(["--apply-stitch", payload, "--store", path.join(repo, "graph.db"), "--repo-root", repo]);
+
+      expect(result.status).toBe(0);
+      const record = read_log(repo)[0];
+      expect(record.mode).toBe("apply_stitch");
+      // The umbrella hydration ran the deterministic describe pass on a cold store: both members
+      // land in the placeholder bucket — not the zeros a dropped tally would show.
+      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
+      expect(record.diagnostics).toContainEqual(expect.stringContaining("seed not in the live graph"));
+      expect(record.diagnostics).toContainEqual(expect.stringContaining("no resolvable seeds, skipped"));
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("a successful run stamps last_attempt_at and last_success_at with no error", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-status-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const status = read_sync_status(path.join(repo, "graph.db"));
+      expect(status.last_attempt_at).not.toBeNull();
+      expect(status.last_success_at).not.toBeNull();
+      expect(status.last_error).toBeNull();
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("a fatal run records last_error and preserves the prior last_success_at", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-status-fatal-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+      const success_at = read_sync_status(path.join(repo, "graph.db")).last_success_at;
+
+      // A garbage db makes open_graph_store throw after the attempt stamp.
+      fs.writeFileSync(path.join(repo, "graph.db"), "not a sqlite database");
+      const result = run_reconcile(repo, ["main.ts"]);
+
+      expect(result.status).toBe(1);
+      const status = read_sync_status(path.join(repo, "graph.db"));
+      expect(status.last_error).not.toBeNull();
+      expect(status.last_error!.message).toMatch(/./);
+      expect(status.last_success_at).toBe(success_at);
+      // The dropped/failed run is visible: the newest attempt did not become a success.
+      expect(status.last_attempt_at! > status.last_success_at!).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("lock contention records last_error so a dropped reconcile is distinguishable from nothing-changed", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-status-lock-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      fs.writeFileSync(
+        path.join(repo, "drift_reconcile.lock"),
+        JSON.stringify({ pid: process.pid, started_at: "t" }),
+      );
+
+      const result = run_reconcile(repo, ["main.ts"], { env: { DRIFT_RECONCILE_LOCK_WAIT_MS: "200" } });
+
+      expect(result.status).toBe(1);
+      const status = read_sync_status(path.join(repo, "graph.db"));
+      expect(status.last_attempt_at).not.toBeNull();
+      expect(status.last_success_at).toBeNull();
+      expect(status.last_error!.message).toMatch(/contention/);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("a later success clears last_error so a healed repo stops reading as failed", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-status-heal-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      fs.writeFileSync(
+        path.join(repo, "drift_reconcile.lock"),
+        JSON.stringify({ pid: process.pid, started_at: "t" }),
+      );
+      expect(run_reconcile(repo, ["main.ts"], { env: { DRIFT_RECONCILE_LOCK_WAIT_MS: "200" } }).status).toBe(1);
+      expect(read_sync_status(path.join(repo, "graph.db")).last_error).not.toBeNull();
+
+      fs.rmSync(path.join(repo, "drift_reconcile.lock"));
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      expect(read_sync_status(path.join(repo, "graph.db")).last_error).toBeNull();
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("--dry-run writes neither the run log nor the status file", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-dry-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+
+      const result = run_reconcile(repo, ["main.ts"], { extra_args: ["--dry-run"] });
+
+      expect(result.status).toBe(0);
+      expect(fs.existsSync(reconcile_log_path(path.join(repo, "graph.db")))).toBe(false);
+      expect(fs.existsSync(sync_status_path(path.join(repo, "graph.db")))).toBe(false);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("an empty file set records a healthy no-op run", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-noop-"));
+    try {
+      const result = run_reconcile(repo, []);
+
+      expect(result.status).toBe(0);
+      const records = read_log(repo);
+      expect(records).toHaveLength(1);
+      expect(records[0].file_set).toEqual([]);
+      expect(records[0].outcomes).toEqual([]);
+      const status = read_sync_status(path.join(repo, "graph.db"));
+      expect(status.last_success_at).not.toBeNull();
+      expect(status.last_error).toBeNull();
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }

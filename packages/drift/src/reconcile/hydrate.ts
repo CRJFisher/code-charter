@@ -29,7 +29,7 @@ import {
 
 import { write_flow } from "./flow_store";
 import { resolve_descriptions } from "./describe";
-import type { FlowOutcome, ReconcileDeps } from "./types";
+import type { DescriptionCounts, FlowOutcome, ReconcileDeps } from "./types";
 
 /** A skill bundle to hydrate as one flow. */
 export interface SkillUmbrella {
@@ -86,7 +86,14 @@ export async function hydrate_skill_flow(
     last_synced_at,
   });
 
-  return { flow_id: umbrella.id, action: "hydrate", kind: "skill", member_count: member_ids.length, last_synced_at };
+  return {
+    flow_id: umbrella.id,
+    action: "hydrate",
+    kind: "skill",
+    member_count: member_ids.length,
+    last_synced_at,
+    reason: "skill bundle files touched this turn",
+  };
 }
 
 function build_skill_bridges(umbrella: SkillUmbrella): Array<{ edge: EdgeRow; provenance: ProvenanceRow[] }> {
@@ -105,7 +112,7 @@ export async function hydrate_code_flow(
   umbrella: CodeUmbrella,
   graph: CallGraph,
   options: HydrateOptions = {},
-): Promise<FlowOutcome> {
+): Promise<{ outcome: FlowOutcome; description_counts: DescriptionCounts }> {
   const members = induce_members({ id: umbrella.id, seeds: [...umbrella.seeds] }, graph);
   const member_paths = paths_of(members, graph);
   const seed_paths = paths_of(new Set(umbrella.seeds), graph);
@@ -143,5 +150,18 @@ export async function hydrate_code_flow(
     last_synced_at,
   });
 
-  return { flow_id: umbrella.id, action: "hydrate", kind: "code", member_count: member_paths.length, last_synced_at };
+  const description_counts: DescriptionCounts = { docstring: 0, placeholder: 0, llm: 0 };
+  for (const description of descriptions) description_counts[description.source] += 1;
+
+  return {
+    outcome: {
+      flow_id: umbrella.id,
+      action: "hydrate",
+      kind: "code",
+      member_count: member_paths.length,
+      last_synced_at,
+      reason: umbrella.rationale ?? "new entrypoint over the changed files",
+    },
+    description_counts,
+  };
 }

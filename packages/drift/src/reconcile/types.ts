@@ -34,6 +34,22 @@ export interface FlowOutcome {
   kind: "skill" | "code";
   member_count: number;
   last_synced_at: string | null;
+  /**
+   * Why the action fired — the durable answer to "why did flow X get retired/re-synced?".
+   * Prose for display, not a code to branch on.
+   */
+  reason: string;
+}
+
+/**
+ * Per-turn tally of description writes by source. The deterministic pass produces only `docstring`
+ * and `placeholder`; `llm` counts arrive through `--apply-descriptions` (the agent's upgrade pass),
+ * so a turn's placeholder-vs-llm split reveals how much of the store is still awaiting real text.
+ */
+export interface DescriptionCounts {
+  docstring: number;
+  placeholder: number;
+  llm: number;
 }
 
 /** A retirement the graph-health guard skipped this run, retried naturally on the next turn. */
@@ -47,4 +63,6 @@ export interface ReconcileResult {
   outcomes: FlowOutcome[];
   /** Retirements deferred because the graph looked untrustworthy for the flow's seed — an empty call graph, or a seed file that failed to index. */
   deferred_retirements: DeferredRetirement[];
+  /** Aggregate describe-source split across this turn's hydrations and re-syncs. */
+  description_counts: DescriptionCounts;
 }

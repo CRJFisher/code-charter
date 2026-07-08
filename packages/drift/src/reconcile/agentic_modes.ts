@@ -38,7 +38,7 @@ import { existing_descriptions } from "./describe";
 import { read_persisted_flows } from "./flow_store";
 import { hydrate_code_flow } from "./hydrate";
 import type { CodeUmbrella } from "./hydrate";
-import type { ReconcileDeps } from "./types";
+import type { DescriptionCounts, ReconcileDeps } from "./types";
 
 /** Provenance identity for agent-confirmed stitch bridges. */
 export const STITCH_EXTRACTOR_ID = "agentic.stitch";
@@ -198,6 +198,8 @@ export interface ApplyStitchFlow {
 
 export interface ApplyStitchResult {
   flows: ApplyStitchFlow[];
+  /** Describe-source split of the umbrella hydrations this call ran — the run log's per-turn tally. */
+  description_counts: DescriptionCounts;
 }
 
 /** Structural validation of the `--apply-stitch` wire JSON. Returns an error message on a contract breach. */
@@ -251,6 +253,7 @@ export async function apply_stitch(
   const persisted_ids = new Set(persisted.map((f) => f.node.id));
   const claimed = new Set<string>();
   const flows: ApplyStitchFlow[] = [];
+  const description_counts: DescriptionCounts = { docstring: 0, placeholder: 0, llm: 0 };
 
   for (const umbrella of input.umbrellas) {
     const seed_paths: string[] = [];
@@ -308,7 +311,10 @@ export async function apply_stitch(
       bridges,
       rationale: umbrella.rationale,
     };
-    await hydrate_code_flow(deps, code_umbrella, graph);
+    const hydrated = await hydrate_code_flow(deps, code_umbrella, graph);
+    description_counts.docstring += hydrated.description_counts.docstring;
+    description_counts.placeholder += hydrated.description_counts.placeholder;
+    description_counts.llm += hydrated.description_counts.llm;
 
     // Retire the singleton flows this umbrella absorbs: any live persisted flow keyed by a
     // non-dominant seed is now a fragment of the stitched whole.
@@ -332,7 +338,7 @@ export async function apply_stitch(
     flows.push({ id: code_umbrella.id, members });
   }
 
-  return { flows };
+  return { flows, description_counts };
 }
 
 // ---------------------------------------------------------------------------

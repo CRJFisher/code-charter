@@ -136,11 +136,12 @@ function code_umbrella(over: Partial<CodeUmbrella> = {}): CodeUmbrella {
 
 describe("hydrate_code_flow", () => {
   it("persists the seed's reachable subgraph as the anchor_set and describes every member by default", async () => {
-    const outcome = await hydrate_code_flow(make_deps(), code_umbrella(), graph);
+    const { outcome, description_counts } = await hydrate_code_flow(make_deps(), code_umbrella(), graph);
 
     expect(outcome).toEqual(
       expect.objectContaining({ flow_id: CODE_FLOW_ID, action: "hydrate", kind: "code", member_count: 2 }),
     );
+    expect(description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
 
     const flow = read_persisted_flow(store, CODE_FLOW_ID)!;
     expect(flow.node.attributes.anchor_set).toEqual(["main.ts#helper:function", "main.ts#main:function"]);
@@ -157,9 +158,12 @@ describe("hydrate_code_flow", () => {
   });
 
   it("persists the flow and its members but writes no descriptions when describe is false (the cap-overflow stub)", async () => {
-    const outcome = await hydrate_code_flow(make_deps(), code_umbrella(), graph, { describe: false });
+    const { outcome, description_counts } = await hydrate_code_flow(make_deps(), code_umbrella(), graph, {
+      describe: false,
+    });
 
     expect(outcome.member_count).toBe(2);
+    expect(description_counts).toEqual({ docstring: 0, placeholder: 0, llm: 0 });
     expect(read_persisted_flow(store, CODE_FLOW_ID)!.node.attributes.anchor_set).toEqual([
       "main.ts#helper:function",
       "main.ts#main:function",
