@@ -125,6 +125,9 @@ class RecordingStore implements GraphStore {
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void {
     this.inner.rebuild_layer(layer, write);
   }
+  transaction<T>(fn: () => Promise<T>): Promise<T> {
+    return this.inner.transaction(fn);
+  }
   schema_version(): number {
     return this.inner.schema_version();
   }

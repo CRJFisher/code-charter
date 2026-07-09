@@ -65,6 +65,10 @@ export class NullGraphStore implements GraphStore {
     write(this);
   }
 
+  transaction<T>(fn: () => Promise<T>): Promise<T> {
+    return fn();
+  }
+
   schema_version(): number {
     return 0;
   }

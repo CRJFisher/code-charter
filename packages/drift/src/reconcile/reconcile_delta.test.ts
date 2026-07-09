@@ -291,6 +291,35 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(skill_id); // still live
   });
 
+  it("flags a name-only member with description_source 'provisional' so it stays identifiable if the agent pass never runs (AC#3)", async () => {
+    // main/alpha/beta carry no docstrings, so the deterministic pass writes name stand-ins. They must
+    // persist as `provisional` (awaiting --apply-descriptions), NOT a terminal `placeholder`.
+    await run(["main.ts"]);
+    const node = store.node(`${DESCRIPTION_NODE_KIND}:main.ts#alpha:function`);
+    expect(node?.attributes.description).toBe("alpha");
+    expect(node?.attributes.description_source).toBe("provisional");
+  });
+
+  it("defers a degraded skill bundle rather than overwriting the good flow with a shrunken snapshot (AC#2)", async () => {
+    // A healthy bundle: SKILL.md links a reference, so the flow hydrates with two doc members.
+    write("myskill/SKILL.md", "---\nname: myskill\ndescription: test skill\n---\n\n# My Skill\n\nSee [ref](reference.md).\n");
+    write("myskill/reference.md", "# Reference\n\nBody.\n");
+    await run(["myskill/SKILL.md"]);
+    const skill_id = "agentic.flow:skill:myskill";
+    const before_sync = flow_sync(skill_id);
+    const before_members = anchor_set(skill_id);
+    expect(before_members).toContain("myskill/reference.md#doc");
+
+    // SKILL.md is truncated to empty mid-edit; reconciling now must NOT overwrite the flow.
+    write("myskill/SKILL.md", "");
+    const logs: string[] = [];
+    await run(["myskill/SKILL.md"], { log: (m) => logs.push(m) });
+
+    expect(logs.some((m) => m.includes("deferred skill sync") && m.includes("SKILL.md is empty"))).toBe(true);
+    expect(flow_sync(skill_id)).toBe(before_sync); // no write — the good flow is untouched
+    expect(anchor_set(skill_id)).toEqual(before_members); // members preserved, not shrunk to a husk
+  });
+
   it("membership drift alone re-syncs a flow: a cross-file member deleted without editing its caller", async () => {
     // The membership-drift trigger (b) must fire independently of the body-drift trigger (a). main (in
     // app.ts) calls leaf (in lib.ts); deleting leaf — WITHOUT touching app.ts — changes no persisted

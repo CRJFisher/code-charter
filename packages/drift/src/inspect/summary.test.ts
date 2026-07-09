@@ -121,8 +121,8 @@ describe("collect_store_summary", () => {
       ),
     );
 
-    expect(summary.flows[0].descriptions).toEqual({ docstring: 1, llm: 1, placeholder: 1, none: 1 });
-    expect(summary.descriptions).toEqual({ docstring: 1, llm: 1, placeholder: 1, none: 0 });
+    expect(summary.flows[0].descriptions).toEqual({ docstring: 1, llm: 1, provisional: 0, placeholder: 1, none: 1 });
+    expect(summary.descriptions).toEqual({ docstring: 1, llm: 1, provisional: 0, placeholder: 1, none: 0 });
   });
 
   it("ignores soft-deleted description nodes", () => {
@@ -179,7 +179,8 @@ describe("collect_store_summary", () => {
       file_set: [],
       outcomes: [],
       deferred_retirements: [{ flow_id: "stale:function", reason: "empty call graph" }],
-      description_counts: { docstring: 0, placeholder: 0, llm: 0 },
+      deferred_skill_syncs: [],
+      description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
       diagnostics: [],
     };
 

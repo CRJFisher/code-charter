@@ -253,7 +253,7 @@ export async function apply_stitch(
   const persisted_ids = new Set(persisted.map((f) => f.node.id));
   const claimed = new Set<string>();
   const flows: ApplyStitchFlow[] = [];
-  const description_counts: DescriptionCounts = { docstring: 0, placeholder: 0, llm: 0 };
+  const description_counts: DescriptionCounts = { docstring: 0, provisional: 0, placeholder: 0, llm: 0 };
 
   for (const umbrella of input.umbrellas) {
     const seed_paths: string[] = [];
@@ -313,6 +313,7 @@ export async function apply_stitch(
     };
     const hydrated = await hydrate_code_flow(deps, code_umbrella, graph);
     description_counts.docstring += hydrated.description_counts.docstring;
+    description_counts.provisional += hydrated.description_counts.provisional;
     description_counts.placeholder += hydrated.description_counts.placeholder;
     description_counts.llm += hydrated.description_counts.llm;
 

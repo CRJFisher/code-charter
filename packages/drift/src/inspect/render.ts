@@ -8,7 +8,7 @@ import { symbol_lists_differ, type SummaryDiff } from "./diff";
 import type { Anomaly, BridgeSummary, DescriptionBreakdown, FlowDetail, FlowSummary, StoreSummary } from "./summary";
 
 function breakdown_line(breakdown: DescriptionBreakdown): string {
-  return `docstring ${breakdown.docstring}, llm ${breakdown.llm}, placeholder ${breakdown.placeholder}, none ${breakdown.none}`;
+  return `docstring ${breakdown.docstring}, llm ${breakdown.llm}, provisional ${breakdown.provisional}, placeholder ${breakdown.placeholder}, none ${breakdown.none}`;
 }
 
 /** The flow row body, indentation-neutral so both the summary rows and the diff's `+`/`-` markers reuse it. */
@@ -47,6 +47,11 @@ export function render_summary(summary: StoreSummary): string[] {
 
   lines.push(`deferred retirements: ${summary.deferred_retirements.length}`);
   for (const deferred of summary.deferred_retirements) {
+    lines.push(`  ${deferred.flow_id} — ${deferred.reason}`);
+  }
+
+  lines.push(`deferred skill syncs: ${summary.deferred_skill_syncs.length}`);
+  for (const deferred of summary.deferred_skill_syncs) {
     lines.push(`  ${deferred.flow_id} — ${deferred.reason}`);
   }
   return lines;
@@ -97,7 +102,7 @@ function delta(before: number, after: number): string {
 }
 
 function breakdown_delta(before: DescriptionBreakdown, after: DescriptionBreakdown): string {
-  return `docstring ${delta(before.docstring, after.docstring)}, llm ${delta(before.llm, after.llm)}, placeholder ${delta(before.placeholder, after.placeholder)}, none ${delta(before.none, after.none)}`;
+  return `docstring ${delta(before.docstring, after.docstring)}, llm ${delta(before.llm, after.llm)}, provisional ${delta(before.provisional, after.provisional)}, placeholder ${delta(before.placeholder, after.placeholder)}, none ${delta(before.none, after.none)}`;
 }
 
 /** A count change (`A→B`) if the lists resized, else a same-count re-anchor (`reanchored (N)`). */

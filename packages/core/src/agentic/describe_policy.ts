@@ -48,7 +48,13 @@ export interface DescribePolicyOptions {
 
 export const DEFAULT_DESCRIBE_CAP = 200;
 
-export type DescriptionSource = "docstring" | "llm" | "placeholder";
+/**
+ * How a persisted description's text was produced. `provisional` is a name stand-in written by the
+ * deterministic pass for a member that needs the agent's real text — distinct from a terminal
+ * `placeholder` (an over-cap member that stays a name), so a description still awaiting
+ * `--apply-descriptions` is identifiable even if that pass never runs.
+ */
+export type DescriptionSource = "docstring" | "llm" | "provisional" | "placeholder";
 
 export interface PlannedDescription {
   symbol_path: string;

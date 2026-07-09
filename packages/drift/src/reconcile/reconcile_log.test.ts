@@ -31,7 +31,8 @@ function record(over: Partial<ReconcileLogRecord> = {}): ReconcileLogRecord {
     file_set: ["main.ts"],
     outcomes: [],
     deferred_retirements: [],
-    description_counts: { docstring: 0, placeholder: 0, llm: 0 },
+    deferred_skill_syncs: [],
+    description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
     diagnostics: [],
     ...over,
   };

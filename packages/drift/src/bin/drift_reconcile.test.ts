@@ -229,8 +229,9 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
           reason: expect.stringContaining("new entrypoint"),
         }),
       );
-      // Neither member surfaces an Ariadne docstring, so both land in the placeholder bucket.
-      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
+      // Neither member surfaces an Ariadne docstring, so both land in the provisional bucket
+      // (name stand-ins awaiting the agent's --apply-descriptions upgrade).
+      expect(record.description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
       expect(record.deferred_retirements).toEqual([]);
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
@@ -307,7 +308,7 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       const record = read_log(repo)[1];
       expect(record.mode).toBe("apply_descriptions");
       expect(record.file_set).toEqual([]);
-      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 0, llm: 1 });
+      expect(record.description_counts).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 1 });
       const status = read_sync_status(path.join(repo, "graph.db"));
       expect(status.last_success_at).not.toBeNull();
       expect(status.last_error).toBeNull();
@@ -337,8 +338,8 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       const record = read_log(repo)[0];
       expect(record.mode).toBe("apply_stitch");
       // The umbrella hydration ran the deterministic describe pass on a cold store: both members
-      // land in the placeholder bucket — not the zeros a dropped tally would show.
-      expect(record.description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
+      // land in the provisional bucket — not the zeros a dropped tally would show.
+      expect(record.description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
       expect(record.diagnostics).toContainEqual(expect.stringContaining("seed not in the live graph"));
       expect(record.diagnostics).toContainEqual(expect.stringContaining("no resolvable seeds, skipped"));
     } finally {

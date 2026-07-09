@@ -210,6 +210,16 @@ export interface GraphStore {
    */
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void;
 
+  /**
+   * Run `fn` inside ONE store transaction: every mutation `fn` makes commits together, or — if `fn`
+   * throws or the process dies mid-flight — rolls back together, so a caller that issues many
+   * independent writes (a reconcile turn) can never leave a half-applied state on disk. Re-entrant:
+   * a nested call runs inline within the open transaction rather than opening a second one. The
+   * transaction is held across `fn`'s `await` points; safe because a single connection serves one
+   * writer and whole reconcile runs are serialized by the process-level reconcile mutex.
+   */
+  transaction<T>(fn: () => Promise<T>): Promise<T>;
+
   schema_version(): number;
   close(): void;
 }

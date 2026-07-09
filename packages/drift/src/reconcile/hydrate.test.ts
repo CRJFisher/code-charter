@@ -141,7 +141,7 @@ describe("hydrate_code_flow", () => {
     expect(outcome).toEqual(
       expect.objectContaining({ flow_id: CODE_FLOW_ID, action: "hydrate", kind: "code", member_count: 2 }),
     );
-    expect(description_counts).toEqual({ docstring: 0, placeholder: 2, llm: 0 });
+    expect(description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
 
     const flow = read_persisted_flow(store, CODE_FLOW_ID)!;
     expect(flow.node.attributes.anchor_set).toEqual(["main.ts#helper:function", "main.ts#main:function"]);
@@ -163,7 +163,7 @@ describe("hydrate_code_flow", () => {
     });
 
     expect(outcome.member_count).toBe(2);
-    expect(description_counts).toEqual({ docstring: 0, placeholder: 0, llm: 0 });
+    expect(description_counts).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 0 });
     expect(read_persisted_flow(store, CODE_FLOW_ID)!.node.attributes.anchor_set).toEqual([
       "main.ts#helper:function",
       "main.ts#main:function",

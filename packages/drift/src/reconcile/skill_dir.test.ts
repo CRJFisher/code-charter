@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
 import { open_graph_store, type GraphStore } from "@code-charter/core";
 
-import { find_skill_root, ingest_skill_dir } from "./skill_dir";
+import { assess_skill_bundle, find_skill_root, ingest_skill_dir } from "./skill_dir";
 
 let repo: string;
 
@@ -110,5 +110,54 @@ describe("ingest_skill_dir", () => {
     expect(result.doc_node_ids).toEqual([]);
     expect(result.edge_keys).toEqual([]);
     expect(store.all_nodes()).toEqual([]);
+  });
+});
+
+describe("assess_skill_bundle (partial/degraded-write guard, AC#2)", () => {
+  it("passes a healthy bundle with a present sub-agent file", () => {
+    const skill = make_skill("skills/foo", {
+      "agents/reviewer.md": "# reviewer\n",
+      "meta.json": JSON.stringify({ sub_agents: [{ name: "reviewer", file: "agents/reviewer.md" }] }),
+    });
+    fs.writeFileSync(path.join(skill, "SKILL.md"), "# skill\n\nbody\n");
+
+    expect(assess_skill_bundle(skill)).toBeUndefined();
+  });
+
+  it("defers a bundle whose SKILL.md is empty (a mid-edit truncation)", () => {
+    const skill = make_skill("skills/foo");
+    fs.writeFileSync(path.join(skill, "SKILL.md"), "   \n");
+
+    expect(assess_skill_bundle(skill)).toContain("SKILL.md is empty");
+  });
+
+  it("defers a bundle whose SKILL.md is unreadable/absent", () => {
+    const dir = path.join(repo, "skills/gone");
+    fs.mkdirSync(dir, { recursive: true });
+
+    expect(assess_skill_bundle(dir)).toContain("SKILL.md unreadable");
+  });
+
+  it("defers a bundle whose meta.json declares a sub-agent file missing from disk", () => {
+    const skill = make_skill("skills/foo", {
+      "meta.json": JSON.stringify({ sub_agents: [{ name: "reviewer", file: "agents/reviewer.md" }] }),
+    });
+
+    expect(assess_skill_bundle(skill)).toContain("declared sub-agent file missing from bundle: agents/reviewer.md");
+  });
+
+  it("passes a bundle whose sub-agent declaration points outside the bundle (external, not a defect)", () => {
+    const skill = make_skill("skills/foo", {
+      "meta.json": JSON.stringify({ sub_agents: [{ name: "external", file: "/opt/agents/x.md" }] }),
+    });
+
+    expect(assess_skill_bundle(skill)).toBeUndefined();
+  });
+
+  it("passes a bundle with no meta.json (no sub-agent declarations to verify)", () => {
+    const skill = make_skill("skills/foo");
+    fs.writeFileSync(path.join(skill, "SKILL.md"), "# skill\n\nbody\n");
+
+    expect(assess_skill_bundle(skill)).toBeUndefined();
   });
 });

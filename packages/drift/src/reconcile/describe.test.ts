@@ -130,11 +130,11 @@ describe("resolve_descriptions", () => {
     ]);
   });
 
-  it("writes the symbol name as a placeholder for a member with no docstring", () => {
+  it("writes the symbol name as a provisional stand-in for a member with no docstring (awaiting the agent pass)", () => {
     const resolved = resolve_descriptions(store, [anchored("f.ts#b:function", { name: "b" })]);
 
     expect(resolved).toEqual([
-      { symbol_path: "f.ts#b:function", content_hash: "h1", file_path: "f.ts", text: "b", source: "placeholder" },
+      { symbol_path: "f.ts#b:function", content_hash: "h1", file_path: "f.ts", text: "b", source: "provisional" },
     ]);
   });
 

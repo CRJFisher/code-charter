@@ -24,7 +24,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import type { DeferredRetirement, DescriptionCounts, FlowOutcome } from "./types";
+import type { DeferredRetirement, DeferredSkillSync, DescriptionCounts, FlowOutcome } from "./types";
 
 const LOG_FILE = "drift_reconcile_log.jsonl";
 const STATUS_FILE = "drift_reconcile_status.json";
@@ -48,6 +48,12 @@ export interface ReconcileLogRecord {
    * across turns: a later record carrying a retire (or re-hydrate) outcome for the same flow_id.
    */
   deferred_retirements: readonly DeferredRetirement[];
+  /**
+   * Skill re-syncs the partial-write guard skipped this turn because the bundle looked degraded on
+   * disk. Like `deferred_retirements`, completion is answered across turns by a later record carrying
+   * a hydrate/resync outcome for the same flow_id.
+   */
+  deferred_skill_syncs: readonly DeferredSkillSync[];
   description_counts: DescriptionCounts;
   /** Every diagnostic the run emitted to stderr — hydration-cap notices, stitch skips, join misses. */
   diagnostics: readonly string[];

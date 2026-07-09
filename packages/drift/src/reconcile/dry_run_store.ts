@@ -27,6 +27,9 @@ export function dry_run_store(store: GraphStore): GraphStore {
     invalidate_nodes_for_files: () => {},
     soft_delete: () => {},
     rebuild_layer: () => {},
+    // Runs the body so the dry-run detection still executes; every mutation inside is a no-op above,
+    // so there is nothing to commit or roll back.
+    transaction: (fn) => fn(),
     close: () => {},
   };
 }

@@ -128,6 +128,34 @@ export class SqliteGraphStore implements GraphStore {
    * SQLITE_BUSY back without the busy handler ever running. Pure reads pass BEGIN DEFERRED,
    * which never competes for the write lock (and is the only mode a read-only connection allows).
    */
+  /**
+   * Public async counterpart of {@link with_transaction}: hold ONE `BEGIN IMMEDIATE` transaction
+   * across `fn`'s awaits so a caller's many writes commit or roll back as a unit (a mid-turn crash
+   * leaves the WAL transaction uncommitted, rolled back on next open). Re-entrant against the same
+   * `in_transaction` flag the sync writers share, so nested synchronous writes run inline.
+   */
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.in_transaction) {
+      return fn();
+    }
+    this.db.exec("BEGIN IMMEDIATE");
+    this.in_transaction = true;
+    try {
+      const result = await fn();
+      this.db.exec("COMMIT");
+      return result;
+    } catch (err) {
+      try {
+        this.db.exec("ROLLBACK");
+      } catch {
+        // A failing ROLLBACK must not mask the original error.
+      }
+      throw err;
+    } finally {
+      this.in_transaction = false;
+    }
+  }
+
   private with_transaction<T>(fn: () => T, begin: "BEGIN IMMEDIATE" | "BEGIN DEFERRED" = "BEGIN IMMEDIATE"): T {
     if (this.in_transaction) {
       return fn();
