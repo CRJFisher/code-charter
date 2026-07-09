@@ -186,7 +186,7 @@ describe("graph_layout", () => {
       expect(result[0].id).toBe("node1");
       expect(result[0].data).toEqual(nodes[0].data);
       expect(consoleErrorSpy).toHaveBeenCalledWith("Error applying ELK layout:", expect.any(Error));
-      
+
       consoleErrorSpy.mockRestore();
     });
   });

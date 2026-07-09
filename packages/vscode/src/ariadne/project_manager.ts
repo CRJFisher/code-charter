@@ -10,6 +10,9 @@ export class AriadneProjectManager {
   private file_watcher: vscode.FileSystemWatcher | undefined;
   private disposables: vscode.Disposable[] = [];
   private file_filter: (path: string) => boolean;
+  private initialized = false;
+  private index_in_flight: Promise<void> | undefined;
+  private index_rerun_requested = false;
   private on_call_graph_changed_emitter = new vscode.EventEmitter<CallGraph>();
 
   public readonly on_call_graph_changed = this.on_call_graph_changed_emitter.event;
@@ -85,6 +88,7 @@ export class AriadneProjectManager {
     await this.project.initialize(this.workspace_path as FilePath);
 
     await this.index_all_files();
+    this.initialized = true;
     this.setup_file_watchers();
 
     return this.project.get_call_graph();
@@ -115,6 +119,31 @@ export class AriadneProjectManager {
     console.log(`AriadneProjectManager: indexed ${indexed} files, skipped ${skipped}`);
   }
 
+  // Serialize re-indexes so two invalidate()s (two graph.db writes landing more than a settle window
+  // apart, the second while the first is still indexing a large repo) can't interleave update_file
+  // calls over the same Project. A caller arriving mid-scan doesn't just ride the running pass — it
+  // requests a trailing one, so a change that landed after the running scan already read those files is
+  // still picked up. Callers await the whole chain, so they observe the final, fully-current graph.
+  private run_index(): Promise<void> {
+    if (this.index_in_flight) {
+      this.index_rerun_requested = true;
+      return this.index_in_flight;
+    }
+    const done = (async () => {
+      await this.index_all_files();
+      while (this.index_rerun_requested) {
+        this.index_rerun_requested = false;
+        await this.index_all_files();
+      }
+    })().finally(() => {
+      if (this.index_in_flight === done) {
+        this.index_in_flight = undefined;
+      }
+    });
+    this.index_in_flight = done;
+    return done;
+  }
+
   /**
    * Re-read every source file from disk into the existing project and re-derive the call graph, then
    * fire on_call_graph_changed. Called when an out-of-process reconcile writes graph.db: the code the
@@ -123,10 +152,14 @@ export class AriadneProjectManager {
    * indexed content is refreshed — so the webview panel is never disposed.
    */
   async invalidate(): Promise<void> {
-    if (!this.project) {
+    // Before the initial index finishes there is nothing to invalidate: initialize() already produces a
+    // graph reflecting current disk state and the webview's first read picks up any store write from
+    // that window, so a re-index here would only interleave a second scan over the still-initializing
+    // Project.
+    if (!this.initialized) {
       return;
     }
-    await this.index_all_files();
+    await this.run_index();
     this.emit_call_graph_changed();
   }
 

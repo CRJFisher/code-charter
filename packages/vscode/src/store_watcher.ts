@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
  */
 export class StoreWatcher {
   private watcher: vscode.FileSystemWatcher | undefined;
+  private debounce_timer: NodeJS.Timeout | undefined;
 
   constructor(
     private store_dir: string,
@@ -25,10 +26,9 @@ export class StoreWatcher {
     const pattern = new vscode.RelativePattern(this.store_dir, this.file_name);
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-    let debounce_timer: NodeJS.Timeout;
     const debounced_callback = () => {
-      clearTimeout(debounce_timer);
-      debounce_timer = setTimeout(() => {
+      clearTimeout(this.debounce_timer);
+      this.debounce_timer = setTimeout(() => {
         this.on_change_callback();
       }, this.settle_ms);
     };
@@ -38,6 +38,10 @@ export class StoreWatcher {
   }
 
   dispose(): void {
+    // Clear any pending settle timer before dropping the watcher, so a write that landed within the
+    // settle window right before disposal can't fire the callback against an already-torn-down panel.
+    clearTimeout(this.debounce_timer);
+    this.debounce_timer = undefined;
     this.watcher?.dispose();
     this.watcher = undefined;
   }

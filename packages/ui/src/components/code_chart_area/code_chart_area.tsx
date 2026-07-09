@@ -137,12 +137,16 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     render_buffer: CONFIG.performance.virtualRender.render_buffer,
   });
 
-  // Clear caches when the selected flow changes
+  // Clear caches when the selected flow changes, and on a store_changed refresh (refresh_nonce). The
+  // layout cache is keyed on topology only, so a reconcile that re-describes existing nodes without
+  // changing structure would otherwise hit the cache and return the stale pre-reconcile nodes — the new
+  // descriptions would never repaint. Clearing forces a fresh projection; an unchanged topology
+  // re-lays-out to identical positions, so the viewport is undisturbed.
   useEffect(() => {
     if (selected_flow_id) {
       clear_layout_caches();
     }
-  }, [selected_flow_id]);
+  }, [selected_flow_id, refresh_nonce]);
 
   useEffect(() => {
     if (!selected_flow_id) {

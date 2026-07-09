@@ -75,4 +75,17 @@ describe("StoreWatcher", () => {
 
     expect(created.dispose).toHaveBeenCalledTimes(1);
   });
+
+  it("does not fire the callback for a write that was still settling when disposed", () => {
+    jest.useFakeTimers();
+    const on_change = jest.fn();
+    const watcher = new StoreWatcher("/repo/.code-charter", "graph.db", on_change);
+    watcher.start();
+
+    mockFileWatcherCallbacks.onChange();
+    watcher.dispose();
+    jest.advanceTimersByTime(1000);
+
+    expect(on_change).not.toHaveBeenCalled();
+  });
 });

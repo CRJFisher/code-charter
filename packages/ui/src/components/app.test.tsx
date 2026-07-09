@@ -127,6 +127,67 @@ describe("App", () => {
     expect(screen.getByTestId("chart").getAttribute("data-refresh")).toBe("1");
   });
 
+  it("recovers from Error to Ready on a store_changed refresh once the call graph is available", async () => {
+    let store_listener: (() => void) | undefined;
+    const empty_graph: CallGraph = { nodes: new Map(), entry_points: [] };
+    const get_call_graph = jest
+      .fn<Promise<CallGraph | undefined>, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue(empty_graph);
+    mock_backend.current = make_backend({
+      get_call_graph,
+      list_flows: async () => [flow("a")],
+      on_store_changed: (listener) => {
+        store_listener = listener;
+        return () => undefined;
+      },
+    });
+    render_app();
+    await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Error));
+
+    act(() => store_listener?.());
+
+    await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready));
+  });
+
+  it("keeps the mounted surface (no Error flip) when a store_changed refresh hits a transient null graph", async () => {
+    let store_listener: (() => void) | undefined;
+    const empty_graph: CallGraph = { nodes: new Map(), entry_points: [] };
+    const get_call_graph = jest
+      .fn<Promise<CallGraph | undefined>, []>()
+      .mockResolvedValueOnce(empty_graph)
+      .mockResolvedValue(undefined);
+    mock_backend.current = make_backend({
+      get_call_graph,
+      list_flows: async () => [flow("a")],
+      on_store_changed: (listener) => {
+        store_listener = listener;
+        return () => undefined;
+      },
+    });
+    render_app();
+    await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready));
+
+    act(() => store_listener?.());
+
+    await act(async () => undefined);
+    expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready);
+  });
+
+  it("unsubscribes from store_changed when it unmounts", async () => {
+    const unsubscribe = jest.fn();
+    mock_backend.current = make_backend({
+      list_flows: async () => [flow("a")],
+      on_store_changed: () => unsubscribe,
+    });
+    const { unmount } = render_app();
+
+    await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready));
+    unmount();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
   it("reports an error and skips the flow list when the call graph is unavailable", async () => {
     const list_flows = jest.fn(async () => [flow("a")]);
     mock_backend.current = make_backend({ get_call_graph: async () => undefined, list_flows });

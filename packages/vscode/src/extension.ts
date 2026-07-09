@@ -353,10 +353,16 @@ async function show_webview_diagram(
   // that lands before the first request still refreshes. The store stays open-per-request and read-only
   // (AC#3): this watcher never opens graph.db, it only signals a re-read is due.
   const store_watcher = new StoreWatcher(work_folder.fsPath, graph_db_file, async () => {
-    if (project_manager) {
-      await project_manager.invalidate();
-    } else {
-      post_store_changed();
+    // Fire-and-forget from the debounce timer: catch here so a failed re-index surfaces in the
+    // OutputChannel instead of becoming an unhandled rejection, and never blocks the extension host.
+    try {
+      if (project_manager) {
+        await project_manager.invalidate();
+      } else {
+        post_store_changed();
+      }
+    } catch (err) {
+      log(`store-change refresh failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   });
   store_watcher.start();
