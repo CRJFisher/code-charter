@@ -38,15 +38,15 @@ import { filter_flow_relevant } from "../reconcile/flow_relevance";
 import { to_repo_relative } from "../reconcile/paths";
 import { read_stdin } from "./read_stdin";
 
+/** A cursor untouched for a week belongs to a session that ended long ago; GC drops it. */
+const WATERMARK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
  * The watermark lives beside the store (the gitignored `.code-charter/`) and is keyed PER SESSION:
  * concurrent sessions in one repo each have their own cursor. A single shared cursor is keyed to one
  * transcript_path, so every alternation between sessions reads a "different transcript", resets to 0,
  * and re-fires the whole session's edits.
  */
-/** A cursor untouched for a week belongs to a session that ended long ago; GC drops it. */
-const WATERMARK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
 function watermark_path(cwd: string, session_id: string): string {
   const safe = session_id.replace(/[^A-Za-z0-9_-]/g, "_");
   return path.join(path.dirname(resolve_db_path(process.env, cwd)), `${WATERMARK_FILE_PREFIX}.${safe}.json`);
@@ -59,15 +59,20 @@ function watermark_path(cwd: string, session_id: string): string {
  */
 function gc_stale_watermarks(dir: string): void {
   try {
-    const entries = fs.readdirSync(dir).map((name) => ({
-      name,
-      mtime_ms: fs.statSync(path.join(dir, name)).mtimeMs,
-    }));
+    // Stat each entry defensively: one unreadable sibling (a dangling symlink, or a file a concurrent
+    // session removed between readdir and stat) must not abort pruning the rest — it drops to null.
+    const entries = fs.readdirSync(dir).flatMap((name) => {
+      try {
+        return [{ name, mtime_ms: fs.statSync(path.join(dir, name)).mtimeMs }];
+      } catch {
+        return [];
+      }
+    });
     for (const stale of select_stale_watermarks(entries, Date.now(), WATERMARK_MAX_AGE_MS)) {
       fs.rmSync(path.join(dir, stale), { force: true });
     }
   } catch {
-    /* pruning is opportunistic — a missing dir or an unreadable entry is not the hook's problem */
+    /* pruning is opportunistic — a missing dir is not the hook's problem */
   }
 }
 

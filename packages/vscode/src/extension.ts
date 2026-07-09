@@ -103,7 +103,9 @@ function refresh_drift_status(workspace_path: string): void {
   const state = drift_bar_state(is_stop_hook_installed(workspace_path, HOST_LAYOUTS.claude_code));
   status_bar_item.text = state.text;
   status_bar_item.tooltip = state.tooltip;
-  status_bar_item.command = INSTALL_DRIFT_COMMAND;
+  // Click-to-fix only when NOT armed (AC#2); an armed bar is a plain indicator. Manual re-install is
+  // always reachable from the command palette.
+  status_bar_item.command = state.warn ? INSTALL_DRIFT_COMMAND : undefined;
   status_bar_item.backgroundColor = state.warn
     ? new vscode.ThemeColor("statusBarItem.warningBackground")
     : undefined;

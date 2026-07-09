@@ -192,6 +192,29 @@ describe("drift_stop_hook bin", () => {
     }
   });
 
+  it("GCs dead per-session watermark cursors while keeping fresh ones and the current fire's cursor", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const store_dir = path.join(dir, ".code-charter");
+    fs.mkdirSync(store_dir, { recursive: true });
+    const dead = path.join(store_dir, "drift_stop_watermark.dead-session.json");
+    const recent = path.join(store_dir, "drift_stop_watermark.recent-session.json");
+    fs.writeFileSync(dead, "{}");
+    fs.writeFileSync(recent, "{}");
+    const eight_days_ago = Date.now() / 1000 - 8 * 24 * 60 * 60;
+    fs.utimesSync(dead, eight_days_ago, eight_days_ago);
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
+      expect(fs.existsSync(dead)).toBe(false); // the 8-day-old cursor is pruned
+      expect(fs.existsSync(recent)).toBe(true); // a recently-touched cursor is left alone
+      // The cursor this very fire wrote is never a GC victim (it is younger than the max age).
+      expect(fs.existsSync(path.join(store_dir, "drift_stop_watermark.s1.json"))).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("no-ops (exit 0, empty stdout) on malformed stdin so a garbage payload never breaks the session", () => {
     const result = run_stop_hook_raw("not json at all");
     expect(result.status).toBe(0);

@@ -64,7 +64,8 @@
             "problemMatcher": [],
             "isBackground": false,
             "presentation": {
-                "reveal": "always"
+                "reveal": "silent",
+                "revealProblems": "onProblem"
             }
         }
     ]
