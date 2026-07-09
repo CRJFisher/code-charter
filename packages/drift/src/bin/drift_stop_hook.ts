@@ -26,7 +26,13 @@ import {
   write_pending_reconcile_atomic,
 } from "../hooks/pending_reconcile";
 import { decide_stop_action } from "../hooks/stop_decision";
-import { parse_watermark, serialize_watermark, worked_on_since } from "../hooks/stop_watermark";
+import {
+  parse_watermark,
+  select_stale_watermarks,
+  serialize_watermark,
+  WATERMARK_FILE_PREFIX,
+  worked_on_since,
+} from "../hooks/stop_watermark";
 import { resolve_db_path } from "../hooks/resolve_db_path";
 import { filter_flow_relevant } from "../reconcile/flow_relevance";
 import { to_repo_relative } from "../reconcile/paths";
@@ -38,11 +44,31 @@ import { read_stdin } from "./read_stdin";
  * transcript_path, so every alternation between sessions reads a "different transcript", resets to 0,
  * and re-fires the whole session's edits.
  */
-const WATERMARK_PREFIX = "drift_stop_watermark";
+/** A cursor untouched for a week belongs to a session that ended long ago; GC drops it. */
+const WATERMARK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function watermark_path(cwd: string, session_id: string): string {
   const safe = session_id.replace(/[^A-Za-z0-9_-]/g, "_");
-  return path.join(path.dirname(resolve_db_path(process.env, cwd)), `${WATERMARK_PREFIX}.${safe}.json`);
+  return path.join(path.dirname(resolve_db_path(process.env, cwd)), `${WATERMARK_FILE_PREFIX}.${safe}.json`);
+}
+
+/**
+ * Prune dead per-session cursors from the store dir so `.code-charter/` does not accrue one file per
+ * past session forever. Runs every fire (cheap: a single readdir + stat of a small dir) and is fully
+ * best-effort — the hook must never break the session, so any IO failure is swallowed.
+ */
+function gc_stale_watermarks(dir: string): void {
+  try {
+    const entries = fs.readdirSync(dir).map((name) => ({
+      name,
+      mtime_ms: fs.statSync(path.join(dir, name)).mtimeMs,
+    }));
+    for (const stale of select_stale_watermarks(entries, Date.now(), WATERMARK_MAX_AGE_MS)) {
+      fs.rmSync(path.join(dir, stale), { force: true });
+    }
+  } catch {
+    /* pruning is opportunistic — a missing dir or an unreadable entry is not the hook's problem */
+  }
 }
 
 async function main(): Promise<void> {
@@ -65,6 +91,7 @@ async function main(): Promise<void> {
   }
 
   const state_path = watermark_path(payload.cwd, payload.session_id);
+  gc_stale_watermarks(path.dirname(state_path));
   let prev = null;
   try {
     prev = parse_watermark(fs.readFileSync(state_path, "utf8"));

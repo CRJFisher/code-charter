@@ -1,6 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { parse_watermark, serialize_watermark, worked_on_since } from "./stop_watermark";
+import {
+  parse_watermark,
+  select_stale_watermarks,
+  serialize_watermark,
+  WATERMARK_FILE_PREFIX,
+  worked_on_since,
+} from "./stop_watermark";
 
 /** Build a transcript JSONL line: one assistant message that edited `file_path`. */
 function edit_line(file_path: string): string {
@@ -80,5 +86,34 @@ describe("parse_watermark / serialize_watermark", () => {
     expect(parse_watermark("not json")).toBeNull();
     expect(parse_watermark(JSON.stringify({ transcript_path: "/t" }))).toBeNull();
     expect(parse_watermark(JSON.stringify({ lines_processed: 3 }))).toBeNull();
+  });
+});
+
+describe("select_stale_watermarks (GC)", () => {
+  const NOW = 1_000_000_000_000;
+  const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+  const wm = (session: string) => `${WATERMARK_FILE_PREFIX}.${session}.json`;
+
+  it("drops only watermark files older than the max age", () => {
+    const entries = [
+      { name: wm("old"), mtime_ms: NOW - MAX_AGE - 1 },
+      { name: wm("fresh"), mtime_ms: NOW - 1000 },
+      { name: wm("exactly-at-boundary"), mtime_ms: NOW - MAX_AGE },
+    ];
+    expect(select_stale_watermarks(entries, NOW, MAX_AGE)).toEqual([wm("old")]);
+  });
+
+  it("never touches non-watermark siblings (the store, pending, log, status files)", () => {
+    const entries = [
+      { name: "graph.db", mtime_ms: 0 },
+      { name: "drift_reconcile_log.jsonl", mtime_ms: 0 },
+      { name: "drift_reconcile_status.json", mtime_ms: 0 },
+      { name: "drift_pending_reconcile.json", mtime_ms: 0 },
+    ];
+    expect(select_stale_watermarks(entries, NOW, MAX_AGE)).toEqual([]);
+  });
+
+  it("returns an empty list when nothing is stale", () => {
+    expect(select_stale_watermarks([{ name: wm("a"), mtime_ms: NOW }], NOW, MAX_AGE)).toEqual([]);
   });
 });

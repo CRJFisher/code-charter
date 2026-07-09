@@ -19,6 +19,41 @@
 
 import { parse_worked_on_files } from "./transcript_parser";
 
+/**
+ * The filename stem every per-session watermark carries: `${WATERMARK_FILE_PREFIX}.${session_id}.json`.
+ * Owned here beside the watermark semantics so the bin that writes the files and the GC that prunes
+ * them recognise the same set.
+ */
+export const WATERMARK_FILE_PREFIX = "drift_stop_watermark";
+
+/** A directory entry the GC weighs: a filename and its last-modified time in epoch ms. */
+export interface WatermarkFileEntry {
+  name: string;
+  mtime_ms: number;
+}
+
+/**
+ * The watermark files to delete: one cursor accrues per session (a session id never recurs), so a
+ * long-lived repo accumulates dead cursors from every past session. A cursor older than `max_age_ms`
+ * belongs to a session that ended days ago — no live session's cursor is ever that stale — so it is
+ * safe to drop; its only effect if a matching session somehow resumed would be to re-fire that
+ * session's edits once. Non-watermark entries and fresh cursors are left untouched. Pure.
+ */
+export function select_stale_watermarks(
+  entries: readonly WatermarkFileEntry[],
+  now_ms: number,
+  max_age_ms: number,
+): string[] {
+  return entries
+    .filter(
+      (entry) =>
+        entry.name.startsWith(`${WATERMARK_FILE_PREFIX}.`) &&
+        entry.name.endsWith(".json") &&
+        now_ms - entry.mtime_ms > max_age_ms,
+    )
+    .map((entry) => entry.name);
+}
+
 export interface StopWatermark {
   /** The transcript this cursor applies to; a different one is a new session and resets the count. */
   transcript_path: string;

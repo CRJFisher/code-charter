@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { CLAUDE_CODE_LAYOUT } from "./host_layout";
-import { install_drift } from "./install";
+import { install_drift, is_stop_hook_installed } from "./install";
 import { read_hook_groups } from "./merge_settings";
 
 // The package root: this test compiles from src/installer, so ../../ is packages/drift, where the
@@ -102,6 +102,46 @@ describe("install_drift (idempotency + asset install)", () => {
       expect(() => install_drift(target, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT)).toThrow(/not valid JSON/);
       // The user's file is left exactly as it was — not overwritten.
       expect(fs.readFileSync(settings_path, "utf8")).toBe(malformed);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("is_stop_hook_installed (status-bar verification)", () => {
+  it("is true after an install and false against an unwritten target", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-verify-"));
+    try {
+      expect(is_stop_hook_installed(target, CLAUDE_CODE_LAYOUT)).toBe(false);
+      install_drift(target, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT);
+      expect(is_stop_hook_installed(target, CLAUDE_CODE_LAYOUT)).toBe(true);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it("is false when settings hold only foreign (non-drift) Stop hooks", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-verify-"));
+    try {
+      const settings_path = path.join(target, ".claude", "settings.json");
+      fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+      fs.writeFileSync(
+        settings_path,
+        JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "node other_hook.js" }] }] } }),
+      );
+      expect(is_stop_hook_installed(target, CLAUDE_CODE_LAYOUT)).toBe(false);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it("reads a malformed settings.json as not-armed (re-install is the fix)", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-verify-"));
+    try {
+      const settings_path = path.join(target, ".claude", "settings.json");
+      fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+      fs.writeFileSync(settings_path, "{ not valid json,");
+      expect(is_stop_hook_installed(target, CLAUDE_CODE_LAYOUT)).toBe(false);
     } finally {
       fs.rmSync(target, { recursive: true, force: true });
     }

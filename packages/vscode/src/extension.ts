@@ -19,7 +19,8 @@ import {
   skeleton_to_summary,
 } from "@code-charter/core";
 import type { EdgeRow, FlowSummary, NodeRow, RenderedRows } from "@code-charter/types";
-import { HOST_LAYOUTS, install_drift } from "@code-charter/drift";
+import { HOST_LAYOUTS, install_drift, is_stop_hook_installed, read_sync_status } from "@code-charter/drift";
+import { drift_bar_state, format_sync_status, INSTALL_DRIFT_COMMAND } from "./drift_status";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { AriadneProjectManager } from "./ariadne/project_manager";
@@ -29,13 +30,87 @@ const extension_folder = ".code-charter";
 const graph_db_file = "graph.db";
 
 let webview_column: vscode.ViewColumn | undefined;
+/** The single "Code Charter" OutputChannel — every install result, sync-status, and command error lands here. */
+let output_channel: vscode.OutputChannel | undefined;
+/** The "drift armed / NOT installed" indicator; hidden when the open workspace is code-charter itself. */
+let status_bar_item: vscode.StatusBarItem | undefined;
+
+function log(message: string): void {
+  output_channel?.appendLine(`[code-charter] ${message}`);
+}
 
 export function activate(context: vscode.ExtensionContext) {
-  const disposable = vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () =>
-    generate_diagram(context)
+  output_channel = vscode.window.createOutputChannel("Code Charter");
+  status_bar_item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+  context.subscriptions.push(
+    output_channel,
+    status_bar_item,
+    vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () => generate_diagram(context)),
+    vscode.commands.registerCommand(INSTALL_DRIFT_COMMAND, install_drift_command),
   );
 
-  context.subscriptions.push(disposable);
+  // On activation (onStartupFinished) reflect the current arm state so a disarmed hook is visible before
+  // the developer ever generates a diagram — the whole point is to answer "why did my sync do nothing?".
+  const workspace_path = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspace_path !== undefined) {
+    refresh_drift_status(workspace_path);
+  }
+}
+
+/** The status-bar "click to fix": re-install the substrate, refresh the indicator, reveal the result. */
+function install_drift_command(): void {
+  const workspace_path = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspace_path === undefined) {
+    vscode.window.showWarningMessage("No workspace is open.");
+    return;
+  }
+  ensure_drift_installed(workspace_path);
+  refresh_drift_status(workspace_path);
+  output_channel?.show(true);
+}
+
+/** The drift package's own repo root, resolved from its installed/symlinked location. */
+function drift_package_root(): string {
+  return path.dirname(require.resolve("@code-charter/drift/package.json"));
+}
+
+/**
+ * Never dogfood code-charter onto itself: when the open workspace IS the drift package's own repo (only
+ * reachable from a dev checkout), install and status-bar reveal both stand down — the product analyzes
+ * OTHER repos, never its own source.
+ */
+function is_self_repo(workspace_path: string): boolean {
+  try {
+    return path.resolve(workspace_path) === path.resolve(drift_package_root(), "..", "..");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify the drift Stop hook in the workspace's `.claude/settings.json` and reflect it in the status bar:
+ * armed, or NOT installed with a click-to-fix. Surfaces the persisted sync-status record (task-27.1.20.3)
+ * into the OutputChannel so "why did my sync do nothing?" has a starting point. Self-repo hides the bar.
+ */
+function refresh_drift_status(workspace_path: string): void {
+  if (status_bar_item === undefined) {
+    return;
+  }
+  if (is_self_repo(workspace_path)) {
+    status_bar_item.hide();
+    return;
+  }
+  const state = drift_bar_state(is_stop_hook_installed(workspace_path, HOST_LAYOUTS.claude_code));
+  status_bar_item.text = state.text;
+  status_bar_item.tooltip = state.tooltip;
+  status_bar_item.command = INSTALL_DRIFT_COMMAND;
+  status_bar_item.backgroundColor = state.warn
+    ? new vscode.ThemeColor("statusBarItem.warningBackground")
+    : undefined;
+  status_bar_item.show();
+
+  const store_path = path.join(workspace_path, extension_folder, graph_db_file);
+  log(format_sync_status(read_sync_status(store_path)));
 }
 
 /**
@@ -43,21 +118,19 @@ export function activate(context: vscode.ExtensionContext) {
  * the Stop-hook reconcile chain that keeps the diagram in sync with the code. The drift package — its
  * `assets/` bundle and built bins — ships inside the extension; `require.resolve` finds it both in the
  * dev checkout (workspace symlink) and in the packaged extension (bundled dependency). The install is
- * idempotent and must never block diagram generation, so any failure is logged and swallowed.
+ * idempotent and must never block diagram generation, so any failure is reported and swallowed. Every
+ * outcome — skip, success, failure — is written to the OutputChannel so a silent install is impossible.
  */
 function ensure_drift_installed(workspace_path: string): void {
+  if (is_self_repo(workspace_path)) {
+    log("drift install skipped: the open workspace is code-charter itself");
+    return;
+  }
   try {
-    const package_root = path.dirname(require.resolve("@code-charter/drift/package.json"));
-    // Never dogfood code-charter onto itself: when the open workspace IS the drift package's own repo
-    // (only reachable from a dev checkout), skip — the product analyzes OTHER repos, never its own source.
-    const package_repo_root = path.resolve(package_root, "..", "..");
-    if (path.resolve(workspace_path) === package_repo_root) {
-      console.warn("[code-charter] drift install skipped: the open workspace is code-charter itself");
-      return;
-    }
-    install_drift(workspace_path, HOST_LAYOUTS.claude_code, package_root);
+    install_drift(workspace_path, HOST_LAYOUTS.claude_code, drift_package_root());
+    log(`drift substrate installed/refreshed into ${path.join(workspace_path, ".claude")}`);
   } catch (err) {
-    console.error("[code-charter] drift substrate install skipped:", err);
+    log(`drift substrate install FAILED: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -69,6 +142,7 @@ async function generate_diagram(context: vscode.ExtensionContext) {
   }
   const workspace_path = workspace_folders[0].uri.fsPath;
   ensure_drift_installed(workspace_path);
+  refresh_drift_status(workspace_path);
   const work_dir = vscode.Uri.file(`${workspace_path}/${extension_folder}`);
   const dir_exists = await vscode.workspace.fs.stat(work_dir).then(
     () => true,
@@ -244,7 +318,7 @@ async function show_webview_diagram(
       } catch (err) {
         const error_message = err instanceof Error ? err.message : String(err);
         const error_stack = err instanceof Error ? err.stack : undefined;
-        console.error(`[code-charter] command "${command}" failed:`, err);
+        log(`command "${command}" failed: ${error_stack ?? error_message}`);
         panel.webview.postMessage({
           id,
           command: `${command}_response`,

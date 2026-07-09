@@ -11,7 +11,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:code-charter-vscode.generateDiagram"
+    "onStartupFinished"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
@@ -19,6 +19,10 @@
       {
         "command": "code-charter-vscode.generateDiagram",
         "title": "Code Charter: Visualize Code Trees"
+      },
+      {
+        "command": "code-charter-vscode.installDrift",
+        "title": "Code Charter: Install Drift Sync Into Workspace"
       }
     ],
     "configuration": {
