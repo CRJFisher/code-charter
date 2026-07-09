@@ -27,12 +27,20 @@
       {
         "command": "code-charter-vscode.previewDriftReconcile",
         "title": "Code Charter: Preview Drift Reconcile (dev)"
+      },
+      {
+        "command": "code-charter-vscode.dumpDriftStore",
+        "title": "Code Charter: Dump Drift Store (dev)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "code-charter-vscode.previewDriftReconcile",
+          "when": "code-charter-vscode.devMode"
+        },
+        {
+          "command": "code-charter-vscode.dumpDriftStore",
           "when": "code-charter-vscode.devMode"
         }
       ]
