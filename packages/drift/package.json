@@ -11,7 +11,8 @@
   "bin": {
     "drift-stop-hook": "dist/bin/drift_stop_hook.js",
     "drift-install": "dist/bin/drift_install.js",
-    "drift-reconcile": "dist/bin/drift_reconcile.js"
+    "drift-reconcile": "dist/bin/drift_reconcile.js",
+    "drift-inspect": "dist/bin/drift_inspect.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

@@ -87,6 +87,30 @@ export function append_reconcile_log(
   }
 }
 
+/**
+ * Read the newest turn record from the append-only log, or null when the log is absent or holds no
+ * parsable line. Reads the whole file and parses the last non-empty line — the log is one small line
+ * per turn and disposable beside the store, so a full read is cheap.
+ */
+export function read_latest_reconcile_record(store_path: string): ReconcileLogRecord | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(reconcile_log_path(store_path), "utf8");
+  } catch {
+    return null;
+  }
+  const lines = raw.split("\n").filter((line) => line.trim().length > 0);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const parsed: unknown = JSON.parse(lines[i]);
+      if (typeof parsed === "object" && parsed !== null) return parsed as ReconcileLogRecord;
+    } catch {
+      // skip a torn line and try the previous one
+    }
+  }
+  return null;
+}
+
 /** Read the current status; a missing or unparsable file is the empty status. */
 export function read_sync_status(store_path: string): SyncStatus {
   try {
