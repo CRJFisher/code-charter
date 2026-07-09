@@ -21,10 +21,19 @@ import {
 } from "@code-charter/core";
 import type { EdgeRow, FlowSummary, NodeRow, RenderedRows } from "@code-charter/types";
 import type { FlowOutcome } from "@code-charter/drift";
-import { HOST_LAYOUTS, install_drift, is_stop_hook_installed, read_sync_status } from "@code-charter/drift";
+import {
+  collect_store_summary,
+  HOST_LAYOUTS,
+  install_drift,
+  is_stop_hook_installed,
+  read_inspect_input,
+  read_sync_status,
+  render_summary,
+} from "@code-charter/drift";
 import {
   DEV_MODE_CONTEXT_KEY,
   drift_bar_state,
+  DUMP_DRIFT_STORE_COMMAND,
   format_preview_outcomes,
   format_sync_status,
   INSTALL_DRIFT_COMMAND,
@@ -58,6 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () => generate_diagram(context)),
     vscode.commands.registerCommand(INSTALL_DRIFT_COMMAND, install_drift_command),
     vscode.commands.registerCommand(PREVIEW_DRIFT_COMMAND, preview_drift_reconcile_command),
+    vscode.commands.registerCommand(DUMP_DRIFT_STORE_COMMAND, dump_drift_store_command),
   );
 
   // Gate the dev-only preview command in the palette on the same dev-mode signal the webview reads, and
@@ -88,6 +98,28 @@ function is_dev_mode(): boolean {
   );
 }
 
+/** The on-disk drift store beside the workspace — the same path the Stop-hook reconcile writes and reads. */
+function store_path_for(workspace_path: string): string {
+  return path.join(workspace_path, extension_folder, graph_db_file);
+}
+
+/**
+ * Render the persisted drift store's summary (flow/description/bridge counts, sync health) into the
+ * OutputChannel. Reads the store in-process and read-only via the same inspect projection the
+ * `drift-inspect` bin uses, so a cold repo with no store yet renders an empty summary rather than
+ * throwing. Shared by the dev-mode generate instrumentation (AC#1) and Dump Drift Store (AC#3).
+ */
+function log_store_summary(store_path: string): void {
+  try {
+    log("Drift store summary:");
+    for (const line of render_summary(collect_store_summary(read_inspect_input(store_path)))) {
+      log(line);
+    }
+  } catch (err) {
+    log(`drift store summary failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 /**
  * The dev-mode "Preview Drift Reconcile" command: run the deterministic reconcile in dry-run over the
  * workspace's current diff and print the would-be outcomes to the OutputChannel — no store mutation, no
@@ -114,7 +146,7 @@ function preview_drift_reconcile_command(): void {
     return;
   }
 
-  const store_path = path.join(workspace_path, extension_folder, graph_db_file);
+  const store_path = store_path_for(workspace_path);
   const bin = path.join(drift_package_root(), "dist", "bin", "drift_reconcile.js");
   const result = spawnSync(
     "node",
@@ -137,6 +169,27 @@ function preview_drift_reconcile_command(): void {
   }
   log(`drift preview over ${changed.length} changed file(s):`);
   log(format_preview_outcomes(outcomes));
+}
+
+/**
+ * The dev-mode "Dump Drift Store" command: reveal the channel and render the persisted store's summary
+ * on demand — the same instrumentation generate prints in dev mode, reachable without a re-generate so a
+ * developer can inspect the store after an out-of-process reconcile lands. Read-only, no token spend.
+ */
+function dump_drift_store_command(): void {
+  const workspace_path = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspace_path === undefined) {
+    vscode.window.showWarningMessage("No workspace is open.");
+    return;
+  }
+  if (!is_dev_mode()) {
+    vscode.window.showInformationMessage(
+      "Dump Drift Store is a dev-mode command — enable the code-charter-vscode.devMode setting.",
+    );
+    return;
+  }
+  output_channel?.show(true);
+  log_store_summary(store_path_for(workspace_path));
 }
 
 /**
@@ -213,7 +266,7 @@ function refresh_drift_status(workspace_path: string): void {
     : undefined;
   status_bar_item.show();
 
-  const store_path = path.join(workspace_path, extension_folder, graph_db_file);
+  const store_path = store_path_for(workspace_path);
   log(format_sync_status(read_sync_status(store_path)));
 }
 
@@ -247,6 +300,12 @@ async function generate_diagram(context: vscode.ExtensionContext) {
   const workspace_path = workspace_folders[0].uri.fsPath;
   ensure_drift_installed(workspace_path);
   refresh_drift_status(workspace_path);
+  // Dev mode: surface the store the drift loop is under development against — reveal the channel and
+  // print its summary on every generate, so a developer sees what the reconcile has (or hasn't) written.
+  if (is_dev_mode()) {
+    output_channel?.show(true);
+    log_store_summary(store_path_for(workspace_path));
+  }
   const work_dir = vscode.Uri.file(`${workspace_path}/${extension_folder}`);
   const dir_exists = await vscode.workspace.fs.stat(work_dir).then(
     () => true,
@@ -455,12 +514,16 @@ async function show_webview_diagram(
   const store_watcher = new StoreWatcher(work_folder.fsPath, graph_db_file, async () => {
     // Fire-and-forget from the debounce timer: catch here so a failed re-index surfaces in the
     // OutputChannel instead of becoming an unhandled rejection, and never blocks the extension host.
+    // Dev mode narrates the watch→refresh cycle so the always-on auto-refresh is observable while the
+    // drift loop is under development; the refresh itself runs for every user, dev mode or not.
+    if (is_development) log("graph.db changed → refreshing the call graph and webview");
     try {
       if (project_manager) {
         await project_manager.invalidate();
       } else {
         post_store_changed();
       }
+      if (is_development) log("call graph refreshed → webview repainted");
     } catch (err) {
       log(`store-change refresh failed: ${err instanceof Error ? err.message : String(err)}`);
     }

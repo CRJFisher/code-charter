@@ -14,6 +14,9 @@ export const INSTALL_DRIFT_COMMAND = "code-charter-vscode.installDrift";
 /** The dev-mode command that previews a deterministic reconcile of the current diff into the channel. */
 export const PREVIEW_DRIFT_COMMAND = "code-charter-vscode.previewDriftReconcile";
 
+/** The dev-mode command that renders the persisted drift store's summary into the channel on demand. */
+export const DUMP_DRIFT_STORE_COMMAND = "code-charter-vscode.dumpDriftStore";
+
 /** The context key the command palette gates {@link PREVIEW_DRIFT_COMMAND} on, set from dev mode on activation. */
 export const DEV_MODE_CONTEXT_KEY = "code-charter-vscode.devMode";
 
