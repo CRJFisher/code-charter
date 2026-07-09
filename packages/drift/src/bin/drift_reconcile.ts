@@ -314,7 +314,9 @@ async function main(): Promise<void> {
         return;
       }
       case "apply_stitch": {
-        const result = await apply_stitch(deps, stitch_input!, adapter.call_graph());
+        // Same turn atomicity as reconcile(): the stitch applies umbrellas AND retires absorbed
+        // singletons across many writes, so a mid-turn crash must roll the whole apply back.
+        const result = await deps.store.transaction(() => apply_stitch(deps, stitch_input!, adapter.call_graph()));
         // The stdout wire is the agent's phase-2 input ({ flows }); the describe tally is
         // log-internal and rides only the run record.
         process.stdout.write(JSON.stringify({ flows: result.flows }) + "\n");
@@ -329,7 +331,11 @@ async function main(): Promise<void> {
         return;
       }
       case "apply_descriptions": {
-        const result = apply_descriptions(deps, descriptions_input!, adapter.call_graph());
+        // One transaction over the whole description batch, so a mid-batch crash leaves none of the
+        // agent's descriptions half-written.
+        const result = await deps.store.transaction(async () =>
+          apply_descriptions(deps, descriptions_input!, adapter.call_graph()),
+        );
         process.stdout.write(JSON.stringify(result) + "\n");
         log(`wrote ${result.written.length} description(s), skipped ${result.skipped.length}`);
         finish_run({

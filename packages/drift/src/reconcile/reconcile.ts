@@ -15,6 +15,13 @@
  *
  * "No new drift → no-op": an empty file set, or no affected/new flows, returns an empty outcome list.
  * Writes are scoped and idempotent, so re-firing the hook (or the `stop_hook_active` re-entry) is safe.
+ *
+ * The whole turn runs inside one store transaction ({@link GraphStore.transaction}, on the WAL
+ * discipline from task-27.1.20.1): every mutation commits together, so a mid-turn crash rolls the turn
+ * back rather than leaving it half-applied. Two guards keep a degraded input from overwriting good
+ * state: the code path defers a retirement when the graph is untrustworthy for the seed's file, and
+ * the skill path defers a bundle re-sync when the bundle looks degraded on disk (a truncated SKILL.md,
+ * an unparseable meta.json, or a missing declared sub-agent file) — {@link assess_skill_bundle}.
  */
 
 import * as fs from "node:fs";

@@ -146,9 +146,31 @@ describe("assess_skill_bundle (partial/degraded-write guard, AC#2)", () => {
     expect(assess_skill_bundle(skill)).toContain("declared sub-agent file missing from bundle: agents/reviewer.md");
   });
 
+  it("defers a bundle whose meta.json is truncated/unparseable (silently drops every sub-agent bridge otherwise)", () => {
+    const skill = make_skill("skills/foo", { "meta.json": '{ "sub_agents": [ { "name": "revie' });
+    fs.writeFileSync(path.join(skill, "SKILL.md"), "# skill\n\nbody\n");
+
+    expect(assess_skill_bundle(skill)).toContain("meta.json is unparseable");
+  });
+
   it("passes a bundle whose sub-agent declaration points outside the bundle (external, not a defect)", () => {
     const skill = make_skill("skills/foo", {
       "meta.json": JSON.stringify({ sub_agents: [{ name: "external", file: "/opt/agents/x.md" }] }),
+    });
+
+    expect(assess_skill_bundle(skill)).toBeUndefined();
+  });
+
+  it("passes a bundle whose sub-agent path escapes the bundle root (ingest ignores it too, not a defect)", () => {
+    const skill = make_skill("skills/foo", {
+      // A `..`-segment and a filename literally beginning with `..` both resolve outside the bundle,
+      // exactly as ingest's resolver treats them — neither absent target is a defect.
+      "meta.json": JSON.stringify({
+        sub_agents: [
+          { name: "shared", file: "../shared/reviewer.md" },
+          { name: "weird", file: "..reviewer.md" },
+        ],
+      }),
     });
 
     expect(assess_skill_bundle(skill)).toBeUndefined();

@@ -298,6 +298,47 @@ describe("detect_anomalies", () => {
     expect(anomalies.map((a) => a.code)).toContain("high_placeholder_ratio");
   });
 
+  it("flags a high ratio of provisional (awaiting-agent) descriptions — the now-primary name-only case", () => {
+    // The deterministic pass writes `provisional`, not `placeholder`, for every needs_llm member, so
+    // the anomaly must count provisional in its name-only numerator or it would silently stop firing.
+    const members = ["a", "b", "c", "d", "e", "f"];
+    const summary = collect_store_summary(
+      input(
+        [
+          flow_node("f", { members }),
+          ...members.slice(0, 4).map((m) => description_node(m, "provisional", m)),
+          ...members.slice(4).map((m) => description_node(m, "llm", "real")),
+        ],
+        [],
+      ),
+    );
+
+    const anomaly = detect_anomalies(summary, null).find((a) => a.code === "high_placeholder_ratio");
+    expect(anomaly).toBeDefined();
+    // The union provisional+placeholder is the numerator: 4 provisional of 6 owned.
+    expect(anomaly?.message).toContain("4/6");
+  });
+
+  it("flags the union of provisional and terminal placeholders as name-only", () => {
+    const members = ["a", "b", "c", "d", "e"];
+    const summary = collect_store_summary(
+      input(
+        [
+          flow_node("f", { members }),
+          description_node("a", "provisional", "a"),
+          description_node("b", "provisional", "b"),
+          description_node("c", "placeholder", "c"),
+          description_node("d", "llm", "d"),
+          description_node("e", "llm", "e"),
+        ],
+        [],
+      ),
+    );
+
+    // 3 name-only (2 provisional + 1 placeholder) of 5 owned = 0.6 >= 0.5 → flagged.
+    expect(detect_anomalies(summary, null).map((a) => a.code)).toContain("high_placeholder_ratio");
+  });
+
   it("does not flag a placeholder ratio below the minimum count", () => {
     const summary = collect_store_summary(
       input([flow_node("f", { members: ["a", "b"] }), description_node("a", "placeholder", "a"), description_node("b", "placeholder", "b")], []),
