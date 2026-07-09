@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { render_anomalies, render_flow_detail, render_summary } from "./render";
-import type { Anomaly, FlowDetail, StoreSummary } from "./summary";
+import { render_anomalies, render_flow_detail, render_summary, render_summary_diff } from "./render";
+import type { SummaryDiff } from "./diff";
+import type { Anomaly, FlowDetail, FlowSummary, StoreSummary } from "./summary";
 
 const SUMMARY: StoreSummary = {
   live_flow_count: 1,
@@ -104,5 +105,79 @@ describe("render_anomalies", () => {
     expect(text).toContain("2 anomaly(ies):");
     expect(text).toContain("[empty_flow] flow f has 0 members");
     expect(text).toContain("[unpersisted_bridges]");
+  });
+});
+
+describe("render_summary_diff", () => {
+  const ADDED: FlowSummary = {
+    id: "a.ts#new:function",
+    label: "new flow",
+    live: true,
+    seeds: ["a.ts#new:function"],
+    members: ["a.ts#new:function", "a.ts#dep:function"],
+    member_count: 2,
+    bridge_count: 0,
+    last_synced_at: "2026-07-09T00:00:00.000Z",
+    rationale: "",
+    descriptions: { docstring: 0, llm: 0, placeholder: 2, none: 0 },
+  };
+
+  it("renders a no-op reconcile as a single line", () => {
+    const diff: SummaryDiff = {
+      flows: [],
+      bridges: { added: [], removed: [] },
+      descriptions: { before: { docstring: 0, llm: 0, placeholder: 0, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 0, none: 0 } },
+      unchanged: true,
+    };
+    expect(render_summary_diff(diff)).toEqual(["no changes — the reconcile is a no-op for these files"]);
+  });
+
+  it("marks added flows with + and dropped flows with -", () => {
+    const diff: SummaryDiff = {
+      flows: [
+        { id: ADDED.id, before: null, after: ADDED },
+        { id: "b.ts#gone:function", before: { ...ADDED, id: "b.ts#gone:function", label: "" }, after: null },
+      ],
+      bridges: { added: [], removed: [] },
+      descriptions: { before: { docstring: 0, llm: 0, placeholder: 0, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      unchanged: false,
+    };
+    const text = render_summary_diff(diff).join("\n");
+    expect(text).toContain('+ [live] a.ts#new:function "new flow"');
+    expect(text).toContain("- [live] b.ts#gone:function");
+    expect(text).toContain("descriptions (store-wide): docstring 0, llm 0, placeholder 0→2, none 0");
+  });
+
+  it("renders a changed flow with only the fields that moved", () => {
+    const before: FlowSummary = { ...ADDED, live: true, member_count: 2, bridge_count: 1 };
+    const after: FlowSummary = { ...ADDED, live: false, member_count: 2, bridge_count: 0 };
+    const diff: SummaryDiff = {
+      flows: [{ id: ADDED.id, before, after }],
+      bridges: { added: [], removed: [{ src_id: "a.ts#new:function", dst_id: "a.ts#dep:function", rationale: "calls" }] },
+      descriptions: { before: { docstring: 0, llm: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      unchanged: false,
+    };
+    const text = render_summary_diff(diff).join("\n");
+    expect(text).toContain("~ a.ts#new:function: retired, bridges 1→0");
+    expect(text).not.toContain("members");
+    expect(text).toContain("bridges: +0 / -1");
+    expect(text).toContain("- a.ts#new:function → a.ts#dep:function — calls");
+  });
+
+  it("renders a non-empty reason for a same-count re-anchor (never a blank ~ line)", () => {
+    const before: FlowSummary = { ...ADDED, seeds: ["a.ts#old:function"], members: ["a.ts#old:function", "a.ts#dep:function"] };
+    const after: FlowSummary = { ...ADDED, seeds: ["a.ts#new:function"], members: ["a.ts#new:function", "a.ts#dep:function"] };
+    const diff: SummaryDiff = {
+      flows: [{ id: ADDED.id, before, after }],
+      bridges: { added: [], removed: [] },
+      descriptions: { before: { docstring: 0, llm: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      unchanged: false,
+    };
+    const line = render_summary_diff(diff).find((l) => l.includes("~ a.ts#new:function"));
+    expect(line).toBeDefined();
+    expect(line).toContain("members reanchored (2)");
+    expect(line).toContain("seeds reanchored (1)");
+    // The bug this guards: a flagged flow rendering as "~ <id>: " with nothing after the colon.
+    expect(line?.trim()).not.toMatch(/~ \S+:\s*$/);
   });
 });
