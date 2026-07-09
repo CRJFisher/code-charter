@@ -111,7 +111,7 @@ function store_path_for(workspace_path: string): string {
  */
 function log_store_summary(store_path: string): void {
   try {
-    log("Drift store summary:");
+    log("drift store summary:");
     for (const line of render_summary(collect_store_summary(read_inspect_input(store_path)))) {
       log(line);
     }
@@ -515,15 +515,17 @@ async function show_webview_diagram(
     // Fire-and-forget from the debounce timer: catch here so a failed re-index surfaces in the
     // OutputChannel instead of becoming an unhandled rejection, and never blocks the extension host.
     // Dev mode narrates the watch→refresh cycle so the always-on auto-refresh is observable while the
-    // drift loop is under development; the refresh itself runs for every user, dev mode or not.
-    if (is_development) log("graph.db changed → refreshing the call graph and webview");
+    // drift loop is under development; the refresh itself runs for every user, dev mode or not. The two
+    // branches take different refresh paths, so each narrates what it actually did.
+    if (is_development) log("graph.db changed → refreshing");
     try {
       if (project_manager) {
         await project_manager.invalidate();
+        if (is_development) log("call graph invalidated → webview repainted");
       } else {
         post_store_changed();
+        if (is_development) log("webview notified to re-read the store (no call graph built yet)");
       }
-      if (is_development) log("call graph refreshed → webview repainted");
     } catch (err) {
       log(`store-change refresh failed: ${err instanceof Error ? err.message : String(err)}`);
     }
