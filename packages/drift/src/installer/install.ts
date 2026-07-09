@@ -16,10 +16,13 @@ import {
   type HookArtifactSpec,
   type HostLayout,
 } from "./host_layout";
-import { merge_all_hooks } from "./merge_settings";
+import { hook_group_is_ours, merge_all_hooks, read_hook_groups } from "./merge_settings";
 
 const STOP_BIN = "drift_stop_hook.js";
 const RECONCILE_BIN = "drift_reconcile.js";
+
+/** The command substring that recognises the drift `Stop` hook on re-install and on verification. */
+export const STOP_HOOK_IDENTITY_TOKEN = "drift_stop_hook";
 
 /** Sidecar the installer drops beside the drift-sync skill so its dependency-free script finds the bin. */
 const RECONCILE_BIN_SIDECAR = ".drift_reconcile_bin";
@@ -92,9 +95,28 @@ function build_hook_specs(package_root: string): HookArtifactSpec[] {
     {
       event_name: "Stop",
       command: hook_command(package_root, STOP_BIN),
-      identity_token: "drift_stop_hook",
+      identity_token: STOP_HOOK_IDENTITY_TOKEN,
     },
   ];
+}
+
+/**
+ * Whether the drift `Stop` hook is armed in `target_root`'s host settings — the on-disk check behind
+ * the extension's "drift armed / NOT installed" status bar. An absent settings file (never installed)
+ * and a malformed one (hand-edited into invalid JSON) both read as not-armed: the fix in either case is
+ * to re-run the install, which rebuilds the hook entry (and refuses to clobber malformed JSON loudly).
+ */
+export function is_stop_hook_installed(target_root: string, layout: HostLayout): boolean {
+  const settings_path = path.join(target_root, layout.settings_file);
+  let settings: unknown;
+  try {
+    settings = JSON.parse(fs.readFileSync(settings_path, "utf8"));
+  } catch {
+    return false;
+  }
+  return read_hook_groups(settings, layout, "Stop").some((group) =>
+    hook_group_is_ours(group, STOP_HOOK_IDENTITY_TOKEN),
+  );
 }
 
 /** Install (or refresh) the drift substrate into `target_root` for the given host layout. */
