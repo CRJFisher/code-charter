@@ -273,6 +273,36 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
     });
   });
 
+  describe("invalidate", () => {
+    it("re-indexes on-disk files and fires a call-graph-changed event", async () => {
+      const changed = jest.fn();
+      projectManager = new AriadneProjectManager(tempDir);
+      projectManager.on_call_graph_changed(changed);
+      await projectManager.initialize();
+
+      // A file that appears after the initial index — mimics the code an out-of-process reconcile edited
+      // between the panel opening and the graph.db write that triggers invalidate().
+      await fs.promises.writeFile(path.join(tempDir, "added.py"), "def added(): pass", "utf-8");
+      mockEventEmitter.instance.fire.mockClear();
+
+      await projectManager.invalidate();
+
+      expect(mockEventEmitter.instance.fire).toHaveBeenCalledTimes(1);
+      const callGraph = projectManager.get_call_graph();
+      const nodeSymbols = Array.from(callGraph.nodes.keys());
+      expect(nodeSymbols.some((s) => s.includes("added.py"))).toBe(true);
+    });
+
+    it("is a no-op before initialize (no project to re-index)", async () => {
+      projectManager = new AriadneProjectManager(tempDir);
+      mockEventEmitter.instance.fire.mockClear();
+
+      await projectManager.invalidate();
+
+      expect(mockEventEmitter.instance.fire).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Disposal", () => {
     it("should clean up all resources on disposal", async () => {
       const mockDisposables: Array<{ dispose: jest.Mock }> = [];

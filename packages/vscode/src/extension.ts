@@ -23,6 +23,7 @@ import { HOST_LAYOUTS, install_drift, is_stop_hook_installed, read_sync_status }
 import { drift_bar_state, format_sync_status, INSTALL_DRIFT_COMMAND } from "./drift_status";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
+import { StoreWatcher } from "./store_watcher";
 import { AriadneProjectManager } from "./ariadne/project_manager";
 
 const extension_folder = ".code-charter";
@@ -195,11 +196,20 @@ async function show_webview_diagram(
   const workspace_path = workspace_folders[0].uri.fsPath;
   let call_graph: CallGraph | undefined;
   let project_manager: AriadneProjectManager | undefined;
+  let call_graph_subscription: vscode.Disposable | undefined;
+
+  // Tell the live webview the underlying data moved so it re-runs list_flows/render_flow in place. Fired
+  // from the graph.db watcher (an out-of-process reconcile landed) and from on_call_graph_changed (an
+  // in-process source edit) — one refresh channel for both.
+  const post_store_changed = () => {
+    panel.webview.postMessage({ command: "store_changed" });
+  };
 
   // Lazily build the Ariadne call graph once, then serve it from the cached project manager. Both the
   // raw call-graph request and the flow handlers (which derive the skeleton from it) funnel through
-  // here, so a re-extraction after a code change is picked up on the next request — the flow surface is
-  // a per-request snapshot (live re-sync is task-27.1.6's Stop-hook hydration, not a webview push).
+  // here, so a re-extraction after a code change is picked up on the next request. A reconcile landing
+  // out-of-process is pushed to the webview via post_store_changed, so the panel no longer waits for a
+  // manual re-run to reflect a stitched umbrella or LLM description.
   const ensure_call_graph = async (): Promise<CallGraph> => {
     if (!project_manager) {
       // Index the same file set the drift reconcile engine does (HeadlessProject): every supported
@@ -208,6 +218,9 @@ async function show_webview_diagram(
       // persisted flow whose seed lives in a file the webview skipped resolves to zero members and
       // renders empty. The default filter keeps `node_modules`/`.git`/etc. out via EXCLUDED_DIRS.
       project_manager = new AriadneProjectManager(workspace_path);
+      // Both the manager's own file watchers and invalidate() (driven by the graph.db watcher) fire this
+      // event; either way the webview refreshes. Disposed with the panel so a re-open starts clean.
+      call_graph_subscription = project_manager.on_call_graph_changed(() => post_store_changed());
       call_graph = await project_manager.initialize();
     } else {
       call_graph = project_manager.get_call_graph();
@@ -334,9 +347,32 @@ async function show_webview_diagram(
 
   panel.webview.html = html_content;
 
+  // Watch the on-disk store the reconcile sub-agent writes: on a settled write, re-extract the call
+  // graph (AC#2 — the reconcile followed a code change) which fires on_call_graph_changed and pushes
+  // store_changed (AC#1). If no call graph is built yet, nudge the webview directly so a store write
+  // that lands before the first request still refreshes. The store stays open-per-request and read-only
+  // (AC#3): this watcher never opens graph.db, it only signals a re-read is due.
+  const store_watcher = new StoreWatcher(work_folder.fsPath, graph_db_file, async () => {
+    // Fire-and-forget from the debounce timer: catch here so a failed re-index surfaces in the
+    // OutputChannel instead of becoming an unhandled rejection, and never blocks the extension host.
+    try {
+      if (project_manager) {
+        await project_manager.invalidate();
+      } else {
+        post_store_changed();
+      }
+    } catch (err) {
+      log(`store-change refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+  store_watcher.start();
+
   panel.onDidDispose(() => {
     project_manager?.dispose();
     project_manager = undefined;
+    call_graph_subscription?.dispose();
+    call_graph_subscription = undefined;
+    store_watcher.dispose();
   }, null, context.subscriptions);
 
   if (is_development) {

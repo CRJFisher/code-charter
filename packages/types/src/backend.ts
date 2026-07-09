@@ -17,4 +17,11 @@ export interface CodeCharterBackend {
   render_flow(flow_id: string): Promise<RenderedRows>;
 
   navigate_to_doc(file_path: string, line_number: number): Promise<void>;
+
+  /**
+   * Subscribe to out-of-band "the underlying store changed" notifications the backend pushes when a
+   * reconcile lands (not in response to a request). The listener re-runs list_flows/render_flow so the
+   * surface reflects newly stitched umbrellas and descriptions. Returns an unsubscribe function.
+   */
+  on_store_changed(listener: () => void): () => void;
 }

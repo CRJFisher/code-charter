@@ -218,4 +218,41 @@ describe('VSCodeBackend', () => {
       jest.useRealTimers();
     });
   });
+
+  describe('on_store_changed', () => {
+    it('invokes every subscriber on an unsolicited store_changed push', () => {
+      const first = jest.fn();
+      const second = jest.fn();
+      backend.on_store_changed(first);
+      backend.on_store_changed(second);
+
+      respond({ command: 'store_changed' });
+
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops notifying a subscriber after it unsubscribes', () => {
+      const listener = jest.fn();
+      const unsubscribe = backend.on_store_changed(listener);
+
+      respond({ command: 'store_changed' });
+      unsubscribe();
+      respond({ command: 'store_changed' });
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not disturb an in-flight request', async () => {
+      const listener = jest.fn();
+      backend.on_store_changed(listener);
+
+      const promise = backend.list_flows();
+      respond({ command: 'store_changed' });
+      respond({ id: last_posted_id(), command: 'list_flows', data: [] });
+
+      expect(await promise).toEqual([]);
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
 });
