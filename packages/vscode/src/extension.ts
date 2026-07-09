@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { spawnSync } from "node:child_process";
 
 import * as vscode from "vscode";
 import { add_to_gitignore } from "./files";
@@ -19,8 +20,16 @@ import {
   skeleton_to_summary,
 } from "@code-charter/core";
 import type { EdgeRow, FlowSummary, NodeRow, RenderedRows } from "@code-charter/types";
+import type { FlowOutcome } from "@code-charter/drift";
 import { HOST_LAYOUTS, install_drift, is_stop_hook_installed, read_sync_status } from "@code-charter/drift";
-import { drift_bar_state, format_sync_status, INSTALL_DRIFT_COMMAND } from "./drift_status";
+import {
+  DEV_MODE_CONTEXT_KEY,
+  drift_bar_state,
+  format_preview_outcomes,
+  format_sync_status,
+  INSTALL_DRIFT_COMMAND,
+  PREVIEW_DRIFT_COMMAND,
+} from "./drift_status";
 import { get_webview_content } from "./webview_template";
 import { UIDevWatcher } from "./dev_watcher";
 import { StoreWatcher } from "./store_watcher";
@@ -48,7 +57,11 @@ export function activate(context: vscode.ExtensionContext) {
     status_bar_item,
     vscode.commands.registerCommand("code-charter-vscode.generateDiagram", () => generate_diagram(context)),
     vscode.commands.registerCommand(INSTALL_DRIFT_COMMAND, install_drift_command),
+    vscode.commands.registerCommand(PREVIEW_DRIFT_COMMAND, preview_drift_reconcile_command),
   );
+
+  // Gate the dev-only preview command in the palette on the same dev-mode signal the webview reads.
+  vscode.commands.executeCommand("setContext", DEV_MODE_CONTEXT_KEY, is_dev_mode());
 
   // On activation (onStartupFinished) reflect the current arm state so a disarmed hook is visible before
   // the developer ever generates a diagram — the whole point is to answer "why did my sync do nothing?".
@@ -56,6 +69,81 @@ export function activate(context: vscode.ExtensionContext) {
   if (workspace_path !== undefined) {
     refresh_drift_status(workspace_path);
   }
+}
+
+/** Dev mode: the env flag (integration harness) or the workspace setting. Gates the reconcile preview. */
+function is_dev_mode(): boolean {
+  return (
+    process.env.CODE_CHARTER_DEV_MODE === "true" ||
+    vscode.workspace.getConfiguration("code-charter-vscode").get("devMode", false)
+  );
+}
+
+/**
+ * The dev-mode "Preview Drift Reconcile" command: run the deterministic reconcile in dry-run over the
+ * workspace's current diff and print the would-be outcomes to the OutputChannel — no store mutation, no
+ * Claude session, no token spend. The heavy orchestration (headless index, dry-run store wrap) lives in
+ * the `drift-reconcile` bin, so this shells into it exactly as the drift-sync skill does.
+ */
+function preview_drift_reconcile_command(): void {
+  const workspace_path = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspace_path === undefined) {
+    vscode.window.showWarningMessage("No workspace is open.");
+    return;
+  }
+  if (!is_dev_mode()) {
+    vscode.window.showInformationMessage(
+      "Preview Drift Reconcile is a dev-mode command — enable the code-charter-vscode.devMode setting.",
+    );
+    return;
+  }
+  output_channel?.show(true);
+
+  const changed = changed_files(workspace_path);
+  if (changed.length === 0) {
+    log("drift preview: no changed files vs HEAD — nothing to reconcile.");
+    return;
+  }
+
+  const store_path = path.join(workspace_path, extension_folder, graph_db_file);
+  const bin = path.join(drift_package_root(), "dist", "bin", "drift_reconcile.js");
+  const result = spawnSync(
+    "node",
+    [bin, "--dry-run", "--json", "--store", store_path, "--repo-root", workspace_path, "--files", changed.join(",")],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    log(`drift preview FAILED (exit ${result.status ?? "null"}): ${result.stderr?.trim() ?? "no stderr"}`);
+    return;
+  }
+  let outcomes: FlowOutcome[];
+  try {
+    outcomes = JSON.parse(result.stdout) as FlowOutcome[];
+  } catch (err) {
+    log(`drift preview: could not parse reconcile output: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+  log(`drift preview over ${changed.length} changed file(s):`);
+  log(format_preview_outcomes(outcomes));
+}
+
+/**
+ * The repo-relative files that differ from HEAD — tracked working-tree edits plus untracked new files —
+ * the set a reconcile preview should run over. A git failure logs and yields the empty set (the caller
+ * treats that as "nothing to preview").
+ */
+function changed_files(workspace_path: string): string[] {
+  const collect = (args: string[]): string[] => {
+    const result = spawnSync("git", args, { cwd: workspace_path, encoding: "utf8" });
+    if (result.status !== 0) {
+      log(`drift preview: \`git ${args.join(" ")}\` failed: ${result.stderr?.trim() ?? "unknown error"}`);
+      return [];
+    }
+    return result.stdout.split("\n").map((f) => f.trim()).filter((f) => f.length > 0);
+  };
+  const tracked = collect(["diff", "--name-only", "HEAD"]);
+  const untracked = collect(["ls-files", "--others", "--exclude-standard"]);
+  return [...new Set([...tracked, ...untracked])];
 }
 
 /** The status-bar "click to fix": re-install the substrate, refresh the indicator, reveal the result. */
@@ -164,8 +252,7 @@ async function show_webview_diagram(
   context: vscode.ExtensionContext,
   work_folder: vscode.Uri
 ) {
-  const is_development = process.env.CODE_CHARTER_DEV_MODE === "true"
-    || vscode.workspace.getConfiguration("code-charter-vscode").get("devMode", false);
+  const is_development = is_dev_mode();
 
   const panel = vscode.window.createWebviewPanel("codeDiagram", "Code Charter Diagram", vscode.ViewColumn.One, {
     enableScripts: true,

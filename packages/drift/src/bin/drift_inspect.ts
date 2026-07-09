@@ -20,20 +20,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { open_graph_store } from "@code-charter/core";
-
-import {
-  read_latest_reconcile_record,
-  read_sync_status,
-  sync_status_path,
-} from "../reconcile/reconcile_log";
 import {
   collect_flow_detail,
   collect_store_summary,
   count_proposed_bridges,
   detect_anomalies,
-  type InspectInput,
 } from "../inspect/summary";
+import { read_inspect_input } from "../inspect/read_input";
 import { render_anomalies, render_flow_detail, render_summary } from "../inspect/render";
 
 const USAGE = "usage: drift-inspect --store <db_path> [--json] [--flow <id>] [--lint]";
@@ -68,25 +61,6 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
   return { args: { store: raw.store, json: raw.json, flow: raw.flow, lint: raw.lint } };
 }
 
-/** Read the store snapshot read-only, folding in the run-log sidecars. A missing db is the empty input. */
-function read_input(store_path: string): InspectInput {
-  const latest_record = read_latest_reconcile_record(store_path);
-  const sync_status = fs.existsSync(sync_status_path(store_path)) ? read_sync_status(store_path) : null;
-  if (!fs.existsSync(store_path)) {
-    return { nodes: [], edges: [], latest_record, sync_status };
-  }
-  const store = open_graph_store(store_path, { read_only: true });
-  try {
-    // include_deleted so retired (soft-deleted) flow nodes are surfaced and counted; the summary's
-    // bridge/description collectors keep their own deleted_at===null filters, so only retired FLOWS
-    // are surfaced while bridges and descriptions stay live-only.
-    const { nodes, edges } = store.snapshot({ include_deleted: true });
-    return { nodes, edges, latest_record, sync_status };
-  } finally {
-    store.close();
-  }
-}
-
 /** The stitch proposal sidecar beside the store, or null when absent/unreadable. */
 function read_stitch_json(store_path: string): string | null {
   try {
@@ -107,7 +81,7 @@ function main(): void {
     process.exit(2);
   }
   const { args } = parsed;
-  const input = read_input(args.store);
+  const input = read_inspect_input(args.store);
   const summary = collect_store_summary(input);
 
   if (args.flow !== undefined) {

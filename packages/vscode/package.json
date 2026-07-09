@@ -23,8 +23,20 @@
       {
         "command": "code-charter-vscode.installDrift",
         "title": "Code Charter: Install Drift Sync Into Workspace"
+      },
+      {
+        "command": "code-charter-vscode.previewDriftReconcile",
+        "title": "Code Charter: Preview Drift Reconcile (dev)"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "code-charter-vscode.previewDriftReconcile",
+          "when": "code-charter-vscode.devMode"
+        }
+      ]
+    },
     "configuration": {
       "title": "Code Charter",
       "properties": {

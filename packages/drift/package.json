@@ -12,13 +12,16 @@
     "drift-stop-hook": "dist/bin/drift_stop_hook.js",
     "drift-install": "dist/bin/drift_install.js",
     "drift-reconcile": "dist/bin/drift_reconcile.js",
-    "drift-inspect": "dist/bin/drift_inspect.js"
+    "drift-inspect": "dist/bin/drift_inspect.js",
+    "drift-dev": "dist/bin/drift_dev.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -watch -p tsconfig.build.json",
     "lint": "eslint src",
     "test": "jest --testPathIgnorePatterns='src/reconcile/(reconcile_code|reconcile_delta|reconcile_membership|reconcile_stitch|reconcile_stitch_eval|ariadne_adapter)\\.test\\.ts' && jest src/reconcile/reconcile_code.test.ts && jest src/reconcile/reconcile_delta.test.ts && jest src/reconcile/reconcile_membership.test.ts && jest src/reconcile/reconcile_stitch.test.ts && jest src/reconcile/reconcile_stitch_eval.test.ts && jest src/reconcile/ariadne_adapter.test.ts",
+    "drift:dev": "node dist/bin/drift_dev.js",
+    "drift:dryrun": "node dist/bin/drift_reconcile.js --dry-run",
     "stitch_eval": "node dist/bin/stitch_eval.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"

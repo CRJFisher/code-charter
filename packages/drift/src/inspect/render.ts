@@ -4,16 +4,22 @@
  * collectors so a consumer can render the JSON projection its own way and still share the gathering.
  */
 
+import type { SummaryDiff } from "./diff";
 import type { Anomaly, BridgeSummary, DescriptionBreakdown, FlowDetail, FlowSummary, StoreSummary } from "./summary";
 
 function breakdown_line(breakdown: DescriptionBreakdown): string {
   return `docstring ${breakdown.docstring}, llm ${breakdown.llm}, placeholder ${breakdown.placeholder}, none ${breakdown.none}`;
 }
 
-function flow_line(flow: FlowSummary): string {
+/** The flow row body, indentation-neutral so both the summary rows and the diff's `+`/`-` markers reuse it. */
+function flow_body(flow: FlowSummary): string {
   const state = flow.live ? "live" : "retired";
   const label = flow.label.length > 0 ? ` "${flow.label}"` : "";
-  return `  [${state}] ${flow.id}${label} — ${flow.member_count} member(s), ${flow.seeds.length} seed(s), ${flow.bridge_count} bridge(s); descriptions: ${breakdown_line(flow.descriptions)}`;
+  return `[${state}] ${flow.id}${label} — ${flow.member_count} member(s), ${flow.seeds.length} seed(s), ${flow.bridge_count} bridge(s); descriptions: ${breakdown_line(flow.descriptions)}`;
+}
+
+function flow_line(flow: FlowSummary): string {
+  return `  ${flow_body(flow)}`;
 }
 
 /** Indentation-neutral; each caller owns its indent. */
@@ -84,4 +90,52 @@ export function render_flow_detail(detail: FlowDetail): string[] {
 export function render_anomalies(anomalies: readonly Anomaly[]): string[] {
   if (anomalies.length === 0) return ["no anomalies detected"];
   return [`${anomalies.length} anomaly(ies):`, ...anomalies.map((anomaly) => `  [${anomaly.code}] ${anomaly.message}`)];
+}
+
+function delta(before: number, after: number): string {
+  return before === after ? String(after) : `${before}→${after}`;
+}
+
+function breakdown_delta(before: DescriptionBreakdown, after: DescriptionBreakdown): string {
+  return `docstring ${delta(before.docstring, after.docstring)}, llm ${delta(before.llm, after.llm)}, placeholder ${delta(before.placeholder, after.placeholder)}, none ${delta(before.none, after.none)}`;
+}
+
+/** A changed flow: `~ id: <state>, members A→B, bridges C→D, descriptions ...` — only the fields that moved. */
+function changed_flow_line(before: FlowSummary, after: FlowSummary): string {
+  const segments: string[] = [];
+  if (before.live !== after.live) segments.push(after.live ? "revived" : "retired");
+  if (before.member_count !== after.member_count) segments.push(`members ${delta(before.member_count, after.member_count)}`);
+  if (before.bridge_count !== after.bridge_count) segments.push(`bridges ${delta(before.bridge_count, after.bridge_count)}`);
+  if (before.seeds.length !== after.seeds.length) segments.push(`seeds ${delta(before.seeds.length, after.seeds.length)}`);
+  const before_desc = breakdown_line(before.descriptions);
+  const after_desc = breakdown_line(after.descriptions);
+  if (before_desc !== after_desc) segments.push(`descriptions ${breakdown_delta(before.descriptions, after.descriptions)}`);
+  return `  ~ ${after.id}: ${segments.join(", ")}`;
+}
+
+/**
+ * The `drift-dev` before/after render: added (`+`), retired-or-dropped (`-`), and changed (`~`) flows,
+ * the bridge gain/loss, and the store-wide description shift. A no-op reconcile renders one line so the
+ * dev sees the deterministic pass touched nothing rather than an empty screen.
+ */
+export function render_summary_diff(diff: SummaryDiff): string[] {
+  if (diff.unchanged) return ["no changes — the reconcile is a no-op for these files"];
+
+  const lines: string[] = [];
+  lines.push("flows:");
+  if (diff.flows.length === 0) lines.push("  (unchanged)");
+  for (const flow of diff.flows) {
+    if (flow.before === null && flow.after !== null) lines.push(`  + ${flow_body(flow.after)}`);
+    else if (flow.after === null && flow.before !== null) lines.push(`  - ${flow_body(flow.before)}`);
+    else if (flow.before !== null && flow.after !== null) lines.push(changed_flow_line(flow.before, flow.after));
+  }
+  lines.push("");
+
+  lines.push(`bridges: +${diff.bridges.added.length} / -${diff.bridges.removed.length}`);
+  for (const bridge of diff.bridges.added) lines.push(`  + ${bridge_line(bridge)}`);
+  for (const bridge of diff.bridges.removed) lines.push(`  - ${bridge_line(bridge)}`);
+  lines.push("");
+
+  lines.push(`descriptions (store-wide): ${breakdown_delta(diff.descriptions.before, diff.descriptions.after)}`);
+  return lines;
 }

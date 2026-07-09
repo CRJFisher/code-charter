@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
-import type { SyncStatus } from "@code-charter/drift";
+import type { FlowOutcome, SyncStatus } from "@code-charter/drift";
 
-import { drift_bar_state, format_sync_status } from "./drift_status";
+import { drift_bar_state, format_preview_outcomes, format_sync_status } from "./drift_status";
 
 describe("drift_bar_state", () => {
   it("reads as armed, no warning, when the hook is installed", () => {
@@ -50,5 +50,37 @@ describe("format_sync_status", () => {
       last_error: null,
     };
     expect(format_sync_status(status)).toContain("healthy");
+  });
+});
+
+describe("format_preview_outcomes", () => {
+  it("notes no-op when no flow would change", () => {
+    const rendered = format_preview_outcomes([]);
+    expect(rendered).toContain("no store mutation, no tokens");
+    expect(rendered).toContain("no flows would change");
+  });
+
+  it("renders one line per would-be outcome with action, kind, members, and reason", () => {
+    const outcomes: FlowOutcome[] = [
+      {
+        flow_id: "main.ts#entry:function",
+        action: "hydrate",
+        kind: "code",
+        member_count: 2,
+        last_synced_at: "2026-07-09T00:00:00.000Z",
+        reason: "new entrypoint over the changed files",
+      },
+      {
+        flow_id: "main.ts#old:function",
+        action: "retire",
+        kind: "code",
+        member_count: 0,
+        last_synced_at: null,
+        reason: "seed entrypoint gone",
+      },
+    ];
+    const rendered = format_preview_outcomes(outcomes);
+    expect(rendered).toContain("hydrate main.ts#entry:function (code, 2 member(s)) — new entrypoint over the changed files");
+    expect(rendered).toContain("retire main.ts#old:function (code, 0 member(s)) — seed entrypoint gone");
   });
 });

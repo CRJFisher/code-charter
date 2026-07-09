@@ -57,6 +57,38 @@ automatically; deleting it manually is safe when no reconcile is running.
   skill bundle, and the `/drift` fallback command, behind a host-keyed layout. v1 ships only the
   Claude-Code target.
 
+## Iterating on reconcile logic (deterministic dev loop)
+
+A purely deterministic reconcile change — one that touches resync / retire / singleton hydration and
+needs no agent judgement — is provable in seconds without a Claude session or a token spend. Build
+the package first, then run one of these from `packages/drift/`:
+
+- **`drift:dev`** — the single-command loop. It copies the target repo's graph store to a scratch
+  location, runs the real deterministic reconcile against the copy, and prints a before/after diff of
+  flows, descriptions, and bridges. The real store is never touched and no agentic mode runs.
+
+  ```bash
+  npm run drift:dev -- --repo <abs-repo-path> --files <changed,files,csv>
+  ```
+
+  `--store <db_path>` overrides the store (default: the repo's `.code-charter/graph.db`, honoring the
+  `CODE_CHARTER_DB` env override); `--goal <name>` overrides the detection goal; `--json` emits
+  `{ outcomes, diff }` instead of the text diff.
+
+- **`drift:dryrun`** — the thin wrapper over `drift-reconcile --dry-run`. It runs the same detection
+  against the **real** store read-only (write-swallowed via `dry_run_store`) and reports the would-be
+  outcomes without mutating anything. Unlike `drift:dev` it takes no scratch copy, so it shows the
+  action list rather than a resulting-state diff.
+
+  ```bash
+  npm run drift:dryrun -- --store <db_path> --repo-root <abs> --files <changed,files,csv> [--json]
+  ```
+
+From the editor, the **Code Charter: Preview Drift Reconcile (dev)** command (visible only when the
+`code-charter-vscode.devMode` setting is on) runs `drift-reconcile --dry-run` over the workspace's
+current diff (tracked edits + untracked files vs `HEAD`) and prints the would-be outcomes to the
+**Code Charter** OutputChannel.
+
 ## Tuning the stitching prompts
 
 The agent's stitch/describe judgement is authored in `assets/agents/drift-reconciler.md` and
