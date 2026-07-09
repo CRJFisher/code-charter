@@ -58,7 +58,9 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
     const field = VALUE_FLAGS[token];
     if (field !== undefined) {
       const value = argv[i + 1];
-      if (value === undefined || value.startsWith("--")) return { error: `missing value for ${token}` };
+      if (value === undefined || value.length === 0 || value.startsWith("--")) {
+        return { error: `missing value for ${token}` };
+      }
       raw[field] = value;
       i++;
     } else if (token === "--json") {
@@ -80,12 +82,28 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
  * Copy the store (and its WAL sidecars, so a not-yet-checkpointed commit is not lost) into a fresh
  * scratch dir, returning the scratch store path. A missing source store is a cold repo: the reconcile
  * creates the scratch db from scratch, and the before-summary is empty.
+ *
+ * drift-dev is a manual, quiescent dev tool: it takes no reconcile lock because it only ever mutates
+ * the throwaway copy. If a live reconcile is checkpointing concurrently, a sidecar can vanish between
+ * the existence check and the copy — caught here and surfaced as a clear "retry" message rather than a
+ * raw ENOENT fatal.
  */
 function stage_scratch_store(source_store: string, scratch_dir: string): string {
   const scratch_store = path.join(scratch_dir, path.basename(source_store));
-  for (const suffix of ["", "-wal", "-shm"]) {
-    const src = source_store + suffix;
-    if (fs.existsSync(src)) fs.copyFileSync(src, scratch_store + suffix);
+  try {
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const src = source_store + suffix;
+      if (fs.existsSync(src)) fs.copyFileSync(src, scratch_store + suffix);
+    }
+  } catch (error: unknown) {
+    // Only a vanished sidecar (ENOENT between the check and the copy) points at a concurrent
+    // checkpoint; surface every other cause (disk full, permissions) unaltered.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(
+        `store changed while copying it to a scratch dir (is a reconcile running concurrently? re-run when idle): ${String(error)}`,
+      );
+    }
+    throw error;
   }
   return scratch_store;
 }

@@ -42,17 +42,34 @@ function breakdowns_equal(a: DescriptionBreakdown, b: DescriptionBreakdown): boo
 }
 
 /**
+ * Whether two symbol-path lists differ as SETS (membership, order-independent) — a reorder is not a
+ * meaningful change. Shared by {@link flow_changed} and the renderer so a flow flagged as changed
+ * always renders the dimension that flagged it: the detect predicate and the render predicate are the
+ * same function.
+ */
+export function symbol_lists_differ(before: readonly string[], after: readonly string[]): boolean {
+  const before_set = new Set(before);
+  const after_set = new Set(after);
+  if (before_set.size !== after_set.size) return true;
+  for (const symbol of before_set) {
+    if (!after_set.has(symbol)) return true;
+  }
+  return false;
+}
+
+/**
  * Whether two states of the same flow differ in any field a dev reconciling deterministically cares
- * about: live/retired, member count, bridge count, seeds, or the description split. Rationale and
- * `last_synced_at` are excluded — a re-sync always bumps the timestamp, which would flag every flow.
+ * about: live/retired, member identity, bridge count, seed identity, or the description split. Member
+ * and seed identity (not just count) are compared, so a same-count re-anchor is surfaced rather than
+ * read as a no-op. Rationale and `last_synced_at` are excluded — a re-sync always bumps the timestamp,
+ * which would flag every flow.
  */
 function flow_changed(before: FlowSummary, after: FlowSummary): boolean {
   return (
     before.live !== after.live ||
-    before.member_count !== after.member_count ||
     before.bridge_count !== after.bridge_count ||
-    before.seeds.length !== after.seeds.length ||
-    before.seeds.some((seed, i) => seed !== after.seeds[i]) ||
+    symbol_lists_differ(before.members, after.members) ||
+    symbol_lists_differ(before.seeds, after.seeds) ||
     !breakdowns_equal(before.descriptions, after.descriptions)
   );
 }

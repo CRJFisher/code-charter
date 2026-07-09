@@ -124,4 +124,10 @@ describe("drift-dev bin", () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("unknown argument: --bogus");
   });
+
+  it("rejects an empty-string flag value as a usage error, not a deep fatal", () => {
+    const result = run(DEV_BIN, ["--repo", "", "--files", "a.ts"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("missing value for --repo");
+  });
 });

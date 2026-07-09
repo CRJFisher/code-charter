@@ -4,7 +4,7 @@
  * collectors so a consumer can render the JSON projection its own way and still share the gathering.
  */
 
-import type { SummaryDiff } from "./diff";
+import { symbol_lists_differ, type SummaryDiff } from "./diff";
 import type { Anomaly, BridgeSummary, DescriptionBreakdown, FlowDetail, FlowSummary, StoreSummary } from "./summary";
 
 function breakdown_line(breakdown: DescriptionBreakdown): string {
@@ -100,13 +100,24 @@ function breakdown_delta(before: DescriptionBreakdown, after: DescriptionBreakdo
   return `docstring ${delta(before.docstring, after.docstring)}, llm ${delta(before.llm, after.llm)}, placeholder ${delta(before.placeholder, after.placeholder)}, none ${delta(before.none, after.none)}`;
 }
 
-/** A changed flow: `~ id: <state>, members A→B, bridges C→D, descriptions ...` — only the fields that moved. */
+/** A count change (`A→B`) if the lists resized, else a same-count re-anchor (`reanchored (N)`). */
+function symbol_list_delta(label: string, before: readonly string[], after: readonly string[]): string {
+  if (before.length !== after.length) return `${label} ${delta(before.length, after.length)}`;
+  return `${label} reanchored (${after.length})`;
+}
+
+/**
+ * A changed flow: `~ id: <state>, members ..., bridges C→D, seeds ..., descriptions ...` — only the
+ * fields that moved. The predicates here mirror {@link module:diff.flow_changed} exactly (member/seed
+ * identity via {@link symbol_lists_differ}), so a flow flagged as changed always renders a non-empty
+ * reason.
+ */
 function changed_flow_line(before: FlowSummary, after: FlowSummary): string {
   const segments: string[] = [];
   if (before.live !== after.live) segments.push(after.live ? "revived" : "retired");
-  if (before.member_count !== after.member_count) segments.push(`members ${delta(before.member_count, after.member_count)}`);
+  if (symbol_lists_differ(before.members, after.members)) segments.push(symbol_list_delta("members", before.members, after.members));
   if (before.bridge_count !== after.bridge_count) segments.push(`bridges ${delta(before.bridge_count, after.bridge_count)}`);
-  if (before.seeds.length !== after.seeds.length) segments.push(`seeds ${delta(before.seeds.length, after.seeds.length)}`);
+  if (symbol_lists_differ(before.seeds, after.seeds)) segments.push(symbol_list_delta("seeds", before.seeds, after.seeds));
   const before_desc = breakdown_line(before.descriptions);
   const after_desc = breakdown_line(after.descriptions);
   if (before_desc !== after_desc) segments.push(`descriptions ${breakdown_delta(before.descriptions, after.descriptions)}`);

@@ -114,7 +114,7 @@ describe("render_summary_diff", () => {
     label: "new flow",
     live: true,
     seeds: ["a.ts#new:function"],
-    members: ["a.ts#new:function"],
+    members: ["a.ts#new:function", "a.ts#dep:function"],
     member_count: 2,
     bridge_count: 0,
     last_synced_at: "2026-07-09T00:00:00.000Z",
@@ -162,5 +162,22 @@ describe("render_summary_diff", () => {
     expect(text).not.toContain("members");
     expect(text).toContain("bridges: +0 / -1");
     expect(text).toContain("- a.ts#new:function → a.ts#dep:function — calls");
+  });
+
+  it("renders a non-empty reason for a same-count re-anchor (never a blank ~ line)", () => {
+    const before: FlowSummary = { ...ADDED, seeds: ["a.ts#old:function"], members: ["a.ts#old:function", "a.ts#dep:function"] };
+    const after: FlowSummary = { ...ADDED, seeds: ["a.ts#new:function"], members: ["a.ts#new:function", "a.ts#dep:function"] };
+    const diff: SummaryDiff = {
+      flows: [{ id: ADDED.id, before, after }],
+      bridges: { added: [], removed: [] },
+      descriptions: { before: { docstring: 0, llm: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      unchanged: false,
+    };
+    const line = render_summary_diff(diff).find((l) => l.includes("~ a.ts#new:function"));
+    expect(line).toBeDefined();
+    expect(line).toContain("members reanchored (2)");
+    expect(line).toContain("seeds reanchored (1)");
+    // The bug this guards: a flagged flow rendering as "~ <id>: " with nothing after the colon.
+    expect(line?.trim()).not.toMatch(/~ \S+:\s*$/);
   });
 });

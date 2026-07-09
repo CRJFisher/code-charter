@@ -60,8 +60,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(PREVIEW_DRIFT_COMMAND, preview_drift_reconcile_command),
   );
 
-  // Gate the dev-only preview command in the palette on the same dev-mode signal the webview reads.
-  vscode.commands.executeCommand("setContext", DEV_MODE_CONTEXT_KEY, is_dev_mode());
+  // Gate the dev-only preview command in the palette on the same dev-mode signal the webview reads, and
+  // keep it live when the setting is toggled mid-session (else the palette entry lags until a reload).
+  const sync_dev_mode_context = (): void => {
+    vscode.commands.executeCommand("setContext", DEV_MODE_CONTEXT_KEY, is_dev_mode());
+  };
+  sync_dev_mode_context();
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("code-charter-vscode.devMode")) sync_dev_mode_context();
+    }),
+  );
 
   // On activation (onStartupFinished) reflect the current arm state so a disarmed hook is visible before
   // the developer ever generates a diagram — the whole point is to answer "why did my sync do nothing?".
@@ -113,7 +122,10 @@ function preview_drift_reconcile_command(): void {
     { encoding: "utf8" },
   );
   if (result.status !== 0) {
-    log(`drift preview FAILED (exit ${result.status ?? "null"}): ${result.stderr?.trim() ?? "no stderr"}`);
+    // A launch failure (e.g. `node` not on the Extension Host PATH) sets result.error with status null
+    // and no stderr — surface it so the channel isn't a bare "exit null: no stderr".
+    const detail = result.stderr?.trim() || result.error?.message || "no diagnostics";
+    log(`drift preview FAILED (exit ${result.status ?? "null"}): ${detail}`);
     return;
   }
   let outcomes: FlowOutcome[];
@@ -136,7 +148,8 @@ function changed_files(workspace_path: string): string[] {
   const collect = (args: string[]): string[] => {
     const result = spawnSync("git", args, { cwd: workspace_path, encoding: "utf8" });
     if (result.status !== 0) {
-      log(`drift preview: \`git ${args.join(" ")}\` failed: ${result.stderr?.trim() ?? "unknown error"}`);
+      const detail = result.stderr?.trim() || result.error?.message || "unknown error";
+      log(`drift preview: \`git ${args.join(" ")}\` failed: ${detail}`);
       return [];
     }
     return result.stdout.split("\n").map((f) => f.trim()).filter((f) => f.length > 0);
