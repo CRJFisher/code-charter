@@ -209,4 +209,9 @@ export class MockBackend implements CodeCharterBackend {
   async navigate_to_doc(file_path: string, line_number: number): Promise<void> {
     console.log(`Mock navigation to ${file_path}:${line_number}`);
   }
+
+  // The mock has no live store behind it, so it never pushes; the unsubscribe is a no-op.
+  on_store_changed(_listener: () => void): () => void {
+    return () => undefined;
+  }
 }

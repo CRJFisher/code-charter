@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import type { CallGraph } from "@ariadnejs/types";
 import type { CodeCharterBackend, FlowSummary } from "@code-charter/types";
 
@@ -22,6 +22,7 @@ function make_backend(over: Partial<CodeCharterBackend>): CodeCharterBackend {
     list_flows: over.list_flows ?? (async () => []),
     render_flow: over.render_flow ?? (async () => ({ nodes: [], edges: [] })),
     navigate_to_doc: over.navigate_to_doc ?? (async () => undefined),
+    on_store_changed: over.on_store_changed ?? (() => () => undefined),
   };
 }
 
@@ -46,10 +47,19 @@ jest.mock("./code_chart_area/code_chart_area", () => ({
   CodeChartAreaReactFlowWrapper: ({
     selected_flow_id,
     indexing_status,
+    refresh_nonce,
   }: {
     selected_flow_id: string | null;
     indexing_status: CodeIndexStatus;
-  }) => <div data-testid="chart" data-selected={selected_flow_id ?? ""} data-status={indexing_status} />,
+    refresh_nonce?: number;
+  }) => (
+    <div
+      data-testid="chart"
+      data-selected={selected_flow_id ?? ""}
+      data-status={indexing_status}
+      data-refresh={refresh_nonce ?? 0}
+    />
+  ),
 }));
 
 function flow(id: string): FlowSummary {
@@ -89,6 +99,32 @@ describe("App", () => {
     render_app();
     await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready));
     expect(screen.getByTestId("chart").getAttribute("data-selected")).toBe("");
+  });
+
+  it("reloads flows and bumps the chart refresh nonce on a store_changed push", async () => {
+    let store_listener: (() => void) | undefined;
+    const list_flows = jest
+      .fn<Promise<FlowSummary[]>, []>()
+      .mockResolvedValueOnce([flow("a")])
+      .mockResolvedValue([flow("a"), flow("b")]);
+    mock_backend.current = make_backend({
+      list_flows,
+      on_store_changed: (listener) => {
+        store_listener = listener;
+        return () => undefined;
+      },
+    });
+    render_app();
+
+    await waitFor(() => expect(screen.getByTestId("sidebar").textContent).toContain("a"));
+    expect(list_flows).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("chart").getAttribute("data-refresh")).toBe("0");
+
+    act(() => store_listener?.());
+
+    await waitFor(() => expect(screen.getByTestId("sidebar").textContent).toContain("b"));
+    expect(list_flows).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("chart").getAttribute("data-refresh")).toBe("1");
   });
 
   it("reports an error and skips the flow list when the call graph is unavailable", async () => {

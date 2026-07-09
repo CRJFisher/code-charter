@@ -36,9 +36,23 @@ export const App: React.FC<AppProps> = ({ class_name = "" }) => {
   const [flows, set_flows] = useState<FlowSummary[]>([]);
   const [selected_flow_id, set_selected_flow_id] = useState<string | null>(null);
   const [status_message, set_status_message] = useState<CodeIndexStatus>(CodeIndexStatus.Indexing);
+  // Bumped on every store_changed push so the selected flow re-renders in place; the selection and the
+  // chart viewport are preserved (the whole point of an in-place refresh over a full webview reload).
+  const [refresh_nonce, set_refresh_nonce] = useState(0);
 
   useEffect(() => {
     load_flows(backend, set_flows, set_status_message);
+  }, [backend]);
+
+  // The backend pushes store_changed when a reconcile lands out-of-process; re-run list_flows and force
+  // the selected flow to re-render so newly stitched umbrellas and descriptions appear without a manual
+  // Generate Diagram.
+  useEffect(() => {
+    const unsubscribe = backend.on_store_changed(() => {
+      load_flows(backend, set_flows, set_status_message);
+      set_refresh_nonce((nonce) => nonce + 1);
+    });
+    return unsubscribe;
   }, [backend]);
 
   // Auto-select the top flow on open so a cold repo shows structure without a click (AC#7). Also
@@ -68,6 +82,7 @@ export const App: React.FC<AppProps> = ({ class_name = "" }) => {
             selected_flow_id={selected_flow_id}
             render_flow={backend.render_flow.bind(backend)}
             indexing_status={status_message}
+            refresh_nonce={refresh_nonce}
           />
         </div>
       </div>

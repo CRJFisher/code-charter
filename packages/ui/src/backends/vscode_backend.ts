@@ -34,14 +34,22 @@ interface PendingRequest {
 export class VSCodeBackend implements CodeCharterBackend {
   private vscode: VsCodeApi;
   private message_queue: Map<string, PendingRequest> = new Map();
+  private store_changed_listeners: Set<() => void> = new Set();
 
   constructor() {
     this.vscode = get_vscode_api();
 
     window.addEventListener("message", (event: MessageEvent) => {
       const message: ResponseMessage = event.data;
-      const { id } = message;
 
+      // `store_changed` is an unsolicited push from the extension (a reconcile landed), not a reply to a
+      // pending request — fan it out to subscribers before the id-keyed response routing below.
+      if (message.command === "store_changed") {
+        this.store_changed_listeners.forEach((listener) => listener());
+        return;
+      }
+
+      const { id } = message;
       const pending = this.message_queue.get(id);
       if (!pending) {
         return;
@@ -94,6 +102,13 @@ export class VSCodeBackend implements CodeCharterBackend {
       console.error("Error navigating to document:", error);
       throw error;
     }
+  }
+
+  on_store_changed(listener: () => void): () => void {
+    this.store_changed_listeners.add(listener);
+    return () => {
+      this.store_changed_listeners.delete(listener);
+    };
   }
 
   private send_message_with_response<T = unknown>(

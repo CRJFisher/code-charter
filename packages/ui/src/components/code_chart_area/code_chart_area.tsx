@@ -43,6 +43,9 @@ interface CodeChartAreaProps {
   selected_flow_id: string | null;
   render_flow: (flow_id: string) => Promise<RenderedRows>;
   indexing_status: CodeIndexStatus;
+  // Incremented by the App on a store_changed push. Re-runs render_flow for the current selection so a
+  // reconcile's new members/descriptions repaint without changing the selected flow.
+  refresh_nonce?: number;
 }
 
 // ARIA label configuration for accessibility
@@ -56,6 +59,7 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   selected_flow_id,
   render_flow,
   indexing_status,
+  refresh_nonce = 0,
 }) => {
   const [nodes, set_nodes, on_nodes_change] = useNodesState<CodeChartNode>([]);
   const [edges, set_edges, on_edges_change] = useEdgesState<CodeChartEdge>([]);
@@ -197,8 +201,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     return () => {
       cancelled = true;
     };
-    // Depend only on the flow id; `render_flow` is recreated each App render and would cancel-restart.
-  }, [selected_flow_id]);
+    // Depend on the flow id and the refresh nonce; `render_flow` is recreated each App render and would
+    // cancel-restart. A bumped nonce re-runs the projection for the same flow after a store_changed push.
+  }, [selected_flow_id, refresh_nonce]);
 
   const get_visibility_class_names = (show: boolean): string => {
     return show ? "visible" : "invisible";

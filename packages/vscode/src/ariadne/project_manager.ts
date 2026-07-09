@@ -84,10 +84,22 @@ export class AriadneProjectManager {
     this.project = new Project();
     await this.project.initialize(this.workspace_path as FilePath);
 
+    await this.index_all_files();
+    this.setup_file_watchers();
+
+    return this.project.get_call_graph();
+  }
+
+  // Read every supported source file from disk into the current project. Shared by the initial index
+  // and invalidate(), so a re-index sees exactly the file set the first pass did.
+  private async index_all_files(): Promise<void> {
+    const project = this.project;
+    if (!project) {
+      return;
+    }
     const files = await this.scan_files(this.workspace_path);
     let indexed = 0;
     let skipped = 0;
-    const project = this.project;
     await AriadneProjectManager.with_quiet_ariadne_warnings(async () => {
       for (const file_path of files) {
         try {
@@ -101,10 +113,21 @@ export class AriadneProjectManager {
       }
     });
     console.log(`AriadneProjectManager: indexed ${indexed} files, skipped ${skipped}`);
+  }
 
-    this.setup_file_watchers();
-
-    return this.project.get_call_graph();
+  /**
+   * Re-read every source file from disk into the existing project and re-derive the call graph, then
+   * fire on_call_graph_changed. Called when an out-of-process reconcile writes graph.db: the code the
+   * reconcile saw may differ from what the incremental watchers captured, so the per-request call-graph
+   * snapshot is re-extracted rather than trusted. The project and its file watchers stay live — only the
+   * indexed content is refreshed — so the webview panel is never disposed.
+   */
+  async invalidate(): Promise<void> {
+    if (!this.project) {
+      return;
+    }
+    await this.index_all_files();
+    this.emit_call_graph_changed();
   }
 
   private async scan_files(dir: string): Promise<string[]> {
