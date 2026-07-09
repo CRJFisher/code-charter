@@ -16,9 +16,10 @@ function flow_line(flow: FlowSummary): string {
   return `  [${state}] ${flow.id}${label} — ${flow.member_count} member(s), ${flow.seeds.length} seed(s), ${flow.bridge_count} bridge(s); descriptions: ${breakdown_line(flow.descriptions)}`;
 }
 
+/** Indentation-neutral; each caller owns its indent. */
 function bridge_line(bridge: BridgeSummary): string {
   const rationale = bridge.rationale.length > 0 ? ` — ${bridge.rationale}` : "";
-  return `  ${bridge.src_id} → ${bridge.dst_id}${rationale}`;
+  return `${bridge.src_id} → ${bridge.dst_id}${rationale}`;
 }
 
 /** The default summary render: header, per-flow rows, bridges, deferred retirements. */
@@ -35,7 +36,7 @@ export function render_summary(summary: StoreSummary): string[] {
   lines.push("");
 
   lines.push(`bridges: ${summary.bridges.length}`);
-  for (const bridge of summary.bridges) lines.push(bridge_line(bridge));
+  for (const bridge of summary.bridges) lines.push(`  ${bridge_line(bridge)}`);
   lines.push("");
 
   lines.push(`deferred retirements: ${summary.deferred_retirements.length}`);
@@ -47,7 +48,7 @@ export function render_summary(summary: StoreSummary): string[] {
 
 function render_sync_status_line(summary: StoreSummary): string {
   const status = summary.sync_status;
-  if (status === null) return "sync status: (no run log)";
+  if (status === null) return "sync status: (none recorded)";
   const error = status.last_error !== null ? `, last_error ${status.last_error.at} (${status.last_error.message})` : "";
   return `sync status: last_attempt ${status.last_attempt_at ?? "—"}, last_success ${status.last_success_at ?? "—"}${error}`;
 }
@@ -68,14 +69,14 @@ export function render_flow_detail(detail: FlowDetail): string[] {
 
   lines.push(`  members (${detail.member_count}):`);
   for (const member of detail.member_descriptions) {
-    const source = member.source ?? "(none)";
+    const source = member.source ?? "none";
     const text = member.text !== null && member.text.length > 0 ? ` — ${member.text}` : "";
     lines.push(`    [${source}] ${member.symbol_path}${text}`);
   }
   lines.push("");
 
   lines.push(`  bridges (${detail.bridges.length}):`);
-  for (const bridge of detail.bridges) lines.push(`  ${bridge_line(bridge).trimStart()}`);
+  for (const bridge of detail.bridges) lines.push(`    ${bridge_line(bridge)}`);
   return lines;
 }
 

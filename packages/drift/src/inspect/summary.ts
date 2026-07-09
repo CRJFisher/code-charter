@@ -29,7 +29,11 @@ export interface DescriptionBreakdown {
   docstring: number;
   llm: number;
   placeholder: number;
-  /** Members carrying no `agentic.description` side-node at all. */
+  /**
+   * Per-flow: members carrying no `agentic.description` side-node. Store-wide: description nodes whose
+   * `description_source` is unrecognized/empty. Either way, the residual bucket that makes the four
+   * always sum to the input count.
+   */
   none: number;
 }
 
@@ -136,20 +140,25 @@ function empty_breakdown(): DescriptionBreakdown {
   return { docstring: 0, llm: 0, placeholder: 0, none: 0 };
 }
 
+/**
+ * Route one description source into its bucket. An undefined resolution (member with no description
+ * node) and an unrecognized source both fall to `none`, so the per-flow and store-wide tallies treat
+ * an off-spec source identically and the four buckets always sum to the input count.
+ */
+function bump_source(breakdown: DescriptionBreakdown, source: string | undefined): void {
+  if (source === "docstring") breakdown.docstring++;
+  else if (source === "llm") breakdown.llm++;
+  else if (source === "placeholder") breakdown.placeholder++;
+  else breakdown.none++;
+}
+
 /** Tally the description sources of a member set against the store's description index. */
 function breakdown_for_members(
   members: readonly string[],
   descriptions: Map<string, ResolvedDescription>,
 ): DescriptionBreakdown {
   const breakdown = empty_breakdown();
-  for (const member of members) {
-    const resolved = descriptions.get(member);
-    if (resolved === undefined) breakdown.none++;
-    else if (resolved.source === "docstring") breakdown.docstring++;
-    else if (resolved.source === "llm") breakdown.llm++;
-    else if (resolved.source === "placeholder") breakdown.placeholder++;
-    else breakdown.none++;
-  }
+  for (const member of members) bump_source(breakdown, descriptions.get(member)?.source);
   return breakdown;
 }
 
@@ -199,11 +208,7 @@ export function collect_store_summary(input: InspectInput): StoreSummary {
   const flows = nodes.map((node) => flow_summary(node, bridges, descriptions));
 
   const store_wide = empty_breakdown();
-  for (const resolved of descriptions.values()) {
-    if (resolved.source === "docstring") store_wide.docstring++;
-    else if (resolved.source === "llm") store_wide.llm++;
-    else if (resolved.source === "placeholder") store_wide.placeholder++;
-  }
+  for (const resolved of descriptions.values()) bump_source(store_wide, resolved.source);
 
   return {
     live_flow_count: flows.filter((flow) => flow.live).length,

@@ -17,7 +17,7 @@ export class NullGraphStore implements GraphStore {
     return [];
   }
 
-  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
+  snapshot(_opts?: { include_deleted?: boolean }): { nodes: NodeRow[]; edges: EdgeRow[] } {
     return { nodes: [], edges: [] };
   }
 

@@ -50,9 +50,22 @@ describe("render_summary", () => {
     expect(text).toContain("c.ts#x:function — empty call graph");
   });
 
-  it("reports a missing run log in the status line", () => {
+  it("reports a missing sync status in the status line", () => {
     const text = render_summary({ ...SUMMARY, sync_status: null }).join("\n");
-    expect(text).toContain("sync status: (no run log)");
+    expect(text).toContain("sync status: (none recorded)");
+  });
+
+  it("surfaces the last_error at + message in the status line", () => {
+    const text = render_summary({
+      ...SUMMARY,
+      sync_status: {
+        last_attempt_at: "2026-07-08T00:00:00.000Z",
+        last_success_at: null,
+        last_error: { at: "2026-07-08T01:00:00.000Z", message: "reconcile contention" },
+      },
+    }).join("\n");
+
+    expect(text).toContain("last_error 2026-07-08T01:00:00.000Z (reconcile contention)");
   });
 });
 
@@ -71,7 +84,7 @@ describe("render_flow_detail", () => {
 
     expect(text).toContain("flow a.ts#entry:function [live]");
     expect(text).toContain("[docstring] a.ts#entry:function — the entry point");
-    expect(text).toContain("[(none)] a.ts#helper:function");
+    expect(text).toContain("[none] a.ts#helper:function");
   });
 });
 

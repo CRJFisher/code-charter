@@ -84,6 +84,49 @@ describe("drift-inspect bin", () => {
     }
   });
 
+  it("lints clean for a seeds-only stitch.json (declares 0 bridges)", () => {
+    const repo = reconciled_repo();
+    try {
+      fs.writeFileSync(
+        path.join(repo, "stitch.json"),
+        JSON.stringify({ umbrellas: [{ label: "u", seeds: ["a", "b"], bridges: [], rationale: "seeds-only" }] }),
+      );
+
+      const result = run(INSPECT_BIN, ["--store", path.join(repo, "graph.db"), "--lint"]);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("no anomalies detected");
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("surfaces a retired flow through the real read path (--flow on a soft-deleted flow)", () => {
+    const repo = reconciled_repo();
+    try {
+      // Rename the entry symbol so reconcile retires the old flow (soft-deletes its node).
+      fs.writeFileSync(
+        path.join(repo, "main.ts"),
+        "export function entry_renamed() { return helper(); }\n\nfunction helper() { return 1; }\n",
+      );
+      const reconcile = run(RECONCILE_BIN, ["--files", "main.ts", "--store", path.join(repo, "graph.db"), "--repo-root", repo]);
+      expect(reconcile.status).toBe(0);
+
+      const summary = JSON.parse(
+        run(INSPECT_BIN, ["--store", path.join(repo, "graph.db"), "--json"]).stdout,
+      ) as StoreSummary;
+      expect(summary.retired_flow_count).toBeGreaterThanOrEqual(1);
+      const retired = summary.flows.find((flow) => flow.id === "main.ts#entry:function");
+      expect(retired?.live).toBe(false);
+
+      // The retired flow is reachable by --flow (would exit 1 if the read path hid soft-deleted rows).
+      const detail = run(INSPECT_BIN, ["--store", path.join(repo, "graph.db"), "--flow", "main.ts#entry:function"]);
+      expect(detail.status).toBe(0);
+      expect(detail.stdout).toContain("[retired]");
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it("flags declared-but-unpersisted bridges and exits 1 (--lint --json)", () => {
     const repo = reconciled_repo();
     try {
@@ -118,5 +161,17 @@ describe("drift-inspect bin", () => {
     const result = run(INSPECT_BIN, ["--json"]);
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("missing required --store");
+  });
+
+  it("errors with usage on an unknown argument", () => {
+    const result = run(INSPECT_BIN, ["--store", "x.db", "--bogus"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("unknown argument: --bogus");
+  });
+
+  it("rejects --flow and --lint together", () => {
+    const result = run(INSPECT_BIN, ["--store", "x.db", "--flow", "f", "--lint"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("mutually exclusive");
   });
 });

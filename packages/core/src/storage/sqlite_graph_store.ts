@@ -164,8 +164,11 @@ export class SqliteGraphStore implements GraphStore {
     return this.sql(query).all().map(row_to_edge);
   }
 
-  snapshot(): { nodes: NodeRow[]; edges: EdgeRow[] } {
-    return this.with_transaction(() => ({ nodes: this.all_nodes(), edges: this.all_edges() }), "BEGIN DEFERRED");
+  snapshot(opts?: { include_deleted?: boolean }): { nodes: NodeRow[]; edges: EdgeRow[] } {
+    return this.with_transaction(
+      () => ({ nodes: this.all_nodes(opts), edges: this.all_edges(opts) }),
+      "BEGIN DEFERRED",
+    );
   }
 
   provenance_for_edge(edge_key: string): ProvenanceRow[] {

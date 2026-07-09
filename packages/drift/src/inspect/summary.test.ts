@@ -154,6 +154,24 @@ describe("collect_store_summary", () => {
     ]);
   });
 
+  it("counts a straddling bridge for both flows it touches and excludes an unrelated one", () => {
+    const summary = collect_store_summary(
+      input(
+        [flow_node("f1", { members: ["a:function", "b:function"] }), flow_node("f2", { members: ["c:function"] })],
+        [
+          bridge_edge("b:function", "c:function", "straddles f1 and f2"),
+          bridge_edge("x:function", "y:function", "in neither flow"),
+        ],
+      ),
+    );
+
+    // The straddling bridge (one endpoint in each flow) counts for both — proves the `||` predicate.
+    expect(summary.flows.find((f) => f.id === "f1")?.bridge_count).toBe(1);
+    expect(summary.flows.find((f) => f.id === "f2")?.bridge_count).toBe(1);
+    // The bridge in neither flow is not scoped to either but is still in the store-wide list.
+    expect(summary.bridges).toHaveLength(2);
+  });
+
   it("surfaces deferred retirements from the newest run-log record", () => {
     const record: ReconcileLogRecord = {
       timestamp: "2026-07-08T00:00:00.000Z",
@@ -249,6 +267,18 @@ describe("detect_anomalies", () => {
     expect(anomalies.map((a) => a.code)).not.toContain("unpersisted_bridges");
   });
 
+  it("does not flag declared bridges that ARE persisted (a healthy stitch)", () => {
+    const summary = collect_store_summary(
+      input(
+        [flow_node("f", { members: ["a:function", "b:function"] })],
+        [bridge_edge("a:function", "b:function", "persisted")],
+      ),
+    );
+
+    // proposed = 1 AND persisted = 1 → not a regression. Proves the `bridges.length === 0` guard.
+    expect(detect_anomalies(summary, 1).map((a) => a.code)).not.toContain("unpersisted_bridges");
+  });
+
   it("flags a high placeholder ratio above the minimum count", () => {
     const members = ["a", "b", "c", "d", "e", "f"];
     const summary = collect_store_summary(
@@ -270,6 +300,54 @@ describe("detect_anomalies", () => {
   it("does not flag a placeholder ratio below the minimum count", () => {
     const summary = collect_store_summary(
       input([flow_node("f", { members: ["a", "b"] }), description_node("a", "placeholder", "a"), description_node("b", "placeholder", "b")], []),
+    );
+
+    expect(detect_anomalies(summary, null).map((a) => a.code)).not.toContain("high_placeholder_ratio");
+  });
+
+  it("flags exactly at the minimum count and the ratio boundary (both >= comparators)", () => {
+    // owned === 5 (== HIGH_PLACEHOLDER_MIN), ratio 3/5 = 0.6 (>= 0.5) → flagged.
+    const at_min = collect_store_summary(
+      input(
+        [
+          flow_node("f", { members: ["a", "b", "c", "d", "e"] }),
+          description_node("a", "placeholder", "a"),
+          description_node("b", "placeholder", "b"),
+          description_node("c", "placeholder", "c"),
+          description_node("d", "llm", "d"),
+          description_node("e", "llm", "e"),
+        ],
+        [],
+      ),
+    );
+    expect(detect_anomalies(at_min, null).map((a) => a.code)).toContain("high_placeholder_ratio");
+
+    // owned === 10, ratio exactly 0.5 → still flagged (proves >= not >).
+    const members = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    const at_ratio = collect_store_summary(
+      input(
+        [
+          flow_node("flow", { members }),
+          ...members.slice(0, 5).map((m) => description_node(m, "placeholder", m)),
+          ...members.slice(5).map((m) => description_node(m, "llm", "real")),
+        ],
+        [],
+      ),
+    );
+    expect(detect_anomalies(at_ratio, null).map((a) => a.code)).toContain("high_placeholder_ratio");
+  });
+
+  it("does not flag one below the minimum count (owned === 4)", () => {
+    const members = ["a", "b", "c", "d"];
+    const summary = collect_store_summary(
+      input(
+        [
+          flow_node("f", { members }),
+          ...members.slice(0, 3).map((m) => description_node(m, "placeholder", m)),
+          description_node("d", "llm", "d"),
+        ],
+        [],
+      ),
     );
 
     expect(detect_anomalies(summary, null).map((a) => a.code)).not.toContain("high_placeholder_ratio");

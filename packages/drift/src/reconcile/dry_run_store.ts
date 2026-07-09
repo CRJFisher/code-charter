@@ -11,7 +11,7 @@ export function dry_run_store(store: GraphStore): GraphStore {
   return {
     all_nodes: (opts) => store.all_nodes(opts),
     all_edges: (opts) => store.all_edges(opts),
-    snapshot: () => store.snapshot(),
+    snapshot: (opts) => store.snapshot(opts),
     provenance_for_edge: (key) => store.provenance_for_edge(key),
     node: (id) => store.node(id),
     neighborhood: (id, depth) => store.neighborhood(id, depth),

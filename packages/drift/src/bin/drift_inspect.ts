@@ -77,7 +77,10 @@ function read_input(store_path: string): InspectInput {
   }
   const store = open_graph_store(store_path, { read_only: true });
   try {
-    const { nodes, edges } = store.snapshot();
+    // include_deleted so retired (soft-deleted) flow nodes are surfaced and counted; the summary's
+    // bridge/description collectors keep their own deleted_at===null filters, so only retired FLOWS
+    // are surfaced while bridges and descriptions stay live-only.
+    const { nodes, edges } = store.snapshot({ include_deleted: true });
     return { nodes, edges, latest_record, sync_status };
   } finally {
     store.close();

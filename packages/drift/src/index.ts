@@ -20,6 +20,9 @@ export {
   count_proposed_bridges,
   detect_anomalies,
 } from "./inspect/summary";
+// The run-log readers + types a consumer needs to build an InspectInput off a store path.
+export { read_latest_reconcile_record, read_sync_status, sync_status_path } from "./reconcile/reconcile_log";
+export type { ReconcileLogRecord, ReconcileMode, SyncStatus } from "./reconcile/reconcile_log";
 export type {
   Anomaly,
   BridgeSummary,
