@@ -44,6 +44,13 @@ export type {
   StoreSummary,
 } from "./inspect/summary";
 export { render_anomalies, render_flow_detail, render_summary } from "./inspect/render";
+// The trajectory spine (docs/contracts/trajectory_spine.md): neutral schema + renderer for any
+// spine consumer (.17 grading queue), and the drift-aware extractor for in-process producers.
+export { SPINE_SCHEMA_VERSION } from "./inspect/trajectory_schema";
+export type { AvailabilityTier, SpineStep, SpineStepKind, TrajectorySpine } from "./inspect/trajectory_schema";
+export { render_trajectory } from "./inspect/trajectory_render";
+export { extract_trajectory_spine, build_trajectory_spine } from "./inspect/trajectory_extract";
+export { read_reconcile_record_by_run_id } from "./reconcile/reconcile_log";
 
 // Installer
 export { install_drift, is_stop_hook_installed, STOP_HOOK_IDENTITY_TOKEN } from "./installer/install";

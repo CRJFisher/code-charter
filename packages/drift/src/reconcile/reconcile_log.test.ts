@@ -7,6 +7,7 @@ import {
   append_reconcile_log,
   make_run_id,
   read_latest_reconcile_record,
+  read_reconcile_record_by_run_id,
   read_sync_status,
   reconcile_log_path,
   sync_status_path,
@@ -105,6 +106,34 @@ describe("read_latest_reconcile_record", () => {
     fs.writeFileSync(log_path, `${JSON.stringify(record({ run_id: "good" }))}\n${detail_less}\n`);
 
     expect(read_latest_reconcile_record(store_path)?.run_id).toBe("good");
+  });
+});
+
+describe("read_reconcile_record_by_run_id", () => {
+  it("resolves a run by id among many records", () => {
+    append_reconcile_log(store_path, record({ run_id: "20260707T000000000Z-aaaaaaaa" }), () => {});
+    append_reconcile_log(store_path, record({ run_id: "20260708T000000000Z-bbbbbbbb" }), () => {});
+
+    expect(read_reconcile_record_by_run_id(store_path, "20260707T000000000Z-aaaaaaaa")?.run_id).toBe(
+      "20260707T000000000Z-aaaaaaaa",
+    );
+  });
+
+  it("returns null for an unknown run id and for a missing log", () => {
+    expect(read_reconcile_record_by_run_id(store_path, "nope")).toBeNull();
+    append_reconcile_log(store_path, record(), () => {});
+    expect(read_reconcile_record_by_run_id(store_path, "nope")).toBeNull();
+  });
+
+  it("skips torn and foreign-schema lines while resolving", () => {
+    const log_path = reconcile_log_path(store_path);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      log_path,
+      `not json\n${JSON.stringify({ schema_version: 999, run_id: "x" })}\n${JSON.stringify(record({ run_id: "x" }))}\n`,
+    );
+
+    expect(read_reconcile_record_by_run_id(store_path, "x")?.schema_version).toBe(RECONCILE_RECORD_SCHEMA_VERSION);
   });
 });
 

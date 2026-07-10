@@ -11,6 +11,10 @@
  *    touches.
  *  - `--lint` — anomaly detection: flows with 0 members, a stitch proposal whose declared bridges
  *    were not persisted, and a store dominated by placeholder descriptions.
+ *  - `--trajectory <run-id|latest>` — the salient spine of one reconcile run (instruction →
+ *    context → judgement → effect, docs/contracts/trajectory_spine.md), joined to the session
+ *    transcript via the run record's join key; a missing transcript degrades to an effect-only
+ *    view, never an error.
  *
  * `--json` emits the projection as JSON instead of text (the same structure the collectors return).
  * A store that was never reconciled (no db file) is the empty summary, not an error. Exit 0 = clean,
@@ -28,25 +32,33 @@ import {
 } from "../inspect/summary";
 import { read_inspect_input } from "../inspect/read_input";
 import { render_anomalies, render_flow_detail, render_summary } from "../inspect/render";
+import { extract_trajectory_spine } from "../inspect/trajectory_extract";
+import { render_trajectory } from "../inspect/trajectory_render";
+import { read_latest_reconcile_record, read_reconcile_record_by_run_id } from "../reconcile/reconcile_log";
 
-const USAGE = "usage: drift-inspect --store <db_path> [--json] [--flow <id>] [--lint]";
+const USAGE = "usage: drift-inspect --store <db_path> [--json] [--flow <id>] [--lint] [--trajectory <run-id|latest>]";
 
 interface Args {
   store: string;
   json: boolean;
   flow: string | undefined;
   lint: boolean;
+  trajectory: string | undefined;
 }
 
 function parse_args(argv: readonly string[]): { args: Args } | { error: string } {
-  const raw: { store?: string; flow?: string; json: boolean; lint: boolean } = { json: false, lint: false };
+  const raw: { store?: string; flow?: string; trajectory?: string; json: boolean; lint: boolean } = {
+    json: false,
+    lint: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
-    if (token === "--store" || token === "--flow") {
+    if (token === "--store" || token === "--flow" || token === "--trajectory") {
       const value = argv[i + 1];
       if (value === undefined || value.startsWith("--")) return { error: `missing value for ${token}` };
       if (token === "--store") raw.store = value;
-      else raw.flow = value;
+      else if (token === "--flow") raw.flow = value;
+      else raw.trajectory = value;
       i++;
     } else if (token === "--json") {
       raw.json = true;
@@ -58,7 +70,12 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
   }
   if (raw.store === undefined) return { error: "missing required --store" };
   if (raw.flow !== undefined && raw.lint) return { error: "--flow and --lint are mutually exclusive" };
-  return { args: { store: raw.store, json: raw.json, flow: raw.flow, lint: raw.lint } };
+  if (raw.trajectory !== undefined && (raw.flow !== undefined || raw.lint)) {
+    return { error: "--trajectory is mutually exclusive with --flow and --lint" };
+  }
+  return {
+    args: { store: raw.store, json: raw.json, flow: raw.flow, lint: raw.lint, trajectory: raw.trajectory },
+  };
 }
 
 /** The stitch proposal sidecar beside the store, or null when absent/unreadable. */
@@ -81,6 +98,23 @@ function main(): void {
     process.exit(2);
   }
   const { args } = parsed;
+
+  if (args.trajectory !== undefined) {
+    const record =
+      args.trajectory === "latest"
+        ? read_latest_reconcile_record(args.store)
+        : read_reconcile_record_by_run_id(args.store, args.trajectory);
+    if (record === null) {
+      process.stderr.write(`drift-inspect: no reconcile run for "${args.trajectory}"\n`);
+      process.exit(1);
+    }
+    const spine = extract_trajectory_spine(args.store, record);
+    // A degraded (effect-only) spine is a successful view, never an error — the transcript is
+    // disposable host state; the record is the durable one.
+    emit(args.json, spine, render_trajectory(spine));
+    return;
+  }
+
   const input = read_inspect_input(args.store);
   const summary = collect_store_summary(input);
 

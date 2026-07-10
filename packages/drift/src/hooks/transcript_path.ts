@@ -26,3 +26,13 @@ export function derive_transcript_path(
       : path.join(os.homedir(), ".claude");
   return path.join(config_dir, "projects", slugify_claude_project_dir(cwd), `${session_id}.jsonl`);
 }
+
+/**
+ * A sub-agent's own transcript lives under a per-session directory named after the main
+ * transcript minus its `.jsonl` suffix: `<session_id>/subagents/agent-<agentId>.jsonl`, with a
+ * sibling `agent-<agentId>.meta.json` ({ agentType, toolUseId, ... }). Pinned against the
+ * observed host layout, like the project-dir slug above.
+ */
+export function derive_subagent_transcript_path(transcript_path: string, agent_id: string): string {
+  return path.join(transcript_path.replace(/\.jsonl$/, ""), "subagents", `agent-${agent_id}.jsonl`);
+}

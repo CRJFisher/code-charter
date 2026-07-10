@@ -127,12 +127,30 @@ export function append_reconcile_log(
 }
 
 /**
- * Read the newest current-schema record from the append-only log, or null when the log is absent
- * or holds none. Reads the whole file and scans backwards — the log is one small line per turn and
+ * The version check alone does not prove the nested shape; a version-stamped line without a
+ * detail object would throw in consumers that dot into it, so it is rejected like any other
+ * foreign line.
+ */
+function is_current_record(parsed: unknown): parsed is ReconcileRunRecord {
+  return (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as { schema_version?: unknown }).schema_version === RECONCILE_RECORD_SCHEMA_VERSION &&
+    typeof (parsed as { detail?: unknown }).detail === "object" &&
+    (parsed as { detail?: unknown }).detail !== null
+  );
+}
+
+/**
+ * Scan the append-only log newest-first for the first record matching `accept`, or null when the
+ * log is absent or nothing matches. Reads the whole file — the log is one small line per turn and
  * disposable beside the store, so a full read is cheap. Torn lines and foreign-schema lines
  * (pre-contract flat records carry no schema_version) are skipped, never migrated.
  */
-export function read_latest_reconcile_record(store_path: string): ReconcileRunRecord | null {
+function find_record_newest_first(
+  store_path: string,
+  accept: (record: ReconcileRunRecord) => boolean,
+): ReconcileRunRecord | null {
   let raw: string;
   try {
     raw = fs.readFileSync(reconcile_log_path(store_path), "utf8");
@@ -143,23 +161,20 @@ export function read_latest_reconcile_record(store_path: string): ReconcileRunRe
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const parsed: unknown = JSON.parse(lines[i]);
-      // The version check alone does not prove the nested shape; a version-stamped line without
-      // a detail object would throw in consumers that dot into it, so it is skipped like any
-      // other foreign line.
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        (parsed as { schema_version?: unknown }).schema_version === RECONCILE_RECORD_SCHEMA_VERSION &&
-        typeof (parsed as { detail?: unknown }).detail === "object" &&
-        (parsed as { detail?: unknown }).detail !== null
-      ) {
-        return parsed as ReconcileRunRecord;
-      }
+      if (is_current_record(parsed) && accept(parsed)) return parsed;
     } catch {
       // skip a torn line and try the previous one
     }
   }
   return null;
+}
+
+export function read_latest_reconcile_record(store_path: string): ReconcileRunRecord | null {
+  return find_record_newest_first(store_path, () => true);
+}
+
+export function read_reconcile_record_by_run_id(store_path: string, run_id: string): ReconcileRunRecord | null {
+  return find_record_newest_first(store_path, (record) => record.run_id === run_id);
 }
 
 /** Read the current status; a missing or unparsable file is the empty status. */

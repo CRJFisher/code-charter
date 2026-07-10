@@ -175,3 +175,136 @@ describe("drift-inspect bin", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 });
+
+describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
+  const INSTRUCTION = "Launch the `drift-reconciler` sub-agent.";
+
+  /**
+   * A store dir with a synthetic run log and (optionally) a transcript tree beside it — the
+   * trajectory path needs no real store: a missing db reads as the empty summary, so bridges are
+   * simply absent and the spine still assembles from the record + transcript.
+   */
+  function trajectory_fixture(opts: { with_transcript: boolean }): { store: string; run_id: string } {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-traj-"));
+    const store = path.join(dir, "graph.db");
+    const run_id = "20260710T120000000Z-aabbccdd";
+    const transcript_path = path.join(dir, "sess.jsonl");
+    const record = {
+      schema_version: 1,
+      run_id,
+      session_id: "s1",
+      transcript_path,
+      instruction: INSTRUCTION,
+      timestamp: "2026-07-10T12:00:30.000Z",
+      detail: {
+        mode: "default",
+        file_set: ["main.ts"],
+        outcomes: [
+          {
+            flow_id: "main.ts#entry:function",
+            action: "hydrate",
+            kind: "code",
+            member_count: 2,
+            last_synced_at: "2026-07-10T12:00:29.000Z",
+            reason: "new entrypoint over the changed files",
+          },
+        ],
+        deferred_retirements: [],
+        deferred_skill_syncs: [],
+        description_counts: { docstring: 0, provisional: 2, placeholder: 0, llm: 0 },
+        diagnostics: [],
+      },
+    };
+    fs.writeFileSync(path.join(dir, "drift_reconcile_log.jsonl"), JSON.stringify(record) + "\n");
+    if (opts.with_transcript) {
+      const launch = {
+        type: "assistant",
+        timestamp: "2026-07-10T12:00:05.000Z",
+        message: {
+          role: "assistant",
+          content: [{ type: "tool_use", id: "tu_1", name: "Task", input: { subagent_type: "drift-reconciler" } }],
+        },
+      };
+      const result = {
+        type: "user",
+        timestamp: "2026-07-10T12:00:40.000Z",
+        message: { role: "user", content: [{ type: "tool_result", tool_use_id: "tu_1", content: "done" }] },
+        toolUseResult: { agentId: "AG1" },
+      };
+      fs.writeFileSync(transcript_path, JSON.stringify(launch) + "\n" + JSON.stringify(result) + "\n");
+      const subagents = path.join(dir, "sess", "subagents");
+      fs.mkdirSync(subagents, { recursive: true });
+      const read_step = {
+        type: "assistant",
+        timestamp: "2026-07-10T12:00:10.000Z",
+        message: {
+          role: "assistant",
+          content: [{ type: "tool_use", id: "st1", name: "Read", input: { file_path: "src/a.ts" } }],
+        },
+      };
+      fs.writeFileSync(path.join(subagents, "agent-AG1.jsonl"), JSON.stringify(read_step) + "\n");
+      fs.writeFileSync(
+        path.join(subagents, "agent-AG1.meta.json"),
+        JSON.stringify({ agentType: "drift-reconciler", toolUseId: "tu_1" }),
+      );
+    }
+    return { store, run_id };
+  }
+
+  it("prints the full trajectory for a resolvable run id", () => {
+    const { store, run_id } = trajectory_fixture({ with_transcript: true });
+    const result = run(INSPECT_BIN, ["--store", store, "--trajectory", run_id]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(INSTRUCTION);
+    expect(result.stdout).toContain("Read src/a.ts");
+    expect(result.stdout).toContain("hydrate main.ts#entry:function");
+    expect(result.stdout).toContain("described: docstring 0, llm 0, provisional 2, placeholder 0");
+  });
+
+  it("resolves latest to the newest record", () => {
+    const { store } = trajectory_fixture({ with_transcript: true });
+    const result = run(INSPECT_BIN, ["--store", store, "--trajectory", "latest"]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(INSTRUCTION);
+  });
+
+  it("prints an effect-only view without erroring when the transcript is rotated away", () => {
+    const { store, run_id } = trajectory_fixture({ with_transcript: false });
+    const result = run(INSPECT_BIN, ["--store", store, "--trajectory", run_id]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("transcript unavailable");
+    expect(result.stdout).toContain("effect-only view");
+    expect(result.stdout).toContain("hydrate main.ts#entry:function");
+  });
+
+  it("--json emits the neutral four-kind spine schema with drift payloads under detail", () => {
+    const { store, run_id } = trajectory_fixture({ with_transcript: true });
+    const result = run(INSPECT_BIN, ["--store", store, "--trajectory", run_id, "--json"]);
+    expect(result.status).toBe(0);
+    const spine = JSON.parse(result.stdout) as {
+      schema_version: number;
+      transcript_available: boolean;
+      steps: Array<Record<string, unknown>>;
+    };
+    expect(spine.schema_version).toBe(1);
+    expect(spine.transcript_available).toBe(true);
+    expect(spine.steps.length).toBeGreaterThan(0);
+    for (const step of spine.steps) {
+      expect(["instruction", "context", "judgement", "effect"]).toContain(step.kind);
+      expect(Object.keys(step).sort()).toEqual(["at", "detail", "kind", "ordinal", "summary"]);
+    }
+  });
+
+  it("exits 1 when the run id resolves to no record", () => {
+    const { store } = trajectory_fixture({ with_transcript: false });
+    const result = run(INSPECT_BIN, ["--store", store, "--trajectory", "20990101T000000000Z-ffffffff"]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("no reconcile run");
+  });
+
+  it("rejects --trajectory combined with --lint as a usage error", () => {
+    const result = run(INSPECT_BIN, ["--store", "/tmp/x.db", "--trajectory", "latest", "--lint"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("mutually exclusive");
+  });
+});
