@@ -78,11 +78,13 @@ Three new files, all test-only (no production change):
   persisting under the wire path instead of the anchor path) each fail exactly the tests that assert the
   corresponding guarantee, and nothing else — the suite bites rather than merely passing.
 
-## Known gap (not actioned)
+## Orphan discrimination
 
-`build_entrypoint_inventory`'s `is_orphan === false` branch is unexercised (every entrypoint is an
-orphan against the empty store; asserting the false case needs a documentation edge wired in).
-`build_entrypoint_inventory` is not named in AC#1, so this is left as a follow-up rather than scoped in.
+`build_entrypoint_inventory`'s `is_orphan === false` branch is covered by seeding a live
+`code.literal-doc` edge onto one entrypoint's symbol_path in the `:memory:` store: the documented
+entrypoint reports `is_orphan: false` while an undocumented sibling reports `true`. The test asserts
+both sides, so a regression that flags everything (or nothing) orphan — the spurious-fragment signal
+the stitch phase judges on — fails it in either direction.
 
 Files: packages/drift/src/reconcile/agentic_modes.ts, packages/drift/src/reconcile/affected_flows.ts.
 Fast in-memory unit tests, not built-bin subprocess suites.

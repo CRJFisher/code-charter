@@ -16,7 +16,13 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
 
-import { BRIDGE_CONFIDENCE_INFERRED, BRIDGE_EDGE_KIND, DESCRIPTION_NODE_KIND, open_graph_store } from "@code-charter/core";
+import {
+  BRIDGE_CONFIDENCE_INFERRED,
+  BRIDGE_EDGE_KIND,
+  DESCRIPTION_NODE_KIND,
+  LITERAL_DOC_EDGE_KIND,
+  open_graph_store,
+} from "@code-charter/core";
 import type { EdgeRow, GraphStore } from "@code-charter/core";
 
 import {
@@ -45,6 +51,31 @@ afterEach(() => {
 /** Live (non-deleted) bridge edges — the post-write ground truth. */
 function live_bridges(): EdgeRow[] {
   return store.all_edges().filter((e) => e.kind === BRIDGE_EDGE_KIND && e.deleted_at === null);
+}
+
+/**
+ * Seed a live documentation edge onto `symbol_path`, clearing its orphan flag. The edge references the
+ * flow-layer symbol_path (never the raw graph SymbolId — the id-space guard find_orphan_entrypoints
+ * enforces). `upsert_edge` tolerates endpoints with no node row, as the flow/bridge writers already rely on.
+ */
+function seed_doc_edge(symbol_path: string): void {
+  store.upsert_edge(
+    {
+      key: `doc:${symbol_path}`,
+      src_id: symbol_path,
+      dst_id: "docs/guide.md#doc",
+      kind: LITERAL_DOC_EDGE_KIND,
+      confidence: 1,
+      layer: "raw",
+      attributes: {},
+      field_ownership: {},
+      origin: "literal-doc",
+      intent_source: "code-edit",
+      adjudication: null,
+      deleted_at: null,
+    },
+    [],
+  );
 }
 
 describe("parse_apply_stitch — contract-breach shape", () => {
@@ -476,6 +507,20 @@ describe("build_entrypoint_inventory", () => {
     expect(inventory.entrypoints).toHaveLength(1);
     // Only the unresolved call at line 6 surfaces: the resolved call (line 2) and the callback (line 7) are excluded.
     expect(inventory.entrypoints[0].unresolved_sites).toEqual([{ file: "svc.ts", line: 6, source_line: "gap" }]);
+  });
+
+  it("clears is_orphan for a documented entrypoint and flags an undocumented sibling", () => {
+    // Two entrypoints in the changed file; document only dispatch via a live literal-doc edge.
+    const secondary: NodeSpec = { file: "handler.ts", name: "secondary", line: 8 };
+    const graph = make_graph([DISPATCH, secondary], [DISPATCH, secondary]);
+    const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
+    seed_doc_edge(DISPATCH_ID);
+
+    const by_path = new Map(
+      build_entrypoint_inventory(deps, ["handler.ts"], graph).entrypoints.map((e) => [e.symbol_path, e.is_orphan]),
+    );
+    expect(by_path.get(DISPATCH_ID)).toBe(false); // documented → not an orphan
+    expect(by_path.get(id_of(secondary))).toBe(true); // undocumented → orphan
   });
 
   it("excludes a test entrypoint from the inventory", () => {
