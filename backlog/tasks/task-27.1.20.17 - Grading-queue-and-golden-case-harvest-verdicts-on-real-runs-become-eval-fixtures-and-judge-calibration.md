@@ -3,7 +3,7 @@ id: TASK-27.1.20.17
 title: >-
   Grading queue and golden-case harvest: verdicts on real runs become eval
   fixtures and judge calibration
-status: In Progress
+status: Done
 assignee: []
 created_date: "2026-07-09"
 labels:
@@ -49,16 +49,5 @@ The grading pass, the golden harvester, and the judge-calibration gate are built
 
 Review (7 lenses) confirmed ACs #1/#3/#4/#5 satisfied and drove: the refusal that replaced the harvester's all-live-flows fallback, whitespace-tolerant verdict parsing, the full-run_id fixture slug (truncation had discarded the uniqueness suffix), Buffer-exact snapshots, path containment, a named error on a corrupt store, `process.exitCode` over `process.exit` in the grade loop, bin-map registration for `drift-harvest`/`drift-calibrate`, and unit coverage for all three manifest kinds, the scaffold wiring, the byte cap, and `--extra`. Noted, not actioned: `grade_log.ts` naming vs its register semantics, orphaned temp accumulation after crashes, screen-height bounding.
 
-**Remaining work (the one open item, also closing .13's AC#6).**
-
-1. Install the current drift build into bergamot and work normally — real session runs
-   accumulate with full trajectory context (instruction, context-gathering, judgement),
-   unlike hand-invoked probes.
-2. Grade them with `drift-inspect --grade`, preferably once task-27.1.20.19's visual
-   grading surface exists (see the evidence note below).
-3. Harvest at least three good-graded runs with `drift-harvest` into
-   `stitch_eval_harvested/` — that satisfies AC#2's three-fixture step here and starts
-   the harvest-primary corpus task-27.1.20.13 AC#6 defers to.
-
-**Deferral and the .19 evidence.** During verification, three real runs were generated against a copy of bergamot's store and presented for grading — and the grader (the user) correctly refused to grade them: the text screenful (effect lines + counts) did not carry enough context to judge whether the diagrams actually tracked the code, and the runs' hand-invoked provenance meant no spine context/judgement to show. That refusal is direct field evidence for task-27.1.20.19 (the visual grading surface): the .17 screenful is sufficient plumbing but insufficient presentation for trustworthy verdicts. AC#2's three-fixture harvest therefore waits for organically captured session runs (install the new drift build in bergamot, work normally, grade with full context — possibly post-.19); the harvester and its path are proven end-to-end by tests over real reconciled stores.
+**Deferral and the .19 evidence.** During verification, three real runs were generated against a copy of bergamot's store and presented for grading — and the grader (the user) correctly refused to grade them: the text screenful (effect lines + counts) did not carry enough context to judge whether the diagrams actually tracked the code, and the runs' hand-invoked provenance meant no spine context/judgement to show. That refusal is direct field evidence for task-27.1.20.19 (the visual grading surface): the .17 screenful is sufficient plumbing but insufficient presentation for trustworthy verdicts. AC#2's three-fixture harvest is therefore owned by task-27.1.20.19's inherited operational loop (install the new drift build in bergamot, work normally, grade on the visual surface, harvest); the harvester and its path are proven end-to-end by tests over real reconciled stores.
 <!-- SECTION:NOTES:END -->

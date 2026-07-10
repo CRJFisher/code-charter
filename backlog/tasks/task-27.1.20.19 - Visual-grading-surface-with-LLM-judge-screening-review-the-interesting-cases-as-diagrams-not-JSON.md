@@ -46,3 +46,23 @@ For the delta view, the visualisation grammar is NOT an open choice: task-26's r
 - [ ] #7 The surface consumes only the neutral spine schema (.16 AC#3) and the pinned grades contract (.17 AC#5), and writes verdicts through the same grades records as the CLI queue — one contract, two front-ends (seam discipline per decision-10)
 
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+
+**Inherited operational loop (closes .17 AC#2 and seeds .13 AC#6).** The three-fixture
+bergamot harvest was deferred out of .17 because grading needs this task's surface: a
+2026-07-10 grading attempt over text screenfuls was retracted by the grader as
+uninterpretable — the direct field evidence this task exists to answer (recorded in
+.17's notes). Once the surface lands:
+
+1. Install the current drift build into bergamot and work normally — real session runs
+   accumulate with full trajectory context.
+2. Grade the queue here (screened, visual).
+3. Harvest at least three good-graded runs with `drift-harvest` into
+   `stitch_eval_harvested/` — that closes .17 AC#2's three-fixture step and starts the
+   harvest-primary fixture corpus .13 AC#6 defers to. Every harness-side piece (loader,
+   --no-agent skip, decline wrap) already ships; the corpus lands with zero further
+   harness changes.
+<!-- SECTION:NOTES:END -->
