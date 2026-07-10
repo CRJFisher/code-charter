@@ -270,10 +270,9 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
       "b.ts#b_entry:function",
     ]);
 
-    // Rename b's entrypoint on disk, then reconcile only a.ts: the scoped passes never implicate
-    // b's flow, but its seed genuinely no longer resolves (b.ts is on the trustworthy graph and
-    // yields symbols), so the sweep retires it this turn rather than leaving stale clutter.
-    write("b.ts", "export function b_renamed() { return 2; }\n");
+    // Delete b.ts out-of-band, then reconcile only a.ts: the scoped passes never implicate b's
+    // flow, but its seed file is gone from disk — the unambiguous evidence the sweep retires on.
+    fs.rmSync(path.join(repo, "b.ts"));
     write("a.ts", "export function a_entry() { return 11; }\n");
     const unrelated = await run(["a.ts"]);
     expect(unrelated.outcomes).toContainEqual(

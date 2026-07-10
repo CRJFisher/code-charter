@@ -17,7 +17,7 @@ import type { GraphStore } from "@code-charter/core";
 import { read_persisted_flows, skill_flow_id, write_flow } from "./flow_store";
 import { reconcile } from "./reconcile";
 import type { ReconcileDeps, ReconcileResult } from "./types";
-import { id_of, make_adapter, make_deps, make_graph } from "./__fixtures__/agentic_graph";
+import { anchored_of, id_of, make_adapter, make_deps, make_graph } from "./__fixtures__/agentic_graph";
 import type { NodeSpec } from "./__fixtures__/agentic_graph";
 
 const FEATURE: NodeSpec = { file: "feature.ts", name: "feature" };
@@ -129,7 +129,7 @@ describe("stale-flow sweep — code flows (AC#2)", () => {
     expect(live_ids()).toEqual([FEATURE_ID]);
   });
 
-  it("skips the whole sweep on an empty call graph", async () => {
+  it("skips code flows on an empty call graph", async () => {
     seed_code_flow(GONE_ID);
 
     const result = await reconcile(["notes.md"], deps_over(make_graph([], [])));
@@ -137,7 +137,60 @@ describe("stale-flow sweep — code flows (AC#2)", () => {
     expect(result.outcomes).toEqual([]);
     expect(result.deferred_retirements).toEqual([]);
     expect(live_ids()).toContain(GONE_ID);
-    expect(logs).toContain("stale-flow sweep skipped: empty call graph");
+    expect(logs).toContain("stale-flow sweep: code flows skipped (empty call graph)");
+  });
+
+  it("defers a seed-gone flow whose file is still on disk, leaving it to the change-scoped pass", async () => {
+    // The seed does not resolve but its file survives with other symbols (an out-of-band rename, or
+    // a partial parse that dropped just the seed) — ambiguous without a corroborating edit.
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-sweep-"));
+    try {
+      fs.writeFileSync(path.join(repo, "gone.ts"), "export function renamed() { return 1; }\n");
+      seed_code_flow(GONE_ID);
+      const graph = make_graph([FEATURE], [FEATURE]);
+      const adapter = make_adapter(graph, { anchored: [anchored_of({ file: "gone.ts", name: "renamed" })] });
+      const deps = { ...make_deps(store, adapter, (message) => logs.push(message)), repo_root_abs: repo };
+
+      const result = await reconcile(["notes.md"], deps);
+
+      expect(result.outcomes).toEqual([]);
+      expect(result.deferred_retirements).toEqual([
+        { flow_id: GONE_ID, reason: "seed file still present, seed unresolved: gone.ts (left to the change-scoped pass)" },
+      ]);
+      expect(live_ids()).toContain(GONE_ID);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("does not judge a partially resolved flow as test-rooted", async () => {
+    // Stored seeds: a live test seed + a product seed whose symbol is missing this turn. Judging by
+    // resolved seeds alone would read the flow as all-test and destroy it on degraded evidence.
+    write_flow(store, {
+      id: "prod.ts#gone_entry:function",
+      label: "mixed",
+      seed_paths: ["prod.ts#gone_entry:function", TEST_ID],
+      member_ids: [],
+      rationale: "",
+      // Matches the resolvable seed's induced membership, so the scoped resync pass sees no drift
+      // and the sweep alone judges the flow.
+      anchor_set: [FEATURE_ID, TEST_ID].sort(),
+      last_synced_at: "2025-12-01T00:00:00.000Z",
+    });
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-sweep-"));
+    try {
+      fs.writeFileSync(path.join(repo, "prod.ts"), "export function other() { return 1; }\n");
+      const graph = make_graph([FEATURE, TEST_ENTRY], [FEATURE, TEST_ENTRY]);
+      const adapter = make_adapter(graph, { anchored: [anchored_of({ file: "prod.ts", name: "other" })] });
+      const deps = { ...make_deps(store, adapter, (message) => logs.push(message)), repo_root_abs: repo };
+
+      const result = await reconcile(["notes.md"], deps);
+
+      expect(result.outcomes).toEqual([]);
+      expect(live_ids()).toContain("prod.ts#gone_entry:function");
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   it("defers a seed-gone flow whose seed file was omitted from the graph", async () => {
@@ -253,6 +306,37 @@ describe("stale-flow sweep — skill flows (AC#2)", () => {
       expect(records_for(result, SKILL_ID)).toEqual([]);
       expect(live_ids()).toContain(SKILL_ID);
     } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("retires a deleted skill flow even when the call graph is empty (a skills-only repo)", async () => {
+    seed_skill_flow({ skill_root: "myskill" });
+
+    const result = await reconcile(["notes.md"], deps_over(make_graph([], [])));
+
+    expect(records_for(result, SKILL_ID)).toEqual([expect.objectContaining({ action: "retire", kind: "skill" })]);
+    expect(live_ids()).not.toContain(SKILL_ID);
+  });
+
+  it("defers a skill flow whose bundle root is unreadable rather than retiring on ambiguous evidence", async () => {
+    if (process.getuid?.() === 0) return; // root ignores modes; the EACCES branch is unreachable
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-sweep-"));
+    const locked = path.join(repo, "locked");
+    try {
+      fs.mkdirSync(path.join(locked, "myskill"), { recursive: true });
+      fs.writeFileSync(path.join(locked, "myskill", "SKILL.md"), "# My Skill\n");
+      fs.chmodSync(locked, 0o000);
+      seed_skill_flow({ skill_root: "locked/myskill" });
+      const deps = { ...deps_over(make_graph([FEATURE], [FEATURE])), repo_root_abs: repo };
+
+      const result = await reconcile(["notes.md"], deps);
+
+      expect(result.outcomes).toEqual([]);
+      expect(result.deferred_retirements).toEqual([{ flow_id: SKILL_ID, reason: "skill bundle root unreadable: locked/myskill" }]);
+      expect(live_ids()).toContain(SKILL_ID);
+    } finally {
+      fs.chmodSync(locked, 0o755);
       fs.rmSync(repo, { recursive: true, force: true });
     }
   });

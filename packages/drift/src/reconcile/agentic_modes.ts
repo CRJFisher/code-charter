@@ -262,6 +262,12 @@ export async function apply_stitch(
         deps.log(`apply-stitch: seed not in the live graph, skipped: ${seed}`);
         continue;
       }
+      // The inventory never offers test entrypoints, so a test seed here is agent-invented; letting
+      // it through would persist the test-rooted clutter the hydration paths refuse to create.
+      if (graph.nodes.get(index.get(seed)!)?.is_test === true) {
+        deps.log(`apply-stitch: seed is a test entrypoint, skipped: ${seed}`);
+        continue;
+      }
       if (claimed.has(seed)) {
         deps.log(`apply-stitch: seed already claimed by an earlier umbrella, skipped: ${seed}`);
         continue;

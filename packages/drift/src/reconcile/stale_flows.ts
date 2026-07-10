@@ -12,15 +12,21 @@
  *  - a SKILL flow whose bundle's SKILL.md is gone from disk (bundle deleted — the deletion never
  *    partitions into a skill root, so no scoped pass can see it).
  *
- * A global pass may retire only on trustworthy evidence, so every decision is guarded: an empty
- * call graph skips the whole sweep (it also makes SKILL.md checks meaningless — a wrong or
- * transiently unreadable repo root reads as "everything deleted"); a seed whose file was omitted
- * from the graph, or is present but yields no indexed symbols (a mid-edit syntax error), defers
- * ({@link assess_code_seed_loss}); and every disk check classifies errno — only ENOENT/ENOTDIR
- * count as absent, any other failure (EACCES, a flaky mount) defers rather than retires
- * ({@link path_presence}). A truncated-but-present SKILL.md is 3a's degraded-bundle defer, not
- * staleness. Flows already handled or deferred this turn are skipped, so a same-turn resync,
+ * A global pass has no edit corroboration — the turn's change never implicated these flows — so it
+ * may retire only on unambiguous evidence: a code flow retires ONLY when every stored seed file is
+ * gone from disk. A seed file still present whose seed does not resolve (a rename, or a mid-edit
+ * parse that drops some symbols while others survive) is ambiguous from here and defers to the
+ * change-scoped pass, which retires it on the turn that actually touches the file
+ * ({@link assess_code_seed_loss}). Further guards: an empty call graph skips the code assessment
+ * entirely (the skill checks are disk-only and still run — a skills-only repo never has a graph);
+ * a seed file omitted from the graph defers; and every disk check classifies errno — only
+ * ENOENT/ENOTDIR count as absent, any other failure (EACCES, a flaky mount) defers rather than
+ * retires ({@link path_presence}). A truncated-but-present SKILL.md is 3a's degraded-bundle defer,
+ * not staleness. Flows already handled or deferred this turn are skipped, so a same-turn resync,
  * retire, or deferral is never contradicted or duplicated.
+ *
+ * The seed-resolution and seed-loss helpers here are shared with the change-scoped resync path in
+ * `reconcile.ts` — one assessment, two entry points with different corroboration.
  */
 
 import * as fs from "node:fs";
@@ -33,7 +39,7 @@ import { is_skill_flow_id, stored_seed_files, stored_seed_paths, stored_skill_ro
 import type { PersistedFlow } from "./flow_store";
 import { to_abs } from "./paths";
 import { SKILL_FILE } from "./skill_dir";
-import type { DeferredRetirement, FlowOutcome, ReconcileDeps } from "./types";
+import type { DeferredRetirement, ReconcileDeps, TurnState } from "./types";
 
 /** Map a code flow's stored `entry_points` (symbol_paths) back to live `SymbolId`s (the inverse of flow_id_of). */
 export function stored_seed_symbol_ids(
@@ -49,10 +55,18 @@ export function stored_seed_symbol_ids(
   return out;
 }
 
-/** Whether every resolved seed of `flow` is a test entrypoint — the never-hydrated shape. */
+/**
+ * Whether `flow` is rooted entirely on test entrypoints — the never-hydrated shape. Requires every
+ * STORED seed to resolve: a partially resolved flow (a seed's file omitted this turn) is degraded
+ * evidence, and judging it by its resolved seeds alone could read a mixed flow as all-test.
+ */
 export function is_test_rooted(flow: PersistedFlow, graph: CallGraph, index?: Map<string, SymbolId>): boolean {
   const seeds = stored_seed_symbol_ids(flow, graph, index);
-  return seeds.length > 0 && seeds.every((seed) => graph.nodes.get(seed)?.is_test === true);
+  return (
+    seeds.length > 0 &&
+    seeds.length === stored_seed_paths(flow).length &&
+    seeds.every((seed) => graph.nodes.get(seed)?.is_test === true)
+  );
 }
 
 /**
@@ -72,15 +86,27 @@ export function path_presence(abs_path: string): "present" | "absent" | "indeter
 export type SeedLossAssessment = { kind: "retire"; reason: string } | { kind: "defer"; reason: string };
 
 /**
- * Judge a code flow none of whose stored seeds resolves: genuine deletion/rename (retire), or an
- * untrustworthy graph (defer and retry naturally on a later turn). When the graph came back empty,
- * the seed's own file was omitted by a read/index failure, or the file is still on disk but yields
- * no indexed symbols at all (a mid-edit syntax error typically parses without throwing and just
- * drops the definitions), retiring would destroy a live flow on bad evidence. A partially broken
- * file that still yields some symbols is indistinguishable from a genuine deletion and retires;
- * the flow re-hydrates under the same id once the file parses again.
+ * Judge a code flow none of whose stored seeds resolves: genuine deletion/rename (retire), or
+ * ambiguous evidence (defer and retry naturally on a later turn). What counts as ambiguous depends
+ * on the caller's corroboration:
+ *
+ *  - `"scoped"` (the change-scoped resync path — this turn's edit touched the seed's file): an
+ *    empty graph, an omitted/unreadable seed file, or a file present but yielding no indexed
+ *    symbols at all (a mid-edit syntax error typically parses without throwing and just drops
+ *    the definitions) defers. A present file that still yields some symbols is indistinguishable
+ *    from a genuine deletion and retires; the flow re-hydrates under the same id once the file
+ *    parses again.
+ *  - `"sweep"` (the global sweep — no edit implicates the flow): additionally, ANY seed file still
+ *    present on disk defers, whatever it yields. Without the corroborating edit, a present file
+ *    whose seed is missing (an out-of-band rename, or a partial parse that dropped just the seed)
+ *    cannot be told apart from transient breakage, so only fully deleted seed files retire here.
  */
-export function assess_code_seed_loss(deps: ReconcileDeps, flow: PersistedFlow, graph: CallGraph): SeedLossAssessment {
+export function assess_code_seed_loss(
+  deps: ReconcileDeps,
+  flow: PersistedFlow,
+  graph: CallGraph,
+  corroboration: "scoped" | "sweep",
+): SeedLossAssessment {
   if (graph.nodes.size === 0) return { kind: "defer", reason: "empty call graph" };
   const omitted = deps.adapter.omitted_files();
   for (const file of stored_seed_files(flow)) {
@@ -91,18 +117,16 @@ export function assess_code_seed_loss(deps: ReconcileDeps, flow: PersistedFlow, 
     if (presence === "indeterminate") {
       return { kind: "defer", reason: `seed file unreadable: ${file}` };
     }
-    if (presence === "present" && deps.adapter.anchored_symbols([file]).length === 0) {
-      return { kind: "defer", reason: `seed file present but yields no indexed symbols: ${file}` };
+    if (presence === "present") {
+      if (deps.adapter.anchored_symbols([file]).length === 0) {
+        return { kind: "defer", reason: `seed file present but yields no indexed symbols: ${file}` };
+      }
+      if (corroboration === "sweep") {
+        return { kind: "defer", reason: `seed file still present, seed unresolved: ${file} (left to the change-scoped pass)` };
+      }
     }
   }
   return { kind: "retire", reason: "seed entrypoint gone (deleted or renamed away)" };
-}
-
-/** The turn's accumulating record, shared across the dispatch passes and the sweep. */
-export interface TurnState {
-  outcomes: FlowOutcome[];
-  handled: Set<string>;
-  retired: Set<string>;
 }
 
 /**
@@ -120,10 +144,10 @@ export function sweep_stale_flows(
   state: TurnState,
   deferred_retirements: DeferredRetirement[],
 ): void {
-  if (graph.nodes.size === 0) {
-    if (persisted.some((flow) => !state.handled.has(flow.node.id))) deps.log("stale-flow sweep skipped: empty call graph");
-    return;
-  }
+  // An empty graph gates only the code assessment: the skill checks are disk-only, and a repo of
+  // skill bundles with no indexable source legitimately never has a graph.
+  const graph_is_empty = graph.nodes.size === 0;
+  let code_flows_skipped = false;
   const deferred_ids = new Set(deferred_retirements.map((deferred) => deferred.flow_id));
   const index = build_symbol_path_index(graph);
   const retire = (flow: PersistedFlow, kind: "skill" | "code", reason: string): void => {
@@ -159,13 +183,17 @@ export function sweep_stale_flows(
       continue;
     }
 
+    if (graph_is_empty) {
+      code_flows_skipped = true;
+      continue;
+    }
     if (is_test_rooted(flow, graph, index)) {
       retire(flow, "code", "test-rooted flow (test entrypoints are not hydrated)");
       swept += 1;
       continue;
     }
     if (stored_seed_symbol_ids(flow, graph, index).length > 0) continue;
-    const assessment = assess_code_seed_loss(deps, flow, graph);
+    const assessment = assess_code_seed_loss(deps, flow, graph, "sweep");
     if (assessment.kind === "defer") defer(flow, assessment.reason);
     else {
       retire(flow, "code", assessment.reason);
@@ -173,6 +201,7 @@ export function sweep_stale_flows(
     }
   }
 
+  if (code_flows_skipped) deps.log("stale-flow sweep: code flows skipped (empty call graph)");
   if (swept > 0) {
     deps.log(`stale-flow sweep retired ${swept} flow(s)`);
     // A legitimate large deletion and a subtle evidence bug look identical from inside the sweep;

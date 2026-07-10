@@ -15,10 +15,10 @@
  *      hydrated or re-synced: the agent-facing inventory/orphan passes skip `is_test`, so persisting
  *      one would create clutter the agent can neither stitch nor retire.
  *   4. Stale-flow sweep ({@link sweep_stale_flows}): retire the persisted flows no scoped pass can
- *      reach — a code flow whose seeds no longer resolve anywhere, a legacy test-rooted flow, and a
+ *      reach — a code flow whose seed files are gone from disk, a legacy test-rooted flow, and a
  *      skill flow whose SKILL.md was deleted (a bundle deletion never partitions into a skill root,
- *      so the sweep is its only retirement path). Every decision is guarded; degraded evidence
- *      defers, never retires.
+ *      so the sweep is its only retirement path). Every decision is guarded; ambiguous evidence
+ *      (a still-present seed file, a degraded graph, an unreadable path) defers, never retires.
  *
  * "No new drift → no-op": an empty file set, or no affected/new flows, returns an empty outcome list.
  * Writes are scoped and idempotent, so re-firing the hook (or the `stop_hook_active` re-entry) is safe.
@@ -47,7 +47,6 @@ import type { CodeUmbrella, SkillUmbrella } from "./hydrate";
 import { to_abs, to_repo_relative } from "./paths";
 import { is_supported_source } from "./headless_project";
 import { assess_code_seed_loss, is_test_rooted, stored_seed_symbol_ids, sweep_stale_flows } from "./stale_flows";
-import type { TurnState } from "./stale_flows";
 import type {
   DeferredRetirement,
   DeferredSkillSync,
@@ -55,6 +54,7 @@ import type {
   FlowOutcome,
   ReconcileDeps,
   ReconcileResult,
+  TurnState,
 } from "./types";
 
 const META_FILE = "meta.json";
@@ -239,9 +239,10 @@ function add_description_counts(total: DescriptionCounts, part: DescriptionCount
  * the persisted list already in memory — never as a sweep over untouched flows. A candidate whose
  * seeds no longer resolve at all is the seed-gone path's case and is skipped here.
  *
- * This is one of two retirement mechanisms: `apply_stitch` (agentic_modes.ts) retires the singleton
- * flows an agent-judged umbrella absorbs, directly by seed id — those seeds stay live entrypoints,
- * so the demotion conjunction here can never fire for them.
+ * Retirement also fires from the scoped seed-gone path ({@link resync_persisted_flow}), the global
+ * stale-flow sweep (`stale_flows.ts`), and `apply_stitch` (agentic_modes.ts), which retires the
+ * singleton flows an agent-judged umbrella absorbs directly by seed id — those seeds stay live
+ * entrypoints, so the demotion conjunction here can never fire for them.
  */
 function retire_flows_subsumed_by(
   deps: ReconcileDeps,
@@ -304,7 +305,7 @@ async function resync_persisted_flow(
 ): Promise<ResyncResult> {
   const seeds = stored_seed_symbol_ids(flow, graph);
   if (seeds.length === 0) {
-    const assessment = assess_code_seed_loss(deps, flow, graph);
+    const assessment = assess_code_seed_loss(deps, flow, graph, "scoped");
     if (assessment.kind === "defer") {
       return { kind: "deferred", deferred: { flow_id: flow.node.id, reason: assessment.reason } };
     }
