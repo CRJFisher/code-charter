@@ -21,14 +21,16 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -watch -p tsconfig.build.json",
     "lint": "eslint src",
-    "test": "jest --testPathIgnorePatterns='src/reconcile/(reconcile_code|reconcile_delta|reconcile_membership|reconcile_stitch|reconcile_stitch_eval|ariadne_adapter)\\.test\\.ts' && jest src/reconcile/reconcile_code.test.ts && jest src/reconcile/reconcile_delta.test.ts && jest src/reconcile/reconcile_membership.test.ts && jest src/reconcile/reconcile_stitch.test.ts && jest src/reconcile/reconcile_stitch_eval.test.ts && jest src/reconcile/ariadne_adapter.test.ts",
+    "test": "jest --testPathIgnorePatterns='src/(reconcile|bin)/(reconcile_code|reconcile_delta|reconcile_membership|reconcile_stitch|reconcile_stitch_eval|stitch_eval_no_agent|ariadne_adapter)\\.test\\.ts' && jest src/reconcile/reconcile_code.test.ts && jest src/reconcile/reconcile_delta.test.ts && jest src/reconcile/reconcile_membership.test.ts && jest src/reconcile/reconcile_stitch.test.ts && jest src/reconcile/reconcile_stitch_eval.test.ts && jest src/bin/stitch_eval_no_agent.test.ts && jest src/reconcile/ariadne_adapter.test.ts",
     "drift:dev": "node dist/bin/drift_dev.js",
     "drift:dryrun": "node dist/bin/drift_reconcile.js --dry-run",
     "stitch_eval": "node dist/bin/stitch_eval.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "harvest": "node dist/bin/drift_harvest.js",
-    "calibrate": "node dist/bin/drift_calibrate.js"
+    "calibrate": "node dist/bin/drift_calibrate.js",
+    "stitch_eval:fast": "node dist/bin/stitch_eval.js --no-agent",
+    "stitch_eval:pin": "node dist/bin/stitch_eval.js --update-pins"
   },
   "dependencies": {
     "@ariadnejs/core": "^0.8.0",

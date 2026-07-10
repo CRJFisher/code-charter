@@ -36,11 +36,12 @@ describe("load_harvested_expectations", () => {
       });
       const expectations = load_harvested_expectations(root);
       expect(expectations).toHaveLength(1);
+      // The v1 manifest's flat member list wraps into the umbrella-list shape at load time.
       expect(expectations[0]).toEqual({
         fixture: "bergamot_case",
         kind: "stitch_seeds_only",
         expected_flow_count: 1,
-        expected_members: ["main.ts#entry:function"],
+        expected_umbrellas: [["main.ts#entry:function"]],
         expected_description_anchors: ["main.ts#entry:function"],
         dir: path.join(root, "bergamot_case"),
         staged_files: ["main.ts"],
@@ -83,7 +84,7 @@ describe("scaffold_repo over a harvested fixture", () => {
         fixture: "case",
         kind: "decline",
         expected_flow_count: 1,
-        expected_members: [],
+        expected_umbrellas: [],
         expected_description_anchors: [],
         dir,
         staged_files: ["src/main.ts"],

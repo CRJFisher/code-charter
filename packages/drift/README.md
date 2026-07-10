@@ -103,10 +103,16 @@ resolution weakness it contains):
   per-fixture report lands in `.stitch_eval_runs/`. Build first, then:
 
 ```bash
-STITCH_EVAL_LIVE=1 npm run stitch_eval            # all fixtures; one fixture: append its name
+npm run stitch_eval:fast                          # --no-agent: token-free deterministic floor
+STITCH_EVAL_LIVE=1 npm run stitch_eval            # haiku regression gate; one fixture: append its name
 ```
 
-`STITCH_EVAL_MODEL` overrides the haiku default; `STITCH_EVAL_KEEP=1` keeps the temp repos.
+`STITCH_EVAL_MODEL` overrides the haiku default — a non-haiku run is a deliberate,
+human-initiated certification, stamped as such in the report; it is never a default and never
+automated. `STITCH_EVAL_KEEP=1` keeps the temp repos. A prompt-asset edit fails CI via the pin
+guard until re-certified and re-pinned (`npm run stitch_eval:pin`). The full harness contract —
+modes, fixture taxonomy, description-quality scoring, the pin workflow — is
+[docs/stitch_eval.md](docs/stitch_eval.md).
 
 ## Host × surface degradation matrix
 

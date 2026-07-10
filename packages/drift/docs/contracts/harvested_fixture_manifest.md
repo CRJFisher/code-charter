@@ -67,4 +67,7 @@ store-slice harvester later.
 ## Changelog
 
 - v1: initial manifest — generic provenance top-level + derived FixtureExpectation
-  under `detail`; consumed by stitch_eval via directory discovery.
+  under `detail`; consumed by stitch_eval via directory discovery. The loader wraps the
+  flat `expected_members` list into stitch_eval's umbrella-list expectation shape
+  (harvested runs are single-umbrella by construction); harvested fixtures pin no
+  pre-stitch floor, so `--no-agent` skips them.

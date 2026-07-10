@@ -662,3 +662,263 @@ describe("stitch eval fixture: control_unrelated_pair (TypeScript)", () => {
     expect(bridges).toHaveLength(0);
   });
 });
+
+/** Sorted entrypoint symbol_paths — the fragment set without the full inventory golden. */
+function entrypoint_paths(stdout: string): string[] {
+  return (JSON.parse(stdout) as { entrypoints: Array<{ symbol_path: string }> }).entrypoints
+    .map((e) => e.symbol_path)
+    .sort();
+}
+
+describe("stitch eval fixture: multi_umbrella (TypeScript)", () => {
+  const FILES =
+    "mail_bounce.ts,mail_dispatch.ts,mail_registry.ts,mail_send.ts,order_close.ts,order_open.ts,order_registry.ts,orders_dispatch.ts";
+  const GOLDEN_UMBRELLAS = {
+    umbrellas: [
+      {
+        label: "order dispatch flow",
+        seeds: [
+          "orders_dispatch.ts#dispatch_order:function",
+          "order_open.ts#handle_order_open:function",
+          "order_close.ts#handle_order_close:function",
+        ],
+        bridges: [
+          {
+            src_id: "orders_dispatch.ts#dispatch_order:function",
+            dst_id: "order_open.ts#handle_order_open:function",
+            file: "orders_dispatch.ts",
+            line: 5,
+            rationale: "fn() is the registry-looked-up order handler",
+          },
+        ],
+        rationale: "dispatch_order reaches the order handlers through lookup_order_handler",
+      },
+      {
+        label: "mail dispatch flow",
+        seeds: [
+          "mail_dispatch.ts#dispatch_mail:function",
+          "mail_send.ts#send_mail:function",
+          "mail_bounce.ts#bounce_mail:function",
+        ],
+        bridges: [
+          {
+            src_id: "mail_dispatch.ts#dispatch_mail:function",
+            dst_id: "mail_send.ts#send_mail:function",
+            file: "mail_dispatch.ts",
+            line: 5,
+            rationale: "fn() is the registry-looked-up mail handler",
+          },
+        ],
+        rationale: "dispatch_mail reaches the mail handlers through lookup_mail_handler",
+      },
+    ],
+  };
+
+  beforeEach(() => stage_fixture("multi_umbrella"));
+
+  it("--list-entrypoints: six orphan fragments across two independent clusters", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
+    expect(entrypoint_paths(result.stdout)).toEqual([
+      "mail_bounce.ts#bounce_mail:function",
+      "mail_dispatch.ts#dispatch_mail:function",
+      "mail_send.ts#send_mail:function",
+      "order_close.ts#handle_order_close:function",
+      "order_open.ts#handle_order_open:function",
+      "orders_dispatch.ts#dispatch_order:function",
+    ]);
+  });
+
+  it("--apply-stitch (two umbrellas): each cluster becomes its own bridged multi-seed flow", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const result = run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    expect(result.status).toBe(0);
+    const { flow_ids, bridges } = read_store();
+    // An umbrella flow's id is its lexicographically-first seed.
+    expect(flow_ids).toEqual([
+      "mail_bounce.ts#bounce_mail:function",
+      "order_close.ts#handle_order_close:function",
+    ]);
+    expect(bridges).toHaveLength(2);
+    expect(bridges.map((b) => b.src_id).sort()).toEqual([
+      "mail_dispatch.ts#dispatch_mail:function",
+      "orders_dispatch.ts#dispatch_order:function",
+    ]);
+    for (const bridge of bridges) expect(bridge.confidence).toBe(BRIDGE_CONFIDENCE_INFERRED);
+  });
+});
+
+describe("stitch eval fixture: deep_chain (TypeScript)", () => {
+  const FILES = "chain_registry.ts,step_four.ts,step_one.ts,step_three.ts,step_two.ts";
+  const GOLDEN_UMBRELLAS = {
+    umbrellas: [
+      {
+        label: "pipeline chain flow",
+        seeds: [
+          "step_one.ts#start_chain:function",
+          "step_two.ts#stage_two:function",
+          "step_three.ts#stage_three:function",
+          "step_four.ts#stage_four:function",
+        ],
+        bridges: [
+          {
+            src_id: "step_one.ts#start_chain:function",
+            dst_id: "step_two.ts#stage_two:function",
+            file: "step_one.ts",
+            line: 5,
+            rationale: "next() is the stage looked up under the stage_two key",
+          },
+          {
+            src_id: "step_two.ts#stage_two:function",
+            dst_id: "step_three.ts#stage_three:function",
+            file: "step_two.ts",
+            line: 6,
+            rationale: "next() is the stage looked up under the stage_three key",
+          },
+          {
+            src_id: "step_three.ts#stage_three:function",
+            dst_id: "step_four.ts#stage_four:function",
+            file: "step_three.ts",
+            line: 6,
+            rationale: "next() is the stage looked up under the stage_four key",
+          },
+        ],
+        rationale: "the four stages chain through lookup_step, one unresolved hop per stage",
+      },
+    ],
+  };
+
+  beforeEach(() => stage_fixture("deep_chain"));
+
+  it("--list-entrypoints: four orphan fragments, each non-terminal stage carrying its own unresolved hop", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
+    expect(entrypoint_paths(result.stdout)).toEqual([
+      "step_four.ts#stage_four:function",
+      "step_one.ts#start_chain:function",
+      "step_three.ts#stage_three:function",
+      "step_two.ts#stage_two:function",
+    ]);
+  });
+
+  it("--apply-stitch (one chain umbrella): all four stages collapse into one flow bridged at every hop", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const result = run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    expect(result.status).toBe(0);
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["step_four.ts#stage_four:function"]);
+    expect(bridges).toHaveLength(3);
+  });
+});
+
+describe("stitch eval fixture: fan_out (TypeScript)", () => {
+  const FILES = "fan_registry.ts,handler_alpha.ts,handler_beta.ts,handler_delta.ts,handler_gamma.ts,router.ts";
+  const GOLDEN_UMBRELLAS = {
+    umbrellas: [
+      {
+        label: "route fan-out flow",
+        seeds: [
+          "router.ts#route:function",
+          "handler_alpha.ts#handle_alpha:function",
+          "handler_beta.ts#handle_beta:function",
+          "handler_gamma.ts#handle_gamma:function",
+          "handler_delta.ts#handle_delta:function",
+        ],
+        bridges: [
+          {
+            src_id: "router.ts#route:function",
+            dst_id: "handler_alpha.ts#handle_alpha:function",
+            file: "router.ts",
+            line: 5,
+            rationale: "fn() is the registry-looked-up route handler",
+          },
+        ],
+        rationale: "route reaches every handler through the lookup_route registry",
+      },
+    ],
+  };
+
+  beforeEach(() => stage_fixture("fan_out"));
+
+  it("--list-entrypoints: five orphan fragments, the router carrying the unresolved fn() site", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
+    expect(entrypoint_paths(result.stdout)).toEqual([
+      "handler_alpha.ts#handle_alpha:function",
+      "handler_beta.ts#handle_beta:function",
+      "handler_delta.ts#handle_delta:function",
+      "handler_gamma.ts#handle_gamma:function",
+      "router.ts#route:function",
+    ]);
+  });
+
+  it("--apply-stitch (one wide umbrella): the hub and every handler collapse into one flow", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const result = run(["--apply-stitch", write_payload("stitch.json", GOLDEN_UMBRELLAS)]);
+    expect(result.status).toBe(0);
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual(["handler_alpha.ts#handle_alpha:function"]);
+    expect(bridges).toHaveLength(1);
+  });
+});
+
+describe("stitch eval fixture: seeds_only_decoy (TypeScript)", () => {
+  const FILES = "analytics_report.ts,billing_report.ts";
+
+  beforeEach(() => stage_fixture("seeds_only_decoy"));
+
+  // Structural, negative: maximal surface similarity with zero connecting evidence — both orphans
+  // carry empty unresolved_sites, so the seeds-only lure has nothing to corroborate.
+  it("--list-entrypoints: two look-alike orphans with no unresolved link between them", () => {
+    const result = run(["--list-entrypoints", "--files", FILES]);
+    expect(result.status).toBe(0);
+    expect(entrypoint_paths(result.stdout)).toEqual([
+      "analytics_report.ts#export_analytics_report:function",
+      "billing_report.ts#export_billing_report:function",
+    ]);
+  });
+
+  it("--apply-stitch (no umbrellas): both look-alikes stay singleton flows", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const result = run(["--apply-stitch", write_payload("stitch.json", { umbrellas: [] })]);
+    expect(result.status).toBe(0);
+    const { flow_ids, bridges } = read_store();
+    expect(flow_ids).toEqual([
+      "analytics_report.ts#export_analytics_report:function",
+      "billing_report.ts#export_billing_report:function",
+    ]);
+    expect(bridges).toHaveLength(0);
+  });
+
+  it("--apply-stitch rejects a bridge claim between the look-alikes (nothing corroborates it)", () => {
+    run(["--list-entrypoints", "--files", FILES]);
+    const result = run([
+      "--apply-stitch",
+      write_payload("stitch.json", {
+        umbrellas: [
+          {
+            label: "report exports",
+            seeds: [
+              "billing_report.ts#export_billing_report:function",
+              "analytics_report.ts#export_analytics_report:function",
+            ],
+            bridges: [
+              {
+                src_id: "billing_report.ts#export_billing_report:function",
+                dst_id: "analytics_report.ts#export_analytics_report:function",
+                file: "billing_report.ts",
+                line: 19,
+                rationale: "both export a formatted report",
+              },
+            ],
+            rationale: "the two exporters look alike",
+          },
+        ],
+      }),
+    ]);
+    expect(result.status).toBe(0);
+    const { bridges } = read_store();
+    // The claimed bridge names no recorded unresolved site, so the evidence bar drops it.
+    expect(bridges).toHaveLength(0);
+  });
+});
