@@ -4,7 +4,7 @@ import { diff_summaries, symbol_lists_differ } from "./diff";
 import type { DescriptionBreakdown, FlowSummary, StoreSummary } from "./summary";
 
 function breakdown(over: Partial<DescriptionBreakdown> = {}): DescriptionBreakdown {
-  return { docstring: 0, llm: 0, placeholder: 0, none: 0, ...over };
+  return { docstring: 0, llm: 0, provisional: 0, placeholder: 0, none: 0, ...over };
 }
 
 /** member_count and members are kept consistent (member_count === members.length), as the store guarantees. */
@@ -32,6 +32,7 @@ function summary(over: Partial<StoreSummary> = {}): StoreSummary {
     bridges: [],
     descriptions: breakdown(),
     deferred_retirements: [],
+    deferred_skill_syncs: [],
     sync_status: null,
     ...over,
   };

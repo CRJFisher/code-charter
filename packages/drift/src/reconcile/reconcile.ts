@@ -15,6 +15,13 @@
  *
  * "No new drift → no-op": an empty file set, or no affected/new flows, returns an empty outcome list.
  * Writes are scoped and idempotent, so re-firing the hook (or the `stop_hook_active` re-entry) is safe.
+ *
+ * The whole turn runs inside one store transaction ({@link GraphStore.transaction}, on the WAL
+ * discipline from task-27.1.20.1): every mutation commits together, so a mid-turn crash rolls the turn
+ * back rather than leaving it half-applied. Two guards keep a degraded input from overwriting good
+ * state: the code path defers a retirement when the graph is untrustworthy for the seed's file, and
+ * the skill path defers a bundle re-sync when the bundle looks degraded on disk (a truncated SKILL.md,
+ * an unparseable meta.json, or a missing declared sub-agent file) — {@link assess_skill_bundle}.
  */
 
 import * as fs from "node:fs";
@@ -33,12 +40,19 @@ import type { SymbolDelta } from "@code-charter/core";
 import { affected_persisted_flows } from "./affected_flows";
 import { read_persisted_flows, stored_seed_files, stored_seed_paths } from "./flow_store";
 import type { PersistedFlow } from "./flow_store";
-import { find_skill_root, ingest_skill_dir } from "./skill_dir";
+import { assess_skill_bundle, find_skill_root, ingest_skill_dir } from "./skill_dir";
 import { hydrate_code_flow, hydrate_skill_flow } from "./hydrate";
 import type { CodeUmbrella, SkillUmbrella } from "./hydrate";
 import { to_abs, to_repo_relative } from "./paths";
 import { is_supported_source } from "./headless_project";
-import type { DeferredRetirement, DescriptionCounts, FlowOutcome, ReconcileDeps, ReconcileResult } from "./types";
+import type {
+  DeferredRetirement,
+  DeferredSkillSync,
+  DescriptionCounts,
+  FlowOutcome,
+  ReconcileDeps,
+  ReconcileResult,
+} from "./types";
 
 const SKILL_FILE = "SKILL.md";
 const META_FILE = "meta.json";
@@ -51,9 +65,23 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
   const changed = [...new Set(file_set.map((f) => to_repo_relative(f, deps.repo_root_abs)))]
     .filter((f) => f.length > 0 && !f.startsWith(".."))
     .sort();
-  const description_counts: DescriptionCounts = { docstring: 0, placeholder: 0, llm: 0 };
-  if (changed.length === 0) return { file_set: changed, outcomes: [], deferred_retirements: [], description_counts };
+  const description_counts: DescriptionCounts = { docstring: 0, provisional: 0, placeholder: 0, llm: 0 };
+  if (changed.length === 0) {
+    return { file_set: changed, outcomes: [], deferred_retirements: [], deferred_skill_syncs: [], description_counts };
+  }
 
+  // The whole turn commits or rolls back as a unit (AC#1): reconcile issues many independent store
+  // mutations, so a mid-turn crash under a per-statement journal would leave half a turn applied. One
+  // BEGIN IMMEDIATE (built on the WAL discipline from task-27.1.20.1) makes the turn atomic.
+  return deps.store.transaction(() => reconcile_turn(changed, description_counts, deps));
+}
+
+/** One reconcile turn's body, run inside the single turn transaction opened by {@link reconcile}. */
+async function reconcile_turn(
+  changed: readonly string[],
+  description_counts: DescriptionCounts,
+  deps: ReconcileDeps,
+): Promise<ReconcileResult> {
   // 1. Partition: a file under a SKILL.md ancestor belongs to that bundle; everything else is code.
   const skill_roots = new Map<string, string>(); // abs skill root → skill name (basename)
   const code_files: string[] = [];
@@ -78,8 +106,20 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
       log: deps.log,
     }).delta;
   }
+  // A degraded bundle on disk (truncated SKILL.md, missing sub-agent file) is DEFERRED, not ingested:
+  // ingesting it would overwrite the good flow with a shrunken snapshot (AC#2). The good flow is left
+  // intact and the sync retries on the next turn that touches the bundle — the code path's
+  // trustworthy-graph gate, mirrored onto the skill path.
+  const deferred_skill_syncs: DeferredSkillSync[] = [];
   const skill_umbrellas: SkillUmbrella[] = [];
   for (const [root, name] of [...skill_roots].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    const defect = assess_skill_bundle(root);
+    if (defect !== undefined) {
+      const flow_id = skill_flow_id(name);
+      deferred_skill_syncs.push({ flow_id, reason: defect });
+      deps.log(`deferred skill sync of ${flow_id}: ${defect}`);
+      continue;
+    }
     skill_umbrellas.push(build_skill_umbrella(deps, root, name));
   }
 
@@ -167,7 +207,12 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     );
   }
 
-  return { file_set: changed, outcomes, deferred_retirements, description_counts };
+  return { file_set: changed, outcomes, deferred_retirements, deferred_skill_syncs, description_counts };
+}
+
+/** A skill bundle's flow id — namespaced so it never collides with the SKILL.md doc node it includes. */
+function skill_flow_id(skill_name: string): string {
+  return `agentic.flow:skill:${skill_name}`;
 }
 
 type ResyncResult =
@@ -176,6 +221,7 @@ type ResyncResult =
 
 function add_description_counts(total: DescriptionCounts, part: DescriptionCounts): void {
   total.docstring += part.docstring;
+  total.provisional += part.provisional;
   total.placeholder += part.placeholder;
   total.llm += part.llm;
 }
@@ -301,7 +347,7 @@ async function resync_persisted_flow(
         reason: "seed entrypoint gone (deleted or renamed away)",
       },
       seeds: [],
-      description_counts: { docstring: 0, placeholder: 0, llm: 0 },
+      description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
     };
   }
   const umbrella: CodeUmbrella = {
@@ -370,8 +416,7 @@ function build_skill_umbrella(deps: ReconcileDeps, skill_root_abs: string, skill
   };
   return {
     kind: "skill",
-    // Namespaced so the flow node never collides with the SKILL.md doc node (which it includes as a member).
-    id: `agentic.flow:skill:${skill_name}`,
+    id: skill_flow_id(skill_name),
     label: skill_name,
     skill_doc_id: doc_id(SKILL_FILE),
     doc_node_ids: result.doc_node_ids,

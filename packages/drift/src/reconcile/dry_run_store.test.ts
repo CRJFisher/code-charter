@@ -110,6 +110,10 @@ class RecordingStore implements GraphStore {
     this.record("table_disposition", []);
     return [{ table: "nodes", disposable: false }];
   }
+  transaction<T>(fn: () => Promise<T>): Promise<T> {
+    this.record("transaction", [fn]);
+    return fn();
+  }
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void {
     this.record("rebuild_layer", [layer, write]);
     write(this);

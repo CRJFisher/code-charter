@@ -150,7 +150,7 @@ export async function hydrate_code_flow(
     last_synced_at,
   });
 
-  const description_counts: DescriptionCounts = { docstring: 0, placeholder: 0, llm: 0 };
+  const description_counts: DescriptionCounts = { docstring: 0, provisional: 0, placeholder: 0, llm: 0 };
   for (const description of descriptions) description_counts[description.source] += 1;
 
   return {

@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { DESCRIPTION_NODE_KIND, open_graph_store, type GraphStore } from "@code-charter/core";
+import { DESCRIPTION_NODE_KIND, open_graph_store, type GraphStore, type NodeRow } from "@code-charter/core";
 
 import { make_ariadne_adapter } from "./ariadne_adapter";
 import { HeadlessProject } from "./headless_project";
@@ -289,6 +289,70 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
 
     expect(flow_sync(skill_id)).toBe(skill_before); // no churn
     expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(skill_id); // still live
+  });
+
+  it("rolls back the whole turn when a write throws mid-reconcile — no half-applied turn (AC#1)", async () => {
+    const project = new HeadlessProject(repo);
+    await project.initialize();
+    const adapter = make_ariadne_adapter(project, () => {});
+
+    // A store that delegates to the real one but throws on its second node write — a mid-turn failure.
+    let node_writes = 0;
+    const throwing = new Proxy(store, {
+      get(target, prop, receiver) {
+        if (prop === "upsert_node") {
+          return (row: NodeRow) => {
+            if (++node_writes >= 2) throw new Error("simulated mid-turn crash");
+            target.upsert_node(row);
+          };
+        }
+        const value: unknown = Reflect.get(target, prop, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+
+    const deps: ReconcileDeps = {
+      store: throwing,
+      adapter,
+      repo_root_abs: repo,
+      analyzed_root: "",
+      now: () => new Date(2026, 0, 1).toISOString(),
+      log: () => {},
+    };
+
+    await expect(reconcile(["main.ts"], deps)).rejects.toThrow("simulated mid-turn crash");
+    // The turn's transaction rolled back on the throw: not a single row from the turn survived.
+    expect(store.all_nodes()).toEqual([]);
+    expect(read_persisted_flows(store)).toEqual([]);
+  });
+
+  it("flags a name-only member with description_source 'provisional' so it stays identifiable if the agent pass never runs (AC#3)", async () => {
+    // main/alpha/beta carry no docstrings, so the deterministic pass writes name stand-ins. They must
+    // persist as `provisional` (awaiting --apply-descriptions), NOT a terminal `placeholder`.
+    await run(["main.ts"]);
+    const node = store.node(`${DESCRIPTION_NODE_KIND}:main.ts#alpha:function`);
+    expect(node?.attributes.description).toBe("alpha");
+    expect(node?.attributes.description_source).toBe("provisional");
+  });
+
+  it("defers a degraded skill bundle rather than overwriting the good flow with a shrunken snapshot (AC#2)", async () => {
+    // A healthy bundle: SKILL.md links a reference, so the flow hydrates with two doc members.
+    write("myskill/SKILL.md", "---\nname: myskill\ndescription: test skill\n---\n\n# My Skill\n\nSee [ref](reference.md).\n");
+    write("myskill/reference.md", "# Reference\n\nBody.\n");
+    await run(["myskill/SKILL.md"]);
+    const skill_id = "agentic.flow:skill:myskill";
+    const before_sync = flow_sync(skill_id);
+    const before_members = anchor_set(skill_id);
+    expect(before_members).toContain("myskill/reference.md#doc");
+
+    // SKILL.md is truncated to empty mid-edit; reconciling now must NOT overwrite the flow.
+    write("myskill/SKILL.md", "");
+    const logs: string[] = [];
+    await run(["myskill/SKILL.md"], { log: (m) => logs.push(m) });
+
+    expect(logs.some((m) => m.includes("deferred skill sync") && m.includes("SKILL.md is empty"))).toBe(true);
+    expect(flow_sync(skill_id)).toBe(before_sync); // no write — the good flow is untouched
+    expect(anchor_set(skill_id)).toEqual(before_members); // members preserved, not shrunk to a husk
   });
 
   it("membership drift alone re-syncs a flow: a cross-file member deleted without editing its caller", async () => {

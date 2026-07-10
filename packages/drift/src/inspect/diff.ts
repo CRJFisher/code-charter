@@ -38,7 +38,13 @@ function bridge_key(bridge: BridgeSummary): string {
 }
 
 function breakdowns_equal(a: DescriptionBreakdown, b: DescriptionBreakdown): boolean {
-  return a.docstring === b.docstring && a.llm === b.llm && a.placeholder === b.placeholder && a.none === b.none;
+  return (
+    a.docstring === b.docstring &&
+    a.llm === b.llm &&
+    a.provisional === b.provisional &&
+    a.placeholder === b.placeholder &&
+    a.none === b.none
+  );
 }
 
 /**

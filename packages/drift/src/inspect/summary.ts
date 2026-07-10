@@ -22,16 +22,18 @@ import {
 } from "@code-charter/core";
 
 import type { ReconcileLogRecord, SyncStatus } from "../reconcile/reconcile_log";
-import type { DeferredRetirement } from "../reconcile/types";
+import type { DeferredRetirement, DeferredSkillSync } from "../reconcile/types";
 
 /** Per-flow (or store-wide) tally of member descriptions by their source. */
 export interface DescriptionBreakdown {
   docstring: number;
   llm: number;
+  /** Name stand-ins awaiting the agent's `--apply-descriptions` upgrade — real text still missing. */
+  provisional: number;
   placeholder: number;
   /**
    * Per-flow: members carrying no `agentic.description` side-node. Store-wide: description nodes whose
-   * `description_source` is unrecognized/empty. Either way, the residual bucket that makes the four
+   * `description_source` is unrecognized/empty. Either way, the residual bucket that makes the buckets
    * always sum to the input count.
    */
   none: number;
@@ -85,6 +87,8 @@ export interface StoreSummary {
   descriptions: DescriptionBreakdown;
   /** Deferred retirements from the newest run-log record (older ones may have since resolved). */
   deferred_retirements: readonly DeferredRetirement[];
+  /** Deferred skill syncs from the newest run-log record (a degraded bundle left its good flow intact). */
+  deferred_skill_syncs: readonly DeferredSkillSync[];
   /** The rolling health rollup, or null when no status sidecar exists. */
   sync_status: SyncStatus | null;
 }
@@ -137,17 +141,18 @@ function collect_bridges(edges: readonly EdgeRow[]): BridgeSummary[] {
 }
 
 function empty_breakdown(): DescriptionBreakdown {
-  return { docstring: 0, llm: 0, placeholder: 0, none: 0 };
+  return { docstring: 0, llm: 0, provisional: 0, placeholder: 0, none: 0 };
 }
 
 /**
  * Route one description source into its bucket. An undefined resolution (member with no description
  * node) and an unrecognized source both fall to `none`, so the per-flow and store-wide tallies treat
- * an off-spec source identically and the four buckets always sum to the input count.
+ * an off-spec source identically and the buckets always sum to the input count.
  */
 function bump_source(breakdown: DescriptionBreakdown, source: string | undefined): void {
   if (source === "docstring") breakdown.docstring++;
   else if (source === "llm") breakdown.llm++;
+  else if (source === "provisional") breakdown.provisional++;
   else if (source === "placeholder") breakdown.placeholder++;
   else breakdown.none++;
 }
@@ -217,6 +222,7 @@ export function collect_store_summary(input: InspectInput): StoreSummary {
     bridges,
     descriptions: store_wide,
     deferred_retirements: input.latest_record?.deferred_retirements ?? [],
+    deferred_skill_syncs: input.latest_record?.deferred_skill_syncs ?? [],
     sync_status: input.sync_status,
   };
 }
@@ -251,11 +257,11 @@ export interface Anomaly {
 }
 
 /**
- * Minimum agentic-owned description count (placeholder + llm) before the placeholder-ratio finding
+ * Minimum agentic-owned description count (name-only + llm) before the placeholder-ratio finding
  * fires — below this, a high ratio is noise, not a signal.
  */
 export const HIGH_PLACEHOLDER_MIN = 5;
-/** placeholder / (placeholder + llm) at or above this is a "too few real descriptions" finding. */
+/** name-only / (name-only + llm) at or above this is a "too few real descriptions" finding. */
 export const HIGH_PLACEHOLDER_RATIO = 0.5;
 
 /**
@@ -306,13 +312,16 @@ export function detect_anomalies(summary: StoreSummary, proposed_bridges: number
     });
   }
 
-  const { placeholder, llm } = summary.descriptions;
-  const owned = placeholder + llm;
-  if (owned >= HIGH_PLACEHOLDER_MIN && placeholder / owned >= HIGH_PLACEHOLDER_RATIO) {
-    const pct = Math.round((placeholder / owned) * 100);
+  // Both `provisional` (awaiting the agent pass) and terminal `placeholder` are name-only stand-ins —
+  // the union is the "not yet real text" numerator; only `llm` and `docstring` are real descriptions.
+  const { provisional, placeholder, llm } = summary.descriptions;
+  const name_only = provisional + placeholder;
+  const owned = name_only + llm;
+  if (owned >= HIGH_PLACEHOLDER_MIN && name_only / owned >= HIGH_PLACEHOLDER_RATIO) {
+    const pct = Math.round((name_only / owned) * 100);
     anomalies.push({
       code: "high_placeholder_ratio",
-      message: `${placeholder}/${owned} agentic descriptions are placeholders (${pct}%) — awaiting real text`,
+      message: `${name_only}/${owned} agentic descriptions are placeholders (${pct}%) — awaiting real text`,
     });
   }
 

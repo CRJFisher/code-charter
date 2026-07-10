@@ -95,6 +95,43 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
+  describe("transaction (turn atomicity)", () => {
+    it("commits every write made inside the callback", async () => {
+      await store.transaction(async () => {
+        store.upsert_node(make_node({ id: "f.ts#a" }));
+        store.upsert_node(make_node({ id: "f.ts#b" }));
+      });
+      expect(store.all_nodes().map((n) => n.id).sort()).toEqual(["f.ts#a", "f.ts#b"]);
+    });
+
+    it("rolls back every write when the callback throws, leaving the store untouched", async () => {
+      store.upsert_node(make_node({ id: "f.ts#pre" }));
+      await expect(
+        store.transaction(async () => {
+          store.upsert_node(make_node({ id: "f.ts#half" }));
+          throw new Error("mid-turn failure");
+        }),
+      ).rejects.toThrow("mid-turn failure");
+      // Only the pre-transaction row survives — the half-applied write rolled back as a unit.
+      expect(store.all_nodes().map((n) => n.id)).toEqual(["f.ts#pre"]);
+    });
+
+    it("is re-entrant: a nested call runs inline within the open transaction", async () => {
+      await store.transaction(async () => {
+        store.upsert_node(make_node({ id: "f.ts#outer" }));
+        await store.transaction(async () => {
+          store.upsert_node(make_node({ id: "f.ts#inner" }));
+        });
+      });
+      expect(store.all_nodes().map((n) => n.id).sort()).toEqual(["f.ts#inner", "f.ts#outer"]);
+    });
+
+    it("returns the callback's value", async () => {
+      const result = await store.transaction(async () => 42);
+      expect(result).toBe(42);
+    });
+  });
+
   describe("soft delete (AC#5)", () => {
     it("hides soft-deleted rows by default and reveals them with include_deleted", () => {
       const node = make_node({ id: "f.ts#a", layer: "user" });

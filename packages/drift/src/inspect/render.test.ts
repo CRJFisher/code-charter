@@ -18,7 +18,7 @@ const SUMMARY: StoreSummary = {
       bridge_count: 1,
       last_synced_at: "2026-07-08T00:00:00.000Z",
       rationale: "",
-      descriptions: { docstring: 1, llm: 1, placeholder: 0, none: 0 },
+      descriptions: { docstring: 1, llm: 1, provisional: 0, placeholder: 0, none: 0 },
     },
     {
       id: "b.ts#old:function",
@@ -30,12 +30,13 @@ const SUMMARY: StoreSummary = {
       bridge_count: 0,
       last_synced_at: null,
       rationale: "",
-      descriptions: { docstring: 0, llm: 0, placeholder: 0, none: 0 },
+      descriptions: { docstring: 0, llm: 0, provisional: 0, placeholder: 0, none: 0 },
     },
   ],
   bridges: [{ src_id: "a.ts#entry:function", dst_id: "a.ts#helper:function", rationale: "entry calls helper" }],
-  descriptions: { docstring: 1, llm: 1, placeholder: 0, none: 0 },
+  descriptions: { docstring: 1, llm: 1, provisional: 0, placeholder: 0, none: 0 },
   deferred_retirements: [{ flow_id: "c.ts#x:function", reason: "empty call graph" }],
+  deferred_skill_syncs: [{ flow_id: "agentic.flow:skill:demo", reason: "SKILL.md is empty (mid-edit truncation)" }],
   sync_status: { last_attempt_at: "2026-07-08T00:00:00.000Z", last_success_at: "2026-07-08T00:00:00.000Z", last_error: null },
 };
 
@@ -49,6 +50,8 @@ describe("render_summary", () => {
     expect(text).toContain("a.ts#entry:function → a.ts#helper:function — entry calls helper");
     expect(text).toContain("deferred retirements: 1");
     expect(text).toContain("c.ts#x:function — empty call graph");
+    expect(text).toContain("deferred skill syncs: 1");
+    expect(text).toContain("agentic.flow:skill:demo — SKILL.md is empty (mid-edit truncation)");
   });
 
   it("reports a missing sync status in the status line", () => {
@@ -119,14 +122,14 @@ describe("render_summary_diff", () => {
     bridge_count: 0,
     last_synced_at: "2026-07-09T00:00:00.000Z",
     rationale: "",
-    descriptions: { docstring: 0, llm: 0, placeholder: 2, none: 0 },
+    descriptions: { docstring: 0, llm: 0, provisional: 0, placeholder: 2, none: 0 },
   };
 
   it("renders a no-op reconcile as a single line", () => {
     const diff: SummaryDiff = {
       flows: [],
       bridges: { added: [], removed: [] },
-      descriptions: { before: { docstring: 0, llm: 0, placeholder: 0, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 0, none: 0 } },
+      descriptions: { before: { docstring: 0, llm: 0, provisional: 0, placeholder: 0, none: 0 }, after: { docstring: 0, llm: 0, provisional: 0, placeholder: 0, none: 0 } },
       unchanged: true,
     };
     expect(render_summary_diff(diff)).toEqual(["no changes — the reconcile is a no-op for these files"]);
@@ -139,13 +142,13 @@ describe("render_summary_diff", () => {
         { id: "b.ts#gone:function", before: { ...ADDED, id: "b.ts#gone:function", label: "" }, after: null },
       ],
       bridges: { added: [], removed: [] },
-      descriptions: { before: { docstring: 0, llm: 0, placeholder: 0, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      descriptions: { before: { docstring: 0, llm: 0, provisional: 0, placeholder: 0, none: 0 }, after: { docstring: 0, llm: 0, provisional: 0, placeholder: 2, none: 0 } },
       unchanged: false,
     };
     const text = render_summary_diff(diff).join("\n");
     expect(text).toContain('+ [live] a.ts#new:function "new flow"');
     expect(text).toContain("- [live] b.ts#gone:function");
-    expect(text).toContain("descriptions (store-wide): docstring 0, llm 0, placeholder 0→2, none 0");
+    expect(text).toContain("descriptions (store-wide): docstring 0, llm 0, provisional 0, placeholder 0→2, none 0");
   });
 
   it("renders a changed flow with only the fields that moved", () => {
@@ -154,7 +157,7 @@ describe("render_summary_diff", () => {
     const diff: SummaryDiff = {
       flows: [{ id: ADDED.id, before, after }],
       bridges: { added: [], removed: [{ src_id: "a.ts#new:function", dst_id: "a.ts#dep:function", rationale: "calls" }] },
-      descriptions: { before: { docstring: 0, llm: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      descriptions: { before: { docstring: 0, llm: 0, provisional: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, provisional: 0, placeholder: 2, none: 0 } },
       unchanged: false,
     };
     const text = render_summary_diff(diff).join("\n");
@@ -170,7 +173,7 @@ describe("render_summary_diff", () => {
     const diff: SummaryDiff = {
       flows: [{ id: ADDED.id, before, after }],
       bridges: { added: [], removed: [] },
-      descriptions: { before: { docstring: 0, llm: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, placeholder: 2, none: 0 } },
+      descriptions: { before: { docstring: 0, llm: 0, provisional: 0, placeholder: 2, none: 0 }, after: { docstring: 0, llm: 0, provisional: 0, placeholder: 2, none: 0 } },
       unchanged: false,
     };
     const line = render_summary_diff(diff).find((l) => l.includes("~ a.ts#new:function"));
