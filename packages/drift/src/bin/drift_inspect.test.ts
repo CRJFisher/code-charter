@@ -184,7 +184,11 @@ describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
    * trajectory path needs no real store: a missing db reads as the empty summary, so bridges are
    * simply absent and the spine still assembles from the record + transcript.
    */
-  function trajectory_fixture(opts: { with_transcript: boolean }): { store: string; run_id: string } {
+  function trajectory_fixture(opts: {
+    with_transcript: boolean;
+    with_stitch?: boolean;
+    with_newer_record?: boolean;
+  }): { store: string; run_id: string } {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-traj-"));
     const store = path.join(dir, "graph.db");
     const run_id = "20260710T120000000Z-aabbccdd";
@@ -215,7 +219,19 @@ describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
         diagnostics: [],
       },
     };
-    fs.writeFileSync(path.join(dir, "drift_reconcile_log.jsonl"), JSON.stringify(record) + "\n");
+    const lines = [JSON.stringify(record)];
+    if (opts.with_newer_record === true) {
+      lines.push(
+        JSON.stringify({ ...record, run_id: "20260710T130000000Z-eeeeeeee", timestamp: "2026-07-10T13:00:30.000Z" }),
+      );
+    }
+    fs.writeFileSync(path.join(dir, "drift_reconcile_log.jsonl"), lines.join("\n") + "\n");
+    if (opts.with_stitch === true) {
+      fs.writeFileSync(
+        path.join(dir, "stitch.json"),
+        JSON.stringify({ umbrellas: [{ label: "entry umbrella", seeds: ["a", "b"], rationale: "same dispatch" }] }),
+      );
+    }
     if (opts.with_transcript) {
       const launch = {
         type: "assistant",
@@ -278,7 +294,7 @@ describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
   });
 
   it("--json emits the neutral four-kind spine schema with drift payloads under detail", () => {
-    const { store, run_id } = trajectory_fixture({ with_transcript: true });
+    const { store, run_id } = trajectory_fixture({ with_transcript: true, with_stitch: true });
     const result = run(INSPECT_BIN, ["--store", store, "--trajectory", run_id, "--json"]);
     expect(result.status).toBe(0);
     const spine = JSON.parse(result.stdout) as {
@@ -288,11 +304,35 @@ describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
     };
     expect(spine.schema_version).toBe(1);
     expect(spine.transcript_available).toBe(true);
-    expect(spine.steps.length).toBeGreaterThan(0);
+    // The envelope partition, pinned on the bin's real output.
+    expect(Object.keys(spine).sort()).toEqual([
+      "availability_note",
+      "detail",
+      "run_id",
+      "schema_version",
+      "session_id",
+      "steps",
+      "timestamp",
+      "transcript_available",
+    ]);
+    expect(spine.steps.map((s) => s.kind)).toContain("judgement");
     for (const step of spine.steps) {
       expect(["instruction", "context", "judgement", "effect"]).toContain(step.kind);
       expect(Object.keys(step).sort()).toEqual(["at", "detail", "kind", "ordinal", "summary"]);
     }
+  });
+
+  it("renders the stitch judgement for the newest run and omits it with a note for an older run", () => {
+    const { store, run_id } = trajectory_fixture({ with_transcript: true, with_stitch: true, with_newer_record: true });
+    const older = run(INSPECT_BIN, ["--store", store, "--trajectory", run_id, "--json"]);
+    expect(older.status).toBe(0);
+    const older_spine = JSON.parse(older.stdout) as { steps: Array<{ summary: string }>; detail: { notes: string[] } };
+    expect(older_spine.steps.some((s) => s.summary.includes("entry umbrella"))).toBe(false);
+    expect(older_spine.detail.notes).toContainEqual(expect.stringContaining("newest run"));
+
+    const latest = run(INSPECT_BIN, ["--store", store, "--trajectory", "latest"]);
+    expect(latest.status).toBe(0);
+    expect(latest.stdout).toContain('stitch "entry umbrella" (2 seed(s)): same dispatch');
   });
 
   it("exits 1 when the run id resolves to no record", () => {

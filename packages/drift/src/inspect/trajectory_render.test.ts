@@ -74,6 +74,9 @@ describe("the extraction/rendering boundary (docs/contracts/trajectory_spine.md)
     const source = fs.readFileSync(path.join(__dirname, "trajectory_render.ts"), "utf8");
     const imports = [...source.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
     expect(imports).toEqual(["./trajectory_schema"]);
+    // The `from` scan misses require() and dynamic import(); rule those out too.
+    expect(source).not.toMatch(/\brequire\s*\(/);
+    expect(source).not.toMatch(/\bimport\s*\(/);
   });
 
   it("the neutral schema module imports nothing", () => {

@@ -50,7 +50,11 @@ export interface ReconcileRunRecord {
   run_id: string;
   /** The Claude session whose Stop fire launched this run; null for hand-invoked runs. */
   session_id: string | null;
-  /** Omitted (not null) when session_id is null — there is no transcript to point at. */
+  /**
+   * Omitted (not null) when the join key was incomplete at write time: session_id null, or the
+   * session cwd unknown (the derivation needs both) — the reconcile_run_record contract's
+   * path_not_recorded case.
+   */
   transcript_path?: string;
   /** The verbatim instruction the Stop hook issued; null for hand-invoked runs. */
   instruction: string | null;

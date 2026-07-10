@@ -54,8 +54,11 @@ NOT monotonic across kinds — never sort by it.
 - context: `{ tool, target }`
 - judgement: `{ judgement_kind: "stitch", label, seed_count, rationale }` or
   `{ judgement_kind: "bridge", src_id, dst_id, rationale }`
-- effect: `{ effect_kind: "flow_outcome", flow_id, action, kind, member_count, reason }`
+- effect: `{ effect_kind: "flow_outcome", flow_id, action, kind, member_count, last_synced_at, reason }`
   or `{ effect_kind: "describe_tally", counts }`
+
+JSON key order mirrors these tables but is not wire-normative — consumers address fields
+by name.
 
 ## Availability tiers (`transcript_available === false`)
 

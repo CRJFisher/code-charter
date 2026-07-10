@@ -276,7 +276,9 @@ export function build_trajectory_spine(inputs: TrajectoryInputs): TrajectorySpin
       detail: { judgement_kind: "bridge", ...bridge },
     });
   }
-  for (const outcome of record.detail.outcomes) {
+  // `?? []` / zeroed counts: is_current_record admits any record whose detail is an object, so a
+  // thin detail must degrade like summary.ts does, not throw (the never-errors bar).
+  for (const outcome of record.detail.outcomes ?? []) {
     steps.push({
       kind: "effect",
       at: null,
@@ -284,7 +286,7 @@ export function build_trajectory_spine(inputs: TrajectoryInputs): TrajectorySpin
       detail: { effect_kind: "flow_outcome", ...outcome },
     });
   }
-  const counts = record.detail.description_counts;
+  const counts = record.detail.description_counts ?? { docstring: 0, provisional: 0, placeholder: 0, llm: 0 };
   steps.push({
     kind: "effect",
     at: null,
@@ -292,8 +294,11 @@ export function build_trajectory_spine(inputs: TrajectoryInputs): TrajectorySpin
     detail: { effect_kind: "describe_tally", counts },
   });
 
-  const envelope_detail: Record<string, unknown> = { mode: record.detail.mode, notes };
+  // Key insertion order deliberately mirrors the contract doc's tables — the order is not
+  // wire-normative, but matching it keeps the doc's examples byte-predictive.
+  const envelope_detail: Record<string, unknown> = { mode: record.detail.mode };
   if (context.tier !== null) envelope_detail.availability_tier = context.tier;
+  envelope_detail.notes = notes;
   return {
     schema_version: SPINE_SCHEMA_VERSION,
     run_id: record.run_id,
@@ -301,7 +306,10 @@ export function build_trajectory_spine(inputs: TrajectoryInputs): TrajectorySpin
     timestamp: record.timestamp,
     transcript_available: context.tier === null,
     availability_note: context.note,
-    steps: steps.map((step, ordinal) => ({ ...step, ordinal }) satisfies SpineStep),
+    steps: steps.map(
+      (step, ordinal) =>
+        ({ kind: step.kind, ordinal, at: step.at, summary: step.summary, detail: step.detail }) satisfies SpineStep,
+    ),
     detail: envelope_detail,
   };
 }

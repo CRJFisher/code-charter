@@ -263,8 +263,9 @@ async function main(): Promise<void> {
       timestamp: now(),
       detail: { mode: args.mode, diagnostics, ...detail },
     };
-    // Omitted, not null: a null session has no transcript to point at (the pinned contract in
-    // docs/contracts/reconcile_run_record.md).
+    // Omitted, not null, and only when BOTH halves of the join key are known — the derivation
+    // needs session_id and the session cwd (the pinned contract in
+    // docs/contracts/reconcile_run_record.md; a partial key is its path_not_recorded case).
     if (session_id !== null && args.session_cwd !== undefined) {
       record.transcript_path = derive_transcript_path(args.session_cwd, session_id);
     }

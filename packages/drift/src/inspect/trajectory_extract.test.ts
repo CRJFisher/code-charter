@@ -138,6 +138,24 @@ describe("find_reconciler_span", () => {
     ]);
     expect(find_reconciler_span(text, "2026-07-10T12:00:30.000Z")?.tool_use_id).toBe("tu_1");
   });
+
+  it("falls back to the last launch in file order when every launch is after the record time", () => {
+    const text = main_transcript([
+      assistant_line([launch_item("tu_1")], "2026-07-10T13:00:00.000Z"),
+      assistant_line([launch_item("tu_2")], "2026-07-10T14:00:00.000Z"),
+    ]);
+    expect(find_reconciler_span(text, "2026-07-10T12:00:30.000Z")?.tool_use_id).toBe("tu_2");
+  });
+
+  it("picks the later launch when two windows both contain the record time", () => {
+    const text = main_transcript([
+      assistant_line([launch_item("tu_outer")], "2026-07-10T11:00:00.000Z"),
+      assistant_line([launch_item("tu_inner")], "2026-07-10T12:00:00.000Z"),
+      result_line("tu_inner", "AG_inner", "2026-07-10T13:00:00.000Z"),
+      result_line("tu_outer", "AG_outer", "2026-07-10T14:00:00.000Z"),
+    ]);
+    expect(find_reconciler_span(text, "2026-07-10T12:00:30.000Z")?.tool_use_id).toBe("tu_inner");
+  });
 });
 
 describe("parse_context_steps", () => {
@@ -213,6 +231,23 @@ describe("build_trajectory_spine", () => {
     expect(spine.availability_note).toContain("transcript unavailable");
     expect(spine.steps.some((s) => s.kind === "context")).toBe(false);
     expect(spine.steps.some((s) => s.kind === "effect")).toBe(true);
+  });
+
+  it("degrades with a path_not_recorded tier when the session is known but the path is not", () => {
+    const spine = build_trajectory_spine(inputs({ record: record({ transcript_path: undefined }) }));
+    expect(spine.transcript_available).toBe(false);
+    expect(spine.detail.availability_tier).toBe("path_not_recorded");
+    expect(spine.availability_note).toContain("no transcript path recorded");
+    expect(spine.steps.some((s) => s.kind === "effect")).toBe(true);
+  });
+
+  it("degrades instead of throwing on a thin detail missing outcomes and counts", () => {
+    const thin = record();
+    delete (thin.detail as { outcomes?: unknown }).outcomes;
+    delete (thin.detail as { description_counts?: unknown }).description_counts;
+    const spine = build_trajectory_spine(inputs({ record: thin }));
+    expect(spine.steps.filter((s) => s.kind === "effect")).toHaveLength(1);
+    expect(spine.steps.at(-1)?.summary).toContain("described: docstring 0");
   });
 
   it("degrades with a file_missing tier when the transcript file is gone", () => {

@@ -4,7 +4,7 @@
  *
  * It opens the graph store read-only (never competing for the write lock, never running schema init)
  * and folds in the durable run log from the store's sidecars (reconcile_log.ts): the newest turn's
- * deferred retirements and the last-attempt/success/error health rollup. Three read-only views:
+ * deferred retirements and the last-attempt/success/error health rollup. Four read-only views:
  *  - default — the whole-store summary: live/retired flow counts, per-flow members + seeds, the
  *    description-source split, and every persisted bridge with its rationale.
  *  - `--flow <id>` — drill into one flow: its seeds, each member's description, and the bridges it
@@ -17,8 +17,9 @@
  *    view, never an error.
  *
  * `--json` emits the projection as JSON instead of text (the same structure the collectors return).
- * A store that was never reconciled (no db file) is the empty summary, not an error. Exit 0 = clean,
- * 1 = `--lint` found anomalies or `--flow` named an unknown flow, 2 = usage error.
+ * A store that was never reconciled (no db file) is the empty summary, not an error. Exit 0 = clean
+ * (including a degraded trajectory), 1 = `--lint` found anomalies or `--flow`/`--trajectory` named
+ * an unknown flow/run, 2 = usage error.
  */
 
 import * as fs from "node:fs";
