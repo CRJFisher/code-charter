@@ -14,7 +14,7 @@ import * as path from "node:path";
 import type { GraphStore, SkillIngestResult } from "@code-charter/core";
 import { ingest_skill, read_sub_agents } from "@code-charter/core";
 
-const SKILL_FILE = "SKILL.md";
+export const SKILL_FILE = "SKILL.md";
 const META_FILE = "meta.json";
 
 /** A link target that points outside the bundle (absolute, home-relative, or a URL scheme) — never a bundle file. */

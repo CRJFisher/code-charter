@@ -248,7 +248,20 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     expect(read_persisted_flows(store).map((f) => f.node.id)).toEqual(["main.ts#wrapper:function"]);
   });
 
-  it("scopes seed-gone retirement to the changed set: an unrelated edit never retires another file's flow", async () => {
+  it("does not hydrate a test-file entrypoint even when its tree reaches a changed product file", async () => {
+    // The test calls the shared helper, not the product entrypoint — a call from the test would
+    // demote its target from entrypoint status and no product flow would exist at all.
+    write("feature.ts", "export function feature_entry() { return helper(); }\n\nexport function helper() { return 1; }\n");
+    write("feature.test.ts", "import { helper } from './feature';\n\nexport function t_feature() { return helper(); }\n");
+
+    await run(["feature.ts", "feature.test.ts"]);
+
+    const live = read_persisted_flows(store).map((f) => f.node.id);
+    expect(live).toContain("feature.ts#feature_entry:function"); // the product flow still hydrates
+    expect(live.filter((id) => id.startsWith("feature.test.ts#"))).toEqual([]);
+  });
+
+  it("the stale-flow sweep retires a seed-gone flow even when its file is outside the changed set", async () => {
     write("a.ts", "export function a_entry() { return 1; }\n");
     write("b.ts", "export function b_entry() { return 2; }\n");
     await run(["a.ts", "b.ts"]);
@@ -257,20 +270,18 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
       "b.ts#b_entry:function",
     ]);
 
-    // Rename b's entrypoint on disk, but reconcile only a.ts: b's flow is not implicated this turn,
-    // so it must linger live — retirement is on-demand, not a global sweep.
-    write("b.ts", "export function b_renamed() { return 2; }\n");
+    // Delete b.ts out-of-band, then reconcile only a.ts: the scoped passes never implicate b's
+    // flow, but its seed file is gone from disk — the unambiguous evidence the sweep retires on.
+    fs.rmSync(path.join(repo, "b.ts"));
     write("a.ts", "export function a_entry() { return 11; }\n");
     const unrelated = await run(["a.ts"]);
-    expect(unrelated.outcomes.filter((o) => o.action === "retire")).toEqual([]);
-    expect(read_persisted_flows(store).map((f) => f.node.id)).toContain("b.ts#b_entry:function");
-
-    // The turn that touches b.ts retires it.
-    const related = await run(["b.ts"]);
-    expect(related.outcomes).toContainEqual(
-      expect.objectContaining({ flow_id: "b.ts#b_entry:function", action: "retire" }),
+    expect(unrelated.outcomes).toContainEqual(
+      expect.objectContaining({ flow_id: "b.ts#b_entry:function", action: "retire", kind: "code" }),
     );
-    expect(read_persisted_flows(store).map((f) => f.node.id)).not.toContain("b.ts#b_entry:function");
+    expect(unrelated.deferred_retirements).toEqual([]);
+    const live = read_persisted_flows(store).map((f) => f.node.id);
+    expect(live).not.toContain("b.ts#b_entry:function");
+    expect(live).toContain("a.ts#a_entry:function");
   });
 
   it("defers retirement on a degenerate (empty) graph instead of retiring on bad evidence", async () => {

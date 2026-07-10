@@ -14,10 +14,12 @@
  * A flow with no live code seed never reaches the (a)/(b) triggers (`paths_of(∅)` would otherwise fire (b)
  * spuriously against the stored `anchor_set`); the two zero-seed shapes split on whether the flow
  * enumerates member edges. A skill (doc) flow enumerates its doc members as edges and re-syncs via the
- * touched-skill-root join in `reconcile`, so it is left alone. A seed-gone code flow is surfaced for
- * retirement only when this turn's changed files implicate its stored seed — retirement is on-demand, never
- * a global sweep, so an unrelated edit or a degenerate graph can never retire a flow whose code was not
- * touched.
+ * touched-skill-root join in `reconcile`, so it is left alone. A seed-gone code flow is surfaced here for
+ * retirement only when this turn's changed files implicate its stored seed — this pass is the eager,
+ * change-scoped path. Flows an edit never implicates (an out-of-band seed deletion, a deleted skill
+ * bundle, legacy test-rooted clutter) are reclaimed by the guarded stale-flow sweep (`stale_flows.ts`),
+ * which shares the same trustworthy-evidence assessment, so a degenerate graph still cannot retire a
+ * healthy flow.
  */
 
 import type { CallGraph, SymbolId } from "@ariadnejs/types";

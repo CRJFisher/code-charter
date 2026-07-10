@@ -39,6 +39,11 @@ export interface SkillUmbrella {
   label: string;
   /** The SKILL.md doc node id — the flow's entry point (jump-to-source + a member). */
   skill_doc_id: string;
+  /**
+   * Repo-relative bundle dir, persisted on the flow node: doc-node ids carry only the skill's
+   * basename, so without this the stale-flow sweep cannot locate the bundle's SKILL.md on disk.
+   */
+  skill_root: string;
   /** All bundle doc node ids (the flow's members). */
   doc_node_ids: readonly string[];
   /** Raw `meta.json` text, or null when the bundle has none. */
@@ -84,6 +89,7 @@ export async function hydrate_skill_flow(
     rationale: `skill bundle '${umbrella.label}' grouped as one flow`,
     anchor_set: member_ids,
     last_synced_at,
+    skill_root: umbrella.skill_root,
   });
 
   return {

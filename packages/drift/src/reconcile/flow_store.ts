@@ -22,6 +22,22 @@ export interface PersistedFlow {
   bridge_edges: readonly EdgeRow[];
 }
 
+/** Namespace prefix of skill-flow ids — the discriminator between skill and code flows. */
+const SKILL_FLOW_ID_PREFIX = "agentic.flow:skill:";
+
+/** A skill bundle's flow id — namespaced so it never collides with the SKILL.md doc node it includes. */
+export function skill_flow_id(skill_name: string): string {
+  return `${SKILL_FLOW_ID_PREFIX}${skill_name}`;
+}
+
+/**
+ * Skill-vs-code flow discrimination by id namespace. The id is the identity contract; member-edge
+ * shape is not (a code flow may legitimately carry linked-doc member edges).
+ */
+export function is_skill_flow_id(flow_id: string): boolean {
+  return flow_id.startsWith(SKILL_FLOW_ID_PREFIX);
+}
+
 /** Reads only live flows: `deleted_at === null` excludes soft-deleted (retired) nodes. */
 export function read_persisted_flows(store: GraphStore): PersistedFlow[] {
   const edges = store.all_edges();
@@ -51,6 +67,17 @@ export function stored_seed_paths(flow: PersistedFlow): string[] {
 }
 
 /**
+ * A skill flow's stored repo-relative bundle directory, or undefined. The doc-node id space
+ * (`<skill_basename>/<rel>#doc`) does not embed the bundle's on-disk location, so this attribute is
+ * the only way the stale-flow sweep can check whether the bundle's SKILL.md still exists. Same
+ * untrusted-attribute discipline as {@link stored_seed_paths}.
+ */
+export function stored_skill_root(flow: PersistedFlow): string | undefined {
+  const stored = flow.node.attributes.skill_root;
+  return typeof stored === "string" ? stored : undefined;
+}
+
+/**
  * The repo-relative files a code flow's stored `entry_points` live in, deduped. A seed symbol_path
  * embeds its defining file (`<file>#<qualified>:<kind>`); an entry point without the `#` separator
  * (malformed, or a non-code id) names no file and is skipped.
@@ -76,6 +103,8 @@ export interface WriteFlowArgs {
   /** The sorted full induced member set — the membership snapshot that drives membership-drift re-sync. */
   anchor_set: readonly string[];
   last_synced_at: string;
+  /** Repo-relative bundle dir — skill flows only ({@link stored_skill_root}). Code flows omit it. */
+  skill_root?: string;
 }
 
 /**
@@ -95,6 +124,7 @@ export function write_flow(store: GraphStore, args: WriteFlowArgs): void {
   const anchor_set = [...args.anchor_set].sort();
   node.attributes.member_count = anchor_set.length;
   node.attributes.anchor_set = anchor_set;
+  if (args.skill_root !== undefined) node.attributes.skill_root = args.skill_root;
 
   store.upsert_node(node);
 

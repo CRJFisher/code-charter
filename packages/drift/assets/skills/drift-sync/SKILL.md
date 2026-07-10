@@ -34,8 +34,9 @@ STORE="${CODE_CHARTER_DB:-$PWD/.code-charter/graph.db}"
 
 ## Phase 1 — list and stitch
 
-**1. Run the list pass.** It runs the full deterministic reconcile (resync, retire, skill-dir, and
-one-singleton-flow-per-new-entrypoint hydration) over the staged set, then emits the changed
+**1. Run the list pass.** It runs the full deterministic reconcile (resync, retire, skill-dir,
+one-singleton-flow-per-new-entrypoint hydration, and the stale-flow sweep that retires flows whose
+seed files or SKILL.md are gone from disk) over the staged set, then emits the changed
 neighbourhood's entrypoint inventory on stdout:
 
 ```bash

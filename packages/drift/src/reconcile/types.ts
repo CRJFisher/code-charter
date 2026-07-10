@@ -41,6 +41,13 @@ export interface FlowOutcome {
   reason: string;
 }
 
+/** The turn's accumulating record, shared across the dispatch passes and the stale-flow sweep. */
+export interface TurnState {
+  outcomes: FlowOutcome[];
+  handled: Set<string>;
+  retired: Set<string>;
+}
+
 /**
  * Per-turn tally of description writes by source. The deterministic pass produces `docstring`,
  * `provisional` (a name stand-in for a member awaiting the agent's real text), and terminal

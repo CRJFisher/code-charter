@@ -245,6 +245,24 @@ describe("apply_stitch — umbrella forming and seed handling", () => {
     expect(logs).toContainEqual(expect.stringContaining("umbrella 'ghost' has no resolvable seeds, skipped"));
   });
 
+  it("skips a test-entrypoint seed: the inventory never offers one, so it is agent-invented", async () => {
+    const test_spec: NodeSpec = { file: "handlers.test.ts", name: "t_handler", is_test: true };
+    const graph = make_graph([DISPATCH, HANDLE_REQUEST, test_spec], [DISPATCH, HANDLE_REQUEST, test_spec]);
+    const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
+
+    const result = await apply_stitch(
+      deps,
+      { umbrellas: [{ label: "mixed", seeds: [DISPATCH_ID, id_of(test_spec)], rationale: "r" }] },
+      graph,
+    );
+
+    expect(result.flows).toHaveLength(1);
+    expect(logs).toContainEqual(expect.stringContaining("seed is a test entrypoint, skipped: " + id_of(test_spec)));
+    expect(read_persisted_flows(store).flatMap((f) => f.node.attributes.entry_points as string[])).not.toContain(
+      id_of(test_spec),
+    );
+  });
+
   it("does not double-claim a seed across umbrellas: the later umbrella drops it", async () => {
     const graph = stitch_graph();
     const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
