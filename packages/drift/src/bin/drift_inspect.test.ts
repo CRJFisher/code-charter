@@ -176,96 +176,97 @@ describe("drift-inspect bin", () => {
   });
 });
 
-describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
-  const INSTRUCTION = "Launch the `drift-reconciler` sub-agent.";
+const INSTRUCTION = "Launch the `drift-reconciler` sub-agent.";
 
-  /**
-   * A store dir with a synthetic run log and (optionally) a transcript tree beside it — the
-   * trajectory path needs no real store: a missing db reads as the empty summary, so bridges are
-   * simply absent and the spine still assembles from the record + transcript.
-   */
-  function trajectory_fixture(opts: {
-    with_transcript: boolean;
-    with_stitch?: boolean;
-    with_newer_record?: boolean;
-  }): { store: string; run_id: string } {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-traj-"));
-    const store = path.join(dir, "graph.db");
-    const run_id = "20260710T120000000Z-aabbccdd";
-    const transcript_path = path.join(dir, "sess.jsonl");
-    const record = {
-      schema_version: 1,
-      run_id,
-      session_id: "s1",
-      transcript_path,
-      instruction: INSTRUCTION,
-      timestamp: "2026-07-10T12:00:30.000Z",
-      detail: {
-        mode: "default",
-        file_set: ["main.ts"],
-        outcomes: [
-          {
-            flow_id: "main.ts#entry:function",
-            action: "hydrate",
-            kind: "code",
-            member_count: 2,
-            last_synced_at: "2026-07-10T12:00:29.000Z",
-            reason: "new entrypoint over the changed files",
-          },
-        ],
-        deferred_retirements: [],
-        deferred_skill_syncs: [],
-        description_counts: { docstring: 0, provisional: 2, placeholder: 0, llm: 0 },
-        diagnostics: [],
+/**
+ * A store dir with a synthetic run log and (optionally) a transcript tree beside it — the
+ * trajectory path needs no real store: a missing db reads as the empty summary, so bridges are
+ * simply absent and the spine still assembles from the record + transcript.
+ */
+function trajectory_fixture(opts: {
+  with_transcript: boolean;
+  with_stitch?: boolean;
+  with_newer_record?: boolean;
+}): { store: string; run_id: string } {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-traj-"));
+  const store = path.join(dir, "graph.db");
+  const run_id = "20260710T120000000Z-aabbccdd";
+  const transcript_path = path.join(dir, "sess.jsonl");
+  const record = {
+    schema_version: 1,
+    run_id,
+    session_id: "s1",
+    transcript_path,
+    instruction: INSTRUCTION,
+    timestamp: "2026-07-10T12:00:30.000Z",
+    detail: {
+      mode: "default",
+      file_set: ["main.ts"],
+      outcomes: [
+        {
+          flow_id: "main.ts#entry:function",
+          action: "hydrate",
+          kind: "code",
+          member_count: 2,
+          last_synced_at: "2026-07-10T12:00:29.000Z",
+          reason: "new entrypoint over the changed files",
+        },
+      ],
+      deferred_retirements: [],
+      deferred_skill_syncs: [],
+      description_counts: { docstring: 0, provisional: 2, placeholder: 0, llm: 0 },
+      diagnostics: [],
+    },
+  };
+  const lines = [JSON.stringify(record)];
+  if (opts.with_newer_record === true) {
+    lines.push(
+      JSON.stringify({ ...record, run_id: "20260710T130000000Z-eeeeeeee", timestamp: "2026-07-10T13:00:30.000Z" }),
+    );
+  }
+  fs.writeFileSync(path.join(dir, "drift_reconcile_log.jsonl"), lines.join("\n") + "\n");
+  if (opts.with_stitch === true) {
+    fs.writeFileSync(
+      path.join(dir, "stitch.json"),
+      JSON.stringify({ umbrellas: [{ label: "entry umbrella", seeds: ["a", "b"], rationale: "same dispatch" }] }),
+    );
+  }
+  if (opts.with_transcript) {
+    const launch = {
+      type: "assistant",
+      timestamp: "2026-07-10T12:00:05.000Z",
+      message: {
+        role: "assistant",
+        content: [{ type: "tool_use", id: "tu_1", name: "Task", input: { subagent_type: "drift-reconciler" } }],
       },
     };
-    const lines = [JSON.stringify(record)];
-    if (opts.with_newer_record === true) {
-      lines.push(
-        JSON.stringify({ ...record, run_id: "20260710T130000000Z-eeeeeeee", timestamp: "2026-07-10T13:00:30.000Z" }),
-      );
-    }
-    fs.writeFileSync(path.join(dir, "drift_reconcile_log.jsonl"), lines.join("\n") + "\n");
-    if (opts.with_stitch === true) {
-      fs.writeFileSync(
-        path.join(dir, "stitch.json"),
-        JSON.stringify({ umbrellas: [{ label: "entry umbrella", seeds: ["a", "b"], rationale: "same dispatch" }] }),
-      );
-    }
-    if (opts.with_transcript) {
-      const launch = {
-        type: "assistant",
-        timestamp: "2026-07-10T12:00:05.000Z",
-        message: {
-          role: "assistant",
-          content: [{ type: "tool_use", id: "tu_1", name: "Task", input: { subagent_type: "drift-reconciler" } }],
-        },
-      };
-      const result = {
-        type: "user",
-        timestamp: "2026-07-10T12:00:40.000Z",
-        message: { role: "user", content: [{ type: "tool_result", tool_use_id: "tu_1", content: "done" }] },
-        toolUseResult: { agentId: "AG1" },
-      };
-      fs.writeFileSync(transcript_path, JSON.stringify(launch) + "\n" + JSON.stringify(result) + "\n");
-      const subagents = path.join(dir, "sess", "subagents");
-      fs.mkdirSync(subagents, { recursive: true });
-      const read_step = {
-        type: "assistant",
-        timestamp: "2026-07-10T12:00:10.000Z",
-        message: {
-          role: "assistant",
-          content: [{ type: "tool_use", id: "st1", name: "Read", input: { file_path: "src/a.ts" } }],
-        },
-      };
-      fs.writeFileSync(path.join(subagents, "agent-AG1.jsonl"), JSON.stringify(read_step) + "\n");
-      fs.writeFileSync(
-        path.join(subagents, "agent-AG1.meta.json"),
-        JSON.stringify({ agentType: "drift-reconciler", toolUseId: "tu_1" }),
-      );
-    }
-    return { store, run_id };
+    const result = {
+      type: "user",
+      timestamp: "2026-07-10T12:00:40.000Z",
+      message: { role: "user", content: [{ type: "tool_result", tool_use_id: "tu_1", content: "done" }] },
+      toolUseResult: { agentId: "AG1" },
+    };
+    fs.writeFileSync(transcript_path, JSON.stringify(launch) + "\n" + JSON.stringify(result) + "\n");
+    const subagents = path.join(dir, "sess", "subagents");
+    fs.mkdirSync(subagents, { recursive: true });
+    const read_step = {
+      type: "assistant",
+      timestamp: "2026-07-10T12:00:10.000Z",
+      message: {
+        role: "assistant",
+        content: [{ type: "tool_use", id: "st1", name: "Read", input: { file_path: "src/a.ts" } }],
+      },
+    };
+    fs.writeFileSync(path.join(subagents, "agent-AG1.jsonl"), JSON.stringify(read_step) + "\n");
+    fs.writeFileSync(
+      path.join(subagents, "agent-AG1.meta.json"),
+      JSON.stringify({ agentType: "drift-reconciler", toolUseId: "tu_1" }),
+    );
   }
+  return { store, run_id };
+}
+
+describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
 
   it("prints the full trajectory for a resolvable run id", () => {
     const { store, run_id } = trajectory_fixture({ with_transcript: true });
@@ -344,6 +345,89 @@ describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
 
   it("rejects --trajectory combined with --lint as a usage error", () => {
     const result = run(INSPECT_BIN, ["--store", "/tmp/x.db", "--trajectory", "latest", "--lint"]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("mutually exclusive");
+  });
+});
+
+describe("drift-inspect bin — --grade (task-27.1.20.17)", () => {
+  function grades_lines(store: string): string[] {
+    return fs
+      .readFileSync(path.join(path.dirname(store), "drift_run_grades.jsonl"), "utf8")
+      .trimEnd()
+      .split("\n");
+  }
+
+  function run_grade(store: string, input: string, extra: string[] = []): ReturnType<typeof run> {
+    const result = spawnSync("node", [INSPECT_BIN, "--store", store, "--grade", ...extra], {
+      encoding: "utf8",
+      input,
+    });
+    return { stdout: result.stdout, stderr: result.stderr, status: result.status };
+  }
+
+  it("grades the newest ungraded run first and records verdict plus reason", () => {
+    const { store } = trajectory_fixture({ with_transcript: true, with_newer_record: true });
+    const result = run_grade(store, "g looks right\nq\n");
+    expect(result.status).toBe(0);
+    const lines = grades_lines(store);
+    expect(lines).toHaveLength(1);
+    const grade = JSON.parse(lines[0]) as { run_id: string; verdict: string; reason: string; detail: object };
+    expect(grade.run_id).toBe("20260710T130000000Z-eeeeeeee"); // the newer of the two records
+    expect(grade.verdict).toBe("good");
+    expect(grade.reason).toBe("looks right");
+    expect(Object.keys(grade).sort()).toEqual(["detail", "graded_at", "reason", "run_id", "schema_version", "verdict"]);
+  });
+
+  it("renders one screenful per run: changed files, spine, and flow summary", () => {
+    const { store } = trajectory_fixture({ with_transcript: true });
+    const result = run_grade(store, "q\n");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("changed files (1): main.ts");
+    expect(result.stdout).toContain("Launch the `drift-reconciler` sub-agent.");
+    expect(result.stdout).toContain("flows (hydrate 1):");
+  });
+
+  it("skips already-graded runs so a finished queue exits cleanly", () => {
+    const { store } = trajectory_fixture({ with_transcript: true });
+    expect(run_grade(store, "g fine\n").status).toBe(0);
+    const again = run_grade(store, "");
+    expect(again.status).toBe(0);
+    expect(again.stdout).toContain("no ungraded runs");
+  });
+
+  it("resumes at the remaining run after an EOF mid-queue", () => {
+    const { store } = trajectory_fixture({ with_transcript: true, with_newer_record: true });
+    expect(run_grade(store, "g first\n").status).toBe(0); // EOF after one verdict
+    const resumed = run_grade(store, "b second\n");
+    expect(resumed.status).toBe(0);
+    const verdicts = grades_lines(store).map((line) => (JSON.parse(line) as { verdict: string }).verdict);
+    expect(verdicts.sort()).toEqual(["bad", "good"]);
+  });
+
+  it("leaves a run ungraded on an invalid line instead of hanging or mis-grading", () => {
+    const { store } = trajectory_fixture({ with_transcript: true });
+    const result = run_grade(store, "excellent nailed it\n");
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("unknown verdict");
+    expect(fs.existsSync(path.join(path.dirname(store), "drift_run_grades.jsonl"))).toBe(false);
+  });
+
+  it("overwrites a grade only via --regrade, never duplicating the line", () => {
+    const { store, run_id } = trajectory_fixture({ with_transcript: true });
+    expect(run_grade(store, "g fine\n").status).toBe(0);
+    const regrade = spawnSync("node", [INSPECT_BIN, "--store", store, "--regrade", run_id], {
+      encoding: "utf8",
+      input: "b actually wrong\n",
+    });
+    expect(regrade.status).toBe(0);
+    const lines = grades_lines(store);
+    expect(lines).toHaveLength(1);
+    expect((JSON.parse(lines[0]) as { verdict: string }).verdict).toBe("bad");
+  });
+
+  it("rejects --grade combined with --trajectory as a usage error", () => {
+    const result = run(INSPECT_BIN, ["--store", "/tmp/x.db", "--grade", "--trajectory", "latest"]);
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("mutually exclusive");
   });

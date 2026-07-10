@@ -37,8 +37,10 @@ import { install_drift } from "../installer/install";
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const FIXTURES = path.join(PACKAGE_ROOT, "src", "reconcile", "__fixtures__", "stitch_eval");
+const HARVESTED_FIXTURES = path.join(PACKAGE_ROOT, "src", "reconcile", "__fixtures__", "stitch_eval_harvested");
 const RECONCILE_BIN = path.join(PACKAGE_ROOT, "dist", "bin", "drift_reconcile.js");
 const RUNS_DIR = path.join(PACKAGE_ROOT, ".stitch_eval_runs");
+const HARVEST_MANIFEST_SCHEMA_VERSION = 1;
 
 const AGENT_TIMEOUT_MS = 15 * 60_000;
 
@@ -65,6 +67,10 @@ interface FixtureExpectation {
    * positive kinds ("stitch" and "stitch_seeds_only"); empty for the "decline" control.
    */
   expected_description_anchors: string[];
+  /** Absolute fixture dir; hand-authored entries default to `FIXTURES/<fixture>`. */
+  dir?: string;
+  /** The staged pending set; hand-authored entries default to every file in the fixture dir. */
+  staged_files?: string[];
 }
 
 const EXPECTATIONS: FixtureExpectation[] = [
@@ -209,13 +215,65 @@ function fixture_files(fixture: string): string[] {
 }
 
 /**
+ * Harvested golden cases (docs/contracts/harvested_fixture_manifest.md): each
+ * `stitch_eval_harvested/<slug>/fixture.json` becomes one expectation, replayed by the same
+ * scaffold/agent/score machinery as the hand-authored array — harvesting is a pure file drop.
+ * A malformed or foreign-version manifest is skipped with a note, never a crash.
+ */
+export function load_harvested_expectations(harvested_root: string = HARVESTED_FIXTURES): FixtureExpectation[] {
+  let names: string[];
+  try {
+    names = fs.readdirSync(harvested_root).sort();
+  } catch {
+    return [];
+  }
+  const expectations: FixtureExpectation[] = [];
+  for (const name of names) {
+    const dir = path.join(harvested_root, name);
+    let manifest: unknown;
+    try {
+      manifest = JSON.parse(fs.readFileSync(path.join(dir, "fixture.json"), "utf8"));
+    } catch {
+      continue; // a dir without a parsable manifest is not a harvested fixture
+    }
+    if (typeof manifest !== "object" || manifest === null) continue;
+    const top = manifest as Record<string, unknown>;
+    const detail = top.detail;
+    if (top.schema_version !== HARVEST_MANIFEST_SCHEMA_VERSION || typeof detail !== "object" || detail === null) {
+      process.stderr.write(`stitch_eval: skipping harvested fixture ${name} (foreign or malformed manifest)\n`);
+      continue;
+    }
+    const expected = detail as Record<string, unknown>;
+    const kind = expected.kind;
+    if (kind !== "stitch" && kind !== "stitch_seeds_only" && kind !== "decline") {
+      process.stderr.write(`stitch_eval: skipping harvested fixture ${name} (unknown kind)\n`);
+      continue;
+    }
+    expectations.push({
+      fixture: name,
+      kind,
+      expected_flow_count: typeof expected.expected_flow_count === "number" ? expected.expected_flow_count : 1,
+      expected_members: as_string_array(expected.expected_members),
+      expected_description_anchors: as_string_array(expected.expected_description_anchors),
+      dir,
+      staged_files: as_string_array(expected.files),
+    });
+  }
+  return expectations;
+}
+
+/**
  * Scaffold the throwaway repo: fixture source, the production `.claude` bundle, and the staged
  * pending-reconcile set. The Stop hook entry is then stripped from the installed settings — the
  * harness already staged the set itself, and the eval drives exactly one bounded agent run.
  */
-function scaffold_repo(fixture: string): string {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), `stitch-eval-live-${fixture}-`));
-  fs.cpSync(path.join(FIXTURES, fixture), repo, { recursive: true });
+function scaffold_repo(expectation: FixtureExpectation): string {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), `stitch-eval-live-${expectation.fixture}-`));
+  // The manifest never enters the throwaway repo — it is scoring metadata, not fixture source.
+  fs.cpSync(expectation.dir ?? path.join(FIXTURES, expectation.fixture), repo, {
+    recursive: true,
+    filter: (src) => path.basename(src) !== "fixture.json",
+  });
   install_drift(repo, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT);
 
   const settings_path = path.join(repo, CLAUDE_CODE_LAYOUT.settings_file);
@@ -226,7 +284,7 @@ function scaffold_repo(fixture: string): string {
   fs.mkdirSync(path.join(repo, ".code-charter"), { recursive: true });
   fs.writeFileSync(
     path.join(repo, ".code-charter", "drift_pending_reconcile.json"),
-    serialize_pending_reconcile({ files: fixture_files(fixture), session: null }),
+    serialize_pending_reconcile({ files: expectation.staged_files ?? fixture_files(expectation.fixture), session: null }),
   );
   return repo;
 }
@@ -369,10 +427,13 @@ function main(): void {
     process.exit(1);
   }
 
+  const all_expectations = [...EXPECTATIONS, ...load_harvested_expectations()];
   const only = process.argv[2];
-  const selected = only === undefined ? EXPECTATIONS : EXPECTATIONS.filter((e) => e.fixture === only);
+  const selected = only === undefined ? all_expectations : all_expectations.filter((e) => e.fixture === only);
   if (selected.length === 0) {
-    process.stderr.write(`stitch_eval: unknown fixture '${only}' (known: ${EXPECTATIONS.map((e) => e.fixture).join(", ")})\n`);
+    process.stderr.write(
+      `stitch_eval: unknown fixture '${only}' (known: ${all_expectations.map((e) => e.fixture).join(", ")})\n`,
+    );
     process.exit(2);
   }
 
@@ -393,7 +454,7 @@ function main(): void {
     // entry; the rest of the batch still runs and the report still lands.
     let repo: string | undefined;
     try {
-      repo = scaffold_repo(expectation.fixture);
+      repo = scaffold_repo(expectation);
       const agent = run_agent(repo);
       if (agent.status !== 0) {
         results.push({

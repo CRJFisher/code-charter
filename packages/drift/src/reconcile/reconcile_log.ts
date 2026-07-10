@@ -146,39 +146,37 @@ function is_current_record(parsed: unknown): parsed is ReconcileRunRecord {
 }
 
 /**
- * Scan the append-only log newest-first for the first record matching `accept`, or null when the
- * log is absent or nothing matches. Reads the whole file — the log is one small line per turn and
- * disposable beside the store, so a full read is cheap. Torn lines and foreign-schema lines
- * (pre-contract flat records carry no schema_version) are skipped, never migrated.
+ * Every current-schema record in the append-only log, newest-first (file order reversed). Reads
+ * the whole file — the log is one small line per turn and disposable beside the store, so a full
+ * read is cheap. Torn lines and foreign-schema lines (pre-contract flat records carry no
+ * schema_version) are skipped, never migrated. An absent log is the empty list.
  */
-function find_record_newest_first(
-  store_path: string,
-  accept: (record: ReconcileRunRecord) => boolean,
-): ReconcileRunRecord | null {
+export function read_reconcile_records_newest_first(store_path: string): ReconcileRunRecord[] {
   let raw: string;
   try {
     raw = fs.readFileSync(reconcile_log_path(store_path), "utf8");
   } catch {
-    return null;
+    return [];
   }
+  const records: ReconcileRunRecord[] = [];
   const lines = raw.split("\n").filter((line) => line.trim().length > 0);
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const parsed: unknown = JSON.parse(lines[i]);
-      if (is_current_record(parsed) && accept(parsed)) return parsed;
+      if (is_current_record(parsed)) records.push(parsed);
     } catch {
       // skip a torn line and try the previous one
     }
   }
-  return null;
+  return records;
 }
 
 export function read_latest_reconcile_record(store_path: string): ReconcileRunRecord | null {
-  return find_record_newest_first(store_path, () => true);
+  return read_reconcile_records_newest_first(store_path)[0] ?? null;
 }
 
 export function read_reconcile_record_by_run_id(store_path: string, run_id: string): ReconcileRunRecord | null {
-  return find_record_newest_first(store_path, (record) => record.run_id === run_id);
+  return read_reconcile_records_newest_first(store_path).find((record) => record.run_id === run_id) ?? null;
 }
 
 /** Read the current status; a missing or unparsable file is the empty status. */

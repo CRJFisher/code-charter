@@ -24,7 +24,9 @@
     "drift:dryrun": "node dist/bin/drift_reconcile.js --dry-run",
     "stitch_eval": "node dist/bin/stitch_eval.js",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "harvest": "node dist/bin/drift_harvest.js",
+    "calibrate": "node dist/bin/drift_calibrate.js"
   },
   "dependencies": {
     "@ariadnejs/core": "^0.8.0",

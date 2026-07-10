@@ -50,7 +50,11 @@ export { SPINE_SCHEMA_VERSION } from "./inspect/trajectory_schema";
 export type { AvailabilityTier, SpineStep, SpineStepKind, TrajectorySpine } from "./inspect/trajectory_schema";
 export { render_trajectory } from "./inspect/trajectory_render";
 export { extract_trajectory_spine, build_trajectory_spine } from "./inspect/trajectory_extract";
-export { read_reconcile_record_by_run_id } from "./reconcile/reconcile_log";
+export { read_reconcile_record_by_run_id, read_reconcile_records_newest_first } from "./reconcile/reconcile_log";
+// The run-grade register (docs/contracts/run_grade_record.md): the .13 judge writes its verdicts
+// in the same generic surface, and the .17 harvester reads provenance from here.
+export { grades_path, read_grades, upsert_grade, GRADE_RECORD_SCHEMA_VERSION } from "./reconcile/grade_log";
+export type { GradeVerdict, RunGradeDetail, RunGradeRecord } from "./reconcile/grade_log";
 
 // Installer
 export { install_drift, is_stop_hook_installed, STOP_HOOK_IDENTITY_TOKEN } from "./installer/install";
