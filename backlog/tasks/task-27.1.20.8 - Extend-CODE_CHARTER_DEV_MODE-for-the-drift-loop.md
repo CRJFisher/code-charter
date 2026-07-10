@@ -35,7 +35,8 @@ priority: low
 
 ## Implementation Notes
 
-<!-- SECTION:NOTES:BEGIN -->
+ /build-and-review task-27.1.20.12 - skip cdoc and user review and go from plan to implementation (unless there any major decisions you'd like me to weigh in on)
+ <!-- SECTION:NOTES:BEGIN -->
 
 ## High-level summary
 
