@@ -12,13 +12,15 @@ expectation.
 | tier / mode | command | spends tokens | what a green run means |
 | --- | --- | --- | --- |
 | Tier 1 (CI) | `npm test` (`reconcile_stitch_eval.test.ts`) | no | the deterministic contract holds: fixtures fragment as designed, golden stitch payloads replay, the evidence bar rejects uncorroborated bridges |
-| `--no-agent` fast mode | `npm run stitch_eval:fast [fixture]` | no | harness plumbing + installer bundle + every fixture's resolution gap are healthy (the pre-stitch floor: fragmented singletons, zero bridges, zero llm descriptions) — says NOTHING about judgement |
-| haiku regression gate | `STITCH_EVAL_LIVE=1 npm run stitch_eval [fixture]` | yes (haiku) | the live agent's judgement passes every fixture at the routine model |
+| `--no-agent` fast mode | `npm run stitch_eval:fast [-- <fixture>]` | no | harness plumbing + installer bundle + every fixture's resolution gap are healthy (the pre-stitch floor: fragmented singletons, zero bridges, zero llm descriptions) — says NOTHING about judgement |
+| haiku regression gate | `STITCH_EVAL_LIVE=1 npm run stitch_eval [-- <fixture>]` | yes (haiku) | the live agent's judgement passes every fixture at the routine model |
 | certification | `STITCH_EVAL_LIVE=1 STITCH_EVAL_MODEL=<prod-model> npm run stitch_eval` | yes | production-representative judgement, before merging a prompt change |
 
 Haiku is the iteration model for every routine live run. A certification pass on the
 production session model is a deliberate, human-initiated gate before merging a
-stitching-prompt change — it is never automated, never a default, and never runs in CI.
+stitching-prompt change — and is also warranted when the production session model itself
+changes under an unchanged prompt. It is never automated, never a default, and never
+runs in CI.
 The report header records the model per run and stamps `CERTIFICATION RUN` on any
 non-haiku model, so archived reports in `.stitch_eval_runs/` are self-identifying.
 
@@ -70,9 +72,28 @@ cd packages/drift && npm run build && STITCH_EVAL_LIVE=1 npm run stitch_eval
 npm run stitch_eval:pin   # rewrites assets/prompt_asset_pins.json — commit it with the prompt change
 ```
 
-The friction is the point: a prompt change ships only alongside a pin bump, and the pin
-bump is the on-record acknowledgement that a Tier-2 run was due. The report header, the
-pin file, and the guard all share one hashing rule (`src/reconcile/prompt_assets.ts`).
+The directed command is the haiku gate; a substantive prompt change also warrants the
+deliberate production-representative certification the modes table defines. The friction
+is the point: a prompt change ships only alongside a pin bump, and the pin bump is the
+on-record acknowledgement that a Tier-2 run was due. The report header, the pin file,
+and the guard all share one hashing rule (`src/reconcile/prompt_assets.ts`).
+
+## Adding a hand-authored fixture
+
+1. Create `src/reconcile/__fixtures__/stitch_eval/<name>/` — a mini-codebase presenting
+   ONE resolution weakness, with a header comment naming it and the expected agent
+   behaviour.
+2. Capture the deterministic floor: run `npm run stitch_eval:fast -- <name>` with a
+   placeholder `expected_pre_stitch_flow_count`; the failure (or the flow list on a
+   pass) reports the observed fragment count — pin that number.
+3. Capture the stitched shape: add a Tier-1 `describe` block in
+   `reconcile_stitch_eval.test.ts` (a `--list-entrypoints` fragment-set assertion plus a
+   golden `--apply-stitch` replay); the induced membership it pins IS the
+   `expected_umbrellas` entry (an umbrella flow's id is its lexicographically-first
+   seed).
+4. Add the `EXPECTATIONS` entry; description goldens (`expected_description_contains`)
+   are optional precision for domain terms a name-echo would lack — keep them loose
+   (substring of several natural phrasings).
 
 ## Deferred scope
 

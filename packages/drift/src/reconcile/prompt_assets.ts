@@ -32,9 +32,19 @@ export function compute_pins(): Record<string, string> {
   return pins;
 }
 
+/**
+ * A missing or corrupt pin file reads as the empty map, so the guard reports every asset as
+ * "(unpinned)" through the curated directive instead of dying on a raw ENOENT/SyntaxError.
+ */
 export function read_pins(): Record<string, string> {
-  const raw = fs.readFileSync(path.join(PACKAGE_ROOT, PROMPT_ASSET_PIN_FILE), "utf8");
-  return JSON.parse(raw) as Record<string, string>;
+  try {
+    const raw = fs.readFileSync(path.join(PACKAGE_ROOT, PROMPT_ASSET_PIN_FILE), "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === "object" && parsed !== null) return parsed as Record<string, string>;
+  } catch {
+    // fall through to the empty map
+  }
+  return {};
 }
 
 export function write_pins(): void {
@@ -57,7 +67,12 @@ export function check_pins(
 ): PinDrift[] {
   const drifted: PinDrift[] = [];
   for (const asset_path of PROMPT_ASSET_PATHS) {
-    const actual = compute(asset_path);
+    let actual: string;
+    try {
+      actual = compute(asset_path);
+    } catch {
+      actual = "(missing asset)";
+    }
     const pin = pinned[asset_path];
     if (pin !== actual) drifted.push({ asset_path, pinned: pin ?? "(unpinned)", actual });
   }
@@ -74,7 +89,9 @@ export function pin_drift_message(drifted: readonly PinDrift[]): string {
     "prompt asset drift — the stitching prompts changed since they were last pinned:",
     ...lines,
     "",
-    "CI cannot measure prose quality; only the Tier-2 live eval does. Re-certify, then refresh the pin:",
+    "CI cannot measure prose quality; only the Tier-2 live eval does. Run the haiku gate (and, for a",
+    "substantive prompt change, a deliberate production-representative certification with",
+    "STITCH_EVAL_MODEL), then refresh the pin:",
     "  cd packages/drift && npm run build && STITCH_EVAL_LIVE=1 npm run stitch_eval",
     "  npm run stitch_eval:pin   # rewrites assets/prompt_asset_pins.json — commit it with the prompt change",
   ].join("\n");

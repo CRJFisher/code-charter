@@ -103,8 +103,8 @@ resolution weakness it contains):
   per-fixture report lands in `.stitch_eval_runs/`. Build first, then:
 
 ```bash
-npm run stitch_eval:fast                          # --no-agent: token-free deterministic floor
-STITCH_EVAL_LIVE=1 npm run stitch_eval            # haiku regression gate; one fixture: append its name
+npm run stitch_eval:fast [-- <name>]              # --no-agent: token-free deterministic floor
+STITCH_EVAL_LIVE=1 npm run stitch_eval -- <name>  # haiku regression gate; omit the name for all fixtures
 ```
 
 `STITCH_EVAL_MODEL` overrides the haiku default — a non-haiku run is a deliberate,

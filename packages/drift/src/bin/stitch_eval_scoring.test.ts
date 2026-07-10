@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 // Importing the bin is safe: main() no-ops without STITCH_EVAL_LIVE / --no-agent argv.
-import { score_observed, type FixtureExpectation, type StoreFlows } from "./stitch_eval";
+import { certification_tier, score_observed, type FixtureExpectation, type StoreFlows } from "./stitch_eval";
 
 function flow(id: string, seeds: string[], members: string[]): StoreFlows["flows"][number] {
   return { id, label: id, entry_points: seeds, anchor_set: members };
@@ -110,12 +110,37 @@ describe("score_observed — umbrella partition matching", () => {
     expect(score_observed(expectation(), observed).join("\n")).toContain("no umbrella matches expected member set");
   });
 
+  it("never lets one flow satisfy two expected umbrellas", () => {
+    const doubled = expectation({
+      expected_flow_count: 2,
+      expected_umbrellas: [
+        ["a:function", "b:function"],
+        ["a:function", "b:function"],
+      ],
+    });
+    const observed = store({
+      flows: [
+        flow("a:function", ["a:function", "b:function"], ["a:function", "b:function"]),
+        flow("c:function", ["c:function"], ["c:function"]),
+      ],
+      bridges: [{ src_id: "a:function", dst_id: "b:function", rationale: "r" }],
+    });
+    expect(score_observed(doubled, observed).join("\n")).toContain("no umbrella matches expected member set");
+  });
+
   it("rejects a superset membership — coverage is not equality", () => {
     const observed = store({
       flows: [flow("a:function", ["a:function", "b:function"], ["a:function", "b:function", "stowaway:function"])],
       bridges: [{ src_id: "a:function", dst_id: "b:function", rationale: "r" }],
     });
     expect(score_observed(expectation(), observed).join("\n")).toContain("no umbrella matches expected member set");
+  });
+});
+
+describe("certification_tier", () => {
+  it("stamps every non-haiku model as a certification run and haiku as none", () => {
+    expect(certification_tier("haiku")).toBe("");
+    expect(certification_tier("sonnet")).toContain("CERTIFICATION RUN");
   });
 });
 

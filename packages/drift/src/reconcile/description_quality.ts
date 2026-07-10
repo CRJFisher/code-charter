@@ -33,12 +33,14 @@ function split_tokens(text: string): string[] {
 /**
  * A token counts as name-derived when it matches a name token exactly, extends one as a prefix
  * (inflection: "runs" echoes "run", "handles" echoes "handle"), or shares a >=4-char prefix with
- * one ("looks" echoes "lookup") — so inflection never rescues an echo, while short accidental
- * overlaps stay content.
+ * one ("looks" echoes "lookup"). The prefix directions require the shorter side to be >=3 chars,
+ * so a 2-char name fragment never absorbs unrelated content words ("on" must not claim "once").
  */
 function is_name_derived(token: string, name_tokens: readonly string[]): boolean {
   for (const name_token of name_tokens) {
-    if (token === name_token || token.startsWith(name_token) || name_token.startsWith(token)) return true;
+    if (token === name_token) return true;
+    const shorter = Math.min(token.length, name_token.length);
+    if (shorter >= 3 && (token.startsWith(name_token) || name_token.startsWith(token))) return true;
     if (token.length >= 4 && name_token.length >= 4 && token.slice(0, 4) === name_token.slice(0, 4)) return true;
   }
   return false;

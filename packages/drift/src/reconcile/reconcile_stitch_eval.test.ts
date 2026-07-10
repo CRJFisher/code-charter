@@ -807,7 +807,11 @@ describe("stitch eval fixture: deep_chain (TypeScript)", () => {
     expect(result.status).toBe(0);
     const { flow_ids, bridges } = read_store();
     expect(flow_ids).toEqual(["step_four.ts#stage_four:function"]);
-    expect(bridges).toHaveLength(3);
+    expect(bridges.map((b) => `${b.src_id} -> ${b.dst_id}`).sort()).toEqual([
+      "step_one.ts#start_chain:function -> step_two.ts#stage_two:function",
+      "step_three.ts#stage_three:function -> step_four.ts#stage_four:function",
+      "step_two.ts#stage_two:function -> step_three.ts#stage_three:function",
+    ]);
   });
 });
 
@@ -858,7 +862,9 @@ describe("stitch eval fixture: fan_out (TypeScript)", () => {
     expect(result.status).toBe(0);
     const { flow_ids, bridges } = read_store();
     expect(flow_ids).toEqual(["handler_alpha.ts#handle_alpha:function"]);
-    expect(bridges).toHaveLength(1);
+    expect(bridges.map((b) => `${b.src_id} -> ${b.dst_id}`)).toEqual([
+      "router.ts#route:function -> handler_alpha.ts#handle_alpha:function",
+    ]);
   });
 });
 

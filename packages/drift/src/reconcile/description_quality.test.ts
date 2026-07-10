@@ -48,4 +48,10 @@ describe("is_name_restatement", () => {
       is_name_restatement("processor.py#Item.process:method", "Applies the configured transforms to one item."),
     ).toBe(false);
   });
+
+  it("never lets a short name fragment absorb unrelated content words", () => {
+    // Every content word here shares the 2-char name fragment "on" as a prefix; only the >=3
+    // guard keeps "once"/"online"/"onboard" as content instead of zeroing the residual.
+    expect(is_name_restatement("hooks.ts#on_event:function", "Once online, events onboard.")).toBe(false);
+  });
 });

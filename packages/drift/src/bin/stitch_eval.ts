@@ -109,7 +109,9 @@ const EXPECTATIONS: FixtureExpectation[] = [
       "registry.ts#lookup_handler:function",
     ],
     expected_description_contains: {
-      "dispatcher.ts#dispatch:function": ["registry"],
+      // "regist" matches registry/registered/registration — precise enough for the domain term,
+      // loose enough for natural phrasings.
+      "dispatcher.ts#dispatch:function": ["regist"],
     },
   },
   {
@@ -341,14 +343,16 @@ export function load_harvested_expectations(harvested_root: string = HARVESTED_F
       process.stderr.write(`stitch_eval: skipping harvested fixture ${name} (unknown kind)\n`);
       continue;
     }
-    // The v1 manifest speaks flat single-umbrella vocabulary (real harvested runs are
-    // single-umbrella by construction); it wraps into the umbrella-list shape here.
+    // The v1 manifest speaks flat single-umbrella vocabulary; it wraps into the umbrella-list
+    // shape here. A harvested DECLINE still carries members (the graded run's singleton flows),
+    // but a correct decline replay produces zero multi-seed flows — so decline never wraps into
+    // an umbrella expectation, mirroring the hand-authored decline shape.
     const members = as_string_array(expected.expected_members);
     expectations.push({
       fixture: name,
       kind,
       expected_flow_count: typeof expected.expected_flow_count === "number" ? expected.expected_flow_count : 1,
-      expected_umbrellas: members.length > 0 ? [members] : [],
+      expected_umbrellas: kind !== "decline" && members.length > 0 ? [members] : [],
       expected_description_anchors: as_string_array(expected.expected_description_anchors),
       dir,
       staged_files: as_string_array(expected.files),
@@ -419,12 +423,12 @@ function run_agent(repo: string): AgentRun {
 }
 
 /** A spawn failure, a timeout kill, and a non-zero exit are different problems — name them apart. */
-function describe_agent_failure(agent: AgentRun): string {
-  if (agent.error !== undefined) return `claude -p failed to spawn: ${agent.error.message}`;
-  if (agent.status === null) {
-    return `claude -p killed (signal ${agent.signal ?? "?"}) — likely the ${AGENT_TIMEOUT_MS / 60_000}min timeout`;
+function describe_run_failure(run: AgentRun, runner: string): string {
+  if (run.error !== undefined) return `${runner} failed to spawn: ${run.error.message}`;
+  if (run.status === null) {
+    return `${runner} killed (signal ${run.signal ?? "?"}) — likely the ${AGENT_TIMEOUT_MS / 60_000}min timeout`;
   }
-  return `claude -p exited ${agent.status}`;
+  return `${runner} exited ${run.status}`;
 }
 
 interface FixtureReport {
@@ -553,7 +557,9 @@ function score_no_agent(expectation: FixtureExpectation, repo: string): FixtureR
   const observed = read_store(path.join(repo, ".code-charter", "graph.db"));
   const failures: string[] = [];
   if (expectation.expected_pre_stitch_flow_count === undefined) {
-    failures.push("no pre-stitch floor pinned for this fixture (harvested fixtures skip --no-agent)");
+    // Unreachable for harvested fixtures (main filters them out of --no-agent); a hand-authored
+    // fixture landing here is a spec error, not a skip.
+    failures.push("no pre-stitch floor pinned — set expected_pre_stitch_flow_count from a --no-agent run's observed count");
   } else if (observed.flows.length !== expectation.expected_pre_stitch_flow_count) {
     failures.push(
       `expected ${expectation.expected_pre_stitch_flow_count} pre-stitch flow(s), found ${observed.flows.length} — the fixture's resolution gap moved`,
@@ -573,7 +579,15 @@ function score_no_agent(expectation: FixtureExpectation, repo: string): FixtureR
   return { fixture: expectation.fixture, passed: failures.length === 0, failures, lines };
 }
 
-function run_deterministic(repo: string, staged: readonly string[]): { status: number | null; output: string } {
+/**
+ * haiku is the routine regression gate; any other model marks a deliberate certification run
+ * (production-representative), so the archived report is unambiguous about its tier.
+ */
+export function certification_tier(model: string): string {
+  return model === "haiku" ? "" : "   — CERTIFICATION RUN (production-representative)";
+}
+
+function run_deterministic(repo: string, staged: readonly string[]): AgentRun {
   const result = spawnSync(
     "node",
     [
@@ -587,7 +601,12 @@ function run_deterministic(repo: string, staged: readonly string[]): { status: n
     ],
     { encoding: "utf8", timeout: AGENT_TIMEOUT_MS },
   );
-  return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim() };
+  return {
+    status: result.status,
+    output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim(),
+    signal: result.signal,
+    error: result.error,
+  };
 }
 
 function main(): void {
@@ -617,13 +636,31 @@ function main(): void {
     process.exit(1);
   }
 
-  const all_expectations = [...EXPECTATIONS, ...load_harvested_expectations()];
-  const selected = only === undefined ? all_expectations : all_expectations.filter((e) => e.fixture === only);
+  const all_expectations = [
+    ...EXPECTATIONS,
+    ...load_harvested_expectations(process.env.STITCH_EVAL_HARVESTED_DIR || undefined),
+  ];
+  let selected = only === undefined ? all_expectations : all_expectations.filter((e) => e.fixture === only);
   if (selected.length === 0) {
     process.stderr.write(
       `stitch_eval: unknown fixture '${only}' (known: ${all_expectations.map((e) => e.fixture).join(", ")})\n`,
     );
     process.exit(2);
+  }
+  if (no_agent) {
+    // Harvested fixtures pin no pre-stitch floor, so the fast mode genuinely skips them — a
+    // fresh harvest must never turn the token-free gate red.
+    const skipped = selected.filter((e) => e.expected_pre_stitch_flow_count === undefined);
+    if (skipped.length > 0) {
+      process.stdout.write(
+        `stitch_eval: skipping ${skipped.length} floor-less fixture(s) under --no-agent: ${skipped.map((e) => e.fixture).join(", ")}\n`,
+      );
+      selected = selected.filter((e) => e.expected_pre_stitch_flow_count !== undefined);
+    }
+    if (selected.length === 0) {
+      process.stdout.write("stitch_eval: nothing to score — every selected fixture is floor-less\n");
+      return;
+    }
   }
 
   const report: string[] = [];
@@ -634,13 +671,10 @@ function main(): void {
     report.push("This run does NOT exercise stitch/describe judgement; the live tiers do.");
   } else {
     const model = process.env.STITCH_EVAL_MODEL ?? "haiku";
-    // haiku is the routine regression gate; any other model marks a deliberate certification run
-    // (production-representative), so the archived report is unambiguous about its tier.
-    const tier = model === "haiku" ? "" : "   — CERTIFICATION RUN (production-representative)";
     report.push(
       `model: ${model}   ` +
         `skill_md: ${prompt_hash("assets/skills/drift-sync/SKILL.md")}   ` +
-        `reconciler_md: ${prompt_hash("assets/agents/drift-reconciler.md")}${tier}`,
+        `reconciler_md: ${prompt_hash("assets/agents/drift-reconciler.md")}${certification_tier(model)}`,
     );
   }
   report.push("");
@@ -660,7 +694,7 @@ function main(): void {
           results.push({
             fixture: expectation.fixture,
             passed: false,
-            failures: [`deterministic reconcile exited ${deterministic.status}`],
+            failures: [describe_run_failure(deterministic, "deterministic reconcile")],
             lines: deterministic.output.length > 0 ? [deterministic.output] : [],
           });
         } else {
@@ -672,7 +706,7 @@ function main(): void {
           results.push({
             fixture: expectation.fixture,
             passed: false,
-            failures: [describe_agent_failure(agent)],
+            failures: [describe_run_failure(agent, "claude -p")],
             lines: agent.output.length > 0 ? [agent.output] : [],
           });
         } else {

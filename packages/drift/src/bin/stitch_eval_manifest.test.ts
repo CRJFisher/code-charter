@@ -51,6 +51,28 @@ describe("load_harvested_expectations", () => {
     }
   });
 
+  it("never wraps a harvested decline's members into an umbrella expectation", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "drift-harvested-"));
+    try {
+      write_fixture(root, "decline_case", {
+        schema_version: 1,
+        detail: {
+          kind: "decline",
+          files: ["main.ts"],
+          expected_flow_count: 2,
+          expected_members: ["a:function", "b:function"],
+          expected_description_anchors: [],
+        },
+      });
+      const [expectation] = load_harvested_expectations(root);
+      // A correct decline replay produces zero multi-seed flows — a wrapped umbrella could never match.
+      expect(expectation.expected_umbrellas).toEqual([]);
+      expect(expectation.expected_flow_count).toBe(2);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("skips foreign-version, malformed, and unknown-kind manifests instead of crashing the eval", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "drift-harvested-"));
     try {

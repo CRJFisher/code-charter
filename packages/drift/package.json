@@ -30,7 +30,7 @@
     "harvest": "node dist/bin/drift_harvest.js",
     "calibrate": "node dist/bin/drift_calibrate.js",
     "stitch_eval:fast": "node dist/bin/stitch_eval.js --no-agent",
-    "stitch_eval:pin": "node dist/bin/stitch_eval.js --update-pins"
+    "stitch_eval:pin": "npm run build && node dist/bin/stitch_eval.js --update-pins"
   },
   "dependencies": {
     "@ariadnejs/core": "^0.8.0",
