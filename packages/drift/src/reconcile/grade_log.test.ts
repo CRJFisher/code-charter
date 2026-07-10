@@ -82,6 +82,12 @@ describe("grade_log", () => {
     expect([...grades.keys()]).toEqual(["kept"]);
   });
 
+  it("leaves no temp sibling beside the register after upserts", () => {
+    upsert_grade(store_path, grade({ run_id: "run-a" }));
+    upsert_grade(store_path, grade({ run_id: "run-b" }));
+    expect(fs.readdirSync(dir)).toEqual(["drift_run_grades.jsonl"]);
+  });
+
   it("throws on an unwritable register so a typed verdict is never silently dropped", () => {
     const blocker = path.join(dir, "blocker");
     fs.writeFileSync(blocker, "");

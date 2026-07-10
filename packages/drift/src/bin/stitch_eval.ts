@@ -267,7 +267,7 @@ export function load_harvested_expectations(harvested_root: string = HARVESTED_F
  * pending-reconcile set. The Stop hook entry is then stripped from the installed settings — the
  * harness already staged the set itself, and the eval drives exactly one bounded agent run.
  */
-function scaffold_repo(expectation: FixtureExpectation): string {
+export function scaffold_repo(expectation: FixtureExpectation): string {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), `stitch-eval-live-${expectation.fixture}-`));
   // The manifest never enters the throwaway repo — it is scoring metadata, not fixture source.
   fs.cpSync(expectation.dir ?? path.join(FIXTURES, expectation.fixture), repo, {

@@ -47,6 +47,11 @@ judge, re-checked whenever the judge's model or prompt changes. `confusion` and 
 coverage arrays make systematic bias and coverage gaps visible, but the gate is raw
 agreement.
 
+For its verdicts to be comparable with the human corpus, the judge consumes the same
+grading context the human grader saw: the run's changed file set, its trajectory spine
+(the .16 neutral schema), and the flow descriptions — the .13 judge spec owns the
+judging logic itself.
+
 ## Changelog
 
 - v1: initial calibration I/O — judge verdicts mirror the grade generic surface; the

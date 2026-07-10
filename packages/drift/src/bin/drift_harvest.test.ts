@@ -132,6 +132,95 @@ describe("drift-harvest bin", () => {
     }
   });
 
+  it("folds --extra paths into the snapshot and hints --extra on an unreadable path", () => {
+    const { repo, store, run_id, out } = graded_repo("good");
+    try {
+      fs.writeFileSync(path.join(repo, "src", "helper_types.ts"), "export type Extra = number;\n");
+      const ok = run(HARVEST_BIN, [
+        "--store",
+        store,
+        "--repo-root",
+        repo,
+        "--run",
+        run_id,
+        "--out",
+        out,
+        "--slug",
+        "with-extra",
+        "--extra",
+        "src/helper_types.ts",
+      ]);
+      expect(ok.status).toBe(0);
+      expect(fs.existsSync(path.join(out, "with-extra", "src", "helper_types.ts"))).toBe(true);
+
+      const missing = run(HARVEST_BIN, [
+        "--store",
+        store,
+        "--repo-root",
+        repo,
+        "--run",
+        run_id,
+        "--out",
+        out,
+        "--extra",
+        "src/nope.ts",
+      ]);
+      expect(missing.status).toBe(1);
+      expect(missing.stderr).toContain("--extra");
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a slice over the byte cap — embedded source is permanent git history", () => {
+    const { repo, store, run_id, out } = graded_repo("good");
+    try {
+      fs.writeFileSync(path.join(repo, "src", "huge.ts"), "// x\n".repeat(40_000)); // ~200KB
+      const result = run(HARVEST_BIN, [
+        "--store",
+        store,
+        "--repo-root",
+        repo,
+        "--run",
+        run_id,
+        "--out",
+        out,
+        "--extra",
+        "src/huge.ts",
+      ]);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("cap");
+      expect(fs.readdirSync(out)).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a slice path that escapes the repo root", () => {
+    const { repo, store, run_id, out } = graded_repo("good");
+    try {
+      const result = run(HARVEST_BIN, [
+        "--store",
+        store,
+        "--repo-root",
+        repo,
+        "--run",
+        run_id,
+        "--out",
+        out,
+        "--extra",
+        "../outside.ts",
+      ]);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("escapes its root");
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(out, { recursive: true, force: true });
+    }
+  });
+
   it("refuses an unknown run id", () => {
     const { repo, store, out } = graded_repo("good");
     try {

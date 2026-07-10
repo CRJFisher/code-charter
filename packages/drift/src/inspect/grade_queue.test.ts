@@ -96,6 +96,14 @@ describe("parse_grade_line", () => {
     expect(parse_grade_line("quit")).toEqual({ kind: "quit" });
   });
 
+  it("splits the verdict from the reason on any whitespace, not only a space", () => {
+    expect(parse_grade_line("good\ttab separated reason")).toEqual({
+      kind: "verdict",
+      verdict: "good",
+      reason: "tab separated reason",
+    });
+  });
+
   it("rejects an unknown verdict and a verdict without a reason", () => {
     expect(parse_grade_line("excellent nailed it").kind).toBe("invalid");
     expect(parse_grade_line("good").kind).toBe("invalid");

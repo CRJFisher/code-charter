@@ -42,11 +42,11 @@ export function parse_grade_line(line: string): GradeInput {
   const trimmed = line.trim();
   if (trimmed.length === 0 || trimmed === "s" || trimmed === "skip") return { kind: "skip" };
   if (trimmed === "q" || trimmed === "quit") return { kind: "quit" };
-  const space = trimmed.indexOf(" ");
-  const token = (space === -1 ? trimmed : trimmed.slice(0, space)).toLowerCase();
+  const separator = trimmed.search(/\s/);
+  const token = (separator === -1 ? trimmed : trimmed.slice(0, separator)).toLowerCase();
   const verdict = VERDICT_TOKENS.get(token);
   if (verdict === undefined) return { kind: "invalid", note: `unknown verdict "${token}"` };
-  const reason = space === -1 ? "" : trimmed.slice(space + 1).trim();
+  const reason = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
   if (reason.length === 0) return { kind: "invalid", note: "a verdict needs a one-line reason" };
   return { kind: "verdict", verdict, reason };
 }

@@ -2,7 +2,7 @@
 contract: run_grade_record
 contract_version: 1
 file: drift_run_grades.jsonl
-owner: drift-inspect --grade (src/inspect/grade_queue.ts) — sole producer today
+owner: drift-inspect --grade — sole producer today; the writer is upsert_grade in src/reconcile/grade_log.ts
 consumers: drift-inspect --grade (resume/idempotency), drift-harvest (provenance), the
   calibration script (generic run_id+verdict join only)
 pinned_by: src/reconcile/grade_log.test.ts, src/bin/drift_inspect.test.ts

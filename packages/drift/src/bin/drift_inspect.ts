@@ -196,11 +196,15 @@ function main(): void {
     } else {
       queue = select_ungraded(read_reconcile_records_newest_first(args.store), read_grades(args.store));
     }
+    // exitCode, not exit(): a hard exit can truncate piped stdout mid-flush; with readline closed
+    // the event loop drains and the process ends naturally.
     void run_grading_session(args.store, queue).then(
-      (code) => process.exit(code),
+      (code) => {
+        process.exitCode = code;
+      },
       (error: unknown) => {
         process.stderr.write(`drift-inspect: grading failed: ${String(error)}\n`);
-        process.exit(1);
+        process.exitCode = 1;
       },
     );
     return;

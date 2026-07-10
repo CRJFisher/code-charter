@@ -13,7 +13,9 @@
     "drift-install": "dist/bin/drift_install.js",
     "drift-reconcile": "dist/bin/drift_reconcile.js",
     "drift-inspect": "dist/bin/drift_inspect.js",
-    "drift-dev": "dist/bin/drift_dev.js"
+    "drift-dev": "dist/bin/drift_dev.js",
+    "drift-harvest": "dist/bin/drift_harvest.js",
+    "drift-calibrate": "dist/bin/drift_calibrate.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

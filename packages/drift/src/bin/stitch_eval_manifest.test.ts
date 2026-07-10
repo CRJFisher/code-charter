@@ -4,8 +4,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 // Importing the bin triggers its main(), which no-ops (a skip notice) without STITCH_EVAL_LIVE=1
-// — the loader itself is deterministic and safe to unit-test in-process.
-import { load_harvested_expectations } from "./stitch_eval";
+// — the loader and scaffolder are deterministic and safe to unit-test in-process.
+import { load_harvested_expectations, scaffold_repo } from "./stitch_eval";
 
 function write_fixture(root: string, slug: string, manifest: unknown): void {
   const dir = path.join(root, slug);
@@ -66,5 +66,39 @@ describe("load_harvested_expectations", () => {
 
   it("returns the empty list when the harvested home does not exist yet", () => {
     expect(load_harvested_expectations("/nonexistent/harvested")).toEqual([]);
+  });
+});
+
+describe("scaffold_repo over a harvested fixture", () => {
+  it("copies the snapshot without fixture.json and stages exactly the manifest's file set", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "drift-harvested-"));
+    let repo: string | undefined;
+    try {
+      const dir = path.join(root, "case");
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "src", "main.ts"), "export function entry() { return 1; }\n");
+      fs.writeFileSync(path.join(dir, "src", "helper.ts"), "export function helper() { return 2; }\n");
+      fs.writeFileSync(path.join(dir, "fixture.json"), "{}");
+      repo = scaffold_repo({
+        fixture: "case",
+        kind: "decline",
+        expected_flow_count: 1,
+        expected_members: [],
+        expected_description_anchors: [],
+        dir,
+        staged_files: ["src/main.ts"],
+      });
+      expect(fs.existsSync(path.join(repo, "src", "main.ts"))).toBe(true);
+      expect(fs.existsSync(path.join(repo, "src", "helper.ts"))).toBe(true);
+      // Scoring metadata never enters the repo the agent sees.
+      expect(fs.existsSync(path.join(repo, "fixture.json"))).toBe(false);
+      const pending = JSON.parse(
+        fs.readFileSync(path.join(repo, ".code-charter", "drift_pending_reconcile.json"), "utf8"),
+      ) as { files: string[] };
+      expect(pending.files).toEqual(["src/main.ts"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      if (repo !== undefined) fs.rmSync(repo, { recursive: true, force: true });
+    }
   });
 });

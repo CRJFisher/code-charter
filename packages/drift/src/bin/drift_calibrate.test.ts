@@ -58,6 +58,12 @@ describe("drift-calibrate bin", () => {
     expect(result.stdout).toContain("agreement: 1/1");
   });
 
+  it("folds a duplicated run_id within one file last-wins", () => {
+    const result = run_calibrate([line("a", "good"), line("a", "bad")], [line("a", "bad")]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("agreement: 1/1");
+  });
+
   it("reports n/a agreement over an empty join instead of dividing by zero", () => {
     const result = run_calibrate([line("a", "good")], [line("b", "good")]);
     expect(result.status).toBe(0);
