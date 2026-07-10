@@ -5,11 +5,15 @@ import * as path from "node:path";
 
 import {
   append_reconcile_log,
+  make_run_id,
+  read_latest_reconcile_record,
+  read_reconcile_record_by_run_id,
   read_sync_status,
   reconcile_log_path,
   sync_status_path,
   update_sync_status,
-  type ReconcileLogRecord,
+  RECONCILE_RECORD_SCHEMA_VERSION,
+  type ReconcileRunRecord,
 } from "./reconcile_log";
 
 let dir: string;
@@ -24,16 +28,23 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function record(over: Partial<ReconcileLogRecord> = {}): ReconcileLogRecord {
+function record(over: Partial<ReconcileRunRecord> = {}): ReconcileRunRecord {
   return {
+    schema_version: RECONCILE_RECORD_SCHEMA_VERSION,
+    run_id: "20260707T000000000Z-00000000",
+    session_id: "s1",
+    transcript_path: "/home/.claude/projects/-repo/s1.jsonl",
+    instruction: "Launch the `drift-reconciler` sub-agent.",
     timestamp: "2026-07-07T00:00:00.000Z",
-    mode: "default",
-    file_set: ["main.ts"],
-    outcomes: [],
-    deferred_retirements: [],
-    deferred_skill_syncs: [],
-    description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
-    diagnostics: [],
+    detail: {
+      mode: "default",
+      file_set: ["main.ts"],
+      outcomes: [],
+      deferred_retirements: [],
+      deferred_skill_syncs: [],
+      description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
+      diagnostics: [],
+    },
     ...over,
   };
 }
@@ -41,14 +52,14 @@ function record(over: Partial<ReconcileLogRecord> = {}): ReconcileLogRecord {
 describe("append_reconcile_log", () => {
   it("puts the log beside the store and appends one JSON line per record", () => {
     append_reconcile_log(store_path, record(), () => {});
-    append_reconcile_log(store_path, record({ file_set: ["other.ts"] }), () => {});
+    append_reconcile_log(store_path, record({ detail: { ...record().detail, file_set: ["other.ts"] } }), () => {});
 
     const log_path = reconcile_log_path(store_path);
     expect(path.dirname(log_path)).toBe(dir);
     const lines = fs.readFileSync(log_path, "utf8").trimEnd().split("\n");
     expect(lines).toHaveLength(2);
-    expect((JSON.parse(lines[0]) as ReconcileLogRecord).file_set).toEqual(["main.ts"]);
-    expect((JSON.parse(lines[1]) as ReconcileLogRecord).file_set).toEqual(["other.ts"]);
+    expect((JSON.parse(lines[0]) as ReconcileRunRecord).detail.file_set).toEqual(["main.ts"]);
+    expect((JSON.parse(lines[1]) as ReconcileRunRecord).detail.file_set).toEqual(["other.ts"]);
   });
 
   it("a write failure degrades to a diagnostic and never throws", () => {
@@ -59,6 +70,111 @@ describe("append_reconcile_log", () => {
 
     expect(() => append_reconcile_log(path.join(blocker, "graph.db"), record(), (m) => messages.push(m))).not.toThrow();
     expect(messages).toContainEqual(expect.stringContaining("drift_reconcile_log.jsonl"));
+  });
+});
+
+describe("read_latest_reconcile_record", () => {
+  it("returns the newest current-schema record", () => {
+    append_reconcile_log(store_path, record({ run_id: "old" }), () => {});
+    append_reconcile_log(store_path, record({ run_id: "new" }), () => {});
+
+    expect(read_latest_reconcile_record(store_path)?.run_id).toBe("new");
+  });
+
+  it("skips foreign-schema and pre-contract flat lines instead of migrating them", () => {
+    const log_path = reconcile_log_path(store_path);
+    fs.mkdirSync(dir, { recursive: true });
+    const flat_legacy = JSON.stringify({ timestamp: "t", mode: "default", file_set: ["legacy.ts"] });
+    const foreign = JSON.stringify({ ...record({ run_id: "future" }), schema_version: 999 });
+    fs.writeFileSync(log_path, `${JSON.stringify(record({ run_id: "current" }))}\n${flat_legacy}\n${foreign}\n`);
+
+    expect(read_latest_reconcile_record(store_path)?.run_id).toBe("current");
+  });
+
+  it("returns null when no line carries the current schema", () => {
+    const log_path = reconcile_log_path(store_path);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(log_path, JSON.stringify({ timestamp: "t", mode: "default" }) + "\n");
+
+    expect(read_latest_reconcile_record(store_path)).toBeNull();
+  });
+
+  it("skips a version-stamped line whose detail is missing, so consumers can dot into detail safely", () => {
+    const log_path = reconcile_log_path(store_path);
+    fs.mkdirSync(dir, { recursive: true });
+    const detail_less = JSON.stringify({ schema_version: RECONCILE_RECORD_SCHEMA_VERSION, run_id: "bogus" });
+    fs.writeFileSync(log_path, `${JSON.stringify(record({ run_id: "good" }))}\n${detail_less}\n`);
+
+    expect(read_latest_reconcile_record(store_path)?.run_id).toBe("good");
+  });
+});
+
+describe("read_reconcile_record_by_run_id", () => {
+  it("resolves a run by id among many records", () => {
+    append_reconcile_log(store_path, record({ run_id: "20260707T000000000Z-aaaaaaaa" }), () => {});
+    append_reconcile_log(store_path, record({ run_id: "20260708T000000000Z-bbbbbbbb" }), () => {});
+
+    expect(read_reconcile_record_by_run_id(store_path, "20260707T000000000Z-aaaaaaaa")?.run_id).toBe(
+      "20260707T000000000Z-aaaaaaaa",
+    );
+  });
+
+  it("returns null for an unknown run id and for a missing log", () => {
+    expect(read_reconcile_record_by_run_id(store_path, "nope")).toBeNull();
+    append_reconcile_log(store_path, record(), () => {});
+    expect(read_reconcile_record_by_run_id(store_path, "nope")).toBeNull();
+  });
+
+  it("skips torn and foreign-schema lines while resolving", () => {
+    const log_path = reconcile_log_path(store_path);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      log_path,
+      `not json\n${JSON.stringify({ schema_version: 999, run_id: "x" })}\n${JSON.stringify(record({ run_id: "x" }))}\n`,
+    );
+
+    expect(read_reconcile_record_by_run_id(store_path, "x")?.schema_version).toBe(RECONCILE_RECORD_SCHEMA_VERSION);
+  });
+});
+
+describe("make_run_id", () => {
+  it("compacts the timestamp into a sortable prefix and appends a hex suffix", () => {
+    expect(make_run_id("2026-07-10T14:03:55.123Z")).toMatch(/^20260710T140355123Z-[0-9a-f]{8}$/);
+  });
+
+  it("mints distinct ids for the same instant", () => {
+    expect(make_run_id("2026-07-10T14:03:55.123Z")).not.toBe(make_run_id("2026-07-10T14:03:55.123Z"));
+  });
+});
+
+describe("run-record contract (docs/contracts/reconcile_run_record.md)", () => {
+  it("partitions mechanism-agnostic keys at the top level and drift payload under detail", () => {
+    expect(Object.keys(record()).sort()).toEqual([
+      "detail",
+      "instruction",
+      "run_id",
+      "schema_version",
+      "session_id",
+      "timestamp",
+      "transcript_path",
+    ]);
+    expect(Object.keys(record().detail).sort()).toEqual([
+      "deferred_retirements",
+      "deferred_skill_syncs",
+      "description_counts",
+      "diagnostics",
+      "file_set",
+      "mode",
+      "outcomes",
+    ]);
+  });
+
+  it("the pinned contract doc's version matches the code constant", () => {
+    const doc = fs.readFileSync(
+      path.resolve(__dirname, "..", "..", "docs", "contracts", "reconcile_run_record.md"),
+      "utf8",
+    );
+    expect(doc).toMatch(new RegExp(`^contract_version: ${RECONCILE_RECORD_SCHEMA_VERSION}$`, "m"));
   });
 });
 

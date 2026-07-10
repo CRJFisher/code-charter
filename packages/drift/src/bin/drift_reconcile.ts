@@ -48,10 +48,14 @@ import { make_ariadne_adapter } from "../reconcile/ariadne_adapter";
 import { HeadlessProject } from "../reconcile/headless_project";
 import { dry_run_store } from "../reconcile/dry_run_store";
 import { acquire_reconcile_lock, type ReconcileLock } from "../reconcile/reconcile_lock";
+import { derive_transcript_path } from "../hooks/transcript_path";
 import {
   append_reconcile_log,
+  make_run_id,
   update_sync_status,
-  type ReconcileLogRecord,
+  RECONCILE_RECORD_SCHEMA_VERSION,
+  type ReconcileRunDetail,
+  type ReconcileRunRecord,
   type ReconcileMode,
 } from "../reconcile/reconcile_log";
 import { reconcile } from "../reconcile/reconcile";
@@ -63,6 +67,7 @@ const USAGE = [
   "       drift-reconcile --list-entrypoints --files <a,b,...> --store <db_path> --repo-root <abs> [--goal <name>] [--dry-run]",
   "       drift-reconcile --apply-stitch <json_path> --store <db_path> --repo-root <abs> [--dry-run]",
   "       drift-reconcile --apply-descriptions <json_path> --store <db_path> --repo-root <abs> [--dry-run]",
+  "       any mode also accepts --session-id <id> --session-cwd <abs> --instruction <text> (the run-record join key)",
 ].join("\n");
 
 interface Args {
@@ -75,15 +80,29 @@ interface Args {
   goal: string | undefined;
   /** The wire-JSON path for the apply modes. */
   payload_path: string | undefined;
+  /**
+   * The launching session's context, forwarded by drift_sync.js off the staged handoff
+   * (docs/contracts/pending_reconcile_handoff.md); all absent on hand-invoked runs, which is
+   * what makes the record's session_id null.
+   */
+  session_id: string | undefined;
+  session_cwd: string | undefined;
+  instruction: string | undefined;
 }
 
-const VALUE_FLAGS: Record<string, "files_raw" | "store" | "repo_root" | "goal" | "apply_stitch" | "apply_descriptions"> = {
+const VALUE_FLAGS: Record<
+  string,
+  "files_raw" | "store" | "repo_root" | "goal" | "apply_stitch" | "apply_descriptions" | "session_id" | "session_cwd" | "instruction"
+> = {
   "--files": "files_raw",
   "--store": "store",
   "--repo-root": "repo_root",
   "--goal": "goal",
   "--apply-stitch": "apply_stitch",
   "--apply-descriptions": "apply_descriptions",
+  "--session-id": "session_id",
+  "--session-cwd": "session_cwd",
+  "--instruction": "instruction",
 };
 
 function parse_args(argv: readonly string[]): { args: Args } | { error: string } {
@@ -94,6 +113,9 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
     goal?: string;
     apply_stitch?: string;
     apply_descriptions?: string;
+    session_id?: string;
+    session_cwd?: string;
+    instruction?: string;
     list_entrypoints: boolean;
     json: boolean;
     dry_run: boolean;
@@ -141,6 +163,9 @@ function parse_args(argv: readonly string[]): { args: Args } | { error: string }
       dry_run: raw.dry_run,
       goal: raw.goal,
       payload_path: raw.apply_stitch ?? raw.apply_descriptions,
+      session_id: raw.session_id,
+      session_cwd: raw.session_cwd,
+      instruction: raw.instruction,
     },
   };
 }
@@ -225,9 +250,26 @@ async function main(): Promise<void> {
     process.stderr.write(`drift-reconcile: ${message}\n`);
     diagnostics.push(message);
   };
-  const finish_run = (record: Omit<ReconcileLogRecord, "timestamp" | "mode" | "diagnostics">): void => {
+  // One id per invocation: every mode writes exactly one record, so the record IS the run.
+  const run_id = make_run_id(now());
+  const finish_run = (detail: Omit<ReconcileRunDetail, "mode" | "diagnostics">): void => {
     if (args.dry_run) return;
-    append_reconcile_log(args.store, { timestamp: now(), mode: args.mode, diagnostics, ...record }, log);
+    const session_id = args.session_id ?? null;
+    const record: ReconcileRunRecord = {
+      schema_version: RECONCILE_RECORD_SCHEMA_VERSION,
+      run_id,
+      session_id,
+      instruction: args.instruction ?? null,
+      timestamp: now(),
+      detail: { mode: args.mode, diagnostics, ...detail },
+    };
+    // Omitted, not null, and only when BOTH halves of the join key are known — the derivation
+    // needs session_id and the session cwd (the pinned contract in
+    // docs/contracts/reconcile_run_record.md; a partial key is its path_not_recorded case).
+    if (session_id !== null && args.session_cwd !== undefined) {
+      record.transcript_path = derive_transcript_path(args.session_cwd, session_id);
+    }
+    append_reconcile_log(args.store, record, log);
     // A success clears last_error: the status answers "is the NEWEST attempt accounted for?", so a
     // healed repo must not keep reading as failed.
     update_sync_status(args.store, { last_success_at: now(), last_error: null }, log);
@@ -363,7 +405,7 @@ function zero_counts(): DescriptionCounts {
 }
 
 /** The reconcile-bearing modes' run-record fields, straight off the engine result. */
-function turn_record(result: ReconcileResult): Omit<ReconcileLogRecord, "timestamp" | "mode" | "diagnostics"> {
+function turn_record(result: ReconcileResult): Omit<ReconcileRunDetail, "mode" | "diagnostics"> {
   return {
     file_set: result.file_set,
     outcomes: result.outcomes,

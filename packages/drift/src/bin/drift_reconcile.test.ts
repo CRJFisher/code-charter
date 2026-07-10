@@ -8,7 +8,7 @@ import {
   read_sync_status,
   reconcile_log_path,
   sync_status_path,
-  type ReconcileLogRecord,
+  type ReconcileRunRecord,
 } from "../reconcile/reconcile_log";
 
 // Drives the built reconcile bin as a subprocess. Requires the package to be built (turbo `test`
@@ -201,12 +201,12 @@ describe("drift-reconcile bin — reconcile mutex (task-27.1.20.1)", () => {
 describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () => {
   const SOURCE = "export function entry() { return helper(); }\n\nfunction helper() { return 1; }\n";
 
-  function read_log(repo: string): ReconcileLogRecord[] {
+  function read_log(repo: string): ReconcileRunRecord[] {
     const raw = fs.readFileSync(reconcile_log_path(path.join(repo, "graph.db")), "utf8");
     return raw
       .trimEnd()
       .split("\n")
-      .map((line) => JSON.parse(line) as ReconcileLogRecord);
+      .map((line) => JSON.parse(line) as ReconcileRunRecord);
   }
 
   it("a reconcile appends a run record with the file set, per-flow action and reason, and describe counts", () => {
@@ -220,9 +220,9 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       expect(records).toHaveLength(1);
       const record = records[0];
       expect(record.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-      expect(record.mode).toBe("default");
-      expect(record.file_set).toEqual(["main.ts"]);
-      expect(record.outcomes).toContainEqual(
+      expect(record.detail.mode).toBe("default");
+      expect(record.detail.file_set).toEqual(["main.ts"]);
+      expect(record.detail.outcomes).toContainEqual(
         expect.objectContaining({
           flow_id: "main.ts#entry:function",
           action: "hydrate",
@@ -231,8 +231,72 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       );
       // Neither member surfaces an Ariadne docstring, so both land in the provisional bucket
       // (name stand-ins awaiting the agent's --apply-descriptions upgrade).
-      expect(record.description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
-      expect(record.deferred_retirements).toEqual([]);
+      expect(record.detail.description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
+      expect(record.detail.deferred_retirements).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("records the session join key: session_id, the derived transcript path, and the verbatim instruction", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-session-"));
+    const config_dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-claude-cfg-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+      const instruction = "Launch the `drift-reconciler` sub-agent.";
+
+      const result = run_reconcile(repo, ["main.ts"], {
+        extra_args: ["--session-id", "s1", "--session-cwd", repo, "--instruction", instruction],
+        env: { CLAUDE_CONFIG_DIR: config_dir },
+      });
+
+      expect(result.status).toBe(0);
+      const record = read_log(repo)[0];
+      expect(record.schema_version).toBe(1);
+      expect(record.run_id).toMatch(/^\d{8}T\d{9}Z-[0-9a-f]{8}$/);
+      expect(record.session_id).toBe("s1");
+      expect(record.transcript_path).toBe(
+        path.join(config_dir, "projects", repo.replace(/[^A-Za-z0-9]/g, "-"), "s1.jsonl"),
+      );
+      expect(record.instruction).toBe(instruction);
+      // The contract partition, pinned on the bin's real output (not a test fixture): generic
+      // keys top-level, every drift field under detail.
+      expect(Object.keys(record).sort()).toEqual([
+        "detail",
+        "instruction",
+        "run_id",
+        "schema_version",
+        "session_id",
+        "timestamp",
+        "transcript_path",
+      ]);
+      expect(Object.keys(record.detail).sort()).toEqual([
+        "deferred_retirements",
+        "deferred_skill_syncs",
+        "description_counts",
+        "diagnostics",
+        "file_set",
+        "mode",
+        "outcomes",
+      ]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(config_dir, { recursive: true, force: true });
+    }
+  });
+
+  it("a hand-invoked run records a null session with the transcript path omitted, without erroring", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "drift-bin-log-nosession-"));
+    try {
+      fs.writeFileSync(path.join(repo, "main.ts"), SOURCE);
+
+      expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
+
+      const record = read_log(repo)[0];
+      expect(record.session_id).toBeNull();
+      expect("transcript_path" in record).toBe(false);
+      expect(record.instruction).toBeNull();
+      expect(record.run_id).toMatch(/^\d{8}T\d{9}Z-[0-9a-f]{8}$/);
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -249,7 +313,7 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
 
       const records = read_log(repo);
       expect(records).toHaveLength(2);
-      expect(records[1].outcomes).toContainEqual(
+      expect(records[1].detail.outcomes).toContainEqual(
         expect.objectContaining({
           flow_id: "main.ts#entry:function",
           action: "retire",
@@ -274,11 +338,11 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       expect(run_reconcile(repo, ["main.ts"]).status).toBe(0);
 
       const record = read_log(repo)[1];
-      expect(record.deferred_retirements).toContainEqual({
+      expect(record.detail.deferred_retirements).toContainEqual({
         flow_id: "main.ts#entry:function",
         reason: "seed file present but yields no indexed symbols: main.ts",
       });
-      expect(record.diagnostics).toContainEqual(expect.stringMatching(/deferred retirement of main\.ts#entry:function/));
+      expect(record.detail.diagnostics).toContainEqual(expect.stringMatching(/deferred retirement of main\.ts#entry:function/));
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -306,9 +370,9 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
 
       expect(result.status).toBe(0);
       const record = read_log(repo)[1];
-      expect(record.mode).toBe("apply_descriptions");
-      expect(record.file_set).toEqual([]);
-      expect(record.description_counts).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 1 });
+      expect(record.detail.mode).toBe("apply_descriptions");
+      expect(record.detail.file_set).toEqual([]);
+      expect(record.detail.description_counts).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 1 });
       const status = read_sync_status(path.join(repo, "graph.db"));
       expect(status.last_success_at).not.toBeNull();
       expect(status.last_error).toBeNull();
@@ -336,12 +400,12 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
 
       expect(result.status).toBe(0);
       const record = read_log(repo)[0];
-      expect(record.mode).toBe("apply_stitch");
+      expect(record.detail.mode).toBe("apply_stitch");
       // The umbrella hydration ran the deterministic describe pass on a cold store: both members
       // land in the provisional bucket — not the zeros a dropped tally would show.
-      expect(record.description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
-      expect(record.diagnostics).toContainEqual(expect.stringContaining("seed not in the live graph"));
-      expect(record.diagnostics).toContainEqual(expect.stringContaining("no resolvable seeds, skipped"));
+      expect(record.detail.description_counts).toEqual({ docstring: 0, provisional: 2, placeholder: 0, llm: 0 });
+      expect(record.detail.diagnostics).toContainEqual(expect.stringContaining("seed not in the live graph"));
+      expect(record.detail.diagnostics).toContainEqual(expect.stringContaining("no resolvable seeds, skipped"));
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -450,8 +514,8 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
       expect(result.status).toBe(0);
       const records = read_log(repo);
       expect(records).toHaveLength(1);
-      expect(records[0].file_set).toEqual([]);
-      expect(records[0].outcomes).toEqual([]);
+      expect(records[0].detail.file_set).toEqual([]);
+      expect(records[0].detail.outcomes).toEqual([]);
       const status = read_sync_status(path.join(repo, "graph.db"));
       expect(status.last_success_at).not.toBeNull();
       expect(status.last_error).toBeNull();

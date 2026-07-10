@@ -9,7 +9,7 @@ import {
   type NodeRow,
 } from "@code-charter/core";
 
-import type { ReconcileLogRecord } from "../reconcile/reconcile_log";
+import type { ReconcileRunRecord } from "../reconcile/reconcile_log";
 import {
   collect_flow_detail,
   collect_store_summary,
@@ -83,7 +83,7 @@ function bridge_edge(src_id: string, dst_id: string, rationale: string): EdgeRow
   };
 }
 
-function input(nodes: NodeRow[], edges: EdgeRow[], latest_record: ReconcileLogRecord | null = null): InspectInput {
+function input(nodes: NodeRow[], edges: EdgeRow[], latest_record: ReconcileRunRecord | null = null): InspectInput {
   return { nodes, edges, latest_record, sync_status: null };
 }
 
@@ -173,15 +173,21 @@ describe("collect_store_summary", () => {
   });
 
   it("surfaces deferred retirements from the newest run-log record", () => {
-    const record: ReconcileLogRecord = {
+    const record: ReconcileRunRecord = {
+      schema_version: 1,
+      run_id: "20260708T000000000Z-00000000",
+      session_id: null,
+      instruction: null,
       timestamp: "2026-07-08T00:00:00.000Z",
-      mode: "default",
-      file_set: [],
-      outcomes: [],
-      deferred_retirements: [{ flow_id: "stale:function", reason: "empty call graph" }],
-      deferred_skill_syncs: [],
-      description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
-      diagnostics: [],
+      detail: {
+        mode: "default",
+        file_set: [],
+        outcomes: [],
+        deferred_retirements: [{ flow_id: "stale:function", reason: "empty call graph" }],
+        deferred_skill_syncs: [],
+        description_counts: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
+        diagnostics: [],
+      },
     };
 
     const summary = collect_store_summary(input([], [], record));

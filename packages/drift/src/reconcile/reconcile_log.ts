@@ -4,8 +4,9 @@
  * writable when the store itself cannot be — the fatal path fires after `store.close()`, and the
  * garbage-db path fires before the store ever opened.
  *
- *  - `drift_reconcile_log.jsonl` — append-only, one {@link ReconcileLogRecord} line per COMPLETED
- *    turn (a failed or contended run leaves no line here; the status file is the record of those).
+ *  - `drift_reconcile_log.jsonl` — append-only, one {@link ReconcileRunRecord} line per COMPLETED
+ *    run (a failed or contended run leaves no line here; the status file is the record of those).
+ *    The line format is the pinned contract in docs/contracts/reconcile_run_record.md.
  *    Store-mutating turns append while holding the reconcile mutex; the empty-file-set no-op
  *    appends without it and relies on single-`appendFileSync` O_APPEND atomicity for its small line.
  *  - `drift_reconcile_status.json` — a single {@link SyncStatus} object, rewritten via temp + rename
@@ -21,6 +22,7 @@
  * one line per turn, disposable beside the store (delete it with the db).
  */
 
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -29,12 +31,39 @@ import type { DeferredRetirement, DeferredSkillSync, DescriptionCounts, FlowOutc
 const LOG_FILE = "drift_reconcile_log.jsonl";
 const STATUS_FILE = "drift_reconcile_status.json";
 
+/**
+ * Pinned by docs/contracts/reconcile_run_record.md. Readers skip lines of any other version
+ * (including pre-contract flat lines, which carry none) — the log is disposable, never migrated.
+ */
+export const RECONCILE_RECORD_SCHEMA_VERSION = 1;
+
 /** The bin's dispatch mode a record was written under. */
 export type ReconcileMode = "default" | "list_entrypoints" | "apply_stitch" | "apply_descriptions";
 
-/** One turn's durable record — a single JSONL line. */
-export interface ReconcileLogRecord {
+/**
+ * One run's durable record — a single JSONL line. Mechanism-agnostic keys at the top level,
+ * every drift-specific field under `detail` (decision-10; the split is what lifts to a shared
+ * toolkit if a third consumer of the run→trajectory→grade shape ever appears).
+ */
+export interface ReconcileRunRecord {
+  schema_version: number;
+  run_id: string;
+  /** The Claude session whose Stop fire launched this run; null for hand-invoked runs. */
+  session_id: string | null;
+  /**
+   * Omitted (not null) when the join key was incomplete at write time: session_id null, or the
+   * session cwd unknown (the derivation needs both) — the reconcile_run_record contract's
+   * path_not_recorded case.
+   */
+  transcript_path?: string;
+  /** The verbatim instruction the Stop hook issued; null for hand-invoked runs. */
+  instruction: string | null;
   timestamp: string;
+  detail: ReconcileRunDetail;
+}
+
+/** The drift payload of one run record. */
+export interface ReconcileRunDetail {
   mode: ReconcileMode;
   /**
    * The normalized (repo-relative, deduped, sorted) changed set for the reconcile-bearing modes;
@@ -60,6 +89,14 @@ export interface ReconcileLogRecord {
 }
 
 /**
+ * A fixed-width compact-ISO prefix makes lexicographic order chronological (newest-first grading
+ * and `--trajectory latest` need no timestamp parse); the random suffix carries uniqueness.
+ */
+export function make_run_id(timestamp_iso: string): string {
+  return `${timestamp_iso.replace(/[-:.]/g, "")}-${crypto.randomBytes(4).toString("hex")}`;
+}
+
+/**
  * The rolling health record: is the newest reconcile attempt accounted for? `last_error` describes
  * the newest FAILED attempt and is cleared by the next success, so `last_error !== null` always
  * means the repo's most recent outcome was a failure.
@@ -78,10 +115,10 @@ export function sync_status_path(store_path: string): string {
   return path.join(path.dirname(store_path), STATUS_FILE);
 }
 
-/** Append one turn record as a single JSONL line. Best-effort — an IO failure only logs. */
+/** Append one run record as a single JSONL line. Best-effort — an IO failure only logs. */
 export function append_reconcile_log(
   store_path: string,
-  record: ReconcileLogRecord,
+  record: ReconcileRunRecord,
   log: (message: string) => void,
 ): void {
   const log_path = reconcile_log_path(store_path);
@@ -94,27 +131,52 @@ export function append_reconcile_log(
 }
 
 /**
- * Read the newest turn record from the append-only log, or null when the log is absent or holds no
- * parsable line. Reads the whole file and parses the last non-empty line — the log is one small line
- * per turn and disposable beside the store, so a full read is cheap.
+ * The version check alone does not prove the nested shape; a version-stamped line without a
+ * detail object would throw in consumers that dot into it, so it is rejected like any other
+ * foreign line.
  */
-export function read_latest_reconcile_record(store_path: string): ReconcileLogRecord | null {
+function is_current_record(parsed: unknown): parsed is ReconcileRunRecord {
+  return (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as { schema_version?: unknown }).schema_version === RECONCILE_RECORD_SCHEMA_VERSION &&
+    typeof (parsed as { detail?: unknown }).detail === "object" &&
+    (parsed as { detail?: unknown }).detail !== null
+  );
+}
+
+/**
+ * Every current-schema record in the append-only log, newest-first (file order reversed). Reads
+ * the whole file — the log is one small line per turn and disposable beside the store, so a full
+ * read is cheap. Torn lines and foreign-schema lines (pre-contract flat records carry no
+ * schema_version) are skipped, never migrated. An absent log is the empty list.
+ */
+export function read_reconcile_records_newest_first(store_path: string): ReconcileRunRecord[] {
   let raw: string;
   try {
     raw = fs.readFileSync(reconcile_log_path(store_path), "utf8");
   } catch {
-    return null;
+    return [];
   }
+  const records: ReconcileRunRecord[] = [];
   const lines = raw.split("\n").filter((line) => line.trim().length > 0);
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const parsed: unknown = JSON.parse(lines[i]);
-      if (typeof parsed === "object" && parsed !== null) return parsed as ReconcileLogRecord;
+      if (is_current_record(parsed)) records.push(parsed);
     } catch {
       // skip a torn line and try the previous one
     }
   }
-  return null;
+  return records;
+}
+
+export function read_latest_reconcile_record(store_path: string): ReconcileRunRecord | null {
+  return read_reconcile_records_newest_first(store_path)[0] ?? null;
+}
+
+export function read_reconcile_record_by_run_id(store_path: string, run_id: string): ReconcileRunRecord | null {
+  return read_reconcile_records_newest_first(store_path).find((record) => record.run_id === run_id) ?? null;
 }
 
 /** Read the current status; a missing or unparsable file is the empty status. */

@@ -25,23 +25,38 @@ function edit_line(file_path: string, id: string): string {
   });
 }
 
-function run_stop_hook_raw(input: string): { status: number | null; stdout: string } {
-  const result = spawnSync("node", [BIN], { input, encoding: "utf8" });
-  return { status: result.status, stdout: result.stdout };
+function run_stop_hook_raw(
+  input: string,
+  env: Record<string, string> = {},
+): { status: number | null; stdout: string; stderr: string } {
+  const result = spawnSync("node", [BIN], { input, encoding: "utf8", env: { ...process.env, ...env } });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-function run_stop_hook(payload: Record<string, unknown>): { status: number | null; stdout: string } {
-  return run_stop_hook_raw(JSON.stringify(payload));
+function run_stop_hook(
+  payload: Record<string, unknown>,
+  env: Record<string, string> = {},
+): { status: number | null; stdout: string; stderr: string } {
+  return run_stop_hook_raw(JSON.stringify(payload), env);
 }
 
-/** The staged set the hook wrote beside the store, or null when nothing was staged. */
-function read_pending(cwd: string): string[] | null {
+interface StagedHandoff {
+  files: string[];
+  session: { session_id: string; cwd: string; instruction: string } | null;
+}
+
+/** The staged handoff the hook wrote beside the store, or null when nothing was staged. */
+function read_handoff(cwd: string): StagedHandoff | null {
   const pending = path.join(cwd, ".code-charter", "drift_pending_reconcile.json");
   try {
-    return (JSON.parse(fs.readFileSync(pending, "utf8")) as { files: string[] }).files;
+    return JSON.parse(fs.readFileSync(pending, "utf8")) as StagedHandoff;
   } catch {
     return null;
   }
+}
+
+function read_pending(cwd: string): string[] | null {
+  return read_handoff(cwd)?.files ?? null;
 }
 
 describe("drift_stop_hook bin", () => {
@@ -62,6 +77,77 @@ describe("drift_stop_hook bin", () => {
       expect(output.reason).toContain("drift-reconciler");
       expect(output.reason).not.toContain("src/a.ts"); // the list travels via the pending file
       expect(read_pending(dir)).toEqual(["src/a.ts"]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("stages the session context beside the files: join key plus the verbatim instruction", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      const result = run_stop_hook({
+        session_id: "s1",
+        transcript_path,
+        cwd: dir,
+        hook_event_name: "Stop",
+      });
+      const output = JSON.parse(result.stdout);
+      // Verbatim by construction: the staged instruction IS the block reason the hook emitted.
+      expect(read_handoff(dir)?.session).toEqual({ session_id: "s1", cwd: dir, instruction: output.reason });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits no divergence note when the payload's transcript path matches the derivation", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const config_dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-cfg-"));
+    const slug = dir.replace(/[^A-Za-z0-9]/g, "-");
+    const transcript_path = path.join(config_dir, "projects", slug, "s1.jsonl");
+    fs.mkdirSync(path.dirname(transcript_path), { recursive: true });
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      const result = run_stop_hook(
+        { session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" },
+        { CLAUDE_CONFIG_DIR: config_dir },
+      );
+      expect(JSON.parse(result.stdout).decision).toBe("block");
+      expect(result.stderr).not.toContain("diverges");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(config_dir, { recursive: true, force: true });
+    }
+  });
+
+  it("notes both paths on stderr when the derivation diverges from the host's transcript path", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      const result = run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
+      expect(JSON.parse(result.stdout).decision).toBe("block"); // the note never blocks the block
+      expect(result.stderr).toContain("diverges");
+      expect(result.stderr).toContain(transcript_path);
+      expect(result.stderr).toContain("s1.jsonl");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("attributes a unioned handoff to the newest contributing session", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_a = path.join(dir, "a.jsonl");
+    const transcript_b = path.join(dir, "b.jsonl");
+    fs.writeFileSync(transcript_a, edit_line("src/a.ts", "a1") + "\n");
+    fs.writeFileSync(transcript_b, edit_line("src/b.ts", "b1") + "\n");
+    try {
+      run_stop_hook({ session_id: "sA", transcript_path: transcript_a, cwd: dir, hook_event_name: "Stop" });
+      run_stop_hook({ session_id: "sB", transcript_path: transcript_b, cwd: dir, hook_event_name: "Stop" });
+      const staged = read_handoff(dir);
+      expect(staged?.files).toEqual(["src/a.ts", "src/b.ts"]);
+      expect(staged?.session?.session_id).toBe("sB");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

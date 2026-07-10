@@ -24,8 +24,15 @@ export {
 // dev-mode Dump Drift Store command (.8) render a store summary in-process off this.
 export { read_inspect_input } from "./inspect/read_input";
 // The run-log readers + types a consumer needs to build an InspectInput off a store path.
-export { read_latest_reconcile_record, read_sync_status, sync_status_path } from "./reconcile/reconcile_log";
-export type { ReconcileLogRecord, ReconcileMode, SyncStatus } from "./reconcile/reconcile_log";
+export {
+  read_latest_reconcile_record,
+  read_sync_status,
+  sync_status_path,
+  RECONCILE_RECORD_SCHEMA_VERSION,
+} from "./reconcile/reconcile_log";
+export type { ReconcileRunRecord, ReconcileRunDetail, ReconcileMode, SyncStatus } from "./reconcile/reconcile_log";
+// The transcript-join derivation (docs/contracts/reconcile_run_record.md) for trajectory readers.
+export { derive_transcript_path, slugify_claude_project_dir } from "./hooks/transcript_path";
 export type {
   Anomaly,
   BridgeSummary,
@@ -37,6 +44,17 @@ export type {
   StoreSummary,
 } from "./inspect/summary";
 export { render_anomalies, render_flow_detail, render_summary } from "./inspect/render";
+// The trajectory spine (docs/contracts/trajectory_spine.md): neutral schema + renderer for any
+// spine consumer (.17 grading queue), and the drift-aware extractor for in-process producers.
+export { SPINE_SCHEMA_VERSION } from "./inspect/trajectory_schema";
+export type { AvailabilityTier, SpineStep, SpineStepKind, TrajectorySpine } from "./inspect/trajectory_schema";
+export { render_trajectory } from "./inspect/trajectory_render";
+export { extract_trajectory_spine, build_trajectory_spine } from "./inspect/trajectory_extract";
+export { read_reconcile_record_by_run_id, read_reconcile_records_newest_first } from "./reconcile/reconcile_log";
+// The run-grade register (docs/contracts/run_grade_record.md): the .13 judge writes its verdicts
+// in the same generic surface, and the .17 harvester reads provenance from here.
+export { grades_path, read_grades, upsert_grade, GRADE_RECORD_SCHEMA_VERSION } from "./reconcile/grade_log";
+export type { GradeVerdict, RunGradeDetail, RunGradeRecord } from "./reconcile/grade_log";
 
 // Installer
 export { install_drift, is_stop_hook_installed, STOP_HOOK_IDENTITY_TOKEN } from "./installer/install";
