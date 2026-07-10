@@ -226,7 +226,7 @@ function scaffold_repo(fixture: string): string {
   fs.mkdirSync(path.join(repo, ".code-charter"), { recursive: true });
   fs.writeFileSync(
     path.join(repo, ".code-charter", "drift_pending_reconcile.json"),
-    serialize_pending_reconcile(fixture_files(fixture)),
+    serialize_pending_reconcile({ files: fixture_files(fixture), session: null }),
   );
   return repo;
 }

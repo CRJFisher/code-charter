@@ -24,8 +24,15 @@ export {
 // dev-mode Dump Drift Store command (.8) render a store summary in-process off this.
 export { read_inspect_input } from "./inspect/read_input";
 // The run-log readers + types a consumer needs to build an InspectInput off a store path.
-export { read_latest_reconcile_record, read_sync_status, sync_status_path } from "./reconcile/reconcile_log";
-export type { ReconcileLogRecord, ReconcileMode, SyncStatus } from "./reconcile/reconcile_log";
+export {
+  read_latest_reconcile_record,
+  read_sync_status,
+  sync_status_path,
+  RECONCILE_RECORD_SCHEMA_VERSION,
+} from "./reconcile/reconcile_log";
+export type { ReconcileRunRecord, ReconcileRunDetail, ReconcileMode, SyncStatus } from "./reconcile/reconcile_log";
+// The transcript-join derivation (docs/contracts/reconcile_run_record.md) for trajectory readers.
+export { derive_transcript_path, slugify_claude_project_dir } from "./hooks/transcript_path";
 export type {
   Anomaly,
   BridgeSummary,

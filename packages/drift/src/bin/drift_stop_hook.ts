@@ -24,8 +24,10 @@ import {
   parse_pending_reconcile,
   pending_reconcile_path,
   write_pending_reconcile_atomic,
+  type PendingReconcile,
 } from "../hooks/pending_reconcile";
 import { decide_stop_action } from "../hooks/stop_decision";
+import { derive_transcript_path } from "../hooks/transcript_path";
 import {
   parse_watermark,
   select_stale_watermarks,
@@ -133,24 +135,37 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Stage the changed-file set for the sub-agent's script to fetch — the instruction carries no
-  // file list. Union with any unconsumed prior set (the script claims and settles it per
-  // reconcile outcome), so a declined or failed handoff is retried, not overwritten. Staged
-  // paths are repo-relative forward-slash, the reconcile bin's `--files` contract.
+  // Stage the changed-file set plus the session context (transcript join key + the verbatim
+  // instruction) for the sub-agent's script to fetch — the instruction carries no file list.
+  // Union with any unconsumed prior set (the script claims and settles it per reconcile
+  // outcome), so a declined or failed handoff is retried, not overwritten. Staged paths are
+  // repo-relative forward-slash, the reconcile bin's `--files` contract.
   const pending_path = pending_reconcile_path(resolve_db_path(process.env, payload.cwd));
-  const staged = relevant.map((file_path) => to_repo_relative(file_path, payload.cwd));
+  const current: PendingReconcile = {
+    files: relevant.map((file_path) => to_repo_relative(file_path, payload.cwd)),
+    session: { session_id: payload.session_id, cwd: payload.cwd, instruction: decision.instruction },
+  };
   try {
-    let prior: string[] = [];
+    let prior: PendingReconcile = { files: [], session: null };
     try {
-      prior = parse_pending_reconcile(fs.readFileSync(pending_path, "utf8")) ?? [];
+      prior = parse_pending_reconcile(fs.readFileSync(pending_path, "utf8")) ?? prior;
     } catch {
       /* nothing pending */
     }
-    write_pending_reconcile_atomic(pending_path, merge_pending_reconcile(prior, staged));
+    write_pending_reconcile_atomic(pending_path, merge_pending_reconcile(prior, current));
   } catch {
     // Nothing staged → blocking would dispatch an empty reconcile; no-op instead. The cursor is
     // deliberately NOT advanced, so the same edits re-fire next turn instead of being lost.
     return;
+  }
+  // Tripwire on the derived-transcript-path rule (docs/contracts/reconcile_run_record.md): the
+  // payload carries the host's live path, so a host-side slug change surfaces here as a note
+  // instead of as silent misjoins in .16's trajectory view.
+  const derived = derive_transcript_path(payload.cwd, payload.session_id);
+  if (derived !== payload.transcript_path) {
+    process.stderr.write(
+      `drift: derived transcript path diverges from the host's (derived ${derived}, host ${payload.transcript_path})\n`,
+    );
   }
   persist_watermark();
   const output: StopHookOutput = {

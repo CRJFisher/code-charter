@@ -4,7 +4,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { parse_pending_reconcile, serialize_pending_reconcile } from "../hooks/pending_reconcile";
+import {
+  parse_pending_reconcile,
+  serialize_pending_reconcile,
+  type PendingSession,
+} from "../hooks/pending_reconcile";
 
 // The drift-sync bundled script ships as an asset and runs standalone (hosts without the Skill tool run
 // it directly), so its contract is the CLI surface: validate args, claim the staged pending set when no
@@ -45,13 +49,22 @@ function run(args: string[], env: NodeJS.ProcessEnv = {}): { status: number | nu
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-/** A tmp store dir with an optionally staged pending-reconcile file. */
-function make_store_dir(staged_files: string[] | null): { store: string; pending: string } {
+const SESSION: PendingSession = {
+  session_id: "s1",
+  cwd: "/repo",
+  instruction: "Launch the `drift-reconciler` sub-agent.",
+};
+
+/** A tmp store dir with an optionally staged pending-reconcile handoff. */
+function make_store_dir(
+  staged_files: string[] | null,
+  session: PendingSession | null = null,
+): { store: string; pending: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-store-"));
   const store = path.join(dir, "graph.db");
   const pending = path.join(dir, "drift_pending_reconcile.json");
   if (staged_files !== null) {
-    fs.writeFileSync(pending, JSON.stringify({ files: staged_files }));
+    fs.writeFileSync(pending, serialize_pending_reconcile({ files: staged_files, session }));
   }
   return { store, pending };
 }
@@ -99,7 +112,43 @@ describe("drift-sync script contract", () => {
     });
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual(["--files", "src/manual.ts", "--store", store, "--repo-root", "/repo"]);
-    expect(JSON.parse(fs.readFileSync(pending, "utf8"))).toEqual({ files: ["src/staged.ts"] });
+    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({
+      files: ["src/staged.ts"],
+      session: null,
+    });
+  });
+
+  it("forwards the staged session context to the bin as --session-id/--session-cwd/--instruction", () => {
+    const { store, pending } = make_store_dir(["src/a.ts"], SESSION);
+    const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: fake_bin });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual([
+      "--files",
+      "src/a.ts",
+      "--session-id",
+      "s1",
+      "--session-cwd",
+      "/repo",
+      "--instruction",
+      "Launch the `drift-reconciler` sub-agent.",
+      "--store",
+      store,
+      "--repo-root",
+      "/repo",
+    ]);
+    expect(fs.existsSync(pending)).toBe(false);
+  });
+
+  it("restores the claimed session on union-back after a failed run", () => {
+    const exiting_bin = path.join(fake_bin_dir, "exit5.js");
+    fs.writeFileSync(exiting_bin, "process.exit(5);");
+    const { store, pending } = make_store_dir(["src/a.ts"], SESSION);
+    const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: exiting_bin });
+    expect(result.status).toBe(5);
+    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({
+      files: ["src/a.ts"],
+      session: SESSION,
+    });
   });
 
   it("forwards --list-entrypoints with the staged set and consumes it on success (the list pass is the mutating reconcile)", () => {
@@ -252,7 +301,10 @@ describe("drift-sync script contract", () => {
     const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: bin });
     expect(result.status).toBe(4);
     // Claimed set first (first-seen order), mid-reconcile set preserved.
-    expect(JSON.parse(fs.readFileSync(pending, "utf8"))).toEqual({ files: ["src/a.ts", "src/mid.ts"] });
+    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({
+      files: ["src/a.ts", "src/mid.ts"],
+      session: null,
+    });
     expect(claims_beside(store)).toEqual([]);
   });
 
@@ -293,27 +345,44 @@ describe("drift-sync script contract", () => {
     const { store, pending } = make_store_dir(["src/a.ts"]);
     const result = run(["--store", store, "--repo-root", "/repo", "--dry-run"], { DRIFT_RECONCILE_BIN: fake_bin });
     expect(result.status).toBe(0);
-    expect(JSON.parse(fs.readFileSync(pending, "utf8"))).toEqual({ files: ["src/a.ts"] });
+    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({ files: ["src/a.ts"], session: null });
     expect(fs.readdirSync(path.dirname(store))).toEqual(["drift_pending_reconcile.json"]);
   });
 
   it("consumes a pending file written by the TS serializer (format cross-check)", () => {
     const { store, pending } = make_store_dir(null);
-    fs.writeFileSync(pending, serialize_pending_reconcile(["src/a.ts", "src/b.ts"]));
+    fs.writeFileSync(pending, serialize_pending_reconcile({ files: ["src/a.ts", "src/b.ts"], session: SESSION }));
     const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: fake_bin });
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual(["--files", "src/a.ts,src/b.ts", "--store", store, "--repo-root", "/repo"]);
+    expect(JSON.parse(result.stdout)).toEqual([
+      "--files",
+      "src/a.ts,src/b.ts",
+      "--session-id",
+      "s1",
+      "--session-cwd",
+      "/repo",
+      "--instruction",
+      "Launch the `drift-reconciler` sub-agent.",
+      "--store",
+      store,
+      "--repo-root",
+      "/repo",
+    ]);
     expect(fs.existsSync(pending)).toBe(false);
   });
 
   it("unions back a pending file the TS parser accepts (reverse format cross-check)", () => {
     const { store, pending } = make_store_dir(null);
-    fs.writeFileSync(pending, serialize_pending_reconcile(["src/a.ts", "src/b.ts"]));
+    fs.writeFileSync(pending, serialize_pending_reconcile({ files: ["src/a.ts", "src/b.ts"], session: SESSION }));
     const bin = make_staging_bin("stage_exit6.js", 6); // re-stages src/mid.ts mid-run, then fails
     const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: bin });
     expect(result.status).toBe(6);
-    // The multi-file union the JS writer emits must parse identically on the TS side.
-    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual(["src/a.ts", "src/b.ts", "src/mid.ts"]);
+    // The multi-file union the JS writer emits must parse identically on the TS side. The
+    // mid-reconcile set staged no session, so the claimed session is restored.
+    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({
+      files: ["src/a.ts", "src/b.ts", "src/mid.ts"],
+      session: SESSION,
+    });
     const residue = fs.readdirSync(path.dirname(store)).filter((name) => name.endsWith(".tmp"));
     expect(residue).toEqual([]);
   });
@@ -348,8 +417,9 @@ describe("drift-sync script contract", () => {
     expect(failed.status).toBe(4);
     const claims = claims_beside(store);
     expect(claims).toHaveLength(1); // the claim is the sole surviving record of the set
-    expect(JSON.parse(fs.readFileSync(path.join(path.dirname(store), claims[0]), "utf8"))).toEqual({
+    expect(parse_pending_reconcile(fs.readFileSync(path.join(path.dirname(store), claims[0]), "utf8"))).toEqual({
       files: ["src/a.ts"],
+      session: null,
     });
     fs.rmdirSync(pending); // the obstruction clears...
     const retried = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: fake_bin });

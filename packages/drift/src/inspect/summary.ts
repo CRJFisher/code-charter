@@ -21,7 +21,7 @@ import {
   type NodeRow,
 } from "@code-charter/core";
 
-import type { ReconcileLogRecord, SyncStatus } from "../reconcile/reconcile_log";
+import type { ReconcileRunRecord, SyncStatus } from "../reconcile/reconcile_log";
 import type { DeferredRetirement, DeferredSkillSync } from "../reconcile/types";
 
 /** Per-flow (or store-wide) tally of member descriptions by their source. */
@@ -97,8 +97,8 @@ export interface StoreSummary {
 export interface InspectInput {
   nodes: readonly NodeRow[];
   edges: readonly EdgeRow[];
-  /** The newest {@link ReconcileLogRecord}, or null when no run log exists yet. */
-  latest_record: ReconcileLogRecord | null;
+  /** The newest {@link ReconcileRunRecord}, or null when no run log exists yet. */
+  latest_record: ReconcileRunRecord | null;
   sync_status: SyncStatus | null;
 }
 
@@ -221,8 +221,8 @@ export function collect_store_summary(input: InspectInput): StoreSummary {
     flows,
     bridges,
     descriptions: store_wide,
-    deferred_retirements: input.latest_record?.deferred_retirements ?? [],
-    deferred_skill_syncs: input.latest_record?.deferred_skill_syncs ?? [],
+    deferred_retirements: input.latest_record?.detail.deferred_retirements ?? [],
+    deferred_skill_syncs: input.latest_record?.detail.deferred_skill_syncs ?? [],
     sync_status: input.sync_status,
   };
 }
