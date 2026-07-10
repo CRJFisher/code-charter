@@ -187,7 +187,8 @@ export function build_entrypoint_inventory(
     const members: InventoryMember[] = [];
     const described_coverage: DescriptionCounts = { docstring: 0, provisional: 0, placeholder: 0, llm: 0 };
     for (const member_node of partial.member_nodes) {
-      const docstring_first_line = get_docstring(member_node.definition)?.split(/\r?\n/)[0];
+      // get_docstring trims only the whole string's outer ends, so the first line re-trims its own tail.
+      const docstring_first_line = get_docstring(member_node.definition)?.split(/\r?\n/)[0].trim();
       const anchor = anchor_by_symbol_id.get(member_node.symbol_id);
       const prior = anchor === undefined ? undefined : existing.get(anchor.symbol_path);
       if (prior?.source !== undefined) described_coverage[prior.source] += 1;

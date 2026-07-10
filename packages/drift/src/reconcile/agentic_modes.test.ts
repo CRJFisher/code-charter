@@ -557,7 +557,7 @@ describe("build_entrypoint_inventory — member fingerprints and describe-state"
   const HASH = "a".repeat(64);
 
   it("lists every reachable member with name, kind and the docstring's first line only", () => {
-    const helper: NodeSpec = { file: "m.ts", name: "helper", docstring: "Parses the payload.\nSecond line detail." };
+    const helper: NodeSpec = { file: "m.ts", name: "helper", docstring: "Parses the payload.  \nSecond line detail." };
     const root: NodeSpec = { file: "m.ts", name: "root", line: 1, calls: [{ to: [id_of(helper)], line: 2 }] };
     const graph = make_graph([root, helper], [root]);
     const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
@@ -679,9 +679,28 @@ describe("build_entrypoint_inventory — member fingerprints and describe-state"
     expect(by_path.get(id_of(second))).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 0 });
   });
 
-  it("emits a member reached in an unchanged file, without a description when no anchor covers it", () => {
-    // The reachable tree crosses out of the changed set; the anchor join spans member files, and a
-    // member the adapter cannot anchor still carries its graph-derived fingerprint.
+  it("joins descriptions across the whole member-file union, not just the changed set", () => {
+    // The reachable tree crosses out of the changed set; the anchor join must span member files —
+    // a join scoped to `changed` would silently drop this description.
+    const remote: NodeSpec = { file: "other.ts", name: "remote_helper" };
+    const root: NodeSpec = { file: "r.ts", name: "root", line: 1, calls: [{ to: [id_of(remote)], line: 2 }] };
+    const graph = make_graph([root, remote], [root]);
+    const anchored = [anchored_of({ file: "other.ts", name: "remote_helper", content_hash: HASH })];
+    write_descriptions(store, [
+      { symbol_path: id_of(remote), content_hash: HASH, file_path: "other.ts", text: "Fetches the remote page.", source: "llm" },
+    ]);
+    const deps = make_deps(store, make_adapter(graph, { anchored }), (m) => logs.push(m));
+
+    const inventory = build_entrypoint_inventory(deps, ["r.ts"], graph);
+
+    expect(inventory.entrypoints[0].members).toEqual([
+      { name: "remote_helper", kind: "function", description: "Fetches the remote page." },
+      { name: "root", kind: "function" },
+    ]);
+    expect(inventory.entrypoints[0].described_coverage).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 1 });
+  });
+
+  it("emits a member without an anchor with its graph-derived fingerprint only", () => {
     const remote: NodeSpec = { file: "other.ts", name: "remote_helper" };
     const root: NodeSpec = { file: "r.ts", name: "root", line: 1, calls: [{ to: [id_of(remote)], line: 2 }] };
     const graph = make_graph([root, remote], [root]);

@@ -50,13 +50,16 @@ staged) add `--files "<comma-separated repo-relative paths>"`; the staged set, i
 untouched. The inventory is
 `{ entrypoints: [{ symbol_path, name, file, line, is_orphan, members: [{ name, kind, docstring_first_line?, description? }], described_coverage: { docstring, provisional, placeholder, llm }, unresolved_sites: [{ file, line, source_line }] }] }`
 — every entrypoint in the changed files, each carrying its reachable tree's members as a semantic
-fingerprint and the unresolved call sites. A member's `description` is a prior agent-authored
-sentence; `docstring_first_line` is the code's own summary. `described_coverage` counts the
-entrypoint's members by description source: `docstring`/`llm` are real text, `provisional`/
-`placeholder` are name-only stand-ins — a flow that is mostly stand-ins is where your describe
-effort lands in phase 2. `is_orphan: true` means no documentation edge links the entrypoint — the
-spuriously-promoted-fragment signal; weight your stitching toward orphans, since a doc-linked
-entrypoint is usually a genuine flow root.
+fingerprint and the unresolved call sites. A member's `description` appears only when a prior
+agent-authored sentence exists; `docstring_first_line` is the code's own summary, and a member with
+neither carries just its name. `described_coverage` counts the entrypoint's members by description
+source: `docstring`/`llm` are real text, `provisional`/`placeholder` are name-only stand-ins. A
+member not yet described appears in no bucket, so the buckets can sum to fewer than the member
+count — treat the shortfall as undescribed too. Coverage is a triage hint about which flows carry
+the real authoring work; phase 2 still authors every member, since the description cache makes
+re-describing an already-described member free. `is_orphan: true` means no documentation edge links
+the entrypoint — the spuriously-promoted-fragment signal; weight your stitching toward orphans,
+since a doc-linked entrypoint is usually a genuine flow root.
 
 **2. Short-circuit on an empty inventory.** No entrypoints → the deterministic output already
 stands; report the one-line acknowledgement and stop, with neither judgement phase run. An
@@ -67,8 +70,9 @@ record no call site at all, so zero recorded sites is itself a failure shape —
 `members` (names, kinds, docstring first lines, prior descriptions) is its tree's vocabulary —
 before reading any code, rank candidate pairs by name/description similarity across their members,
 since entrypoints whose members share vocabulary are the likely fragments of one functionality.
-Ranking orders where you spend your reads; it is never evidence — confirm each top candidate by
-reading its call site, as below. Ariadne misses call edges for many reasons — do not assume a known
+Ranking orders where you spend your reads; it is never evidence — confirm each top candidate
+against the evidence below: its unresolved call site, or, for a site-less orphan, its definition
+and real references. Ariadne misses call edges for many reasons — do not assume a known
 taxonomy of failure shapes; search generically, from both ends of the missing edge:
 
 - **From the call site.** For each entrypoint with `unresolved_sites`, Read the `source_line` at
