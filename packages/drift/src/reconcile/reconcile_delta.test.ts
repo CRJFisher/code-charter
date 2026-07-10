@@ -291,6 +291,24 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(skill_id); // still live
   });
 
+  it("stamps the repo-relative skill_root on a hydrated skill flow and retires it once the bundle is deleted", async () => {
+    write("myskill/SKILL.md", "---\nname: myskill\ndescription: test skill\n---\n\n# My Skill\n\nBody.\n");
+    await run(["main.ts"]);
+    await run(["myskill/SKILL.md"]);
+    const skill_id = "agentic.flow:skill:myskill";
+    expect(read_persisted_flow(store, skill_id)!.node.attributes.skill_root).toBe("myskill");
+
+    // Delete the whole bundle. The deletion never partitions into a skill root (SKILL.md is gone),
+    // so only the stale-flow sweep can retire the flow — on a turn that touches something else.
+    fs.rmSync(path.join(repo, "myskill"), { recursive: true, force: true });
+    write("main.ts", BASE.replace("return n + 2;", "return n + 22;"));
+    const logs: string[] = [];
+    await run(["main.ts"], { log: (m) => logs.push(m) });
+
+    expect(read_persisted_flows(store).map((f) => f.node.id)).not.toContain(skill_id);
+    expect(logs.some((m) => m.includes(`retired flow ${skill_id}`))).toBe(true);
+  });
+
   it("rolls back the whole turn when a write throws mid-reconcile — no half-applied turn (AC#1)", async () => {
     const project = new HeadlessProject(repo);
     await project.initialize();

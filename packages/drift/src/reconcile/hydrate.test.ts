@@ -75,6 +75,7 @@ function skill_umbrella(over: Partial<SkillUmbrella> = {}): SkillUmbrella {
     kind: "skill",
     id: SKILL_ID,
     label: "demo",
+    skill_root: "demo",
     skill_doc_id: SKILL_DOC,
     doc_node_ids: [REVIEWER_DOC, SKILL_DOC, "demo/scripts/run.md#doc"],
     meta_json_source: null,
@@ -96,6 +97,8 @@ describe("hydrate_skill_flow", () => {
     const flow = read_persisted_flow(store, SKILL_ID)!;
     expect(flow.node.kind).toBe(FLOW_NODE_KIND);
     expect(flow.node.attributes.entry_points).toEqual([SKILL_DOC]);
+    expect(flow.node.attributes.skill_root).toBe("demo"); // the sweep's only handle on the bundle's location
+
     expect(flow.node.attributes.last_synced_at).toBe(outcome.last_synced_at);
     expect(flow.member_edges.map((e) => e.dst_id)).toEqual([...umbrella.doc_node_ids].sort());
   });
