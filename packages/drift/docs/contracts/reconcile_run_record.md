@@ -17,10 +17,10 @@ every drift-specific field lives under `detail`.
 
 | key             | type              | semantics                                                            |
 | --------------- | ----------------- | -------------------------------------------------------------------- |
-| schema_version  | integer (= 1)     | required; a reader SKIPS any line whose value is not its own version |
+| schema_version  | integer (= 1)     | required; a reader SKIPS any line whose value is not its own version, or that lacks a `detail` object |
 | run_id          | string            | required; unique per bin invocation, lexicographically time-sortable |
 | session_id      | string \| null    | null for hand-invoked / no-session runs                              |
-| transcript_path | string (optional) | OMITTED when session_id is null; else the derived transcript path    |
+| transcript_path | string (optional) | present only when BOTH session_id and the session cwd were known at write time (drift_sync.js forwards them all-or-nothing off the handoff); OMITTED otherwise |
 | instruction     | string \| null    | verbatim Stop-hook instruction; null for hand-invoked runs           |
 | timestamp       | ISO-8601 string   | run-completion time                                                  |
 | detail          | object            | the drift payload (below)                                            |
@@ -44,19 +44,20 @@ ISO prefix makes lexicographic order chronological (newest-first grading and
 `--trajectory latest` resolution need no timestamp parse); the random suffix carries
 uniqueness.
 
-## `transcript_path` is derived, not copied
+## `transcript_path` derivation
 
 `transcript_path = <claude-config>/projects/<slug(cwd)>/<session_id>.jsonl`, where
-`<claude-config>` is `$CLAUDE_CONFIG_DIR` when set, else `~/.claude`, and `slug(cwd)`
-replaces every character outside `[A-Za-z0-9]` with `-`. It is a pure function of the
-join key (`session_id`, session `cwd`) — recomputable by any downstream tool from the
-record alone, which is why it is derived rather than copied from the hook payload's
-live path. The stored value is a denormalized convenience; the authoritative join key
-is `session_id` + the session `cwd`. When the path does not resolve to a file (rotated
-transcript, nonstandard host layout), readers fall back to an effect-only view;
-`session_id` remains authoritative. The Stop hook compares its derivation against the
-payload's live `transcript_path` on every fire and emits a stderr note on mismatch, so
-slug drift surfaces in the field.
+`<claude-config>` is `$CLAUDE_CONFIG_DIR` when set, else `~/.claude`, `slug(cwd)`
+replaces every character outside `[A-Za-z0-9]` with `-`, and `cwd` is the launching
+session's working directory as staged in the pending-reconcile handoff. The bin
+computes the path ONCE at write time and stores the result; the raw `cwd` is not
+persisted (the slug is lossy, so it cannot be recovered from the stored path). Within
+the record, `session_id` is the authoritative session identifier and `transcript_path`
+is a stored snapshot of the derivation. When the path does not resolve to a file
+(rotated transcript, nonstandard host layout), readers degrade to an effect-only view;
+`session_id` remains authoritative. The Stop hook compares this same derivation against
+the payload's live `transcript_path` on every fire and emits a stderr note on mismatch,
+so a host-side change to the slug rule surfaces in the field.
 
 ## Versioning
 

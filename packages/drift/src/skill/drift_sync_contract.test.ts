@@ -151,6 +151,29 @@ describe("drift-sync script contract", () => {
     });
   });
 
+  it("keeps a session staged mid-reconcile over the claimed one on union-back (newest contributor wins)", () => {
+    const bin = path.join(fake_bin_dir, "stage_session_exit7.js");
+    const mid_session = { session_id: "s-mid", cwd: "/repo", instruction: "Launch the `drift-reconciler` sub-agent." };
+    fs.writeFileSync(
+      bin,
+      [
+        'const path = require("node:path");',
+        'const fs = require("node:fs");',
+        "const a = process.argv.slice(2);",
+        'const store = a[a.indexOf("--store") + 1];',
+        `fs.writeFileSync(path.join(path.dirname(store), "drift_pending_reconcile.json"), JSON.stringify({ files: ["src/mid.ts"], session: ${JSON.stringify(mid_session)} }));`,
+        "process.exit(7);",
+      ].join("\n"),
+    );
+    const { store, pending } = make_store_dir(["src/a.ts"], SESSION);
+    const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: bin });
+    expect(result.status).toBe(7);
+    expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({
+      files: ["src/a.ts", "src/mid.ts"],
+      session: mid_session,
+    });
+  });
+
   it("forwards --list-entrypoints with the staged set and consumes it on success (the list pass is the mutating reconcile)", () => {
     const { store, pending } = make_store_dir(["src/a.ts"]);
     const result = run(["--list-entrypoints", "--store", store, "--repo-root", "/repo"], {
@@ -317,6 +340,32 @@ describe("drift-sync script contract", () => {
     expect(forwarded).toContain("src/orphan.ts,src/fresh.ts"); // orphan folded in ahead of the fresh set
     expect(fs.existsSync(pending)).toBe(false);
     expect(claims_beside(store)).toEqual([]);
+  });
+
+  it("keeps the live pending session over an orphaned claim's when folding it back", () => {
+    const live_session: PendingSession = { ...SESSION, session_id: "s-live" };
+    const { store } = make_store_dir(["src/fresh.ts"], live_session);
+    fs.writeFileSync(
+      claim_path_in(store, dead_pid()),
+      JSON.stringify({ files: ["src/orphan.ts"], session: { ...SESSION, session_id: "s-orphan" } }),
+    );
+    const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: fake_bin });
+    expect(result.status).toBe(0);
+    // The recovered union carried the newest contributor's session into the claim this run consumed.
+    const forwarded = JSON.parse(result.stdout) as string[];
+    expect(forwarded).toContain("s-live");
+    expect(forwarded).not.toContain("s-orphan");
+  });
+
+  it("forwards an orphaned claim's session when nothing fresher is staged", () => {
+    const { store } = make_store_dir(null);
+    fs.writeFileSync(
+      claim_path_in(store, dead_pid()),
+      JSON.stringify({ files: ["src/orphan.ts"], session: { ...SESSION, session_id: "s-orphan" } }),
+    );
+    const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: fake_bin });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toContain("s-orphan");
   });
 
   it("recovers a claim whose pid parses to zero rather than probing the process group", () => {

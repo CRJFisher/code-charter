@@ -143,10 +143,15 @@ export function read_latest_reconcile_record(store_path: string): ReconcileRunRe
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const parsed: unknown = JSON.parse(lines[i]);
+      // The version check alone does not prove the nested shape; a version-stamped line without
+      // a detail object would throw in consumers that dot into it, so it is skipped like any
+      // other foreign line.
       if (
         typeof parsed === "object" &&
         parsed !== null &&
-        (parsed as { schema_version?: unknown }).schema_version === RECONCILE_RECORD_SCHEMA_VERSION
+        (parsed as { schema_version?: unknown }).schema_version === RECONCILE_RECORD_SCHEMA_VERSION &&
+        typeof (parsed as { detail?: unknown }).detail === "object" &&
+        (parsed as { detail?: unknown }).detail !== null
       ) {
         return parsed as ReconcileRunRecord;
       }

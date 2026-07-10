@@ -25,13 +25,19 @@ function edit_line(file_path: string, id: string): string {
   });
 }
 
-function run_stop_hook_raw(input: string): { status: number | null; stdout: string } {
-  const result = spawnSync("node", [BIN], { input, encoding: "utf8" });
-  return { status: result.status, stdout: result.stdout };
+function run_stop_hook_raw(
+  input: string,
+  env: Record<string, string> = {},
+): { status: number | null; stdout: string; stderr: string } {
+  const result = spawnSync("node", [BIN], { input, encoding: "utf8", env: { ...process.env, ...env } });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-function run_stop_hook(payload: Record<string, unknown>): { status: number | null; stdout: string } {
-  return run_stop_hook_raw(JSON.stringify(payload));
+function run_stop_hook(
+  payload: Record<string, unknown>,
+  env: Record<string, string> = {},
+): { status: number | null; stdout: string; stderr: string } {
+  return run_stop_hook_raw(JSON.stringify(payload), env);
 }
 
 interface StagedHandoff {
@@ -90,6 +96,41 @@ describe("drift_stop_hook bin", () => {
       const output = JSON.parse(result.stdout);
       // Verbatim by construction: the staged instruction IS the block reason the hook emitted.
       expect(read_handoff(dir)?.session).toEqual({ session_id: "s1", cwd: dir, instruction: output.reason });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits no divergence note when the payload's transcript path matches the derivation", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const config_dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-cfg-"));
+    const slug = dir.replace(/[^A-Za-z0-9]/g, "-");
+    const transcript_path = path.join(config_dir, "projects", slug, "s1.jsonl");
+    fs.mkdirSync(path.dirname(transcript_path), { recursive: true });
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      const result = run_stop_hook(
+        { session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" },
+        { CLAUDE_CONFIG_DIR: config_dir },
+      );
+      expect(JSON.parse(result.stdout).decision).toBe("block");
+      expect(result.stderr).not.toContain("diverges");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(config_dir, { recursive: true, force: true });
+    }
+  });
+
+  it("notes both paths on stderr when the derivation diverges from the host's transcript path", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "drift-stop-"));
+    const transcript_path = path.join(dir, "t.jsonl");
+    fs.writeFileSync(transcript_path, TRANSCRIPT_LINE + "\n");
+    try {
+      const result = run_stop_hook({ session_id: "s1", transcript_path, cwd: dir, hook_event_name: "Stop" });
+      expect(JSON.parse(result.stdout).decision).toBe("block"); // the note never blocks the block
+      expect(result.stderr).toContain("diverges");
+      expect(result.stderr).toContain(transcript_path);
+      expect(result.stderr).toContain("s1.jsonl");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

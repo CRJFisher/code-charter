@@ -259,6 +259,26 @@ describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () 
         path.join(config_dir, "projects", repo.replace(/[^A-Za-z0-9]/g, "-"), "s1.jsonl"),
       );
       expect(record.instruction).toBe(instruction);
+      // The contract partition, pinned on the bin's real output (not a test fixture): generic
+      // keys top-level, every drift field under detail.
+      expect(Object.keys(record).sort()).toEqual([
+        "detail",
+        "instruction",
+        "run_id",
+        "schema_version",
+        "session_id",
+        "timestamp",
+        "transcript_path",
+      ]);
+      expect(Object.keys(record.detail).sort()).toEqual([
+        "deferred_retirements",
+        "deferred_skill_syncs",
+        "description_counts",
+        "diagnostics",
+        "file_set",
+        "mode",
+        "outcomes",
+      ]);
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
       fs.rmSync(config_dir, { recursive: true, force: true });

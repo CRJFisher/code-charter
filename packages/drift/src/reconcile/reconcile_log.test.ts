@@ -97,6 +97,15 @@ describe("read_latest_reconcile_record", () => {
 
     expect(read_latest_reconcile_record(store_path)).toBeNull();
   });
+
+  it("skips a version-stamped line whose detail is missing, so consumers can dot into detail safely", () => {
+    const log_path = reconcile_log_path(store_path);
+    fs.mkdirSync(dir, { recursive: true });
+    const detail_less = JSON.stringify({ schema_version: RECONCILE_RECORD_SCHEMA_VERSION, run_id: "bogus" });
+    fs.writeFileSync(log_path, `${JSON.stringify(record({ run_id: "good" }))}\n${detail_less}\n`);
+
+    expect(read_latest_reconcile_record(store_path)?.run_id).toBe("good");
+  });
 });
 
 describe("make_run_id", () => {
