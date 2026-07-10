@@ -76,7 +76,11 @@ describe("existing_descriptions", () => {
 
     const existing = existing_descriptions(store);
 
-    expect(existing.get("f.ts#a:function")).toEqual({ described_at_content_hash: "h1", text: "adds two numbers" });
+    expect(existing.get("f.ts#a:function")).toEqual({
+      described_at_content_hash: "h1",
+      text: "adds two numbers",
+      source: "docstring",
+    });
   });
 
   it("recovers a symbol_path that itself contains colons and hashes", () => {
@@ -117,7 +121,22 @@ describe("existing_descriptions", () => {
     store.upsert_node(description_node("f.ts#a:function"));
     store.write_fields({ kind: "node", id: description_node_id("f.ts#a:function") }, { description_hash: "h1" }, "agentic");
 
-    expect(existing_descriptions(store).get("f.ts#a:function")).toEqual({ described_at_content_hash: "h1", text: undefined });
+    expect(existing_descriptions(store).get("f.ts#a:function")).toEqual({
+      described_at_content_hash: "h1",
+      text: undefined,
+      source: undefined,
+    });
+  });
+
+  it("drops an unrecognized description_source rather than passing it through", () => {
+    store.upsert_node(description_node("f.ts#a:function"));
+    store.write_fields(
+      { kind: "node", id: description_node_id("f.ts#a:function") },
+      { description_hash: "h1", description_source: "handwritten" },
+      "agentic",
+    );
+
+    expect(existing_descriptions(store).get("f.ts#a:function")?.source).toBeUndefined();
   });
 });
 
