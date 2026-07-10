@@ -9,27 +9,34 @@
  * no-op for members the agent already described at their current hash.
  */
 
-import type { AnchoredSymbol, GraphStore, ResolvedDescription } from "@code-charter/core";
+import type { AnchoredSymbol, DescriptionSource, GraphStore, ResolvedDescription } from "@code-charter/core";
 import { DESCRIPTION_NODE_KIND, plan_descriptions } from "@code-charter/core";
 
 /**
- * What is already persisted for each symbol_path, so unchanged members skip re-description and the
- * `--apply-descriptions` mode can tell an identical re-submission (a cache hit) from a revision.
+ * What is already persisted for each symbol_path, so unchanged members skip re-description, the
+ * `--apply-descriptions` mode can tell an identical re-submission (a cache hit) from a revision, and
+ * the entrypoint inventory can report which members carry real text vs a name stand-in.
  */
 export function existing_descriptions(
   store: GraphStore,
-): Map<string, { described_at_content_hash: string; text: string | undefined }> {
-  const existing = new Map<string, { described_at_content_hash: string; text: string | undefined }>();
+): Map<string, { described_at_content_hash: string; text: string | undefined; source: DescriptionSource | undefined }> {
+  const existing = new Map<
+    string,
+    { described_at_content_hash: string; text: string | undefined; source: DescriptionSource | undefined }
+  >();
+  const sources: readonly string[] = ["docstring", "llm", "provisional", "placeholder"];
   for (const node of store.all_nodes()) {
     if (node.kind !== DESCRIPTION_NODE_KIND) continue;
     const hash = node.attributes.description_hash;
     if (typeof hash !== "string") continue;
     const text = node.attributes.description;
+    const source = node.attributes.description_source;
     // id is `${DESCRIPTION_NODE_KIND}:${symbol_path}`; recover the symbol_path suffix.
     const symbol_path = node.id.slice(DESCRIPTION_NODE_KIND.length + 1);
     existing.set(symbol_path, {
       described_at_content_hash: hash,
       text: typeof text === "string" ? text : undefined,
+      source: typeof source === "string" && sources.includes(source) ? (source as DescriptionSource) : undefined,
     });
   }
   return existing;

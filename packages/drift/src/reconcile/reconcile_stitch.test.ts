@@ -139,6 +139,13 @@ describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
           file: "handler.ts",
           line: 3,
           is_orphan: true,
+          // The same-pass reconcile already hydrated the singletons, so both members carry the
+          // provisional name stand-in awaiting the agent's describe phase.
+          members: [
+            { name: "dispatch", kind: "function" },
+            { name: "route", kind: "function" },
+          ],
+          described_coverage: { docstring: 0, provisional: 2, placeholder: 0, llm: 0 },
           unresolved_sites: [{ file: "handler.ts", line: 5, source_line: "return fn();" }],
         },
         {
@@ -147,6 +154,8 @@ describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
           file: "router.ts",
           line: 1,
           is_orphan: true,
+          members: [{ name: "handle_request", kind: "function" }],
+          described_coverage: { docstring: 0, provisional: 1, placeholder: 0, llm: 0 },
           unresolved_sites: [],
         },
       ],

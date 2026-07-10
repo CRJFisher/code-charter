@@ -22,6 +22,7 @@ import {
   DESCRIPTION_NODE_KIND,
   LITERAL_DOC_EDGE_KIND,
   open_graph_store,
+  write_descriptions,
 } from "@code-charter/core";
 import type { EdgeRow, GraphStore } from "@code-charter/core";
 
@@ -509,6 +510,8 @@ describe("build_entrypoint_inventory", () => {
           file: "handler.ts",
           line: 3,
           is_orphan: true, // no documentation edge in the empty store
+          members: [{ name: "dispatch", kind: "function" }],
+          described_coverage: { docstring: 0, provisional: 0, placeholder: 0, llm: 0 },
           unresolved_sites: [{ file: "handler.ts", line: 5, source_line: "return fn();" }],
         },
       ],
@@ -547,5 +550,148 @@ describe("build_entrypoint_inventory", () => {
     const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
 
     expect(build_entrypoint_inventory(deps, ["handler.test.ts"], graph)).toEqual({ entrypoints: [] });
+  });
+});
+
+describe("build_entrypoint_inventory — member fingerprints and describe-state", () => {
+  const HASH = "a".repeat(64);
+
+  it("lists every reachable member with name, kind and the docstring's first line only", () => {
+    const helper: NodeSpec = { file: "m.ts", name: "helper", docstring: "Parses the payload.\nSecond line detail." };
+    const root: NodeSpec = { file: "m.ts", name: "root", line: 1, calls: [{ to: [id_of(helper)], line: 2 }] };
+    const graph = make_graph([root, helper], [root]);
+    const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
+
+    const inventory = build_entrypoint_inventory(deps, ["m.ts"], graph);
+
+    expect(inventory.entrypoints[0].members).toEqual([
+      { name: "helper", kind: "function", docstring_first_line: "Parses the payload." },
+      { name: "root", kind: "function" },
+    ]);
+    expect(inventory.entrypoints[0].described_coverage).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 0 });
+  });
+
+  it("surfaces a prior llm description through the anchor join when the member is a method", () => {
+    // The member's flow-layer path (`a.ts#process:method`) and its stored anchor path
+    // (`a.ts#Item.process:method`) diverge — the same two-id-space join apply_descriptions bridges.
+    const ANCHOR_PATH = "a.ts#Item.process:method";
+    const method_member: NodeSpec = { file: "a.ts", name: "process", kind: "method", symbol_id: "loc:1" };
+    const entry: NodeSpec = { file: "a.ts", name: "main", line: 1, calls: [{ to: ["loc:1"], line: 2 }] };
+    const graph = make_graph([entry, method_member], [entry]);
+    const anchored = [
+      anchored_of({ file: "a.ts", name: "process", kind: "method", symbol_id: "loc:1", symbol_path: ANCHOR_PATH, content_hash: HASH }),
+    ];
+    write_descriptions(store, [
+      { symbol_path: ANCHOR_PATH, content_hash: HASH, file_path: "a.ts", text: "Runs the queued item.", source: "llm" },
+    ]);
+    const deps = make_deps(store, make_adapter(graph, { anchored }), (m) => logs.push(m));
+
+    const inventory = build_entrypoint_inventory(deps, ["a.ts"], graph);
+
+    expect(inventory.entrypoints[0].members).toEqual([
+      { name: "main", kind: "function" },
+      { name: "process", kind: "method", description: "Runs the queued item." },
+    ]);
+    expect(inventory.entrypoints[0].described_coverage).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 1 });
+  });
+
+  it("keeps two same-named methods on different classes as distinct members with their own descriptions", () => {
+    const process_a: NodeSpec = { file: "c.ts", name: "process", kind: "method", symbol_id: "loc:1" };
+    const process_b: NodeSpec = { file: "c.ts", name: "process", kind: "method", symbol_id: "loc:2" };
+    const root: NodeSpec = { file: "c.ts", name: "root", line: 1, calls: [{ to: ["loc:1"], line: 2 }, { to: ["loc:2"], line: 3 }] };
+    const graph = make_graph([root, process_a, process_b], [root]);
+    const anchored = [
+      anchored_of({ file: "c.ts", name: "process", kind: "method", symbol_id: "loc:1", symbol_path: "c.ts#A.process:method", content_hash: HASH }),
+      anchored_of({ file: "c.ts", name: "process", kind: "method", symbol_id: "loc:2", symbol_path: "c.ts#B.process:method", content_hash: HASH }),
+    ];
+    write_descriptions(store, [
+      { symbol_path: "c.ts#A.process:method", content_hash: HASH, file_path: "c.ts", text: "Processes an A.", source: "llm" },
+      { symbol_path: "c.ts#B.process:method", content_hash: HASH, file_path: "c.ts", text: "Processes a B.", source: "llm" },
+    ]);
+    const deps = make_deps(store, make_adapter(graph, { anchored }), (m) => logs.push(m));
+
+    const inventory = build_entrypoint_inventory(deps, ["c.ts"], graph);
+
+    expect(inventory.entrypoints[0].members).toEqual([
+      { name: "root", kind: "function" },
+      { name: "process", kind: "method", description: "Processes an A." },
+      { name: "process", kind: "method", description: "Processes a B." },
+    ]);
+    expect(inventory.entrypoints[0].described_coverage).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 2 });
+  });
+
+  it("counts name-stand-in sources in the coverage split without surfacing their text", () => {
+    const pending_member: NodeSpec = { file: "p.ts", name: "pending_member" };
+    const capped_member: NodeSpec = { file: "p.ts", name: "capped_member" };
+    const documented: NodeSpec = { file: "p.ts", name: "documented", docstring: "Formats the report." };
+    const top: NodeSpec = {
+      file: "p.ts",
+      name: "top",
+      line: 1,
+      calls: [
+        { to: [id_of(pending_member)], line: 2 },
+        { to: [id_of(capped_member)], line: 3 },
+        { to: [id_of(documented)], line: 4 },
+      ],
+    };
+    const graph = make_graph([top, pending_member, capped_member, documented], [top]);
+    const anchored = [
+      anchored_of({ file: "p.ts", name: "pending_member", content_hash: HASH }),
+      anchored_of({ file: "p.ts", name: "capped_member", content_hash: HASH }),
+      anchored_of({ file: "p.ts", name: "documented", content_hash: HASH }),
+    ];
+    write_descriptions(store, [
+      { symbol_path: id_of(pending_member), content_hash: HASH, file_path: "p.ts", text: "pending_member", source: "provisional" },
+      { symbol_path: id_of(capped_member), content_hash: HASH, file_path: "p.ts", text: "capped_member", source: "placeholder" },
+      { symbol_path: id_of(documented), content_hash: HASH, file_path: "p.ts", text: "Formats the report.", source: "docstring" },
+    ]);
+    const deps = make_deps(store, make_adapter(graph, { anchored }), (m) => logs.push(m));
+
+    const inventory = build_entrypoint_inventory(deps, ["p.ts"], graph);
+
+    // Stand-in text is the member's name and docstring text already rides docstring_first_line —
+    // only llm text earns a `description` field.
+    expect(inventory.entrypoints[0].members).toEqual([
+      { name: "capped_member", kind: "function" },
+      { name: "documented", kind: "function", docstring_first_line: "Formats the report." },
+      { name: "pending_member", kind: "function" },
+      { name: "top", kind: "function" },
+    ]);
+    expect(inventory.entrypoints[0].described_coverage).toEqual({ docstring: 1, provisional: 1, placeholder: 1, llm: 0 });
+  });
+
+  it("scopes described_coverage to each entrypoint's own tree", () => {
+    const described: NodeSpec = { file: "s.ts", name: "described_leaf" };
+    const first: NodeSpec = { file: "s.ts", name: "first", line: 1, calls: [{ to: [id_of(described)], line: 2 }] };
+    const second: NodeSpec = { file: "s.ts", name: "second", line: 8 };
+    const graph = make_graph([first, second, described], [first, second]);
+    const anchored = [anchored_of({ file: "s.ts", name: "described_leaf", content_hash: HASH })];
+    write_descriptions(store, [
+      { symbol_path: id_of(described), content_hash: HASH, file_path: "s.ts", text: "Holds the session.", source: "llm" },
+    ]);
+    const deps = make_deps(store, make_adapter(graph, { anchored }), (m) => logs.push(m));
+
+    const by_path = new Map(
+      build_entrypoint_inventory(deps, ["s.ts"], graph).entrypoints.map((e) => [e.symbol_path, e.described_coverage]),
+    );
+
+    expect(by_path.get(id_of(first))).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 1 });
+    expect(by_path.get(id_of(second))).toEqual({ docstring: 0, provisional: 0, placeholder: 0, llm: 0 });
+  });
+
+  it("emits a member reached in an unchanged file, without a description when no anchor covers it", () => {
+    // The reachable tree crosses out of the changed set; the anchor join spans member files, and a
+    // member the adapter cannot anchor still carries its graph-derived fingerprint.
+    const remote: NodeSpec = { file: "other.ts", name: "remote_helper" };
+    const root: NodeSpec = { file: "r.ts", name: "root", line: 1, calls: [{ to: [id_of(remote)], line: 2 }] };
+    const graph = make_graph([root, remote], [root]);
+    const deps = make_deps(store, make_adapter(graph), (m) => logs.push(m));
+
+    const inventory = build_entrypoint_inventory(deps, ["r.ts"], graph);
+
+    expect(inventory.entrypoints[0].members).toEqual([
+      { name: "remote_helper", kind: "function" },
+      { name: "root", kind: "function" },
+    ]);
   });
 });

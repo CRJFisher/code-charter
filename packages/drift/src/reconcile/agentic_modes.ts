@@ -5,8 +5,9 @@
  *
  *  - `--list-entrypoints` → {@link build_entrypoint_inventory}: the changed neighbourhood's entrypoint
  *    inventory — every entrypoint Ariadne promoted in the changed files, flagged orphan or not, with
- *    the unresolved call sites in its reachable tree as stitch evidence. Pure read; the deterministic
- *    reconcile (resync/retire/singleton hydration) runs in the same pass via `reconcile()`.
+ *    its reachable tree's member fingerprints and describe-state as ranking signal and the unresolved
+ *    call sites as stitch evidence. Pure read; the deterministic reconcile (resync/retire/singleton
+ *    hydration) runs in the same pass via `reconcile()`.
  *  - `--apply-stitch` → {@link apply_stitch}: agent-judged umbrellas hydrate as multi-seed
  *    `CodeUmbrella`s with `agentic.bridge` edges over the missed calls; singleton flows absorbed into
  *    an umbrella are retired. Returns the established flow shape for the describe phase.
@@ -33,6 +34,7 @@ import {
   write_agentic_substrate,
 } from "@code-charter/core";
 import type { ResolvedDescription } from "@code-charter/core";
+import { get_docstring } from "@code-charter/types";
 
 import { existing_descriptions } from "./describe";
 import { read_persisted_flows } from "./flow_store";
@@ -85,6 +87,19 @@ export interface UnresolvedSite {
   source_line: string;
 }
 
+/**
+ * One reachable-tree member's semantic fingerprint — the stitch phase's ranking signal, not a wire
+ * identity (members carry no symbol_path; seeds and bridges address entrypoints). `description` is
+ * agent-authored (`llm`) text only: docstring text already rides `docstring_first_line`, and a
+ * provisional/placeholder stand-in is the member's name — zero signal beyond `name` itself.
+ */
+export interface InventoryMember {
+  name: string;
+  kind: string;
+  docstring_first_line?: string;
+  description?: string;
+}
+
 export interface InventoryEntrypoint {
   symbol_path: string;
   name: string;
@@ -92,6 +107,13 @@ export interface InventoryEntrypoint {
   line: number;
   /** True when no documentation edge links the entrypoint — the spuriously-promoted-fragment signal. */
   is_orphan: boolean;
+  members: InventoryMember[];
+  /**
+   * The members' current describe-state by source (a store snapshot, not a write tally): docstring/llm
+   * are real text, provisional/placeholder are name stand-ins; members short of `members.length` carry
+   * no description node at all.
+   */
+  described_coverage: DescriptionCounts;
   unresolved_sites: UnresolvedSite[];
 }
 
@@ -101,9 +123,10 @@ export interface EntrypointInventory {
 
 /**
  * The changed neighbourhood's entrypoint inventory: every call-graph entrypoint defined in a changed
- * file (never the whole repo), flagged orphan when no documentation edge touches it, each carrying the
- * unresolved call sites in its reachable tree. An over-large inventory is reported on stderr — never a
- * silent cap; the agent stitches what it can judge and the rest stay singleton flows.
+ * file (never the whole repo), flagged orphan when no documentation edge touches it, each carrying its
+ * reachable tree's member fingerprints and describe-state plus the unresolved call sites — the
+ * semantic signal the stitch phase ranks candidates by. An over-large inventory is reported on
+ * stderr — never a silent cap; the agent stitches what it can judge and the rest stay singleton flows.
  */
 export function build_entrypoint_inventory(
   deps: ReconcileDeps,
@@ -113,7 +136,16 @@ export function build_entrypoint_inventory(
   const changed_set = new Set(changed);
   const orphan_ids = new Set(find_orphan_entrypoints(graph, deps.store.all_edges(), DEFAULT_GAP_OPTIONS));
 
-  const entrypoints: InventoryEntrypoint[] = [];
+  // First pass: the tree walks. Member nodes are kept by graph key (SymbolId, never the flow-layer
+  // path — two same-named methods on different classes collapse to one flow path but are distinct
+  // members), and their files accumulate so the anchor join below is one batched adapter call.
+  const partials: Array<{
+    symbol_path: string;
+    node: CallableNode;
+    member_nodes: CallableNode[];
+    sites: UnresolvedSite[];
+  }> = [];
+  const member_files = new Set<string>();
   const seen = new Set<string>();
   for (const entry of [...graph.entry_points].sort()) {
     const node = graph.nodes.get(entry);
@@ -124,10 +156,13 @@ export function build_entrypoint_inventory(
     seen.add(symbol_path);
 
     const sites: UnresolvedSite[] = [];
+    const member_nodes: CallableNode[] = [];
     const tree = reachable_from(entry, graph);
     for (const member of [...tree].sort()) {
       const member_node = graph.nodes.get(member);
       if (!member_node) continue;
+      member_nodes.push(member_node);
+      member_files.add(member_node.location.file_path);
       for (const call of member_node.enclosed_calls) {
         if (!is_unresolved_call(call, graph)) continue;
         const file = call.location.file_path;
@@ -136,14 +171,43 @@ export function build_entrypoint_inventory(
       }
     }
     sites.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line));
+    partials.push({ symbol_path, node, member_nodes, sites });
+  }
+
+  // Reachable trees span files beyond the changed set, so the anchor join covers every member file.
+  // Same two-id-space join as apply_descriptions, entered by symbol_id (the walk already holds it):
+  // symbol_id → anchor → enclosing-qualified anchor.symbol_path → description node.
+  const anchor_by_symbol_id = new Map(
+    deps.adapter.anchored_symbols([...member_files].sort()).map((a) => [a.symbol_id, a]),
+  );
+  const existing = existing_descriptions(deps.store);
+
+  const entrypoints: InventoryEntrypoint[] = [];
+  for (const partial of partials) {
+    const members: InventoryMember[] = [];
+    const described_coverage: DescriptionCounts = { docstring: 0, provisional: 0, placeholder: 0, llm: 0 };
+    for (const member_node of partial.member_nodes) {
+      const docstring_first_line = get_docstring(member_node.definition)?.split(/\r?\n/)[0];
+      const anchor = anchor_by_symbol_id.get(member_node.symbol_id);
+      const prior = anchor === undefined ? undefined : existing.get(anchor.symbol_path);
+      if (prior?.source !== undefined) described_coverage[prior.source] += 1;
+      members.push({
+        name: member_node.name,
+        kind: member_node.definition.kind,
+        ...(docstring_first_line !== undefined ? { docstring_first_line } : {}),
+        ...(prior?.source === "llm" && prior.text !== undefined ? { description: prior.text } : {}),
+      });
+    }
 
     entrypoints.push({
-      symbol_path,
-      name: node.name,
-      file: node.location.file_path,
-      line: node.location.start_line,
-      is_orphan: orphan_ids.has(symbol_path),
-      unresolved_sites: sites,
+      symbol_path: partial.symbol_path,
+      name: partial.node.name,
+      file: partial.node.location.file_path,
+      line: partial.node.location.start_line,
+      is_orphan: orphan_ids.has(partial.symbol_path),
+      members,
+      described_coverage,
+      unresolved_sites: partial.sites,
     });
   }
   entrypoints.sort((a, b) => (a.symbol_path < b.symbol_path ? -1 : a.symbol_path > b.symbol_path ? 1 : 0));

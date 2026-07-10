@@ -15,7 +15,7 @@
 
 import type { CallGraph, CallableNode, CallReference, FilePath, SymbolId, SymbolName } from "@ariadnejs/types";
 import type { ScopeId } from "@ariadnejs/types/dist/scopes";
-import type { AnyDefinition, FunctionDefinition } from "@ariadnejs/types/dist/symbol_definitions";
+import type { AnyDefinition } from "@ariadnejs/types/dist/symbol_definitions";
 import type { Resolution } from "@ariadnejs/types/dist/symbol_references";
 import type { AnchoredSymbol, GraphStore, ResolverIndex } from "@code-charter/core";
 import { build_resolver_index, build_symbol_path } from "@code-charter/core";
@@ -48,6 +48,8 @@ export interface NodeSpec {
   calls?: CallSpec[];
   /** Ariadne's location-based graph key. Defaults to the flow-layer path (the common coincident case). */
   symbol_id?: string;
+  /** Native docstring on the definition — the inventory's `docstring_first_line` input. */
+  docstring?: string;
 }
 
 /** The flow-layer symbol_path (what seeds/descriptions resolve against) for a spec. */
@@ -87,16 +89,25 @@ function make_node(spec: NodeSpec): CallableNode {
     end_line: line + 1,
     end_column: 0,
   };
-  const definition: FunctionDefinition = {
-    kind: "function",
+  const base = {
     symbol_id,
     name: spec.name as SymbolName,
     defining_scope_id: "scope:0" as ScopeId,
     location,
-    is_exported: true,
-    signature: { parameters: [] },
-    body_scope_id: "scope:1" as ScopeId,
+    ...(spec.docstring !== undefined ? { docstring: spec.docstring } : {}),
   };
+  // `definition.kind` must track the spec's kind (the inventory reads it), so a method spec gets a
+  // real MethodDefinition, not a function definition with a mismatched literal kind.
+  const definition: AnyDefinition =
+    spec.kind === "method"
+      ? { ...base, kind: "method", parameters: [] }
+      : {
+          ...base,
+          kind: "function",
+          is_exported: true,
+          signature: { parameters: [] },
+          body_scope_id: "scope:1" as ScopeId,
+        };
   return {
     symbol_id,
     name: spec.name as SymbolName,
@@ -144,7 +155,7 @@ export function anchored_of(spec: {
     content_hash,
     anchor: `${symbol_path}:${content_hash}`,
     file_path: spec.file,
-    definition: make_node({ file: spec.file, name: spec.name, kind: spec.kind, symbol_id: spec.symbol_id }).definition as AnyDefinition,
+    definition: make_node({ file: spec.file, name: spec.name, kind: spec.kind, symbol_id: spec.symbol_id }).definition,
   };
 }
 
