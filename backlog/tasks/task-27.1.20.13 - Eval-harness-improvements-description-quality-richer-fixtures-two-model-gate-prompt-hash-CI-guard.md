@@ -3,7 +3,7 @@ id: TASK-27.1.20.13
 title: >-
   Eval harness improvements: description quality, richer fixtures, two-model
   gate, prompt-hash CI guard
-status: In Progress
+status: Done
 assignee: []
 created_date: "2026-07-05 13:52"
 labels:
@@ -52,5 +52,5 @@ Four adversarial fixtures land with Tier-1 goldens captured from the real bin: `
 
 Review (7 lenses) drove: the harvested-fixture skip under `--no-agent` (the code had failed what its own message and the manifest doc promised to skip — corroborated by six lenses), the kind-aware manifest wrap (a harvested decline's members no longer become an unmatchable umbrella), the ≥3-char prefix guard, the relaxed `"regist"` golden, resilient pin reading, bridge endpoint-pair goldens, the extracted-and-tested certification annotation, timeout-aware deterministic diagnostics, and the doc corrections (npm `--` separators, certification terminology, the authoring guide).
 
-**Deferrals.** AC#6 (fixtures primarily from the .17 harvest) waits with the .17 harvest itself — deferred until organically captured, human-graded bergamot runs exist; the harvested-manifest loader, the skip semantics, and the decline wrap are already in place for that corpus. AC#7 is checked as the standing gate it states: no LLM description-quality judge ships, and `docs/stitch_eval.md` + `docs/contracts/judge_calibration.md` bind any future judge to calibration against the human grades corpus via `drift-calibrate` before its verdicts gate anything.
+**Deferrals.** AC#6 (fixtures primarily from the .17 harvest) is owned by task-27.1.20.17's remaining-work item (install the new build in bergamot → grade organically captured runs → harvest); every .13-side piece of that path — the harvested-manifest loader, the --no-agent skip semantics, and the decline wrap — is already in place, so the corpus lands here with zero further harness changes. AC#7 is checked as the standing gate it states: no LLM description-quality judge ships, and `docs/stitch_eval.md` + `docs/contracts/judge_calibration.md` bind any future judge to calibration against the human grades corpus via `drift-calibrate` before its verdicts gate anything.
 <!-- SECTION:NOTES:END -->
