@@ -5,9 +5,12 @@
  * exact shape the code under test branches on (an unresolved call at a chosen `file:line`, a seed
  * absent from the graph, a member whose body drifted).
  *
- * Ids are derived, not invented: a node's `symbol_id` is its flow-layer `symbol_path`
- * (`<file>#<name>:<kind>`), the same key `flow_id_of`/`build_symbol_path_index` derive, so a spec's
- * `id_of` is exactly what the code under test resolves seeds and descriptions against.
+ * Two id spaces meet here, exactly as in production: a node's `symbol_id` is Ariadne's location-based
+ * key, while its flow-layer `symbol_path` (`<file>#<name>:<kind>`) is the rename-stable id `flow_id_of`
+ * derives from name+file+kind. A spec defaults `symbol_id` to that path (the common case where the two
+ * coincide), but `symbol_id` can be set independently to model the divergence methods create
+ * (`file#Item.process:method` vs the enclosing-free path), which is what the two-id-space join in
+ * `apply_descriptions` turns on.
  */
 
 import type { CallGraph, CallableNode, CallReference, FilePath, SymbolId, SymbolName } from "@ariadnejs/types";
@@ -24,12 +27,9 @@ import type { ReconcileDeps } from "../types";
 export interface CallSpec {
   /** Target flow-layer symbol_paths this call resolves to, each with `certain` confidence. */
   to?: string[];
-  /** Call-site file (defaults to the enclosing node's file). */
-  file?: string;
   /** Call-site 1-indexed start line (defaults to 1). */
   line?: number;
-  start_column?: number;
-  end_line?: number;
+  /** Call-site end column — the tail of the canonical provenance span. Defaults to 1. */
   end_column?: number;
   /** Display name; defaults to the first target's, else `call`. */
   name?: string;
@@ -40,15 +40,17 @@ export interface CallSpec {
 export interface NodeSpec {
   file: string;
   name: string;
-  /** Definition kind woven into the symbol_path (`:function`). Defaults to `function`. */
+  /** Definition kind woven into the flow-layer symbol_path (`:function`). Defaults to `function`. */
   kind?: string;
   /** 1-indexed defining line. Defaults to 1. */
   line?: number;
   is_test?: boolean;
   calls?: CallSpec[];
+  /** Ariadne's location-based graph key. Defaults to the flow-layer path (the common coincident case). */
+  symbol_id?: string;
 }
 
-/** The flow-layer symbol_path (== the node's `symbol_id`) for a spec — what seeds/descriptions resolve against. */
+/** The flow-layer symbol_path (what seeds/descriptions resolve against) for a spec. */
 export function id_of(spec: { file: string; name: string; kind?: string }): string {
   return build_symbol_path(spec.file, [], spec.name, spec.kind ?? "function");
 }
@@ -58,14 +60,13 @@ function resolution_of(target: string): Resolution {
 }
 
 function call_reference(node_file: string, call: CallSpec): CallReference {
-  const file = call.file ?? node_file;
   const start_line = call.line ?? 1;
   const reference: CallReference = {
     location: {
-      file_path: file as FilePath,
+      file_path: node_file as FilePath,
       start_line,
-      start_column: call.start_column ?? 0,
-      end_line: call.end_line ?? start_line,
+      start_column: 0,
+      end_line: start_line,
       end_column: call.end_column ?? 1,
     },
     name: (call.name ?? call.to?.[0] ?? "call") as SymbolName,
@@ -76,8 +77,8 @@ function call_reference(node_file: string, call: CallSpec): CallReference {
   return call.is_callback ? { ...reference, is_callback_invocation: true } : reference;
 }
 
-export function make_node(spec: NodeSpec): CallableNode {
-  const id = id_of(spec);
+function make_node(spec: NodeSpec): CallableNode {
+  const symbol_id = (spec.symbol_id ?? id_of(spec)) as SymbolId;
   const line = spec.line ?? 1;
   const location = {
     file_path: spec.file as FilePath,
@@ -88,7 +89,7 @@ export function make_node(spec: NodeSpec): CallableNode {
   };
   const definition: FunctionDefinition = {
     kind: "function",
-    symbol_id: id as SymbolId,
+    symbol_id,
     name: spec.name as SymbolName,
     defining_scope_id: "scope:0" as ScopeId,
     location,
@@ -97,7 +98,7 @@ export function make_node(spec: NodeSpec): CallableNode {
     body_scope_id: "scope:1" as ScopeId,
   };
   return {
-    symbol_id: id as SymbolId,
+    symbol_id,
     name: spec.name as SymbolName,
     enclosed_calls: (spec.calls ?? []).map((call) => call_reference(spec.file, call)),
     location,
@@ -113,26 +114,37 @@ export function make_graph(specs: NodeSpec[], entry_points: NodeSpec[]): CallGra
     const node = make_node(spec);
     nodes.set(node.symbol_id, node);
   }
-  return { nodes, entry_points: entry_points.map((s) => id_of(s) as SymbolId) };
+  return { nodes, entry_points: entry_points.map((s) => (s.symbol_id ?? id_of(s)) as SymbolId) };
 }
 
-/** An {@link AnchoredSymbol} for the describe / apply-descriptions join. `symbol_path` defaults to `id_of`. */
+/** A 64-char hex sha256 stand-in — the shape the real `content_hash` always takes. */
+function hex_hash(seed: string): string {
+  return seed.repeat(64).slice(0, 64).replace(/[^0-9a-f]/g, "0");
+}
+
+/**
+ * An {@link AnchoredSymbol} for the describe / apply-descriptions join. `symbol_id` (the graph key) and
+ * `symbol_path` (the stored, enclosing-qualified id) default to the flow-layer path but can diverge to
+ * model a method — the case the two-id-space join exists for.
+ */
 export function anchored_of(spec: {
   file: string;
   name: string;
   kind?: string;
   content_hash?: string;
   symbol_path?: string;
+  symbol_id?: string;
 }): AnchoredSymbol {
   const symbol_path = spec.symbol_path ?? id_of(spec);
-  const content_hash = spec.content_hash ?? "h0";
+  const symbol_id = (spec.symbol_id ?? id_of(spec)) as SymbolId;
+  const content_hash = spec.content_hash ?? hex_hash("a");
   return {
-    symbol_id: id_of(spec) as SymbolId,
+    symbol_id,
     symbol_path,
     content_hash,
     anchor: `${symbol_path}:${content_hash}`,
     file_path: spec.file,
-    definition: make_node(spec).definition as AnyDefinition,
+    definition: make_node({ file: spec.file, name: spec.name, kind: spec.kind, symbol_id: spec.symbol_id }).definition as AnyDefinition,
   };
 }
 
