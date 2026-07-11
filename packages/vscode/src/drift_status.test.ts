@@ -43,6 +43,17 @@ describe("format_sync_status", () => {
     expect(format_sync_status(status)).toContain("in flight or was interrupted");
   });
 
+  it("flags an in-flight/interrupted run when an attempt exists but nothing has ever succeeded", () => {
+    const status: SyncStatus = {
+      last_attempt_at: "2026-07-08T10:00:00Z",
+      last_success_at: null,
+      last_error: null,
+    };
+    const rendered = format_sync_status(status);
+    expect(rendered).toContain("in flight or was interrupted");
+    expect(rendered).toContain("last success: never");
+  });
+
   it("reads healthy when the last attempt succeeded", () => {
     const status: SyncStatus = {
       last_attempt_at: "2026-07-07T10:00:00Z",

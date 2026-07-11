@@ -43,7 +43,7 @@ export function drift_bar_state(hook_installed: boolean): DriftBarState {
 }
 
 /**
- * Render the persisted sync-status (the `.3` health record beside the store) as a human line for the
+ * Render the persisted sync-status (the health record beside the store) as a human line for the
  * OutputChannel. `last_error !== null` always means the most recent reconcile FAILED; an attempt newer
  * than the last success with no error means a run was interrupted or is in flight; otherwise the repo
  * is in sync. A record with every field null has never reconciled.

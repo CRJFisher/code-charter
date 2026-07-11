@@ -76,6 +76,16 @@ describe("StoreWatcher", () => {
     expect(created.dispose).toHaveBeenCalledTimes(1);
   });
 
+  it("creates a fresh watcher when started again after disposal", () => {
+    const watcher = new StoreWatcher("/repo/.code-charter", "graph.db", jest.fn());
+
+    watcher.start();
+    watcher.dispose();
+    watcher.start();
+
+    expect(vscode.workspace.createFileSystemWatcher).toHaveBeenCalledTimes(2);
+  });
+
   it("does not fire the callback for a write that was still settling when disposed", () => {
     jest.useFakeTimers();
     const on_change = jest.fn();

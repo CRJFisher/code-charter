@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
  * when an out-of-process reconcile writes it. The reconcile commits in WAL and checkpoints back into
  * graph.db when it closes; the write can land as several rapid events, so — like UIDevWatcher — the
  * callback is debounced to run once the write has settled. Read-only by construction: the watcher never
- * opens the store, it only signals that a re-read is due (AC#3).
+ * opens the store, it only signals that a re-read is due.
  */
 export class StoreWatcher {
   private watcher: vscode.FileSystemWatcher | undefined;
