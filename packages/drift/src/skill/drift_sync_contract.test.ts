@@ -145,6 +145,8 @@ describe("drift-sync script contract", () => {
     const { store, pending } = make_store_dir(["src/a.ts"], SESSION);
     const result = run(["--store", store, "--repo-root", "/repo"], { DRIFT_RECONCILE_BIN: exiting_bin });
     expect(result.status).toBe(5);
+    // The TS parser tolerates a mismatched version, so pin the raw byte the JS writer stamps.
+    expect(JSON.parse(fs.readFileSync(pending, "utf8")).version).toBe(1);
     expect(parse_pending_reconcile(fs.readFileSync(pending, "utf8"))).toEqual({
       files: ["src/a.ts"],
       session: SESSION,
