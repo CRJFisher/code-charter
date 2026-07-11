@@ -71,6 +71,16 @@ describe("append_reconcile_log", () => {
     expect(() => append_reconcile_log(path.join(blocker, "graph.db"), record(), (m) => messages.push(m))).not.toThrow();
     expect(messages).toContainEqual(expect.stringContaining("drift_reconcile_log.jsonl"));
   });
+
+  it("round-trips a hand-invoked record whose join key is absent (null session, omitted transcript_path)", () => {
+    const hand_invoked = record({ session_id: null, instruction: null });
+    delete hand_invoked.transcript_path;
+    append_reconcile_log(store_path, hand_invoked, () => {});
+
+    const read = read_latest_reconcile_record(store_path);
+    expect(read).toEqual(hand_invoked);
+    expect(read && "transcript_path" in read).toBe(false);
+  });
 });
 
 describe("read_latest_reconcile_record", () => {

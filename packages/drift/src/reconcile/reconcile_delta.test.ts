@@ -12,10 +12,10 @@ import { reconcile } from "./reconcile";
 import type { ReconcileDeps } from "./types";
 
 /**
- * task-27.1.6.4 AC#2/#3/#4/#7 — symbol-level change-detection scoping through the full headless path.
- * One test per delta class (add / remove / body-modify / relocate / no-op), asserting precise re-sync
- * scoping (only flows whose body or membership drifted) and precise re-describe scoping (only changed
- * symbols re-described, unchanged descriptions byte-identical).
+ * Symbol-level change-detection scoping through the full headless path. One test per delta class
+ * (add / remove / body-modify / relocate / no-op), asserting precise re-sync scoping (only flows
+ * whose body or membership drifted) and precise re-describe scoping (only changed symbols
+ * re-described, unchanged descriptions byte-identical).
  */
 
 const FLOW_ID = "main.ts#main:function";
@@ -91,7 +91,7 @@ afterEach(() => {
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
-describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
+describe("reconcile — symbol-level delta scoping", () => {
   it("add: a new member reachable from the seed re-syncs the flow and describes only the new symbol", async () => {
     await run(["main.ts"]);
     const before = flow_sync();
@@ -240,7 +240,7 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(store.node(`${DESCRIPTION_NODE_KIND}:main.ts#beta:function`)).toBeUndefined();
   });
 
-  it("no-op: a whitespace/comment edit that changes no member body reconciles nothing (AC#4)", async () => {
+  it("no-op: a whitespace/comment edit that changes no member body reconciles nothing", async () => {
     await run(["main.ts"]);
     const before_sync = flow_sync();
     const before = {
@@ -259,7 +259,7 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(desc_attrs("main.ts#beta:function")).toEqual(before.beta);
   });
 
-  it("scopes by symbol, not file: an unrelated new symbol in a flow's file does not re-sync the flow (AC#2)", async () => {
+  it("scopes by symbol, not file: an unrelated new symbol in a flow's file does not re-sync the flow", async () => {
     await run(["main.ts"]);
     const before = flow_sync();
 
@@ -309,7 +309,7 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(logs.some((m) => m.includes(`retired flow ${skill_id}`))).toBe(true);
   });
 
-  it("rolls back the whole turn when a write throws mid-reconcile — no half-applied turn (AC#1)", async () => {
+  it("rolls back the whole turn when a write throws mid-reconcile — no half-applied turn", async () => {
     const project = new HeadlessProject(repo);
     await project.initialize();
     const adapter = make_ariadne_adapter(project, () => {});
@@ -344,7 +344,7 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(read_persisted_flows(store)).toEqual([]);
   });
 
-  it("flags a name-only member with description_source 'provisional' so it stays identifiable if the agent pass never runs (AC#3)", async () => {
+  it("flags a name-only member with description_source 'provisional' so it stays identifiable if the agent pass never runs", async () => {
     // main/alpha/beta carry no docstrings, so the deterministic pass writes name stand-ins. They must
     // persist as `provisional` (awaiting --apply-descriptions), NOT a terminal `placeholder`.
     await run(["main.ts"]);
@@ -353,7 +353,7 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
     expect(node?.attributes.description_source).toBe("provisional");
   });
 
-  it("defers a degraded skill bundle rather than overwriting the good flow with a shrunken snapshot (AC#2)", async () => {
+  it("defers a degraded skill bundle rather than overwriting the good flow with a shrunken snapshot", async () => {
     // A healthy bundle: SKILL.md links a reference, so the flow hydrates with two doc members.
     write("myskill/SKILL.md", "---\nname: myskill\ndescription: test skill\n---\n\n# My Skill\n\nSee [ref](reference.md).\n");
     write("myskill/reference.md", "# Reference\n\nBody.\n");
@@ -393,7 +393,7 @@ describe("reconcile — symbol-level delta scoping (AC#2/#3/#4/#7)", () => {
   });
 });
 
-describe("reconcile — anchored_symbols join-miss diagnostic (task-27.1.20.3 AC#3)", () => {
+describe("reconcile — anchored_symbols join-miss diagnostic", () => {
   it("logs a diagnostic when a modified symbol_path misses the anchored_symbols join", async () => {
     await run(["main.ts"]);
 

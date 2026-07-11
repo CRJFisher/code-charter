@@ -68,7 +68,7 @@ export interface CodeUmbrella {
 }
 
 interface HydrateOptions {
-  /** Run the (cost-bearing) describe step. False for the singleton-stub overflow above the cap (AC#8). */
+  /** Run the (cost-bearing) describe step. False for the singleton-stub overflow above the cap. */
   describe?: boolean;
 }
 
@@ -126,7 +126,7 @@ export async function hydrate_code_flow(
   // Deterministic describe over the flow's member files, persisted (with the cost ceiling) through
   // the substrate writer. A member relocated this turn was already re-anchored inline by re_extract
   // (description and cache key re-keyed to the new symbol_path), so it resolves as a content-hash cache
-  // hit here. Skipped for the singleton-stub overflow above the per-turn cap (AC#8). Agent-authored
+  // hit here. Skipped for the singleton-stub overflow above the per-turn cap. Agent-authored
   // text lands later through `--apply-descriptions`, never through this path.
   let descriptions: ReturnType<typeof resolve_descriptions> = [];
   if (options.describe !== false) {

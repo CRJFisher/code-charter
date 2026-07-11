@@ -81,7 +81,7 @@ function records_for(result: ReconcileResult, flow_id: string): ReconcileResult[
   return result.outcomes.filter((outcome) => outcome.flow_id === flow_id);
 }
 
-describe("test-entrypoint consistency (AC#1)", () => {
+describe("test-entrypoint consistency", () => {
   it("does not hydrate a test-rooted entrypoint whose tree reaches a changed product file", async () => {
     const result = await reconcile(["feature.ts"], deps_over());
 
@@ -114,7 +114,7 @@ describe("test-entrypoint consistency (AC#1)", () => {
   });
 });
 
-describe("stale-flow sweep — code flows (AC#2)", () => {
+describe("stale-flow sweep — code flows", () => {
   it("retires a code flow whose seed no longer resolves, leaving healthy untouched flows alone", async () => {
     const graph = make_graph([FEATURE], [FEATURE]);
     seed_code_flow(GONE_ID);
@@ -281,7 +281,7 @@ describe("stale-flow sweep — code flows (AC#2)", () => {
   });
 });
 
-describe("stale-flow sweep — skill flows (AC#2)", () => {
+describe("stale-flow sweep — skill flows", () => {
   it("retires a skill flow whose SKILL.md is gone from disk", async () => {
     seed_skill_flow({ skill_root: "myskill" });
 

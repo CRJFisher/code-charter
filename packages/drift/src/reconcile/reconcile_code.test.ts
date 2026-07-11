@@ -76,7 +76,7 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     );
   });
 
-  it("does not regenerate an unchanged member's description on an unrelated re-sync (content-hash cost guard, AC#6)", async () => {
+  it("does not regenerate an unchanged member's description on an unrelated re-sync (content-hash cost guard)", async () => {
     await run(["main.ts"]);
     const helper_desc_id = `${DESCRIPTION_NODE_KIND}:main.ts#helper:function`;
     // Stamp a distinctive agentic description so a spurious re-describe is detectable: a re-run of the
@@ -334,7 +334,7 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     expect(read_persisted_flows(store).map((f) => f.node.id)).toContain(flow_id);
   });
 
-  it("caps full hydration at the per-turn ceiling, writing the overflow as describe-less stubs (AC#8)", async () => {
+  it("caps full hydration at the per-turn ceiling, writing the overflow as describe-less stubs", async () => {
     // One file with 51 independent entrypoints — one over the ceiling — so the overflow exercises the
     // stub branch. None call each other, so each is its own singleton flow.
     const ceiling = 50;
@@ -363,7 +363,7 @@ describe("reconcile — code flow (full Ariadne headless path)", () => {
     expect(logs).toContainEqual(expect.stringContaining(`capped full hydration at ${ceiling} of ${count}`));
   });
 
-  it("re-syncs in place and advances last_synced_at without duplicating the flow (AC#1)", async () => {
+  it("re-syncs in place and advances last_synced_at without duplicating the flow", async () => {
     await run(["main.ts"]);
     const flow_id = read_persisted_flows(store)[0].node.id;
     const first = read_persisted_flow(store, flow_id)!.node.attributes.last_synced_at as string;

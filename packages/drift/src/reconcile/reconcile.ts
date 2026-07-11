@@ -7,7 +7,7 @@
  *   1. Partition changed files into skill bundles (a `SKILL.md` ancestor) and plain code.
  *   2. Refresh raw: `re_extract(code, 'code-change')` (the single funnel — relocations re-anchor
  *      inline), and `ingest_skill` per touched bundle.
- *   3. Dispatch per flow — HYDRATE, RE-SYNC, or RETIRE: re-induce the affected persisted flows (AC#5)
+ *   3. Dispatch per flow — HYDRATE, RE-SYNC, or RETIRE: re-induce the affected persisted flows
  *      and re-sync each; detect new umbrellas over the changed files and hydrate each; RETIRE a flow
  *      whose stored seed no longer resolves (deferred into `deferred_retirements` when the graph is
  *      untrustworthy for the seed's file) or whose seeds were demoted by a flow written this turn
@@ -23,8 +23,8 @@
  * "No new drift → no-op": an empty file set, or no affected/new flows, returns an empty outcome list.
  * Writes are scoped and idempotent, so re-firing the hook (or the `stop_hook_active` re-entry) is safe.
  *
- * The whole turn runs inside one store transaction ({@link GraphStore.transaction}, on the WAL
- * discipline from task-27.1.20.1): every mutation commits together, so a mid-turn crash rolls the turn
+ * The whole turn runs inside one store transaction ({@link GraphStore.transaction}, on the store's
+ * WAL discipline): every mutation commits together, so a mid-turn crash rolls the turn
  * back rather than leaving it half-applied. Two guards keep a degraded input from overwriting good
  * state: the code path defers a retirement when the graph is untrustworthy for the seed's file, and
  * the skill path defers a bundle re-sync when the bundle looks degraded on disk (a truncated SKILL.md,
@@ -72,9 +72,9 @@ export async function reconcile(file_set: readonly string[], deps: ReconcileDeps
     return { file_set: changed, outcomes: [], deferred_retirements: [], deferred_skill_syncs: [], description_counts };
   }
 
-  // The whole turn commits or rolls back as a unit (AC#1): reconcile issues many independent store
+  // The whole turn commits or rolls back as a unit: reconcile issues many independent store
   // mutations, so a mid-turn crash under a per-statement journal would leave half a turn applied. One
-  // BEGIN IMMEDIATE (built on the WAL discipline from task-27.1.20.1) makes the turn atomic.
+  // BEGIN IMMEDIATE on the store's WAL discipline makes the turn atomic.
   return deps.store.transaction(() => reconcile_turn(changed, description_counts, deps));
 }
 
@@ -109,7 +109,7 @@ async function reconcile_turn(
     }).delta;
   }
   // A degraded bundle on disk (truncated SKILL.md, missing sub-agent file) is DEFERRED, not ingested:
-  // ingesting it would overwrite the good flow with a shrunken snapshot (AC#2). The good flow is left
+  // ingesting it would overwrite the good flow with a shrunken snapshot. The good flow is left
   // intact and the sync retries on the next turn that touches the bundle — the code path's
   // trustworthy-graph gate, mirrored onto the skill path.
   const deferred_skill_syncs: DeferredSkillSync[] = [];
@@ -147,7 +147,7 @@ async function reconcile_turn(
     handled.add(umbrella.id);
   }
 
-  // 3b. RE-SYNC the persisted CODE flows whose body or membership drifted this turn (task-27.1.6.4 AC#2).
+  // 3b. RE-SYNC the persisted CODE flows whose body or membership drifted this turn.
   //     The delta drives this: its `modified` class maps to the body-drift trigger (a changed body is a
   //     member), while `added`/`removed`/`relocated` reshape a flow's induced member set and are realized
   //     by the membership-drift trigger inside affected_persisted_flows (a relocated member's description
@@ -229,7 +229,7 @@ function add_description_counts(total: DescriptionCounts, part: DescriptionCount
 }
 
 /**
- * Retire persisted flows superseded by a flow written this turn (task-27.1.15.3): a candidate is
+ * Retire persisted flows superseded by a flow written this turn: a candidate is
  * retired when none of its stored seeds is still an entry point of the live graph (each demoted to a
  * non-entrypoint — typically by a new wrapper caller) AND its member set is subsumed by the
  * just-written flow's. The conjunction protects coexisting genuine entrypoint flows that merely
@@ -396,8 +396,8 @@ function build_skill_umbrella(deps: ReconcileDeps, skill_root_abs: string, skill
 }
 
 /**
- * The live `SymbolId`s of this turn's body-modified symbols — the body-drift re-sync trigger
- * (task-27.1.6.4 AC#2). Added/removed/relocated members are caught by the membership-diff trigger inside
+ * The live `SymbolId`s of this turn's body-modified symbols — the body-drift re-sync trigger.
+ * Added/removed/relocated members are caught by the membership-diff trigger inside
  * `affected_persisted_flows`, so only `modified` needs the symbol_path → SymbolId join here. The join
  * goes through `anchored_symbols` (the one place a resolver `symbol_path` is paired with a call-graph id).
  */

@@ -46,7 +46,7 @@ afterEach(() => {
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
-describe("reconcile — membership resolution (AC#5)", () => {
+describe("reconcile — membership resolution", () => {
   it("re-syncs every flow whose induced subgraph contains a changed shared leaf", async () => {
     // Two entrypoints both reach `shared`; a change to `shared` must re-sync both flows.
     write(

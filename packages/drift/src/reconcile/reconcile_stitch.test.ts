@@ -1,5 +1,5 @@
 /**
- * AC#7 — the agentic stitch path, proven at the script boundary. The drift-sync skill orchestrates
+ * The agentic stitch path, proven at the script boundary. The drift-sync skill orchestrates
  * the agent over three bin modes; here golden wire JSON stands in for the agent's judgement and the
  * built `drift-reconcile` bin is spawned over a real on-disk split-entrypoint fixture:
  *
@@ -126,7 +126,7 @@ afterEach(() => {
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
-describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
+describe("drift-reconcile agentic modes — the script boundary", () => {
   it("--list-entrypoints alone: emits the golden inventory and leaves the orphans as singleton flows", () => {
     const result = run(["--list-entrypoints", "--files", FILES]);
     expect(result.status).toBe(0);
@@ -167,7 +167,7 @@ describe("drift-reconcile agentic modes — the script boundary (AC#7)", () => {
     expect(bridges).toHaveLength(0);
   });
 
-  it("--list-entrypoints is byte-identical to the default deterministic reconcile (AC#5)", () => {
+  it("--list-entrypoints is byte-identical to the default deterministic reconcile", () => {
     const from_list = run(["--list-entrypoints", "--files", FILES]);
     expect(from_list.status).toBe(0);
     const list_store = dump_store();

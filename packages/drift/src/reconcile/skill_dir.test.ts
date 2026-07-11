@@ -113,7 +113,7 @@ describe("ingest_skill_dir", () => {
   });
 });
 
-describe("assess_skill_bundle (partial/degraded-write guard, AC#2)", () => {
+describe("assess_skill_bundle (partial/degraded-write guard)", () => {
   it("passes a healthy bundle with a present sub-agent file", () => {
     const skill = make_skill("skills/foo", {
       "agents/reviewer.md": "# reviewer\n",

@@ -224,4 +224,21 @@ describe("dry_run_store", () => {
     expect(ran).toBe(false);
     expect(inner.called("rebuild_layer")).toBe(false);
   });
+
+  it("runs the transaction body and returns its result without opening the underlying transaction", async () => {
+    const inner = new RecordingStore();
+    const result = await dry_run_store(inner).transaction(async () => 42);
+    expect(result).toBe(42);
+    expect(inner.called("transaction")).toBe(false);
+  });
+
+  it("swallows mutations issued inside the transaction body so dry-run detection leaves no write", async () => {
+    const inner = new RecordingStore();
+    const wrapped = dry_run_store(inner);
+    await wrapped.transaction(async () => {
+      wrapped.upsert_node(NODE);
+      wrapped.soft_delete({ kind: "node", id: NODE.id });
+    });
+    expect(inner.calls).toEqual([]);
+  });
 });

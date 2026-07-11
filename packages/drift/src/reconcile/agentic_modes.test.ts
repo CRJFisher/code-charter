@@ -1,5 +1,5 @@
 /**
- * AC#1 — the agent-facing write surface, exercised in memory (no built bin, no Ariadne). A hand-built
+ * The agent-facing write surface, exercised in memory (no built bin, no Ariadne). A hand-built
  * `CallGraph` and an `:memory:` store stand in for the live world, so each test pins the exact shape the
  * mode branches on:
  *
