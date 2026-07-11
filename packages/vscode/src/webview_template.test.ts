@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { get_webview_content } from "../webview_template";
+import { get_webview_content } from "./webview_template";
 
 function fake_uri(fs_path: string): vscode.Uri {
   const partial: Partial<vscode.Uri> = {

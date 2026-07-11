@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { UIDevWatcher } from "../dev_watcher";
+import { UIDevWatcher } from "./dev_watcher";
 
 const { __mockHelpers } = require("vscode");
 const { mockFileWatcherCallbacks } = __mockHelpers;

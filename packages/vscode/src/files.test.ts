@@ -1,4 +1,4 @@
-import { add_to_gitignore } from "../files";
+import { add_to_gitignore } from "./files";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";

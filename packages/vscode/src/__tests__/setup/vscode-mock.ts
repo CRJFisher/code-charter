@@ -1,9 +1,8 @@
-// Mock implementation of vscode module for testing
 const mockFileWatcherCallbacks: any = {};
 const mockDocumentChangeCallback: any = { callback: null };
-const mockEventEmitter: any = { 
+const mockEventEmitter: any = {
   instance: null,
-  callback: null 
+  callback: null
 };
 
 module.exports = {
@@ -27,9 +26,6 @@ module.exports = {
       mockDocumentChangeCallback.callback = callback;
       return { dispose: jest.fn() };
     }),
-    getConfiguration: jest.fn(() => ({
-      get: jest.fn()
-    })),
     workspaceFolders: []
   },
   RelativePattern: jest.fn((base, pattern) => ({ base, pattern })),
@@ -49,7 +45,6 @@ module.exports = {
     mockEventEmitter.instance = emitter;
     return emitter;
   }),
-  Disposable: jest.fn(),
   Uri: {
     file: (path: string) => ({ fsPath: path, scheme: "file" })
   },
@@ -59,14 +54,8 @@ module.exports = {
     Three: 3
   },
   window: {
-    showWarningMessage: jest.fn(),
-    showErrorMessage: jest.fn(),
     showInformationMessage: jest.fn()
   },
-  FileSystemWatcher: jest.fn(),
-  TextDocument: jest.fn(),
-  TextDocumentContentChangeEvent: jest.fn(),
-  // Export helpers for tests
   __mockHelpers: {
     mockFileWatcherCallbacks,
     mockDocumentChangeCallback,
