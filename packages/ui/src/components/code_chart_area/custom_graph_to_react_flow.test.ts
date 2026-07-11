@@ -40,7 +40,7 @@ function edge(over: Partial<EdgeRow> = {}): EdgeRow {
 
 const MODULE_ID = "agentic.group:file:src/app.ts";
 
-describe("custom_graph_to_react_flow (AC#6)", () => {
+describe("custom_graph_to_react_flow", () => {
   it("renders a code.function leaf, mapping attributes.description to the label", () => {
     const { nodes } = custom_graph_to_react_flow({
       nodes: [node({ attributes: { description: "adds two numbers" } })],
@@ -110,7 +110,7 @@ describe("custom_graph_to_react_flow (AC#6)", () => {
     if (is_code_node(b)) expect(b.data.line_number).toBe(1);
   });
 
-  it("sets data.is_entry_point when the row has attributes.is_entry_point = true (AC#4)", () => {
+  it("sets data.is_entry_point when the row has attributes.is_entry_point = true", () => {
     const entry = node({ attributes: { is_entry_point: true } });
     const non_entry = node({ id: "src/app.ts#helper:function" });
     const { nodes } = custom_graph_to_react_flow({ nodes: [entry, non_entry], edges: [] });
@@ -121,7 +121,7 @@ describe("custom_graph_to_react_flow (AC#6)", () => {
     if (is_code_node(other_node)) expect(other_node.data.is_entry_point).toBe(false);
   });
 
-  it("assigns distinct cluster_index per module group node in emission order (AC#5)", () => {
+  it("assigns distinct cluster_index per module group node in emission order", () => {
     const module_a = node({ id: "agentic.group:file:src/a.ts", kind: "agentic.group", anchor: null, layer: "agentic", attributes: { label: "src/a.ts" } });
     const module_b = node({ id: "agentic.group:file:src/b.ts", kind: "agentic.group", anchor: null, layer: "agentic", attributes: { label: "src/b.ts" } });
     const { nodes } = custom_graph_to_react_flow({ nodes: [module_a, module_b], edges: [] });
@@ -135,9 +135,9 @@ describe("custom_graph_to_react_flow (AC#6)", () => {
     }
   });
 
-  it("emits every parent before its children, even for children-first input rows (AC#2)", () => {
-    // Two modules, each with a leaf. Input order is children-first (as flow_projection emits them):
-    // both leaves, then both module groups. The adapter must reorder so each parent precedes its child.
+  it("emits every parent before its children, even for children-first input rows", () => {
+    // The flow projection emits leaves before their module groups; the adapter must reorder so each
+    // parent precedes its child, or React Flow leaves children at raw parent-relative coordinates.
     const leaf_a = node({ id: "src/a.ts#fn:function", path: "src/a.ts" });
     const leaf_b = node({ id: "src/b.ts#fn:function", path: "src/b.ts" });
     const module_a = node({ id: "agentic.group:file:src/a.ts", kind: "agentic.group", anchor: null, layer: "agentic", attributes: { label: "src/a.ts" } });

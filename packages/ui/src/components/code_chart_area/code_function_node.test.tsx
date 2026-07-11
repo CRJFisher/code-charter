@@ -68,6 +68,28 @@ describe('CodeFunctionNode', () => {
     });
   });
 
+  it('navigates to the source file and line on Enter', () => {
+    render_node(create_props());
+
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' });
+
+    expect(mocked_navigate).toHaveBeenCalledWith({
+      file_path: '/test/file.ts',
+      line_number: 42,
+    });
+  });
+
+  it('navigates to the source file and line on Space', () => {
+    render_node(create_props());
+
+    fireEvent.keyDown(screen.getByRole('button'), { key: ' ' });
+
+    expect(mocked_navigate).toHaveBeenCalledWith({
+      file_path: '/test/file.ts',
+      line_number: 42,
+    });
+  });
+
   it('ignores key presses other than Enter and Space', () => {
     render_node(create_props());
 

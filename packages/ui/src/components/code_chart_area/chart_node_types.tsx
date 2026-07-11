@@ -105,7 +105,7 @@ export interface ModuleNodeData extends Record<string, unknown> {
   is_expanded?: boolean;
   cluster_index: number;
   quality_score?: number;
-  /** The source row, attached by `custom_graph_to_react_flow` for selection-driven provenance (AC#8). */
+  /** The source row, attached by `custom_graph_to_react_flow` for selection-driven provenance. */
   row?: NodeRow;
 }
 
@@ -246,13 +246,10 @@ export const ModuleGroupNode = React.memo(ModuleGroupNodeComponent, (prev_props,
   );
 });
 
-// --- open node-kind registry (AC#6) -----------------------------------------
-//
 // A `NodeRow.kind` (namespaced, e.g. 'code.function', 'agentic.group') maps to a React Flow node
-// `type` string and its component. The map is open: a new kind — a shaped flowchart node
-// (task-27.1.11), a doc node (task-21.2) — registers an entry rather than editing a closed branch
-// here or in the adapter. The React Flow `type` strings stay stable ('code_function'/'module_group')
-// so the type guards, drag handlers, and minimap color keep working unchanged.
+// `type` string and its component. The map is open: a new kind registers an entry rather than
+// editing a closed branch here or in the adapter. The React Flow `type` strings stay stable
+// ('code_function'/'module_group') so the type guards, drag handlers, and minimap color keep working.
 
 interface NodeKindEntry {
   /** The React Flow node `type` string this kind renders as. */

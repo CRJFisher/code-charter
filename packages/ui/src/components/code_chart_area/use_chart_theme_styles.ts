@@ -19,7 +19,7 @@ export function use_flow_theme_styles() {
       transition: 'all 0.3s ease',
     }),
 
-    // Per-edge styling routes through the same `edge_style_for` path (AC#6) so one styling
+    // Per-edge styling routes through the same `edge_style_for` path so one styling
     // function governs both React Flow's default edge options and individual edges.
     get_edge_style: (selected = false) => edge_style_for({ selected }, colors),
 

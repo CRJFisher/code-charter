@@ -1,42 +1,48 @@
 # React Flow Theme Support
 
-This document describes the theme support implementation for React Flow components in Code Charter.
+The React Flow visualization renders against the active VSCode theme when hosted inside VSCode, and
+against built-in light and dark themes in standalone mode. Colors are resolved from the current theme
+every render, so switching themes restyles the whole graph.
 
-## Overview
+## Theme System
 
-The React Flow visualization now fully supports VSCode themes when running inside VSCode, and provides built-in light/dark themes for standalone mode. All colors are dynamically adjusted based on the current theme.
+### Detection
 
-## Architecture
+`ThemeProviderComponent` (`theme/theme_context.tsx`) picks a provider at mount: `VSCodeThemeProvider`
+inside VSCode, `StandaloneThemeProvider` otherwise (or whenever `force_standalone` is set). Components
+read the active theme through the `use_theme` hook.
 
-### Theme Detection
+- **VSCode mode**: the provider tracks VSCode's current theme and pushes changes through
+  `on_theme_change`, so edits to the editor theme restyle the graph without a reload.
+- **Standalone mode**: `use_theme` also exposes `set_theme` and `available_themes`; the selected theme
+  name is persisted in `localStorage` under `code-charter-theme`.
 
-- **VSCode Mode**: Automatically detects and uses the current VSCode theme
-- **Standalone Mode**: Provides light and dark theme options with a theme switcher
+### Color Resolution (`theme_config.ts`)
 
-### Theme System Components
+`get_theme_colors(theme)` returns a `ThemeColorConfig` for the current theme. Most surfaces come from a
+fixed light or dark palette chosen by `theme.type`. A few surfaces are read directly from the VSCode
+theme's `colors` map, falling back to the built-in palette when a key is absent:
 
-1. **Theme Configuration (`theme_config.ts`)**
-   - Maps VSCode theme colors to React Flow component colors
-   - Provides separate configurations for light and dark themes
-   - Generates theme-aware color configurations
+- `editor.background` → panel background
+- `editor.foreground` → default node and UI text
+- `editorWidget.border` → UI border
 
-2. **Flow Theme Provider (`flow_theme_provider.tsx`)**
-   - React context provider for theme colors
-   - Applies CSS variables for theme colors
-   - Manages theme transitions
+`get_cluster_color(colors, index)` maps a cluster index onto the 12-entry cluster palette, wrapping so any
+index (including negative) resolves to a color.
 
-3. **Theme Styles Hook (`use_chart_theme_styles.ts`)**
-   - Provides theme-aware styles to components
-   - Offers utility functions for common style patterns
-   - Ensures consistent theming across all components
+### Style Hook (`use_chart_theme_styles.ts`)
 
-4. **Theme CSS**
-   - Theme-specific styles are applied inline via `use_chart_theme_styles.ts`
-   - Ensures consistent theming across all components
+`use_flow_theme_styles` memoizes the resolved colors against the active theme and returns them alongside
+style builders:
+
+- `colors`: the full `ThemeColorConfig`.
+- `get_node_style(selected, is_entry_point)`: node background, border, and text.
+- `get_edge_style(selected)`: edge stroke and width, routed through `edge_style_for`.
+- `get_button_style(variant)`: `primary` / `secondary` / `danger` button colors.
+- `get_overlay_style()`: overlay and popup surfaces.
+- `get_error_style()`: error message surfaces.
 
 ## Usage
-
-### In Components
 
 ```typescript
 import { use_flow_theme_styles } from './use_chart_theme_styles';
@@ -52,90 +58,22 @@ const MyComponent = () => {
 };
 ```
 
-### Available Style Functions
-
-- `get_node_style(selected, is_entry_point)`: Node styling
-- `get_edge_style(selected)`: Edge styling
-- `get_button_style(variant)`: Button styling (primary/secondary/danger)
-- `get_overlay_style()`: Overlay/popup styling
-- `get_error_style()`: Error message styling
-
 ## Theme Colors
 
-### Node Colors
+`ThemeColorConfig` groups colors by role:
 
-- **Background**: Different for default, module, and entry point nodes
-- **Border**: Changes based on selection state and node type
-- **Text**: Primary, secondary, and tertiary text colors
+- **node**: background (default, module, entry point), border (default, selected, module), and text
+  (default, entry point, secondary, tertiary).
+- **edge**: base and selected stroke.
+- **cluster**: the 12-entry palette used to tint module groups.
+- **ui**: panel/overlay/minimap backgrounds, button variants, status colors (error, warning, success,
+  info), text, and loading indicator colors.
+- **shadow** and **background**: depth effects and the background dot/grid color.
 
-### Edge Colors
+Node and button styles apply a `0.3s ease` transition so theme and selection changes animate.
 
-- **Default**: Subtle color for unselected edges
-- **Selected**: Highlighted color for selected edges
+## Adding Colors
 
-### UI Colors
-
-- **Backgrounds**: Panel, overlay, and minimap backgrounds
-- **Buttons**: Primary, secondary, danger, and disabled states
-- **Status**: Error, warning, success, and info colors
-- **Shadows**: Depth effects that adapt to theme
-
-## VSCode Integration
-
-When running in VSCode:
-
-- Theme colors are automatically extracted from VSCode's current theme
-- All color changes in VSCode are reflected in real-time
-- No manual theme switching is needed
-
-## Standalone Mode
-
-When running outside VSCode:
-
-- Light and dark themes are available
-- Theme preference is persisted in localStorage
-- Smooth transitions between themes
-- Optional theme switcher component
-
-## Theme Transitions
-
-All theme changes include smooth CSS transitions for:
-
-- Background colors
-- Border colors
-- Text colors
-- Fill colors
-- Stroke colors
-
-Transition duration: 0.3s with ease timing function
-
-## Accessibility
-
-- All themes maintain WCAG AA contrast ratios
-- Entry point nodes have distinct visual treatment
-- Selected states are clearly visible in both themes
-- Error states use appropriate color contrasts
-
-## Customization
-
-To add new theme colors:
-
-1. Update `theme_config.ts` to map new colors
-2. Add CSS variables in `get_theme_css_variables`
-3. Use colors via `use_flow_theme_styles` hook
-
-To create custom themes:
-
-1. Define theme in `default_themes.ts`
-2. Follow the VSCode theme color schema
-3. Test contrast ratios for accessibility
-
-## Testing
-
-Theme support includes:
-
-- Automatic theme detection tests
-- Color contrast validation
-- Theme switching functionality
-- CSS variable application
-- Component styling consistency
+To extend the palette, add the field to `ThemeColorConfig` and its light and dark values in
+`get_theme_colors`, then read it through `use_flow_theme_styles`. To add a theme, define it in
+`theme/default_themes.ts` following the VSCode theme color schema.

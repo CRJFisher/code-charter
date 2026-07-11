@@ -1,172 +1,91 @@
 # React Flow Configuration Guide
 
-This document describes the configuration system for the React Flow visualization components.
+`chart_config.ts` holds every layout, sizing, timing, and layering constant used by the React Flow
+visualization in one place. It exports a single frozen object, `CONFIG`, whose sections group related
+values. Colors are not here; theme-derived colors live in `theme_config.ts`.
 
-## Overview
+## Configuration Sections
 
-All configuration constants have been extracted into a central `chart_config.ts` file to improve maintainability and make customization easier. The configuration is organized into logical sections for different aspects of the visualization.
+### `CONFIG.layout`
 
-## Configuration Structure
+Hierarchical layout inputs.
 
-### Layout Configuration (`LAYOUT_CONFIG`)
+- `elk`: ELK layered-algorithm options — `algorithm`, `direction`, `edgeRouting`, `unnecessaryBendpoints`,
+  `nodePlacement.strategy`, and `spacing.nodeNode` / `spacing.nodeNodeBetweenLayers` /
+  `spacing.edgeNodeBetweenLayers`.
+- `grid`: fallback grid spacing (`spacingX`, `spacingY`) used when ELK layout does not run.
+- `retry`: layout retry policy (`max_attempts`, `delay_ms`).
+- `module`: file-module group geometry. `innerPadding` is the gap between the module border and its child
+  function nodes on the left, right, and bottom; the top gap is `innerPadding + headerHeight` to leave room
+  for the title bar.
 
-- **ELK Layout Options**: Controls the hierarchical layout algorithm
-  - `algorithm`: Layout algorithm to use (default: 'layered')
-  - `spacing.nodeNode`: Space between nodes (default: 50)
-  - `spacing.nodeNodeBetweenLayers`: Space between layers (default: 100)
-  - `spacing.edgeNodeBetweenLayers`: Space between edges and nodes (default: 30)
-- **Grid Layout**: Fallback layout when ELK fails
-  - `spacingX`: Horizontal spacing (default: 300)
-  - `spacingY`: Vertical spacing (default: 200)
-- **Retry**: Layout calculation retry settings
-  - `maxAttempts`: Maximum retry attempts (default: 2)
-  - `delayMs`: Delay between retries (default: 500ms)
+### `CONFIG.node`
 
-### Node Configuration (`NODE_CONFIG`)
+- `default`: node size used to seed layout (`width`, `height`).
+- `visual.borderWidth`: border thickness for `default` and `selected` states.
+- `visual.scale.hover`: scale factor applied on hover.
 
-- **Default Dimensions**: Default node size
-  - `width`: Default width (default: 250)
-  - `height`: Default height (default: 120)
-- **Constraints**: Size limits
-  - `minWidth`: Minimum width (default: 200)
-  - `maxWidth`: Maximum width (default: 350)
-- **Text Metrics**: Text calculation parameters
-  - `basePadding`: Padding inside nodes (default: 20)
-  - `charWidth`: Average character width (default: 8)
-  - `lineHeight`: Line height (default: 20)
-- **Visual Properties**: Node appearance
-  - `borderWidth.default`: Normal border width (default: 2)
-  - `borderWidth.selected`: Selected border width (default: 3)
-  - `scale.hover`: Scale on hover (default: 1.05)
+### `CONFIG.zoom`
 
-### Zoom Configuration (`ZOOM_CONFIG`)
+`levels` bounds the viewport zoom.
 
-- **Levels**: Zoom constraints
-  - `min`: Minimum zoom level (default: 0.1)
-  - `max`: Maximum zoom level (default: 2.5)
-  - `threshold`: Threshold for zoom mode change (default: 0.45)
-- **Culling**: Performance optimization
-  - `threshold`: Zoom level for culling (default: 0.3)
+- `min` / `max`: allowed zoom range.
+- `threshold`: at `transform[2] >= threshold` the view switches from the module-level overview to function
+  detail.
+- `initial_max_zoom`: caps the initial fit-to-view so the first frame lands in the module-level view. It
+  stays strictly below `threshold`, otherwise small graphs open in function detail on load.
 
-### Animation Configuration (`ANIMATION_CONFIG`)
+### `CONFIG.animation`
 
-- **Duration**: Animation timings
-  - `fitView`: Fit view animation (default: 500ms)
-  - `panToNode`: Pan to node animation (default: 300ms)
-  - `saveDelay`: Save operation delay (default: 100ms)
-- **Debounce**: Debounce timings
-  - `viewport`: Viewport change debounce (default: 100ms)
+- `duration.fit_view` / `duration.panToNode`: animation durations in milliseconds.
+- `debounce.viewport`: viewport-change debounce in milliseconds.
 
-### Performance Configuration (`PERFORMANCE_CONFIG`)
+### `CONFIG.performance`
 
-- **Node Thresholds**: Performance optimization triggers
-  - `largeGraph`: Threshold for large graph optimizations (default: 200)
-  - `showStats`: Show performance stats threshold (default: 100)
-  - `hideIndicator`: Hide viewport indicators threshold (default: 50)
-- **Virtual Rendering**: Virtual rendering settings
-  - `renderBuffer`: Nodes to render outside viewport (default: 25)
-  - `defaultBuffer`: Default buffer size (default: 50)
+- `nodes.largeGraph` / `nodes.showStats` / `nodes.hideIndicator`: node-count thresholds that gate
+  large-graph optimizations, performance stats, and viewport indicators.
+- `virtualRender.render_buffer` / `virtualRender.defaultBuffer`: how many off-viewport nodes to keep
+  rendered.
 
-### Color Configuration (`COLOR_CONFIG`)
+### `CONFIG.spacing`
 
-- **Node Colors**: Node appearance colors
-  - `background.default`: Default node background
-  - `background.module`: Module node background
-  - `border.default`: Default border color
-  - `border.selected`: Selected border color
-  - `text.default`: Default text color
-  - `text.entryPoint`: Entry point text color
-- **Edge Colors**: Edge appearance
-  - `stroke`: Edge color
-  - `strokeWidth`: Edge width
-- **UI Colors**: UI element colors
-  - `button.primary`: Primary button color
-  - `button.secondary`: Secondary button color
-  - `button.danger`: Danger button color
-  - `error.background`: Error background color
-  - `error.border`: Error border color
-  - `error.text`: Error text color
+Pixel scales for `padding`, `margin`, `borderRadius`, and `fontSize`, each keyed `small` / `medium` /
+`large` (with `xlarge` on `padding`, `margin`, and `fontSize`).
 
-### Spacing Configuration (`SPACING_CONFIG`)
+### `CONFIG.error`
 
-- **Padding**: Internal spacing
-  - `small`: 4px
-  - `medium`: 8px
-  - `large`: 16px
-  - `xlarge`: 20px
-- **Margins**: External spacing
-  - `small`: 4px
-  - `medium`: 8px
-  - `large`: 15px
-  - `xlarge`: 20px
-- **Border Radius**: Corner rounding
-  - `small`: 3px
-  - `medium`: 4px
-  - `large`: 8px
-- **Font Sizes**: Text sizes
-  - `small`: 11px
-  - `medium`: 12px
-  - `large`: 16px
-  - `xlarge`: 18px
+- `retry.max_retries`: maximum error retry attempts.
+- `notifications.max_notifications`: maximum simultaneously visible notifications.
 
-### Error Configuration (`ERROR_CONFIG`)
+### `CONFIG.minimap`
 
-- **Retry**: Error retry settings
-  - `maxRetries`: Maximum retry attempts (default: 3)
-  - `timeout`: Operation timeout (default: 30000ms)
-- **Notifications**: Error notification settings
-  - `maxNotifications`: Maximum visible notifications (default: 3)
-  - `autoDismissDelay`: Auto-dismiss delay (default: 5000ms)
-- **Error Log**: Error logging settings
-  - `maxErrors`: Maximum stored errors (default: 100)
+- `nodeStrokeWidth`: minimap node outline width.
 
-### Z-Index Configuration (`Z_INDEX`)
+### `CONFIG.background`
 
-Defines layering order for UI elements:
+- `gap` / `size`: React Flow background pattern spacing and dot size.
 
-- `background`: 0
-- `nodes`: 1
-- `edges`: 2
-- `controls`: 5
-- `overlay`: 10
-- `notifications`: 1000
+### `CONFIG.viewport`
+
+- `fit_view.padding`: padding fraction applied when fitting the graph to view.
+- `indicators.position.offset` and `indicators.position.transform.horizontal` / `.vertical`: viewport
+  indicator placement.
+
+### `CONFIG.zIndex`
+
+Stacking order for overlaid UI: `controls`, `overlay`, `notifications`.
 
 ## Usage
-
-Import the configuration in your component:
 
 ```typescript
 import { CONFIG } from "./chart_config";
 
-// Use specific configuration
-const nodeWidth = CONFIG.node.default.width;
-const primaryColor = CONFIG.color.ui.button.primary;
-
-// Or import specific sections
-import { NODE_CONFIG, COLOR_CONFIG } from "./chart_config";
-```
-
-## Customization
-
-To customize the configuration, modify the values in `chart_config.ts`. All components using the configuration will automatically use the new values.
-
-Example customization:
-
-```typescript
-// Increase node spacing
-LAYOUT_CONFIG.elk.spacing.nodeNode = 75;
-
-// Change color scheme
-COLOR_CONFIG.ui.button.primary = "#00a86b";
-
-// Adjust performance thresholds
-PERFORMANCE_CONFIG.nodes.largeGraph = 300;
+const node_width = CONFIG.node.default.width;
+const overlay_layer = CONFIG.zIndex.overlay;
 ```
 
 ## Type Safety
 
-All configuration objects are defined with TypeScript `as const` assertions, providing full type safety and autocompletion. Type definitions are exported for each configuration section.
-
-```typescript
-import type { NodeConfig, ColorConfig } from "./chart_config";
-```
+`CONFIG` is declared with an `as const` assertion, so every value is a literal type with full
+autocompletion. Adjust the visualization by editing the values in `chart_config.ts`; every consumer reads
+them through the `CONFIG` object.

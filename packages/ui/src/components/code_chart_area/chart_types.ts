@@ -6,7 +6,7 @@ import { ModuleNodeData } from "./chart_node_types";
 export type CodeFunctionNodeType = Node<CodeNodeData, 'code_function'>;
 export type ModuleGroupNodeType = Node<ModuleNodeData, 'module_group'>;
 
-/** Edge data carrying the source row, attached by `custom_graph_to_react_flow` for provenance (AC#8). */
+/** Edge data carrying the source row, attached by `custom_graph_to_react_flow` for provenance. */
 export interface CodeEdgeData extends Record<string, unknown> {
   row?: EdgeRow;
 }

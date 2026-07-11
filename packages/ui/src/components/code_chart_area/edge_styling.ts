@@ -5,21 +5,19 @@ import type { EdgeRow } from "@code-charter/types";
 import type { ThemeColorConfig } from "./theme_config";
 
 /**
- * The single edge-styling path (AC#6). `edge_style_for` maps an OPEN attribute set
- * (confidence + extractor + kind + label/role) to a React Flow edge style, so a later semantic edge
- * label (task-27.1.11) or a cross-modal tint adds a branch HERE, never a per-edge-class fork at the
- * call sites. Today the style keys off `confidence` (an inferred/agentic edge renders dashed) and
- * `selected`; the other inputs are accepted now so plumbing them later is not a signature change.
+ * `edge_style_for` maps an open attribute set (confidence + extractor + kind + label/role) to a
+ * React Flow edge style. A new visual distinction (a semantic edge label, a cross-modal tint) adds a
+ * branch here rather than a per-edge-class fork at the call sites. The extra inputs are accepted even
+ * when unread so plumbing them through later is not a signature change.
  */
 
-/** Below this confidence an edge renders dashed — the inferred/agentic edges, vs solid raw ones. */
+/** Below this confidence an edge renders dashed, distinguishing inferred/agentic edges from raw ones. */
 export const CONFIDENCE_DASHED_THRESHOLD = 1;
 
 export interface EdgeStyleInputs {
   confidence?: number;
   extractor?: string;
   kind?: string;
-  /** A semantic edge label/role (task-27.1.11); part of the open set, read through this one path. */
   role?: string;
   selected?: boolean;
 }

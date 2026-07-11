@@ -13,7 +13,7 @@ export interface CodeNodeData extends Record<string, unknown> {
   line_number: number;
   is_entry_point?: boolean;
   symbol: string;
-  /** The source row, attached by `custom_graph_to_react_flow` for selection-driven provenance (AC#8). */
+  /** The source row, attached by `custom_graph_to_react_flow` for selection-driven provenance. */
   row?: NodeRow;
 }
 

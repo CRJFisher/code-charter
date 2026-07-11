@@ -24,7 +24,7 @@ function edge(over: Partial<EdgeRow> = {}): EdgeRow {
   };
 }
 
-describe("edge_style_for (AC#6 — one open styling path)", () => {
+describe("edge_style_for", () => {
   it("renders a low-confidence (inferred/agentic) edge dashed", () => {
     expect(edge_style_for({ confidence: 0.5 }, colors).strokeDasharray).toBeDefined();
   });

@@ -4,13 +4,13 @@
  * rows `render_flow(flow_id)` returns, then runs `apply_hierarchical_layout` over the result.
  *
  * The React Flow node `type` is resolved from `NodeRow.kind` through the open registry
- * (`resolve_node_type`), never a hardcoded `code_function`/`module_group` branch — so a shaped flowchart
- * node (task-27.1.11) or a doc node (task-21.2) becomes a `register_node_kind` entry, not an adapter
- * edit. `attributes.description` maps to the node label. The file-module tier (AC#9) is rendered by
- * turning each `agentic.contains` edge (leaf → module) into the leaf's `parentId`; those edges are not
- * drawn. Soft-deleted rows are already excluded by `render()` (unless `show_tombstones`), so the adapter
- * neither re-filters nor mutates — it renders exactly the rows it is given. The full `NodeRow`/`EdgeRow`
- * is carried on `data.row` so selection-driven provenance (AC#8) can read it without a second lookup.
+ * (`resolve_node_type`), never a hardcoded `code_function`/`module_group` branch — so a new kind becomes
+ * a `register_node_kind` entry, not an adapter edit. `attributes.description` maps to the node label. The
+ * file-module tier is rendered by turning each `agentic.contains` edge (leaf → module) into the leaf's
+ * `parentId`; those edges are not drawn. Soft-deleted rows are already excluded by `render()` (unless
+ * `show_tombstones`), so the adapter neither re-filters nor mutates — it renders exactly the rows it is
+ * given. The full `NodeRow`/`EdgeRow` is carried on `data.row` so selection-driven provenance can read it
+ * without a second lookup.
  */
 
 import type { NodeRow, RenderedRows } from "@code-charter/types";
@@ -33,7 +33,7 @@ export function custom_graph_to_react_flow(rows: RenderedRows): ReactFlowElement
   const member_count = new Map<string, number>();
   for (const edge of rows.edges) {
     if (edge.kind !== CONTAINS_EDGE_KIND) continue;
-    parent_of.set(edge.src_id, edge.dst_id); // leaf -> module (AC#9 direction)
+    parent_of.set(edge.src_id, edge.dst_id); // contains edges point leaf -> module
     member_count.set(edge.dst_id, (member_count.get(edge.dst_id) ?? 0) + 1);
   }
 
