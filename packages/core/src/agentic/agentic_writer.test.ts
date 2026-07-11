@@ -29,7 +29,7 @@ function proposal(over: Partial<SubstrateProposal> = {}): SubstrateProposal {
   };
 }
 
-describe("write_agentic_substrate (AC#5)", () => {
+describe("write_agentic_substrate", () => {
   let store: SqliteGraphStore;
   beforeEach(() => (store = new SqliteGraphStore(":memory:")));
   afterEach(() => store.close());
@@ -126,6 +126,8 @@ describe("write_agentic_substrate (AC#5)", () => {
     expect(report.hit_deadline).toBe(true);
     expect(report.descriptions_written).toBe(0);
     expect(report.truncated).toContainEqual({ kind: "descriptions", requested: 1, written: 0 });
+    expect(report.bridges_written).toBe(1); // bridges land before the deadline gate, so they survive it
+    expect(store.node(description_node_id("src/a.ts#a:function"))).toBeUndefined();
   });
 
   it("records the deadline without a truncation entry when there are no descriptions", () => {

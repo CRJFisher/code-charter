@@ -9,7 +9,7 @@ const META = [
   "}",
 ].join("\n");
 
-describe("detect_meta_json_sub_agent_bridges (AC#2)", () => {
+describe("detect_meta_json_sub_agent_bridges", () => {
   it("emits a bridge candidate per resolvable sub-agent, with meta.json provenance", () => {
     const candidates = detect_meta_json_sub_agent_bridges({
       meta_json_path: "skill/meta.json",

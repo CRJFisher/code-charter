@@ -35,7 +35,7 @@ function v2_deps(store: GraphStore): ReExtractDeps {
   };
 }
 
-describe("write_descriptions (AC#3)", () => {
+describe("write_descriptions", () => {
   let store: SqliteGraphStore;
   beforeEach(() => {
     store = new SqliteGraphStore(":memory:");
@@ -84,9 +84,7 @@ describe("write_descriptions (AC#3)", () => {
     expect(node.attributes.description).toBe("regenerated"); // overwritten with the fresh text
   });
 
-  it("overwrites a provisional stand-in with the agent's llm description (AC#3 guaranteed-overwrite)", () => {
-    // The deterministic pass writes a name stand-in tagged `provisional`; --apply-descriptions later
-    // persists the agent's real text at source `llm`. The upgrade must flip both the text and the source.
+  it("overwrites a provisional stand-in with the agent's llm description, flipping text and source", () => {
     const symbol_path = symbol_path_of(COMPUTE_V1);
     const content_hash = content_hash_of(COMPUTE_V1);
     write_descriptions(store, [{ symbol_path, content_hash, file_path: FILE, text: "compute", source: "provisional" }]);

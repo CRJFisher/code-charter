@@ -12,7 +12,7 @@ function candidate(over: Partial<BridgeCandidate> = {}): BridgeCandidate {
   };
 }
 
-describe("build_bridge_edges (AC#2)", () => {
+describe("build_bridge_edges", () => {
   it("builds an agentic.bridge edge with rationale and lower confidence", () => {
     const [{ edge, provenance }] = build_bridge_edges([candidate()]);
     expect(edge.kind).toBe(BRIDGE_EDGE_KIND);

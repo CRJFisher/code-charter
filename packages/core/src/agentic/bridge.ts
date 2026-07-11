@@ -1,16 +1,16 @@
 /**
- * task-27.1.4 AC#2 — the agentic bridge builder.
+ * The agentic bridge builder.
  *
  * A bridge is a cross-call-graph link static analysis could not resolve — a registry lookup, a
  * dynamic dispatch, an entrypoint→doc inference. It is written on the agentic lane (`layer='agentic'`,
- * `kind='agentic.bridge'`, lower confidence so it renders distinct) and, crucially, carries an
+ * `kind='agentic.bridge'`, lower confidence so it renders distinct) and carries an
  * `inference_rationale` in its attributes bag plus provenance whose `source_range` is the
  * registry/entrypoint *definition* span that justifies it. That span satisfies the NOT-NULL
  * `edge_provenance.source_range` and makes click-through land on real source.
  *
- * The builder is span-agnostic: each {@link BridgeCandidate} arrives with its own justifying span
- * (the registry detector computes it). The builder couples the edge with its provenance in one value
- * so a caller cannot persist a bridge without the span that justifies it.
+ * The builder couples the edge with its provenance in one value so a caller cannot persist a bridge
+ * without the span that justifies it. It is span-agnostic: each {@link BridgeCandidate} arrives with
+ * its own justifying span, computed by the registry detector.
  */
 
 import type { EdgeRow, ProvenanceRow } from "@code-charter/types";
@@ -23,11 +23,11 @@ export const BRIDGE_CONFIDENCE_INFERRED = 0.5;
 /**
  * A justified cross-call-graph link, ready to persist as an `agentic.bridge` edge.
  *
- * `src_id`/`dst_id` are persisted NodeRow ids. When 27.1.6 intends a bridge to extend flow membership
- * via `induce_members` (which traverses the Ariadne `CallGraph` keyed by `SymbolId`), the endpoints
- * must be ids that exist in that graph — map a persisted bridge endpoint back to its `SymbolId` before
- * feeding it to `induce_members`. (Skill doc-node endpoints are not in the call graph and are used for
- * the linkage record, not for call-graph traversal.)
+ * `src_id`/`dst_id` are persisted NodeRow ids. To extend flow membership through a bridge via
+ * `induce_members` (which traverses the Ariadne `CallGraph` keyed by `SymbolId`), the endpoints must
+ * be ids that exist in that graph — map a persisted bridge endpoint back to its `SymbolId` before
+ * feeding it to `induce_members`. Skill doc-node endpoints are not in the call graph and serve the
+ * linkage record only, not call-graph traversal.
  */
 export interface BridgeCandidate {
   /** The registry consumer / inference source symbol. */

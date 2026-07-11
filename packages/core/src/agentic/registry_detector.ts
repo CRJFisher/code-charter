@@ -1,16 +1,16 @@
 /**
- * task-27.1.4 AC#2 — registry-shaped call-edge gap-filling (deterministic half).
+ * Registry-shaped call-edge gap-filling (the deterministic half).
  *
  * "Registry-shaped" means an explicit string→symbol map in the source — a route table, a listener
  * registry, or a skill's `meta.json sub_agents[]` — not arbitrary reflection. Resolving such a map is
  * deterministic, so the substrate does it directly and emits `agentic.bridge` candidates carrying the
- * registry declaration's span as provenance. The v1 detector covers `meta.json sub_agents[]` (the
- * skill target). Other registry shapes are added as sibling detector functions producing the same
- * {@link BridgeCandidate} output — never a caller refactor.
+ * registry declaration's span as provenance. This detector covers `meta.json sub_agents[]`; other
+ * registry shapes are added as sibling detector functions producing the same {@link BridgeCandidate}
+ * output, never a caller refactor.
  *
- * The non-literal half of AC#2 (entrypoint→doc inference that needs a model) is NOT here: it runs
- * inside task-27.1.6's hydration sub-agent. The injected `resolve_target` is the seam between the
- * literal map (string side) and whatever resolves it to a symbol id.
+ * Entrypoint→doc inference that needs a model lives elsewhere (the hydration sub-agent). The injected
+ * `resolve_target` is the seam between the literal map (string side) and whatever resolves it to a
+ * symbol id.
  */
 
 import { read_sub_agents } from "../extractors/meta_json";

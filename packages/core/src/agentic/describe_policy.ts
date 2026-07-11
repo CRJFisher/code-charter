@@ -1,10 +1,7 @@
 /**
- * task-27.1.4 AC#3 — the deterministic-first description policy.
- *
- * When task-27.1.6 hydrates a flow, its member nodes get behaviour descriptions, scoped to that flow.
- * This module owns the *policy* — what gets described, by what means, and what is skipped — purely and
- * deterministically. It makes no model call: agent-authored text arrives through the drift-sync
- * skill's `--apply-descriptions` pass, persisted by `write_descriptions`.
+ * The deterministic-first description policy: what a flow's member nodes get described by, and what is
+ * skipped. Pure and deterministic — it makes no model call. Agent-authored text arrives separately
+ * through the drift-sync skill's `--apply-descriptions` pass, persisted by `write_descriptions`.
  *
  * Policy, in order:
  *   1. Content-hash cache — a member already described at its current `content_hash` is skipped.
@@ -21,28 +18,24 @@
 import type { AnyDefinition } from "@code-charter/types";
 import { get_docstring } from "@code-charter/types";
 
-/** A flow member presented to the planner: its identity, current content hash, and live definition. */
 export interface DescribeMember {
-  /** The anchor symbol_path the description attaches to. */
   symbol_path: string;
-  /** The member's current content_hash (from its anchor) — the cache key. */
+  /** Current content_hash from the member's anchor — the cache key against `ExistingDescription`. */
   content_hash: string;
-  /** Display name; the over-cap placeholder. */
+  /** Display name, also used as the over-cap placeholder text. */
   name: string;
-  /** The live Ariadne definition, read for its native docstring. */
+  /** Live Ariadne definition, read for its native docstring. */
   definition: AnyDefinition;
 }
 
-/** What is already persisted for a symbol_path, so the planner can skip unchanged members. */
 export interface ExistingDescription {
-  /** The content_hash the stored description was generated against. */
+  /** The content_hash the stored description was generated against; a match skips re-describing. */
   described_at_content_hash: string;
 }
 
 export interface DescribePolicyOptions {
   /** Per-run LLM cap; members past it get the name placeholder. Default 200. */
   cap?: number;
-  /** symbol_path → already-persisted description metadata, for the content-hash cache skip. */
   existing?: ReadonlyMap<string, ExistingDescription>;
 }
 
@@ -71,7 +64,7 @@ export interface DescriptionPlan {
   placeholder: PlannedDescription[];
   /** symbol_paths skipped because a same-content_hash description is already persisted. */
   cached: string[];
-  /** Present only when LLM candidates exceeded the cap. */
+  /** Present only when LLM candidates exceeded the cap, so an over-cap truncation is never silent. */
   truncation?: { cap: number; over_cap_count: number };
 }
 

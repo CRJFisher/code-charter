@@ -31,7 +31,7 @@ function doc_edge(src_id: string, over: Partial<EdgeRow> = {}): EdgeRow {
   };
 }
 
-describe("find_orphan_entrypoints (AC#1)", () => {
+describe("find_orphan_entrypoints", () => {
   const main: NodeSpec = { id: "main", name: "main", file: "m.ts" };
   const other: NodeSpec = { id: "other", name: "other", file: "o.ts" };
 

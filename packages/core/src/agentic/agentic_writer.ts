@@ -1,15 +1,14 @@
 /**
- * task-27.1.4 AC#5 — the agentic-substrate writer.
+ * The agentic-substrate writer.
  *
- * Persists the substrate proposal task-27.1.6 assembles — inferred bridges and resolved descriptions —
- * on the agentic lane, honoring the preservation invariant and a hard cost ceiling. The write is
- * scoped (upsert + write_fields, no layer nuke): hydrating one worked-on flow must not disturb other
- * flows or the file-module scaffold (AC#1's lazy, per-flow model). 27.1.6 runs it inside its own
- * `rebuild_layer('agentic')` orchestration only when it owns the complete agentic state to re-emit
- * (the file-module scaffold and flow nodes are written by other mechanisms, so this writer never
- * issues the store-global nuke itself).
+ * Persists a substrate proposal — inferred bridges and resolved descriptions — on the agentic lane,
+ * honoring the preservation invariant and a hard cost ceiling. The write is scoped (upsert +
+ * write_fields, no layer nuke) so hydrating one worked-on flow never disturbs other flows or the
+ * file-module scaffold. This writer never issues the store-global nuke itself: the file-module
+ * scaffold and flow nodes are written by other mechanisms, so it cannot own the complete agentic
+ * state to re-emit.
  *
- * How a {@link SubstrateProposal} is assembled (the substrate↔agent seam, AC#4):
+ * How a {@link SubstrateProposal} is assembled (the substrate↔agent seam):
  *   - bridges: `detect_meta_json_sub_agent_bridges` (and the drift-sync skill's agent-judged stitch
  *     bridges) → `build_bridge_edges` → `proposal.bridges`.
  *   - descriptions: `plan_descriptions` → combine `from_docstring`/`placeholder` into
@@ -20,9 +19,9 @@
  * (resurrecting/overwriting; see `write_descriptions`). A bridge differs because its edge can carry a
  * user `adjudication` (a column, not a ladder field): a bridge whose edge is user-owned
  * (`layer='user'` or adjudicated) or soft-deleted is never re-clobbered or resurrected. Cost ceiling:
- * the bridge and description COUNTS are the hard cost bound; `deadline_ms` is a coarse wall-clock guard
+ * the bridge and description counts are the hard cost bound; `deadline_ms` is a coarse wall-clock guard
  * that gates whether the already-resolved description rows are written. Every truncation is logged and
- * reported (no silent cap).
+ * reported rather than silently applied.
  */
 
 import type { EdgeRow, GraphStore, ProvenanceRow } from "@code-charter/types";

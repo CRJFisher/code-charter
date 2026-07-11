@@ -17,7 +17,7 @@ function member(symbol_path: string, opts: { content_hash?: string; docstring?: 
   };
 }
 
-describe("plan_descriptions (AC#3)", () => {
+describe("plan_descriptions", () => {
   it("uses an Ariadne docstring with no LLM request", () => {
     const plan = plan_descriptions([member("a", { docstring: "adds two numbers" })]);
     expect(plan.from_docstring).toEqual([
