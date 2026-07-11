@@ -90,4 +90,17 @@ describe('MockBackend', () => {
       await expect(backend.navigate_to_doc('src/test.ts', 42)).resolves.toBeUndefined();
     });
   });
+
+  describe('on_store_changed', () => {
+    it('never invokes the listener, since the mock has no live store to push from', () => {
+      const listener = jest.fn();
+      backend.on_store_changed(listener);
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it('returns an unsubscribe that is safe to call', () => {
+      const unsubscribe = backend.on_store_changed(jest.fn());
+      expect(() => unsubscribe()).not.toThrow();
+    });
+  });
 });
