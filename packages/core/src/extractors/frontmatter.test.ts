@@ -1,6 +1,6 @@
 import { parse_frontmatter } from "./frontmatter";
 
-describe("parse_frontmatter (task-21.2 AC#4 — tolerant)", () => {
+describe("parse_frontmatter (tolerant)", () => {
   it("returns {} when there is no frontmatter", () => {
     expect(parse_frontmatter("# Just a heading\n")).toEqual({});
   });

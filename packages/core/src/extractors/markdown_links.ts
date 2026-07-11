@@ -1,11 +1,11 @@
 /**
- * task-27.1.4 AC#6 — the literal markdown-link extractor.
+ * The literal markdown-link extractor.
  *
  * Finds genuine inline markdown links `[text](target)` and reports each with its source span. Fenced
  * code blocks (``` and ~~~, including mermaid fences) and inline code spans (`` `...` ``) are excluded
- * so a link written inside a usage example or a diagram never becomes a false-positive edge
- * (task-21.2 AC#5). Reference-style links, autolinks, and links whose `[text](target)` span wraps
- * across a newline are out of scope: the skill corpus uses single-line inline links.
+ * so a link written inside a usage example or a diagram never becomes a false-positive edge.
+ * Reference-style links, autolinks, and links whose `[text](target)` span wraps across a newline are
+ * out of scope: the skill corpus uses single-line inline links.
  */
 
 import { format_range } from "./text_span";

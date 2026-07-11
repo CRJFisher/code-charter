@@ -1,6 +1,6 @@
 import { parse_markdown_links } from "./markdown_links";
 
-describe("parse_markdown_links (task-21.2 AC#5 — no false positives)", () => {
+describe("parse_markdown_links (no false positives)", () => {
   it("extracts a genuine inline link with its source range", () => {
     const source = "See [the script](scripts/sync.py) for details.";
     const links = parse_markdown_links(source);

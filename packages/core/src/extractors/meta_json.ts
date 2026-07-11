@@ -1,12 +1,11 @@
 /**
- * task-27.1.4 AC#6 / AC#2 — the `meta.json sub_agents[]` reader.
+ * The `meta.json sub_agents[]` reader.
  *
- * `meta.json sub_agents[]` is the canonical registry-shaped string→symbol map: an explicit list of
- * sub-agent declarations, not arbitrary reflection. This reader parses it once and is shared by two
- * consumers: the literal skill extractor (which writes raw `skill.to_subagent` edges, AC#6) and the
- * agentic registry detector (which proposes `agentic.bridge` candidates, AC#2). Each declaration
- * carries the source span of its name inside `meta.json` so provenance click-through lands on the
- * real declaration.
+ * `sub_agents[]` is the canonical registry-shaped string→symbol map: an explicit list of sub-agent
+ * declarations, not arbitrary reflection. This reader parses it once and is shared by the literal
+ * skill extractor (which writes raw `skill.to_subagent` edges) and the agentic registry detector
+ * (which proposes `agentic.bridge` candidates). Each declaration carries the source span of its name
+ * inside `meta.json` so provenance click-through lands on the real declaration.
  */
 
 import { format_range } from "./text_span";

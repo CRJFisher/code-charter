@@ -1,6 +1,6 @@
 import { read_sub_agents } from "./meta_json";
 
-describe("read_sub_agents (task-27.1.4 AC#6/AC#2)", () => {
+describe("read_sub_agents", () => {
   it("reads string and object entries with their name spans", () => {
     const source = [
       "{",

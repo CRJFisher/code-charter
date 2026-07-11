@@ -1,24 +1,17 @@
 /**
- * task-27.1.4 AC#6 — skill-directory ingestion into the task-27.0 store (the focused slice).
+ * Skill-directory ingestion into the shared `GraphStore` as raw-tier rows.
  *
- * Re-points task-21.2's literal skill extraction onto the shared task-27.0 `GraphStore` as raw-tier
- * rows: a skill directory (SKILL.md + scripts/ + references + agents/ + meta.json) becomes doc nodes
- * plus `skill.to_script` / `skill.to_reference` / `code.literal-doc` / `skill.to_subagent` edges, each
- * with provenance pointing at the exact link/declaration span. This populates the doc corpus
- * gap-detection reads (the reciprocal `code.literal-doc` edges between references) and gives
- * task-27.1.6 a skill corpus to render. (Orphan-entrypoint detection over *code* entrypoints needs
- * code→doc literal edges keyed on a code symbol_path; those come from a code-doc extractor, not this
- * skill slice.) task-21.1's standalone store was superseded by task-27.0 and never shipped — there is
- * no second store to close; this is the only one.
+ * A skill directory (SKILL.md + scripts/ + references + agents/ + meta.json) becomes doc nodes plus
+ * `skill.to_script` / `skill.to_reference` / `code.literal-doc` / `skill.to_subagent` edges, each with
+ * provenance pointing at the exact link/declaration span. The reciprocal `code.literal-doc` edges
+ * between references populate the doc corpus gap-detection reads.
  *
- * Scope (focused slice): markdown links, reciprocal reference cross-refs, `meta.json sub_agents[]`, and
- * frontmatter-as-attributes. Deferred to task-21.2/27.1.6: Ariadne code structure inside scripts,
- * backtick-path prose scanning, the cross-skill ecosystem view, and the render surface.
+ * Scope: markdown links, reciprocal reference cross-refs, `meta.json sub_agents[]`, and
+ * frontmatter-as-attributes.
  *
- * Ingestion is bundle-centric (the unit of invalidation is the whole skill dir), distinct from
- * `re_extract`'s file-centric path. It uses scoped `invalidate_* + upsert_*` rather than
- * `rebuild_layer` (which is store-global and would nuke other skills' raw rows), exactly as the
- * file-module scaffold does for the same reason. The host injects file IO so core imports no `fs`.
+ * Ingestion is bundle-centric: the unit of invalidation is the whole skill dir, so it uses scoped
+ * `invalidate_* + upsert_*` rather than store-global `rebuild_layer` (which would nuke other skills'
+ * raw rows). The host injects file IO so core imports no `fs`.
  */
 
 import { join } from "node:path";
@@ -40,7 +33,7 @@ import { parse_frontmatter } from "./frontmatter";
 import { parse_markdown_links } from "./markdown_links";
 import { read_sub_agents } from "./meta_json";
 
-/** Host-supplied file IO, so core stays filesystem-agnostic (mirrors `re_extract`'s dep injection). */
+/** Host-supplied file IO, so core stays filesystem-agnostic. */
 export interface SkillIngestDeps {
   /** Read a bundle file's UTF-8 text given its absolute/host path. */
   read_file: (path: string) => string;
@@ -191,12 +184,10 @@ export function ingest_skill(store: GraphStore, skill_dir: string, deps: SkillIn
     return file_set.has(resolved) ? resolved : null;
   };
 
-  // 1. The SKILL.md hub node, carrying frontmatter as attributes.
   const skill_source = deps.read_file(join(skill_dir, SKILL_FILE));
   const skill_id = rows.ensure_doc(SKILL_FILE, parse_frontmatter(skill_source));
   const skill_source_file = rows.node_path(SKILL_FILE);
 
-  // 2. SKILL.md → bundled scripts/references via its markdown links.
   const reference_targets: string[] = [];
   for (const link of parse_markdown_links(skill_source)) {
     const target = resolve(SKILL_FILE, link.path_target);
@@ -207,7 +198,6 @@ export function ingest_skill(store: GraphStore, skill_dir: string, deps: SkillIn
     if (kind === SKILL_TO_REFERENCE_KIND && target.endsWith(".md")) reference_targets.push(target);
   }
 
-  // 3. Reciprocal cross-references between reference documents.
   for (const ref of reference_targets) {
     let ref_source: string;
     try {
@@ -225,8 +215,8 @@ export function ingest_skill(store: GraphStore, skill_dir: string, deps: SkillIn
     }
   }
 
-  // 4. meta.json sub_agents[] → declared sub-agent files (the literal raw edge; AC#2's agentic bridge
-  //    is produced separately by the registry detector over the same read_sub_agents output).
+  // Only the literal `skill.to_subagent` edge is written here; the agentic bridge candidate is
+  // produced separately by the registry detector over the same `read_sub_agents` output.
   if (file_set.has(META_FILE)) {
     const meta_source = deps.read_file(join(skill_dir, META_FILE));
     const meta_source_file = rows.node_path(META_FILE);
@@ -239,7 +229,6 @@ export function ingest_skill(store: GraphStore, skill_dir: string, deps: SkillIn
     }
   }
 
-  // 5. Scoped write: invalidate this bundle's prior raw rows, then upsert the fresh ones.
   const bundle_paths = files.map((rel) => rows.node_path(rel));
   store.invalidate_edges_for_files(bundle_paths);
   store.invalidate_nodes_for_files(bundle_paths);

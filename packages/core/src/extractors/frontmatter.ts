@@ -1,13 +1,13 @@
 /**
- * task-27.1.4 AC#6 — a tolerant YAML-frontmatter parser for skill docs.
+ * A tolerant YAML-frontmatter parser for skill docs.
  *
- * Skill frontmatter is the leading `---`-delimited block of a SKILL.md. It is surfaced as node
- * attributes, never as separate nodes (task-21.2 AC#4). This is a deliberately small hand-rolled
- * parser, not a full YAML engine: the repo has no YAML dependency, and skill frontmatter only uses a
- * handful of shapes (scalars, inline lists, block lists, block scalars). It normalizes the two
- * documented key aliases — `allowed-tools` → `tools`, `user-invocable` → `user_invocable` — and folds
- * any other hyphenated key to snake_case, so a consumer reads one stable attribute name regardless of
- * which spelling the author used.
+ * Skill frontmatter is the leading `---`-delimited block of a SKILL.md, surfaced as node attributes
+ * rather than separate nodes. This is a deliberately small hand-rolled parser, not a full YAML engine:
+ * the repo has no YAML dependency, and skill frontmatter only uses a handful of shapes (scalars,
+ * inline lists, block lists, block scalars). It normalizes the two documented key aliases
+ * (`allowed-tools` → `tools`, `user-invocable` → `user_invocable`) and folds any other hyphenated key
+ * to snake_case, so a consumer reads one stable attribute name regardless of which spelling the author
+ * used.
  */
 
 const ALIASES: Record<string, string> = {

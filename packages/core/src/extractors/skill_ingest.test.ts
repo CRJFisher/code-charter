@@ -35,7 +35,7 @@ function ingest(name: string): SqliteGraphStore {
   return store;
 }
 
-describe("ingest_skill (task-27.1.4 AC#6)", () => {
+describe("ingest_skill", () => {
   describe("apply-practices (trivial — single node, no edges)", () => {
     let store: SqliteGraphStore;
     beforeEach(() => (store = ingest("apply-practices")));
@@ -108,6 +108,21 @@ describe("ingest_skill (task-27.1.4 AC#6)", () => {
       expect(prov[0].source_file).toBe("skill-diagrammer/meta.json");
       expect(prov[0].source_range).toMatch(/^\d+:\d+-\d+:\d+$/);
     });
+  });
+
+  it("returns an empty result and writes nothing when the directory has no SKILL.md", () => {
+    const store = new SqliteGraphStore(":memory:");
+    const deps: SkillIngestDeps = {
+      read_file: () => {
+        throw new Error("read_file must not be called for a non-skill directory");
+      },
+      list_files: () => ["README.md", "notes/agenda.txt"],
+    };
+    const result = ingest_skill(store, "/repo/not-a-skill", deps);
+    expect(result).toEqual({ skill: "not-a-skill", doc_node_ids: [], edge_keys: [] });
+    expect(store.all_nodes()).toHaveLength(0);
+    expect(store.all_edges()).toHaveLength(0);
+    store.close();
   });
 
   it("is idempotent: re-ingesting yields the same node and edge counts", () => {
