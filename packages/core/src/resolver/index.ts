@@ -1,11 +1,11 @@
 /**
- * task-27.0.3 — the single reusable anchor resolver.
+ * The single reusable anchor resolver.
  *
  * A stored anchor (`symbol_path:content_hash`) is matched against the current code by `resolve_anchor`,
- * which reports hit / downgrade / miss and never mutates. Both diagram↔code directions share it: 27.1
- * detects drift and re-attaches content; 27.2 snapshots and re-validates proposals. The whole module is
- * pure — zero `node:sqlite`, importing only data shapes from `@ariadnejs/types` and the anchor/result
- * types from `@code-charter/types`.
+ * which reports hit / downgrade / miss and never mutates. Both diagram↔code directions share it: drift
+ * detection re-attaches content, and proposal snapshotting re-validates. The whole module is pure — zero
+ * `node:sqlite`, importing only data shapes from `@ariadnejs/types` and the anchor/result types from
+ * `@code-charter/types`.
  */
 
 export { build_symbol_path, derive_code_state } from "./code_state";

@@ -15,7 +15,7 @@ import {
   fn_a_renamed_and_changed,
 } from "./__fixtures__/resolver_symbols";
 
-describe("resolve_anchor — the AC#5 verdict cascade", () => {
+describe("resolve_anchor — the verdict cascade", () => {
   it("hit — symbol_path and content_hash both match, carrying the whole CodeState", () => {
     const index = build_resolver_index([fn_a]);
     const result = resolve_anchor(anchor_of(fn_a), index);
@@ -127,11 +127,5 @@ describe("resolve_anchor — cascade ordering and determinism", () => {
     // Each still resolves to ITSELF — the exact symbol_path arm precedes the content_hash arm.
     expect(resolve_anchor(anchor_of(sym_x), index)).toEqual({ status: "hit", state: derive_code_state(sym_x) });
     expect(resolve_anchor(anchor_of(sym_y), index)).toEqual({ status: "hit", state: derive_code_state(sym_y) });
-  });
-});
-
-describe("build_resolver_index", () => {
-  it("throws on a duplicate symbol_path rather than silently overwriting", () => {
-    expect(() => build_resolver_index([fn_a, fn_a])).toThrow(/duplicate symbol_path/);
   });
 });

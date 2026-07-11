@@ -4,7 +4,7 @@ import type { ResolverIndex } from "./resolver_index";
 
 /**
  * The single place a stored anchor becomes current code state. Pure: it only reports, never mutates
- * and never decides policy. The ordered cascade (task-27.0.3 AC#2):
+ * and never decides policy. The ordered cascade:
  *
  *   1. exact symbol_path + content_hash      → hit
  *   2. symbol_path matches, content differs   → downgrade / body-changed
