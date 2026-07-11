@@ -57,7 +57,7 @@ export { grades_path, read_grades, upsert_grade, GRADE_RECORD_SCHEMA_VERSION } f
 export type { GradeVerdict, RunGradeDetail, RunGradeRecord } from "./reconcile/grade_log";
 
 // Installer
-export { install_drift, is_stop_hook_installed, STOP_HOOK_IDENTITY_TOKEN } from "./installer/install";
+export { install_drift, is_stop_hook_installed } from "./installer/install";
 export { resolve_db_path } from "./hooks/resolve_db_path";
 export {
   CLAUDE_CODE_LAYOUT,

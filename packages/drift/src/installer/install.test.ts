@@ -76,6 +76,55 @@ describe("install_drift (idempotency + asset install)", () => {
     }
   });
 
+  it("replaces a stale drift Stop entry so a moved package self-heals", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-install-"));
+    try {
+      const settings_path = path.join(target, ".claude", "settings.json");
+      fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+      fs.writeFileSync(
+        settings_path,
+        JSON.stringify({
+          hooks: { Stop: [{ hooks: [{ type: "command", command: 'node "/old/package/dist/bin/drift_stop_hook.js"' }] }] },
+        }),
+      );
+
+      install_drift(target, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT);
+
+      const settings = read_json(settings_path);
+      const stop = read_hook_groups(settings, CLAUDE_CODE_LAYOUT, "Stop");
+      expect(stop).toHaveLength(1);
+      expect(stop[0].hooks[0].command).not.toContain("/old/package/");
+      expect(stop[0].hooks[0].command).toContain(PACKAGE_ROOT);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a user's own Stop hook alongside the drift one", () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-install-"));
+    try {
+      const settings_path = path.join(target, ".claude", "settings.json");
+      fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+      fs.writeFileSync(
+        settings_path,
+        JSON.stringify({
+          hooks: { Stop: [{ hooks: [{ type: "command", command: "node /user/their_hook.js" }] }] },
+        }),
+      );
+
+      install_drift(target, CLAUDE_CODE_LAYOUT, PACKAGE_ROOT);
+
+      const commands = read_hook_groups(read_json(settings_path), CLAUDE_CODE_LAYOUT, "Stop").map(
+        (group) => group.hooks[0].command,
+      );
+      expect(commands).toHaveLength(2);
+      expect(commands).toContain("node /user/their_hook.js");
+      expect(commands.some((command) => command.includes("drift_stop_hook.js"))).toBe(true);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
   it("refuses to install when the hook bins are not built", () => {
     const target = fs.mkdtempSync(path.join(os.tmpdir(), "drift-install-"));
     const unbuilt_root = fs.mkdtempSync(path.join(os.tmpdir(), "drift-unbuilt-"));

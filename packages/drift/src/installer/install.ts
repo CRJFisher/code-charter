@@ -22,7 +22,7 @@ const STOP_BIN = "drift_stop_hook.js";
 const RECONCILE_BIN = "drift_reconcile.js";
 
 /** The command substring that recognises the drift `Stop` hook on re-install and on verification. */
-export const STOP_HOOK_IDENTITY_TOKEN = "drift_stop_hook";
+const STOP_HOOK_IDENTITY_TOKEN = "drift_stop_hook";
 
 /** Sidecar the installer drops beside the drift-sync skill so its dependency-free script finds the bin. */
 const RECONCILE_BIN_SIDECAR = ".drift_reconcile_bin";
