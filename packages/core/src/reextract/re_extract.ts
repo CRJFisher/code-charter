@@ -1,5 +1,5 @@
 /**
- * task-27.1.2 AC#2/#3/#9 — the single named re-extraction entry point.
+ * The single named re-extraction entry point.
  *
  * `re_extract` is the one in-process funnel through which a changed file set is re-analyzed. The
  * `Stop`-hook reconciliation path (via the drift-reconciler sub-agent's drift-sync skill) and the
@@ -18,7 +18,7 @@
  * Alongside the per-node findings, `re_extract` promotes those same verdicts into a turn-level
  * {@link SymbolDelta} (`{added, removed, modified, relocated}` keyed by symbol_path; see `symbol_delta.ts`)
  * by diffing the fresh resolver index against the persisted-anchor baseline it accumulates in the same
- * pass. Downstream re-sync (`affected_persisted_flows`) and re-describe scope to that delta (task-27.1.6.4).
+ * pass. Downstream re-sync (`affected_persisted_flows`) and re-describe scope to that delta.
  *
  * `re_extract` is not a single transaction. Each store call is atomic and idempotent, so a re-run after
  * a mid-way failure re-applies cleanly: raw invalidation/extraction is repeatable and re-anchoring a
@@ -50,7 +50,7 @@ export interface ReExtractDeps {
   extract_raw: (store: GraphStore, file_set: readonly string[]) => void;
   /** Build a resolver index over the current code state of `file_set`. */
   build_index: (file_set: readonly string[]) => ResolverIndex;
-  /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold (AC#9). */
+  /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold. */
   analyzed_root: string;
   /** Optional diagnostics sink — used only to flag a baseline anomaly (a conflicting anchor). */
   log?: (message: string) => void;
@@ -69,7 +69,7 @@ export interface ReExtractResult {
   file_set: readonly string[];
   origin: ReExtractOrigin;
   findings: DriftFinding[];
-  /** The turn-level symbol change set for `file_set` (AC#1) — drives scoped re-sync/re-describe. */
+  /** The turn-level symbol change set for `file_set` — drives scoped re-sync/re-describe. */
   delta: SymbolDelta;
 }
 

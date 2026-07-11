@@ -55,7 +55,7 @@ function deps(store: SqliteGraphStore): ReExtractDeps {
   };
 }
 
-describe("re_extract (AC#2/#3/#9)", () => {
+describe("re_extract", () => {
   let store: SqliteGraphStore;
 
   beforeEach(() => {
@@ -133,7 +133,7 @@ describe("re_extract (AC#2/#3/#9)", () => {
     expect(view.getNodeAttributes(NEW_DESC_ID).row.attributes.description).toBe(DESCRIPTION);
   });
 
-  it("builds the file-module scaffold for the worked-on file's leaves (AC#9)", () => {
+  it("builds the file-module scaffold for the worked-on file's leaves", () => {
     re_extract([FILE], "code-change", deps(store));
     const group = store.node(module_group_id(FILE));
     expect(group?.kind).toBe("agentic.group");

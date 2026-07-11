@@ -11,7 +11,7 @@ import { compute_symbol_delta } from "./symbol_delta";
 
 /**
  * `compute_symbol_delta` is the aggregate promotion of `resolve_anchor`'s per-anchor verdicts (the same
- * cascade `reconcile_node` runs for description preservation), surfaced as a turn-level change set. These
+ * cascade `resolve_node` runs for description preservation), surfaced as a turn-level change set. These
  * tests pin each delta class — added / removed / modified / relocated — against a fixture extraction.
  */
 
@@ -56,7 +56,7 @@ function baseline_of(...symbols: ResolverSymbol[]): Map<string, string> {
   return baseline;
 }
 
-describe("compute_symbol_delta (AC#1)", () => {
+describe("compute_symbol_delta", () => {
   it("reports an added symbol: fresh symbol_path with no baseline anchor", () => {
     const baseline = baseline_of(COMPUTE_V1);
     const index = build_resolver_index([COMPUTE_V1, CALCULATE_V2]); // calculate is new this turn

@@ -1,5 +1,5 @@
 /**
- * task-27.1.6.4 AC#1 — the turn-level symbol change set.
+ * The turn-level symbol change set.
  *
  * `compute_symbol_delta` reduces a turn's edits to a structured, symbol-level delta: which symbols were
  * added, removed, body-modified, or relocated. It is the aggregate promotion of the per-anchor verdicts
@@ -32,7 +32,7 @@ export interface RelocatedSymbol {
   to: string;
 }
 
-/** The structured, symbol-level change set for a turn's edits (AC#1). All buckets keyed by `symbol_path`. */
+/** The structured, symbol-level change set for a turn's edits. All buckets keyed by `symbol_path`. */
 export interface SymbolDelta {
   /**
    * Fresh symbol_paths with no baseline anchor (relocation targets excluded). NOTE: "added" is relative
