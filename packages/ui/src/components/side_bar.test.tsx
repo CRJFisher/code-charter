@@ -23,7 +23,7 @@ function flow(over: Partial<FlowSummary> & { id: string }): FlowSummary {
 
 beforeEach(() => navigate_to_doc.mockClear());
 
-describe("Sidebar flow selector (AC#7)", () => {
+describe("Sidebar flow selector", () => {
   it("renders flows in the order given (no re-sort)", () => {
     const flows = [flow({ id: "first", label: "first" }), flow({ id: "second", label: "second" })];
     render(<Sidebar flows={flows} selected_flow_id={null} on_select={() => undefined} />);

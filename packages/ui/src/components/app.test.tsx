@@ -127,6 +127,27 @@ describe("App", () => {
     expect(screen.getByTestId("chart").getAttribute("data-refresh")).toBe("1");
   });
 
+  it("bumps the refresh nonce but selects nothing when store_changed arrives with an empty flow list", async () => {
+    let store_listener: (() => void) | undefined;
+    mock_backend.current = make_backend({
+      list_flows: async () => [],
+      on_store_changed: (listener) => {
+        store_listener = listener;
+        return () => undefined;
+      },
+    });
+    render_app();
+
+    await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready));
+    expect(screen.getByTestId("chart").getAttribute("data-selected")).toBe("");
+
+    act(() => store_listener?.());
+
+    await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-refresh")).toBe("1"));
+    expect(screen.getByTestId("chart").getAttribute("data-selected")).toBe("");
+    expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready);
+  });
+
   it("recovers from Error to Ready on a store_changed refresh once the call graph is available", async () => {
     let store_listener: (() => void) | undefined;
     const empty_graph: CallGraph = { nodes: new Map(), entry_points: [] };
@@ -174,17 +195,20 @@ describe("App", () => {
     expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready);
   });
 
-  it("unsubscribes from store_changed when it unmounts", async () => {
+  it("subscribes to store_changed once and unsubscribes when it unmounts", async () => {
     const unsubscribe = jest.fn();
+    const on_store_changed = jest.fn(() => unsubscribe);
     mock_backend.current = make_backend({
       list_flows: async () => [flow("a")],
-      on_store_changed: () => unsubscribe,
+      on_store_changed,
     });
     const { unmount } = render_app();
 
     await waitFor(() => expect(screen.getByTestId("chart").getAttribute("data-status")).toBe(CodeIndexStatus.Ready));
-    unmount();
+    expect(on_store_changed).toHaveBeenCalledTimes(1);
+    expect(unsubscribe).not.toHaveBeenCalled();
 
+    unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 

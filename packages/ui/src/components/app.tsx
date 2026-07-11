@@ -67,9 +67,9 @@ export const App: React.FC<AppProps> = ({ class_name = "" }) => {
     return unsubscribe;
   }, [backend]);
 
-  // Auto-select the top flow on open so a cold repo shows structure without a click (AC#7). Also
-  // reconcile a selection that the latest flow list no longer contains (e.g. its seed was renamed),
-  // falling back to the top flow rather than stranding a now-unrenderable id.
+  // Auto-select the top flow on open so a cold repo shows structure without a click. Also reconcile a
+  // selection that the latest flow list no longer contains (e.g. its seed was renamed), falling back to
+  // the top flow rather than stranding a now-unrenderable id.
   useEffect(() => {
     if (flows.length === 0) return;
     if (selected_flow_id === null || !flows.some((flow) => flow.id === selected_flow_id)) {
