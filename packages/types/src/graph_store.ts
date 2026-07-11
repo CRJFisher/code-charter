@@ -1,5 +1,5 @@
 /**
- * task-27.0 — the shared custom-graph contract.
+ * The shared custom-graph contract.
  *
  * A custom graph is layered over the Ariadne call graph in three tiers, split by
  * cost-of-regeneration. Each row carries its `layer`, and `field_ownership` records
@@ -41,7 +41,7 @@ export type IntentSource = "code-edit" | "diagram-edit" | "explicit-pin" | (stri
 
 /** A graph node row. Holds raw code symbols and agentic/user higher-level nodes alike. */
 export interface NodeRow {
-  /** Stable id `<file_path>#<anchor>` (task-21.1) — never a domain-specific name. */
+  /** Stable id `<file_path>#<anchor>` — never a domain-specific name. */
   id: string;
   /** Namespaced open kind, e.g. 'code.function', 'agentic.group', 'user.label'. */
   kind: string;
@@ -123,7 +123,7 @@ export type ResolveResult =
   | { status: "miss" };
 
 /**
- * One entry in the open, ordered list that render() composes (AC1/AC6). The 'overlay' arm composes
+ * One entry in the open, ordered list that render() composes. The 'overlay' arm composes
  * proposed rows as one more entry rather than a signature change. render()'s return type is a
  * graphology graph, so its signature lives in @code-charter/core — only this pure-data input lives here.
  */
@@ -158,7 +158,7 @@ export interface GraphStore {
   upsert_edge(row: EdgeRow, provenance: ProvenanceRow[]): void;
 
   /**
-   * Ladder-aware write (AC2): writes each field only if its current owner ranks <= `as_tier`,
+   * Ladder-aware write: writes each field only if its current owner ranks <= `as_tier`,
    * then stamps the written fields as owned by `as_tier`. Returns the fields it skipped because
    * a higher tier owns them.
    *
@@ -179,9 +179,9 @@ export interface GraphStore {
   neighborhood(id: string, depth: number): { nodes: NodeRow[]; edges: EdgeRow[] };
 
   /**
-   * All edges whose provenance points into any of `paths`. The scoped read behind
-   * task-27.1's diff signal: it diffs `edges_for_files(changed)` against a fresh
-   * extraction of those files. (The diff itself is derived and never persisted.)
+   * All edges whose provenance points into any of `paths`. The scoped read behind the
+   * diff signal: it diffs `edges_for_files(changed)` against a fresh extraction of those
+   * files. (The diff itself is derived and never persisted.)
    */
   edges_for_files(paths: string[]): EdgeRow[];
 
@@ -196,10 +196,10 @@ export interface GraphStore {
    */
   invalidate_nodes_for_files(paths: string[]): void;
 
-  /** Soft-delete only — there is no hard delete on agentic/user content (AC5); revival is a later upsert. */
+  /** Soft-delete only — there is no hard delete on agentic/user content; revival is a later upsert. */
   soft_delete(target: GraphTarget): void;
 
-  /** The per-table disposable/preserved property as DATA, never a hard-coded name list (AC6). */
+  /** The per-table disposable/preserved property as DATA, never a hard-coded name list. */
   table_disposition(): Array<{ table: string; disposable: boolean }>;
 
   /**
