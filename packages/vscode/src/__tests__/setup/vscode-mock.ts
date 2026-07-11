@@ -53,6 +53,11 @@ module.exports = {
   Uri: {
     file: (path: string) => ({ fsPath: path, scheme: "file" })
   },
+  ViewColumn: {
+    One: 1,
+    Two: 2,
+    Three: 3
+  },
   window: {
     showWarningMessage: jest.fn(),
     showErrorMessage: jest.fn(),

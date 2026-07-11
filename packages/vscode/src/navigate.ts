@@ -5,8 +5,8 @@ export async function navigate_to_doc(
     line_number: number,
     current_column: vscode.ViewColumn | undefined,
 ): Promise<void> {
-    const visible_editors = vscode.window.visibleTextEditors;
-    const other_column = get_opposite_column(current_column, visible_editors);
+    const visible_columns = vscode.window.visibleTextEditors.map((editor) => editor.viewColumn);
+    const other_column = get_opposite_column(current_column, visible_columns);
 
     const document = await vscode.workspace.openTextDocument(file_uri);
     const editor = await vscode.window.showTextDocument(document, other_column);
@@ -16,17 +16,13 @@ export async function navigate_to_doc(
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 }
 
-function get_opposite_column(
+export function get_opposite_column(
     current_column: vscode.ViewColumn | undefined,
-    visible_editors: readonly vscode.TextEditor[],
+    visible_columns: readonly (vscode.ViewColumn | undefined)[],
 ): vscode.ViewColumn {
-    const columns: vscode.ViewColumn[] = [];
-    for (const editor of visible_editors) {
-        if (editor.viewColumn !== undefined) {
-            columns.push(editor.viewColumn);
-        }
-    }
-    const unique_columns = Array.from(new Set(columns));
+    const unique_columns = Array.from(
+        new Set(visible_columns.filter((col): col is vscode.ViewColumn => col !== undefined)),
+    );
 
     if (unique_columns.length === 1) {
         return current_column === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One;

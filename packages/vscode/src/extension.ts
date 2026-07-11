@@ -107,7 +107,7 @@ function store_path_for(workspace_path: string): string {
  * Render the persisted drift store's summary (flow/description/bridge counts, sync health) into the
  * OutputChannel. Reads the store in-process and read-only via the same inspect projection the
  * `drift-inspect` bin uses, so a cold repo with no store yet renders an empty summary rather than
- * throwing. Shared by the dev-mode generate instrumentation (AC#1) and Dump Drift Store (AC#3).
+ * throwing. Shared by the dev-mode generate instrumentation and Dump Drift Store.
  */
 function log_store_summary(store_path: string): void {
   try {
@@ -244,8 +244,8 @@ function is_self_repo(workspace_path: string): boolean {
 
 /**
  * Verify the drift Stop hook in the workspace's `.claude/settings.json` and reflect it in the status bar:
- * armed, or NOT installed with a click-to-fix. Surfaces the persisted sync-status record (task-27.1.20.3)
- * into the OutputChannel so "why did my sync do nothing?" has a starting point. Self-repo hides the bar.
+ * armed, or NOT installed with a click-to-fix. Surfaces the persisted sync-status record into the
+ * OutputChannel so "why did my sync do nothing?" has a starting point. Self-repo hides the bar.
  */
 function refresh_drift_status(workspace_path: string): void {
   if (status_bar_item === undefined) {
@@ -258,7 +258,7 @@ function refresh_drift_status(workspace_path: string): void {
   const state = drift_bar_state(is_stop_hook_installed(workspace_path, HOST_LAYOUTS.claude_code));
   status_bar_item.text = state.text;
   status_bar_item.tooltip = state.tooltip;
-  // Click-to-fix only when NOT armed (AC#2); an armed bar is a plain indicator. Manual re-install is
+  // Click-to-fix only when NOT armed; an armed bar is a plain indicator. Manual re-install is
   // always reachable from the command palette.
   status_bar_item.command = state.warn ? INSTALL_DRIFT_COMMAND : undefined;
   status_bar_item.backgroundColor = state.warn
@@ -367,8 +367,8 @@ async function show_webview_diagram(
   // Lazily build the Ariadne call graph once, then serve it from the cached project manager. Both the
   // raw call-graph request and the flow handlers (which derive the skeleton from it) funnel through
   // here, so a re-extraction after a code change is picked up on the next request. A reconcile landing
-  // out-of-process is pushed to the webview via post_store_changed, so the panel no longer waits for a
-  // manual re-run to reflect a stitched umbrella or LLM description.
+  // out-of-process is pushed to the webview via post_store_changed, so the panel reflects a stitched
+  // umbrella or LLM description without a manual re-run.
   const ensure_call_graph = async (): Promise<CallGraph> => {
     if (!project_manager) {
       // Index the same file set the drift reconcile engine does (HeadlessProject): every supported
@@ -410,7 +410,7 @@ async function show_webview_diagram(
     }
   };
 
-  // Hydrated flows (`agentic.flow` nodes) sort ahead of the deterministic skeleton (AC#7). A hydrated
+  // Hydrated flows (`agentic.flow` nodes) sort ahead of the deterministic skeleton. A hydrated
   // entry that supersedes its skeleton twin inherits the twin's jump-to-source `seed_location` and live
   // `member_count`, which `read_hydrated_flows` cannot recover from the store alone.
   const read_hydrated = (skeleton: FlowSummary[], nodes: readonly NodeRow[]): FlowSummary[] => {
@@ -507,10 +507,10 @@ async function show_webview_diagram(
   panel.webview.html = html_content;
 
   // Watch the on-disk store the reconcile sub-agent writes: on a settled write, re-extract the call
-  // graph (AC#2 — the reconcile followed a code change) which fires on_call_graph_changed and pushes
-  // store_changed (AC#1). If no call graph is built yet, nudge the webview directly so a store write
-  // that lands before the first request still refreshes. The store stays open-per-request and read-only
-  // (AC#3): this watcher never opens graph.db, it only signals a re-read is due.
+  // graph (the reconcile followed a code change) which fires on_call_graph_changed and pushes
+  // store_changed. If no call graph is built yet, nudge the webview directly so a store write
+  // that lands before the first request still refreshes. The store stays open-per-request and read-only:
+  // this watcher never opens graph.db, it only signals a re-read is due.
   const store_watcher = new StoreWatcher(work_folder.fsPath, graph_db_file, async () => {
     // Fire-and-forget from the debounce timer: catch here so a failed re-index surfaces in the
     // OutputChannel instead of becoming an unhandled rejection, and never blocks the extension host.
