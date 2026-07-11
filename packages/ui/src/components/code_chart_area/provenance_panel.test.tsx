@@ -28,7 +28,7 @@ function node(over: Partial<NodeRow> = {}): NodeRow {
   };
 }
 
-describe("ProvenancePanel (AC#8)", () => {
+describe("ProvenancePanel", () => {
   beforeEach(() => {
     mocked_navigate.mockClear();
   });

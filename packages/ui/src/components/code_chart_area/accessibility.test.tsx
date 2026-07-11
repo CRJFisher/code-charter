@@ -16,12 +16,11 @@ const render_with_theme = (ui: React.ReactElement) => {
   );
 };
 
-// Mock navigation utilities
 jest.mock('./editor_navigation', () => ({
   navigate_to_file: jest.fn(),
 }));
 
-// Mock React Flow store — execute the selector against a mock state
+// Run the mocked useStore selector against a synthetic state so tests can drive zoom-level.
 let mock_zoom = 0.5;
 jest.mock('@xyflow/react', () => ({
   ...jest.requireActual('@xyflow/react'),
@@ -89,13 +88,14 @@ function create_module_node_props(overrides: Partial<NodeProps<ModuleGroupNodeTy
 
 describe('Accessibility Features', () => {
   beforeEach(() => {
-    mock_zoom = 0.5; // Reset to default (zoomed in)
+    // Above the level-of-detail threshold: the detailed node renders.
+    mock_zoom = 0.5;
   });
 
   const mockCodeProps = create_code_node_props();
 
   describe('CodeFunctionNode Accessibility', () => {
-    it('should have proper ARIA attributes', () => {
+    it('exposes ARIA attributes describing the function', () => {
       render_with_theme(<CodeFunctionNode {...mockCodeProps} />);
 
       const node = screen.getByRole('button');
@@ -106,7 +106,7 @@ describe('Accessibility Features', () => {
       expect(node).toHaveAttribute('aria-selected', 'false');
     });
 
-    it('should show selected state in ARIA attributes', () => {
+    it('reflects the selected state in aria-selected', () => {
       const selectedProps = create_code_node_props({ selected: true });
       render_with_theme(<CodeFunctionNode {...selectedProps} />);
 
@@ -114,19 +114,17 @@ describe('Accessibility Features', () => {
       expect(node).toHaveAttribute('aria-selected', 'true');
     });
 
-    it('should handle keyboard navigation', () => {
+    it('opens source on Enter and Space', () => {
       render_with_theme(<CodeFunctionNode {...mockCodeProps} />);
 
       const node = screen.getByRole('button');
 
-      // Test Enter key
       fireEvent.keyDown(node, { key: 'Enter' });
       expect(mocked_navigate).toHaveBeenCalledWith({
         file_path: '/test/file.ts',
         line_number: 42,
       });
 
-      // Test Space key
       mocked_navigate.mockClear();
       fireEvent.keyDown(node, { key: ' ' });
       expect(mocked_navigate).toHaveBeenCalledWith({
@@ -135,7 +133,7 @@ describe('Accessibility Features', () => {
       });
     });
 
-    it('should have proper ARIA label for entry point', () => {
+    it('labels entry-point functions and shows an entry indicator', () => {
       const entry_pointProps = create_code_node_props({
         data: { ...mockCodeProps.data, is_entry_point: true },
       });
@@ -144,15 +142,14 @@ describe('Accessibility Features', () => {
       const node = screen.getByRole('button');
       expect(node).toHaveAttribute('aria-label', expect.stringContaining('Entry point function'));
 
-      // Check for entry point indicator
       const entryIndicator = screen.getByLabelText('Entry point');
       expect(entryIndicator).toBeInTheDocument();
     });
   });
 
   describe('ZoomAwareNode Accessibility', () => {
-    it('should have simplified ARIA label when zoomed out', () => {
-      mock_zoom = 0.3; // Zoomed out
+    it('uses a simplified ARIA label when zoomed out', () => {
+      mock_zoom = 0.3;
 
       render_with_theme(<ZoomAwareNode {...mockCodeProps} />);
 
@@ -161,8 +158,8 @@ describe('Accessibility Features', () => {
       expect(node).toHaveAttribute('tabIndex', '0');
     });
 
-    it('should handle keyboard events in zoomed out view', () => {
-      mock_zoom = 0.3; // Zoomed out
+    it('opens source on Enter in the zoomed-out view', () => {
+      mock_zoom = 0.3;
 
       render_with_theme(<ZoomAwareNode {...mockCodeProps} />);
 
@@ -177,8 +174,8 @@ describe('Accessibility Features', () => {
   });
 
   describe('ModuleGroupNode Accessibility', () => {
-    it('should have proper ARIA attributes for module', () => {
-      mock_zoom = 0.3; // Zoomed out to show modules
+    it('exposes ARIA attributes describing the module', () => {
+      mock_zoom = 0.3;
 
       const moduleProps = create_module_node_props();
 
@@ -190,8 +187,8 @@ describe('Accessibility Features', () => {
       expect(module).toHaveAttribute('aria-selected', 'false');
     });
 
-    it('should handle missing description gracefully', () => {
-      mock_zoom = 0.3; // Zoomed out
+    it('labels a module with no description as "No description"', () => {
+      mock_zoom = 0.3;
 
       const moduleProps = create_module_node_props({
         data: {
@@ -211,14 +208,13 @@ describe('Accessibility Features', () => {
   });
 
   describe('Focus Management', () => {
-    it('should show focus indicators on selected nodes', () => {
+    it('thickens the border of a selected node', () => {
       const selectedProps = create_code_node_props({ selected: true });
       const { container } = render_with_theme(<CodeFunctionNode {...selectedProps} />);
 
       const node = container.querySelector('[role="button"]');
       const styles = window.getComputedStyle(node as Element);
 
-      // Check for visual focus indicator (thicker border)
       expect(styles.borderWidth).toBe('3px');
     });
   });

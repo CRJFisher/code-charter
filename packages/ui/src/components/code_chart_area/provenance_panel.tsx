@@ -4,12 +4,8 @@ import type { EdgeRow, NodeRow } from "@code-charter/types";
 
 import { navigate_to_file } from "./editor_navigation";
 
-/**
- * Driven off the React Flow selection rather than overloading a node's `navigate_to_file`
- * onClick, so selecting a node reveals its provenance while clicking the node still jumps to
- * source (task-27.1.2 AC#8).
- */
-
+// Driven off the React Flow selection so a node's onClick stays free to jump to source:
+// selecting a node reveals its provenance, clicking it still opens the file.
 export interface ProvenanceSelection {
   node?: NodeRow;
   edge?: EdgeRow;
