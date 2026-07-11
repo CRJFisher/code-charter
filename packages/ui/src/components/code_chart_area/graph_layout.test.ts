@@ -3,7 +3,6 @@ import { Edge } from "@xyflow/react";
 import { CodeChartNode } from "./chart_types";
 import ELK, { ElkNode } from "elkjs/lib/elk.bundled";
 
-// Mock ELK
 jest.mock("elkjs/lib/elk.bundled");
 
 const not_used = (): never => {
@@ -16,7 +15,6 @@ describe("graph_layout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clear_layout_caches();
-    // Default mock implementation that returns the layout based on input
     const layout_mock = jest.fn((graph: ElkNode) => Promise.resolve({
       id: graph.id || 'root',
       children: (graph.children || []).map((child: ElkNode, index: number) => ({
@@ -71,7 +69,7 @@ describe("graph_layout", () => {
       consoleErrorSpy.mockRestore();
     });
 
-    describe("fixed_ids (AC#7)", () => {
+    describe("fixed_ids", () => {
       const fixed_nodes = (): CodeChartNode[] => [
         { id: "pinned", type: "code_function", position: { x: 999, y: 888 }, data: { function_name: "p", description: "" } },
         { id: "free", type: "code_function", position: { x: 0, y: 0 }, data: { function_name: "f", description: "" } },

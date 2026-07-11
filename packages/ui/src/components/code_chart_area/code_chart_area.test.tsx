@@ -1,13 +1,17 @@
 import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
+import type { RenderedRows } from "@code-charter/types";
 import { CodeIndexStatus } from "../loading_status";
 import { ThemeProviderComponent } from "../../theme/theme_context";
 
 // The render/clear effects are the unit under test; the visual machinery (ReactFlow, ELK layout,
 // virtualization) is mocked away so a refresh_nonce bump can be observed as a re-projection.
 const clear_layout_caches = jest.fn();
+const mock_set_nodes = jest.fn();
+// The sentinel a completed layout paints; a cancelled render must never reach set_nodes with it.
+const mock_layout_result = [{ id: "laid-out-node" }];
 jest.mock("./graph_layout", () => ({
-  apply_hierarchical_layout: jest.fn(async () => []),
+  apply_hierarchical_layout: jest.fn(async () => mock_layout_result),
   clear_layout_caches: () => clear_layout_caches(),
 }));
 
@@ -18,7 +22,7 @@ jest.mock("@xyflow/react", () => ({
   Background: () => null,
   MiniMap: () => null,
   BackgroundVariant: { Dots: "dots" },
-  useNodesState: () => [[], jest.fn(), jest.fn()],
+  useNodesState: () => [[], mock_set_nodes, jest.fn()],
   useEdgesState: () => [[], jest.fn(), jest.fn()],
   useStore: (selector: (state: { transform: [number, number, number] }) => unknown) =>
     selector({ transform: [0, 0, 1] }),
@@ -58,7 +62,10 @@ function render_chart(props: { selected_flow_id: string | null; render_flow: jes
 }
 
 describe("CodeChartArea refresh_nonce", () => {
-  beforeEach(() => clear_layout_caches.mockClear());
+  beforeEach(() => {
+    clear_layout_caches.mockClear();
+    mock_set_nodes.mockClear();
+  });
 
   it("re-runs render_flow for the same flow when refresh_nonce changes", async () => {
     const render_flow = jest.fn(async () => ({ nodes: [], edges: [] }));
@@ -103,5 +110,36 @@ describe("CodeChartArea refresh_nonce", () => {
     // not.toHaveBeenCalled() is satisfied on the first synchronous poll and would miss it.
     await act(async () => undefined);
     expect(render_flow).not.toHaveBeenCalled();
+    // The cache-clear effect is guarded on a selected flow, so a null selection never clears.
+    expect(clear_layout_caches).not.toHaveBeenCalled();
+  });
+
+  it("discards a render still in flight when a nonce bump supersedes it", async () => {
+    const resolvers: Array<(rows: RenderedRows) => void> = [];
+    const render_flow = jest.fn(
+      () => new Promise<RenderedRows>((resolve) => resolvers.push(resolve))
+    );
+    const { rerender } = render_chart({ selected_flow_id: "flow-1", render_flow, refresh_nonce: 0 });
+    await waitFor(() => expect(render_flow).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <ThemeProviderComponent force_standalone>
+        <CodeChartAreaReactFlow
+          selected_flow_id="flow-1"
+          render_flow={render_flow}
+          indexing_status={CodeIndexStatus.Ready}
+          refresh_nonce={1}
+        />
+      </ThemeProviderComponent>
+    );
+    await waitFor(() => expect(render_flow).toHaveBeenCalledTimes(2));
+
+    // Settling the superseded render must not repaint: its cancelled guard swallows the layout.
+    await act(async () => resolvers[0]({ nodes: [], edges: [] }));
+    expect(mock_set_nodes).not.toHaveBeenCalledWith(mock_layout_result);
+
+    // The current render is the one that paints once it settles.
+    await act(async () => resolvers[1]({ nodes: [], edges: [] }));
+    expect(mock_set_nodes).toHaveBeenCalledWith(mock_layout_result);
   });
 });

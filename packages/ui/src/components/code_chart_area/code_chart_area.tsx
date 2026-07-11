@@ -43,19 +43,18 @@ interface CodeChartAreaProps {
   selected_flow_id: string | null;
   render_flow: (flow_id: string) => Promise<RenderedRows>;
   indexing_status: CodeIndexStatus;
-  // Incremented by the App on a store_changed push. Re-runs render_flow for the current selection so a
-  // reconcile's new members/descriptions repaint without changing the selected flow.
+  // Bumped on a store_changed push to re-run render_flow for the current selection, so a reconcile's
+  // new members/descriptions repaint without changing the selected flow.
   refresh_nonce?: number;
 }
 
-// ARIA label configuration for accessibility
 const aria_label_config = {
   'node.a11yDescription.default': 'Press Enter to select this node. Use arrow keys to navigate.',
   'node.a11yDescription.keyboardDisabled': 'Keyboard navigation is disabled',
   'edge.a11yDescription.default': 'Connection between functions. Press Enter to focus.',
 };
 
-const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
+export const CodeChartAreaReactFlow: React.FC<CodeChartAreaProps> = ({
   selected_flow_id,
   render_flow,
   indexing_status,
@@ -73,16 +72,13 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const theme_styles = use_flow_theme_styles();
   const mini_map_node_color = useMemo(() => create_mini_map_node_color(theme_styles.colors), [theme_styles.colors]);
 
-  // The React Flow node-type map, derived once from the open kind registry (AC#6).
   const node_types = useMemo(() => build_node_types(), []);
 
-  // Selection-driven provenance (AC#8): the panel reads the selected node's/edge's source row.
   const [selection, set_selection] = useState<{ node?: NodeRow; edge?: EdgeRow }>({});
   const on_selection_change = useCallback((params: OnSelectionChangeParams<CodeChartNode, CodeChartEdge>) => {
     set_selection({ node: params.nodes[0]?.data.row, edge: params.edges[0]?.data?.row });
   }, []);
 
-  // Use keyboard navigation hook
   const on_node_navigate = useCallback((node_id: string) => {
     if (react_flow_instance.current) {
       const node = react_flow_instance.current.getNode(node_id);
@@ -97,17 +93,14 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   const keyboard_nav_props = useMemo(() => ({ on_node_navigate: on_node_navigate }), [on_node_navigate]);
   use_keyboard_navigation(keyboard_nav_props);
 
-  // Monitor zoom level and viewport
   const viewport_x = useStore((state: XYFlowState) => state.transform[0]);
   const viewport_y = useStore((state: XYFlowState) => state.transform[1]);
   const viewport_zoom = useStore((state: XYFlowState) => state.transform[2]);
   const viewport = useMemo(() => ({ x: viewport_x, y: viewport_y, zoom: viewport_zoom }), [viewport_x, viewport_y, viewport_zoom]);
   const ZOOM_THRESHOLD = CONFIG.zoom.levels.threshold;
 
-  // Debounce viewport changes for performance
   const debounced_viewport = use_debounce(viewport, CONFIG.animation.debounce.viewport);
 
-  // Update zoom mode based on zoom level
   useEffect(() => {
     const new_zoom_mode = viewport_zoom < ZOOM_THRESHOLD ? "zoomedOut" : "zoomedIn";
     if (new_zoom_mode !== zoom_mode) {
@@ -115,7 +108,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     }
   }, [viewport_zoom, zoom_mode]);
 
-  // Memoize visible nodes for virtualization
   const visible_node_ids = useMemo(() => {
     if (!container_ref.current || nodes.length === 0) {
       return new Set<string>();
@@ -129,7 +121,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     );
   }, [nodes, debounced_viewport]);
 
-  // Apply virtual rendering for large graphs
   const { virtual_nodes, virtual_edges, hidden_node_count } = use_virtual_nodes({
     nodes,
     edges,
@@ -165,11 +156,9 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
         set_nodes([]);
         set_edges([]);
 
-        // Project the flow's bounded subgraph to render rows and adapt them to React Flow (AC#6). The
-        // adapter folds the file-module scaffold's `agentic.contains` edges into `parentId` and carries
-        // each source row on `data.row` for the selection-driven provenance panel. The layout is always
-        // computed fresh from the current graph — there is no restore-from-storage path, so a graph or
-        // layout-algorithm change is reflected immediately and a stale snapshot can never be replayed.
+        // The layout is always computed fresh from the current graph — there is no
+        // restore-from-storage path, so a graph or layout-algorithm change is reflected immediately
+        // and a stale snapshot can never be replayed.
         const rows = await render_flow(selected_flow_id);
         if (cancelled) return;
 
@@ -213,7 +202,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     return show ? "visible" : "invisible";
   };
 
-  // Export the current layout to a JSON file (an explicit user action via the Export button).
   const handle_export_state = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selected_flow_id || !instance) return;
 
@@ -221,8 +209,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
     export_graph_state(instance.getNodes(), instance.getEdges(), viewport, selected_flow_id);
   }, [selected_flow_id]);
 
-  // Handle React Flow initialization: capture the instance. The viewport is framed by `fitView`,
-  // not restored from storage — the layout is always computed fresh for the current graph.
   const on_init = useCallback((instance: ReactFlowInstance<CodeChartNode, CodeChartEdge>) => {
     if (!selected_flow_id) return;
     react_flow_instance.current = instance;
@@ -369,7 +355,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
           />
           <Controls />
 
-          {/* Mini Map */}
           {show_mini_map && (
             <MiniMap
               nodeColor={mini_map_node_color}
@@ -383,10 +368,8 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
             />
           )}
 
-          {/* Search Panel */}
           <SearchPanel />
 
-          {/* Zoom mode indicator and controls */}
           <div
             style={{
               position: "absolute",
@@ -408,7 +391,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               {zoom_mode === "zoomedOut" ? "Module View" : "Function View"}
             </div>
 
-            {/* Performance info */}
             {nodes.length > CONFIG.performance.nodes.showStats && (
               <div
                 style={{
@@ -422,7 +404,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               </div>
             )}
 
-            {/* Show indicators for hidden nodes */}
             {hidden_node_count > CONFIG.performance.nodes.hideIndicator && (
               <ViewportIndicator
                 direction="top"
@@ -435,7 +416,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               />
             )}
 
-            {/* MiniMap Toggle */}
             <button
               onClick={() => set_show_mini_map(!show_mini_map)}
               style={{
@@ -451,7 +431,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
               {show_mini_map ? "🗺️ Hide Map" : "🗺️ Show Map"}
             </button>
 
-            {/* Export the current layout to a JSON file (explicit user action). */}
             <div
               style={{
                 display: "flex",
@@ -483,7 +462,6 @@ const CodeChartAreaReactFlowInner: React.FC<CodeChartAreaProps> = ({
   );
 };
 
-// MiniMap node color function factory
 function create_mini_map_node_color(colors: ReturnType<typeof use_flow_theme_styles>['colors']) {
   return (node: CodeChartNode): string => {
     if (node.type === 'module_group') {
@@ -499,10 +477,6 @@ function create_mini_map_node_color(colors: ReturnType<typeof use_flow_theme_sty
   };
 }
 
-// Export the component with proper naming
-export const CodeChartAreaReactFlow = CodeChartAreaReactFlowInner;
-
-// Wrap the component with ReactFlowProvider and ErrorBoundary
 export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (props) => {
   return (
     <ErrorBoundary
@@ -513,7 +487,7 @@ export const CodeChartAreaReactFlowWrapper: React.FC<CodeChartAreaProps> = (prop
       max_retries={CONFIG.error.retry.max_retries}
     >
       <ReactFlowProvider>
-        <CodeChartAreaReactFlowInner {...props} />
+        <CodeChartAreaReactFlow {...props} />
         <ErrorNotifications position="bottom" max_notifications={CONFIG.error.notifications.max_notifications} />
       </ReactFlowProvider>
     </ErrorBoundary>
