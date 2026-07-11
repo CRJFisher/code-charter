@@ -1,14 +1,10 @@
 /**
- * Regression for task-29.3: dragging a module must move its child function nodes, and modules must not
- * collapse onto each other. The live defect was a stale persisted layout (every module at {0,0},
- * `style: undefined`) restored on load and bypassing the layout pipeline — so every child resolved to the
- * same absolute position (overlap) and no child was nested under a draggable parent.
- *
- * Auto-restore is gone; the layout is always computed fresh. This test exercises the real pipeline
- * (`custom_graph_to_react_flow` → real ELK `apply_hierarchical_layout`, no mock) and pins the invariants
- * the defect violated: every module gets a distinct position with concrete `style` dimensions, and every
- * child is nested under its module with a parent-relative position. With those, React Flow derives each
- * child's absolute position from its parent each render, so the child follows the module on drag.
+ * The layout pipeline (`custom_graph_to_react_flow` → real ELK `apply_hierarchical_layout`,
+ * no mock) must give every module a distinct, non-overlapping position with concrete `style`
+ * dimensions, and nest every child under its module with a parent-relative position. React
+ * Flow derives each child's absolute position from its parent every render, so a child only
+ * follows its module on drag when it is nested and parent-relative. This test pins those
+ * invariants against the real ELK layout.
  */
 
 import type { EdgeRow, NodeRow } from "@code-charter/types";
@@ -64,11 +60,11 @@ function contains(child_id: string, module_id: string): EdgeRow {
   };
 }
 
-describe("module nesting layout (task-29.3 regression)", () => {
+describe("module nesting layout", () => {
   beforeEach(() => clear_layout_caches());
 
   it("lays out multiple modules at distinct positions with children nested parent-relative", async () => {
-    // Three single-function file-modules — the shape the live bergamot flow had.
+    // Three single-function file-modules.
     const specs = [
       { path: "src/a.ts", fn: "src/a.ts#alpha:function" },
       { path: "src/b.ts", fn: "src/b.ts#beta:function" },
@@ -88,15 +84,14 @@ describe("module nesting layout (task-29.3 regression)", () => {
     const modules = laid.filter(is_module_node);
     expect(modules).toHaveLength(3);
 
-    // Every module carries concrete dimensions (the broken snapshot had `style: undefined`).
+    // Every module carries concrete dimensions.
     for (const mod of modules) {
       expect(typeof mod.style?.width).toBe("number");
       expect(typeof mod.style?.height).toBe("number");
     }
 
-    // Modules do not overlap. The defect collapsed every module onto {0,0}; a real layout separates
-    // their bounding boxes. Distinct positions alone is too weak (two boxes can be distinct yet overlap),
-    // so assert no pair of module rectangles intersects.
+    // Modules do not overlap. Distinct positions alone is too weak (two boxes can be distinct yet
+    // overlap), so assert no pair of module rectangles intersects.
     const rect_of = (m: (typeof modules)[number]) => ({
       x1: m.position.x,
       y1: m.position.y,
