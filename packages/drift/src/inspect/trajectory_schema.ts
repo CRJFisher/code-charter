@@ -1,9 +1,9 @@
 /**
- * The neutral trajectory spine (docs/contracts/trajectory_spine.md; decision-10 rule 3): four
- * step kinds with generic fields at the top level and every drift-specific payload under
- * `detail`. This module imports nothing and names the boundary between drift-aware extraction
- * (trajectory_extract.ts) and neutral rendering (trajectory_render.ts) — the renderer and the
- * .17 grading queue consume ONLY the fields declared here, never a `detail` shape.
+ * The neutral trajectory spine (docs/contracts/trajectory_spine.md): four step kinds with generic
+ * fields at the top level and every drift-specific payload under `detail`. This module imports
+ * nothing and names the boundary between drift-aware extraction (trajectory_extract.ts) and neutral
+ * rendering (trajectory_render.ts) — the renderer and the grading queue consume ONLY the fields
+ * declared here, never a `detail` shape.
  */
 
 export const SPINE_SCHEMA_VERSION = 1;

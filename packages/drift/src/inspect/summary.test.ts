@@ -304,7 +304,7 @@ describe("detect_anomalies", () => {
     expect(anomalies.map((a) => a.code)).toContain("high_placeholder_ratio");
   });
 
-  it("flags a high ratio of provisional (awaiting-agent) descriptions — the now-primary name-only case", () => {
+  it("counts provisional descriptions in the name-only numerator", () => {
     // The deterministic pass writes `provisional`, not `placeholder`, for every needs_llm member, so
     // the anomaly must count provisional in its name-only numerator or it would silently stop firing.
     const members = ["a", "b", "c", "d", "e", "f"];

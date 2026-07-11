@@ -1,5 +1,5 @@
 /**
- * The before/after diff of two {@link StoreSummary} projections — the payload `drift-dev` (.7) prints
+ * The before/after diff of two {@link StoreSummary} projections — the payload `drift-dev` prints
  * after running the deterministic reconcile against a scratch copy of the store. Pure over two already-
  * gathered summaries, so the bin owns the IO (copy the store, reconcile the copy, summarize both) and
  * this owns the comparison. Flows are matched by id; bridges by their `src → dst` endpoints; the

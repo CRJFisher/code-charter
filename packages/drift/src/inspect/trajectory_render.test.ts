@@ -5,8 +5,8 @@ import * as path from "node:path";
 import { SPINE_SCHEMA_VERSION, type TrajectorySpine } from "./trajectory_schema";
 import { render_trajectory } from "./trajectory_render";
 
-// Built from the neutral schema alone — this test file importing zero drift modules is part of
-// the AC#4 proof that rendering needs no drift knowledge.
+// Built from the neutral schema alone; this test file imports zero drift modules, proving the
+// renderer needs no drift knowledge.
 function spine(over: Partial<TrajectorySpine> = {}): TrajectorySpine {
   return {
     schema_version: SPINE_SCHEMA_VERSION,
@@ -53,6 +53,16 @@ describe("render_trajectory", () => {
     const text = lines.join("\n");
     expect(text).toContain("transcript unavailable: t.jsonl missing (rotated?) — effect-only view");
     expect(text).toContain("effect (1):");
+  });
+
+  it("indents every line of a multi-line step summary", () => {
+    const lines = render_trajectory(
+      spine({
+        steps: [{ kind: "instruction", ordinal: 0, at: null, summary: "line one\nline two", detail: {} }],
+      }),
+    );
+    expect(lines).toContain("  line one");
+    expect(lines).toContain("  line two");
   });
 
   it("orders steps by ordinal, not input order", () => {

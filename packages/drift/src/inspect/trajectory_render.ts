@@ -2,7 +2,7 @@
  * The neutral spine renderer — the render side of the boundary named in trajectory_schema.ts.
  * It imports ONLY the neutral schema module (pinned by the import-boundary test) and reads only
  * the neutral fields (`kind`, `ordinal`, `summary`, the envelope): rendering a spine must need
- * zero drift knowledge, because the .17 grading queue renders the same shape blind.
+ * zero drift knowledge, because the grading queue renders the same shape blind.
  */
 
 import type { SpineStep, SpineStepKind, TrajectorySpine } from "./trajectory_schema";

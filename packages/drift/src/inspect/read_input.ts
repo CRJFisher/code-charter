@@ -3,7 +3,7 @@
  * summary folds in. The read is strictly read-only (never competing for the write lock, never running
  * schema init); a store that was never reconciled (no db file) is the empty input, not an error.
  *
- * The seam `drift-inspect` and `drift-dev` (.7) share: both build a {@link StoreSummary} off a store
+ * The seam `drift-inspect` and `drift-dev` share: both build a {@link StoreSummary} off a store
  * path and must gather it identically, so the before/after diff of a scratch reconcile is comparing
  * like with like.
  */

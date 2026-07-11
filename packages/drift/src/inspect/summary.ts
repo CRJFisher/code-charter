@@ -1,10 +1,10 @@
 /**
- * Pure store-inspection projections: turn a graph snapshot (plus the reconcile run log from .3) into
+ * Pure store-inspection projections: turn a graph snapshot (plus the reconcile run log) into
  * the answer to "did my last sync do what I expected?" — flow inventory, description-source split,
  * bridges with rationale, deferred retirements — and the anomaly set a lint pass raises over them.
  *
  * All logic here is pure over already-read data; the bin owns the IO (opening the store read-only,
- * reading the sidecars). This is the seam the OutputChannel (.5) and drift:dev (.7) reuse: they call
+ * reading the sidecars). This is the seam the OutputChannel and drift:dev reuse: they call
  * the same collectors and render with the same {@link module:render} functions.
  *
  * Membership is read from a flow node's `anchor_set` attribute, NOT from `agentic.flow_member` edges:
@@ -260,9 +260,9 @@ export interface Anomaly {
  * Minimum agentic-owned description count (name-only + llm) before the placeholder-ratio finding
  * fires — below this, a high ratio is noise, not a signal.
  */
-export const HIGH_PLACEHOLDER_MIN = 5;
+const HIGH_PLACEHOLDER_MIN = 5;
 /** name-only / (name-only + llm) at or above this is a "too few real descriptions" finding. */
-export const HIGH_PLACEHOLDER_RATIO = 0.5;
+const HIGH_PLACEHOLDER_RATIO = 0.5;
 
 /**
  * The bridges a stitch proposal declared across its umbrellas — read leniently, since the sidecar is

@@ -1,6 +1,6 @@
 /**
  * Text renderers for the inspect projections. Pure `summary → string[]` (one line per element), so the
- * bin joins with "\n" for stdout and .5's OutputChannel appends the same lines. Kept separate from the
+ * bin joins with "\n" for stdout and the OutputChannel appends the same lines. Kept separate from the
  * collectors so a consumer can render the JSON projection its own way and still share the gathering.
  */
 
