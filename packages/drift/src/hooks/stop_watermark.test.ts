@@ -116,4 +116,16 @@ describe("select_stale_watermarks (GC)", () => {
   it("returns an empty list when nothing is stale", () => {
     expect(select_stale_watermarks([{ name: wm("a"), mtime_ms: NOW }], NOW, MAX_AGE)).toEqual([]);
   });
+
+  it("returns an empty list for an empty directory", () => {
+    expect(select_stale_watermarks([], NOW, MAX_AGE)).toEqual([]);
+  });
+
+  it("leaves a stale prefix-matching sibling that is not a .json cursor", () => {
+    const entries = [
+      { name: `${WATERMARK_FILE_PREFIX}.old.json.tmp`, mtime_ms: NOW - MAX_AGE - 1 },
+      { name: `${WATERMARK_FILE_PREFIX}.old.jsonl`, mtime_ms: NOW - MAX_AGE - 1 },
+    ];
+    expect(select_stale_watermarks(entries, NOW, MAX_AGE)).toEqual([]);
+  });
 });

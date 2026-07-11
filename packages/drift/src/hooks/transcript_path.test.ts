@@ -2,7 +2,11 @@ import { describe, expect, it } from "@jest/globals";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { derive_transcript_path, slugify_claude_project_dir } from "./transcript_path";
+import {
+  derive_subagent_transcript_path,
+  derive_transcript_path,
+  slugify_claude_project_dir,
+} from "./transcript_path";
 
 describe("slugify_claude_project_dir", () => {
   it("maps every non-alphanumeric character to a dash, keeping case and digits", () => {
@@ -33,5 +37,19 @@ describe("derive_transcript_path", () => {
     const expected = path.join(os.homedir(), ".claude", "projects", "-repo", "s1.jsonl");
     expect(derive_transcript_path("/repo", "s1", {})).toBe(expected);
     expect(derive_transcript_path("/repo", "s1", { CLAUDE_CONFIG_DIR: "" })).toBe(expected);
+  });
+});
+
+describe("derive_subagent_transcript_path", () => {
+  it("nests subagents/agent-<id>.jsonl under the main transcript's session directory", () => {
+    expect(derive_subagent_transcript_path("/cfg/projects/-repo/s1.jsonl", "42")).toBe(
+      path.join("/cfg/projects/-repo/s1", "subagents", "agent-42.jsonl"),
+    );
+  });
+
+  it("strips only a trailing .jsonl, leaving an extensionless path as the session directory", () => {
+    expect(derive_subagent_transcript_path("/cfg/projects/-repo/s1", "42")).toBe(
+      path.join("/cfg/projects/-repo/s1", "subagents", "agent-42.jsonl"),
+    );
   });
 });

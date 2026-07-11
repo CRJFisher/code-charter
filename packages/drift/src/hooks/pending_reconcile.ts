@@ -30,7 +30,7 @@ import * as path from "node:path";
 const PENDING_RECONCILE_FILE = "drift_pending_reconcile.json";
 
 /** Advisory: parse failure, not a version check, is what invalidates a stale handoff. */
-export const PENDING_RECONCILE_VERSION = 1;
+const PENDING_RECONCILE_VERSION = 1;
 
 /** The session context of the Stop fire that staged the handoff. */
 export interface PendingSession {
