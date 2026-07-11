@@ -29,7 +29,7 @@ type DirtyUpsert =
   | { kind: "edge"; key: string; row: EdgeRow; provenance: ProvenanceRow[] };
 
 /**
- * The live, in-memory surface over the persistent {@link GraphStore} (task-27.0.4).
+ * The live, in-memory surface over the persistent {@link GraphStore}.
  *
  * Hydrates one graphology `MultiDirectedGraph` from `all_nodes`/`all_edges` (`include_deleted: true`),
  * keyed by stable node ids and deterministic edge keys. Edits mutate the in-memory graph and mark only
@@ -239,7 +239,7 @@ export class CustomGraphModel {
    * per key, structural columns take the later layer's whole value. The fold never consults or stamps
    * `field_ownership` (it is dropped from the view), distinct from the write-side ladder. Overlays
    * supply their rows inline and are never written back, so the ladder never runs on them — a
-   * `proposed` overlay (task-27.2) is one more list entry with no signature change.
+   * `proposed` overlay is one more list entry with no signature change.
    *
    * Rows are folded including tombstones so a later layer can revive a soft-deleted row by overriding
    * `deleted_at`; only after folding are rows with `deleted_at` set dropped, unless `show_tombstones`.
@@ -331,19 +331,6 @@ export class CustomGraphModel {
  */
 function promoted_layer(current: Layer, as_tier: Tier): Layer {
   return as_tier === "user" ? "user" : current;
-}
-
-/**
- * Flatten a rendered {@link CustomGraph} to its plain `NodeRow`/`EdgeRow` arrays — the cross-boundary
- * projection a webview adapter consumes (the UI never imports graphology). The graph already excludes
- * tombstones (unless `render` was called with `show_tombstones`), so this neither filters nor mutates.
- */
-export function graph_to_rows(graph: CustomGraph): { nodes: NodeRow[]; edges: EdgeRow[] } {
-  const nodes: NodeRow[] = [];
-  const edges: EdgeRow[] = [];
-  graph.forEachNode((_id, attributes) => nodes.push(attributes.row));
-  graph.forEachEdge((_key, attributes) => edges.push(attributes.row));
-  return { nodes, edges };
 }
 
 function target_key(target: GraphTarget): string {

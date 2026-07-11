@@ -47,7 +47,7 @@ function reanchor_preserved_rows(store: GraphStore, index: ResolverIndex): void 
   }
 }
 
-describe("end-to-end round-trip on :memory: (AC#5)", () => {
+describe("end-to-end round-trip on :memory:", () => {
   let store: SqliteGraphStore;
 
   beforeEach(() => {
@@ -70,7 +70,7 @@ describe("end-to-end round-trip on :memory: (AC#5)", () => {
     expect(parse_anchor(store.node(BEHAVIOUR_ID)!.anchor!).symbol_path).toBe(compute_path);
     expect(parse_anchor(store.node(CONCEPT_ID)!.anchor!).symbol_path).toBe(compute_path);
 
-    // --- user edit through the model (27.0.4): add a user-owned label, and PROMOTE the dual-sourced
+    // --- user edit through the model: add a user-owned label, and PROMOTE the dual-sourced
     // `description` (an agentic default) to user-owned. Both must survive the later agentic pass. ---
     const editing = CustomGraphModel.hydrate(store);
     const edit = editing.write_fields(
@@ -83,7 +83,7 @@ describe("end-to-end round-trip on :memory: (AC#5)", () => {
     expect(store.node(CONCEPT_ID)?.attributes.label).toBe(USER_LABEL);
     expect(store.node(CONCEPT_ID)?.field_ownership.description).toBe("user");
 
-    // --- raw re-parse (27.0.2): `compute` renamed to `calculate`; raw rows replaced, tiers survive ---
+    // --- raw re-parse: `compute` renamed to `calculate`; raw rows replaced, tiers survive ---
     store.rebuild_layer("raw", apply_raw_v2);
 
     // The new raw graph is v2: calculate present, compute gone, edges re-pointed.
@@ -98,17 +98,17 @@ describe("end-to-end round-trip on :memory: (AC#5)", () => {
     expect(store.node(CONCEPT_ID)?.attributes.label).toBe(USER_LABEL);
     expect(parse_anchor(store.node(CONCEPT_ID)!.anchor!).symbol_path).toBe(compute_path);
 
-    // --- re-anchor preserved rows through the resolver (27.0.3): follow the moved symbol ---
+    // --- re-anchor preserved rows through the resolver: follow the moved symbol ---
     const index = build_resolver_index(CODE_V2);
     reanchor_preserved_rows(store, index);
 
     expect(parse_anchor(store.node(BEHAVIOUR_ID)!.anchor!).symbol_path).toBe(calculate_path);
     expect(parse_anchor(store.node(CONCEPT_ID)!.anchor!).symbol_path).toBe(calculate_path);
 
-    // --- agentic pass (27.0.2 ladder): regenerate agentic content; user edit is protected ---
+    // --- agentic pass through the ladder: regenerate agentic content; user edit is protected ---
     store.rebuild_layer("agentic", apply_agentic_pass);
 
-    // --- final composition through the model (27.0.4) ---
+    // --- final composition through the model ---
     const model = CustomGraphModel.hydrate(store);
     const view = model.render([{ kind: "raw" }, { kind: "agentic" }, { kind: "user" }]);
 
@@ -149,7 +149,7 @@ describe("end-to-end round-trip on :memory: (AC#5)", () => {
     reanchor_preserved_rows(store, index);
 
     // Preserved content is untouched on a miss (anchor AND attributes intact); repair of a true miss
-    // is task-27.1's policy — the round-trip only follows a `relocated`.
+    // belongs to the re_extract policy — the round-trip only follows a `relocated`.
     expect(store.node(CONCEPT_ID)?.anchor).toBe(original_anchor);
     expect(store.node(CONCEPT_ID)?.attributes.description).toBe(CONCEPT_DESCRIPTION_DEFAULT);
   });

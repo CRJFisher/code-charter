@@ -1,20 +1,20 @@
 /**
- * task-27.1.3 — the flow entity, deterministic skeleton, membership, and persistence-row builders.
+ * The flow entity: deterministic skeleton, membership, and persistence-row builders.
  *
  * A **flow** is v1's unit of comprehension: the subgraph induced by `{seed entrypoint roots} +
  * {agent-inferred bridge edges} + {linked docs}`, with the deterministic call-graph supplying each
  * seeded tree's interior for free. This module is the single source of flow truth — pure, host-agnostic,
  * derived from an in-memory Ariadne `CallGraph`. It writes nothing to a store: the deterministic
- * skeleton is recomputed each session; the `agentic.flow` row builders here are the seam task-27.1.6
- * uses to persist a *hydrated* flow, not a v1 live path.
+ * skeleton is recomputed each session; the `agentic.flow` row builders here are the seam for persisting
+ * a *hydrated* flow, not a v1 live path.
  *
- * Identity (AC#4): a flow's id is the dominant seed entrypoint's `symbol_path` — the location-free,
+ * Identity: a flow's id is the dominant seed entrypoint's `symbol_path` — the location-free,
  * body-independent half of its anchor, so the id is stable across body edits and line shifts (the
  * content_hash is deliberately excluded; including it would re-key the flow on every save). A rename of
  * the dominant seed changes the id: the superseded flow is retired (soft-deleted) and the renamed
  * entrypoint re-hydrates as a fresh flow; a skeleton flow is simply re-derived to the new id each session.
  *
- * Membership (AC#2) is subgraph-induced: re-induced from seeds + bridges + linked docs on demand, never
+ * Membership is subgraph-induced: re-induced from seeds + bridges + linked docs on demand, never
  * a stored enumerated leaf set. "Which flow does leaf L belong to" is answered by re-inducing each
  * flow's subgraph and testing membership ({@link flow_of_leaf}) — a leaf shared by two entrypoint trees
  * legitimately belongs to both.
@@ -29,23 +29,23 @@ import type { EdgeRow, FlowSummary, NodeRow } from "@code-charter/types";
 
 import { build_symbol_path } from "../resolver/code_state";
 
-/** The fixed sentinel id of the single `unattributed` bucket (AC#8) — it has no seed entrypoint. */
+/** The fixed sentinel id of the single `unattributed` bucket — it has no seed entrypoint. */
 export const UNATTRIBUTED_FLOW_ID = "agentic.flow:unattributed";
 /** The label shown for the `unattributed` bucket. */
 export const UNATTRIBUTED_FLOW_LABEL = "Unattributed";
 
-/** The `agentic.flow` node kind (AC#1). Distinct from the file-module `agentic.group` (task-27.1.2). */
+/** The `agentic.flow` node kind. Distinct from the file-module `agentic.group`. */
 export const FLOW_NODE_KIND = "agentic.flow";
-/** Flow → seed-root / flow → linked-doc membership edge (AC#1). NOT `agentic.contains` (the scaffold). */
+/** Flow → seed-root / flow → linked-doc membership edge. NOT `agentic.contains` (the scaffold). */
 export const FLOW_MEMBER_EDGE_KIND = "agentic.flow_member";
-/** Cross-call-graph link edge (AC#1), inferred by the flow-detector (task-27.1.6). */
+/** Cross-call-graph link edge, inferred by the flow-detector. */
 export const BRIDGE_EDGE_KIND = "agentic.bridge";
 
 /**
  * The endpoint-only shape of a bridge used to (re-)induce flow membership — `induce_members` traverses
  * from `dst_id` (a call-graph `SymbolId`). The provenance-carrying persistence builder for
- * `agentic.bridge` rows lives in `agentic/bridge.ts` ({@link BridgeCandidate} / `build_bridge_edges`,
- * task-27.1.4); this interface is just the induction input, not the persisted row.
+ * `agentic.bridge` rows lives in `agentic/bridge.ts` ({@link BridgeCandidate} / `build_bridge_edges`);
+ * this interface is just the induction input, not the persisted row.
  */
 export interface BridgeEdge {
   src_id: string;
@@ -54,11 +54,10 @@ export interface BridgeEdge {
 
 /**
  * A deterministic, in-memory flow descriptor derived from the call graph. NOT persisted — recomputed
- * each session. A hydrated flow (task-27.1.6) reduces to the same shape plus its stored `agentic.flow`
- * node.
+ * each session. A hydrated flow reduces to the same shape plus its stored `agentic.flow` node.
  */
 export interface SkeletonFlow {
-  /** Flow id = dominant seed's `symbol_path` (AC#4), or {@link UNATTRIBUTED_FLOW_ID}. */
+  /** Flow id = dominant seed's `symbol_path`, or {@link UNATTRIBUTED_FLOW_ID}. */
   id: string;
   label: string;
   /** Seed entrypoint roots whose reachable subgraphs (re-)induce membership. */
@@ -69,7 +68,7 @@ export interface SkeletonFlow {
   seed_location: { file_path: string; line_number: number } | null;
 }
 
-/** The induce-able shape of any flow (skeleton or hydrated): seeds + bridges + linked docs (AC#2). */
+/** The induce-able shape of any flow (skeleton or hydrated): seeds + bridges + linked docs. */
 export interface FlowMembership {
   id: string;
   seeds: SymbolId[];
@@ -77,7 +76,7 @@ export interface FlowMembership {
   linked_docs?: string[];
 }
 
-/** The dominant seed's `symbol_path` — the flow id (AC#4). Entrypoints are top-level, so enclosing is []. */
+/** The dominant seed's `symbol_path` — the flow id. Entrypoints are top-level, so enclosing is []. */
 export function flow_id_of(node: CallableNode): string {
   return build_symbol_path(node.location.file_path, [], node.name, node.definition.kind);
 }
@@ -111,7 +110,7 @@ export function reachable_from(seed: SymbolId, graph: CallGraph): Set<SymbolId> 
 }
 
 /**
- * The whole-repo deterministic skeleton (AC#3, AC#8): one flow per top-level entrypoint, ordered by
+ * The whole-repo deterministic skeleton: one flow per top-level entrypoint, ordered by
  * reachable size (descending, id-tiebroken), plus a single `unattributed` bucket for code reachable
  * from no entrypoint, always last. Byte-stable across runs: entrypoints are processed in sorted-id
  * order and every set is sorted before use.
@@ -179,7 +178,7 @@ export function skeleton_to_summary(flow: SkeletonFlow): FlowSummary {
 }
 
 /**
- * The ordered selector list (AC#7): hydrated flows first by `last_synced_at` (most recent first, nulls
+ * The ordered selector list: hydrated flows first by `last_synced_at` (most recent first, nulls
  * last), then the deterministic skeleton in its own order. A skeleton flow is dropped when a hydrated
  * flow supersedes it — either it shares the hydrated flow's id, or its seed is one the stitch folded
  * into a grouped flow as a non-dominant seed (`claimed_paths`). A multi-seed flow's id is only its
@@ -218,7 +217,7 @@ export function hydrated_seed_paths(nodes: readonly NodeRow[]): Set<string> {
   return paths;
 }
 
-/** Read persisted hydrated flows from the store (AC#7) — `agentic.flow` nodes. Empty until task-27.1.6. */
+/** Read persisted hydrated flows from the store — `agentic.flow` nodes. */
 export function read_hydrated_flows(nodes: readonly NodeRow[]): FlowSummary[] {
   return nodes
     .filter((node) => node.kind === FLOW_NODE_KIND && node.deleted_at === null)
@@ -234,7 +233,7 @@ export function read_hydrated_flows(nodes: readonly NodeRow[]): FlowSummary[] {
 }
 
 /**
- * Re-induce a flow's member node set (AC#2): the union of every seed's reachable subgraph, every
+ * Re-induce a flow's member node set: the union of every seed's reachable subgraph, every
  * bridge endpoint's reachable subgraph (a bridge pulls in the linked tree), and the linked docs. No
  * stored leaf set is consulted.
  */
@@ -250,7 +249,7 @@ export function induce_members(flow: FlowMembership, graph: CallGraph): Set<Symb
   return members;
 }
 
-/** Which flows a leaf belongs to (AC#2): re-induce each flow's subgraph and test membership — set-valued. */
+/** Which flows a leaf belongs to: re-induce each flow's subgraph and test membership — set-valued. */
 export function flow_of_leaf(leaf: SymbolId, flows: FlowMembership[], graph: CallGraph): string[] {
   return flows.filter((flow) => induce_members(flow, graph).has(leaf)).map((flow) => flow.id);
 }
@@ -272,7 +271,7 @@ export function paths_of(ids: ReadonlySet<SymbolId>, graph: CallGraph): string[]
 
 /**
  * The `symbol_path → SymbolId` index over the current graph (the inverse of {@link flow_id_of}). A
- * persisted flow stores its seeds/bridges as rename-stable `symbol_path`s (task-27.1.6), but induction
+ * persisted flow stores its seeds/bridges as rename-stable `symbol_path`s, but induction
  * traverses the live `CallGraph` keyed by `SymbolId`; this is the bridge between the two id spaces.
  * First-wins in sorted-id order, mirroring `build_skeleton_flows`'s dedup, so the mapping is
  * deterministic when two callables collapse to one enclosing-free `symbol_path`.
@@ -317,7 +316,7 @@ export function collect_persisted_flow(
 }
 
 /**
- * Reconstruct the induce-able {@link FlowMembership} for a persisted flow (task-27.1.6 render + re-sync).
+ * Reconstruct the induce-able {@link FlowMembership} for a persisted flow (render + re-sync).
  * Stored member/bridge endpoints are `symbol_path`s; a dst that resolves to a live `SymbolId` is a
  * call-graph seed/bridge target, and one that does not is a linked doc (doc nodes are not in the call
  * graph). The flow id passes through unchanged (it is itself a `symbol_path`).
@@ -348,10 +347,10 @@ export function reconstruct_flow_membership(rows: PersistedFlowRows, graph: Call
   return { id: rows.flow_node.id, seeds, bridges, linked_docs };
 }
 
-// --- persistence-row builders (AC#1 seam; task-27.1.6 persists, v1 only unit-tests) ----------------
+// --- persistence-row builders (the persistence seam; v1 only unit-tests) ----------------
 
 /**
- * The `agentic.flow` node a hydrated flow persists as (AC#1): an open `kind`, `layer='agentic'`, no
+ * The `agentic.flow` node a hydrated flow persists as: an open `kind`, `layer='agentic'`, no
  * schema migration. `entry_points`/`exit_points`/`rationale` ride the attribute bag.
  */
 export function build_flow_node(args: {
@@ -383,7 +382,7 @@ export function build_flow_node(args: {
   };
 }
 
-/** `agentic.flow_member` edges from a flow to its seed roots + linked docs (AC#1). Deterministic keys. */
+/** `agentic.flow_member` edges from a flow to its seed roots + linked docs. Deterministic keys. */
 export function build_flow_member_edges(flow_id: string, member_ids: readonly string[]): EdgeRow[] {
   return [...member_ids]
     .sort()

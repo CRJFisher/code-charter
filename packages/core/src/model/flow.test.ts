@@ -24,7 +24,7 @@ import {
 } from "./flow";
 import { make_graph, make_node } from "./__fixtures__/call_graph";
 
-describe("flow_id_of (AC#4)", () => {
+describe("flow_id_of", () => {
   it("is the dominant seed's symbol_path: file#name:kind, body-independent", () => {
     const node = make_node({ id: "main.ts:main:5", name: "main", file: "src/main.ts", line: 5 });
     expect(flow_id_of(node)).toBe("src/main.ts#main:function");
@@ -56,7 +56,7 @@ describe("reachable_from", () => {
   });
 });
 
-describe("build_skeleton_flows (AC#3, AC#8)", () => {
+describe("build_skeleton_flows", () => {
   const graph = make_graph(
     [
       { id: "main", name: "main", file: "src/main.ts", calls: ["helper", "shared"] },
@@ -75,14 +75,14 @@ describe("build_skeleton_flows (AC#3, AC#8)", () => {
     expect(flows[1].member_count).toBe(2); // cli + shared
   });
 
-  it("a shared callee is induced into both flows (membership is not a partition, AC#2)", () => {
+  it("a shared callee is induced into both flows (membership is not a partition)", () => {
     const flows = build_skeleton_flows(graph).filter((f) => !f.is_unattributed);
     for (const flow of flows) {
       expect(induce_members(flow, graph).has("shared" as SymbolId)).toBe(true);
     }
   });
 
-  it("buckets code reachable from no entrypoint into a single unattributed flow, always last (AC#8)", () => {
+  it("buckets code reachable from no entrypoint into a single unattributed flow, always last", () => {
     const flows = build_skeleton_flows(graph);
     const last = flows[flows.length - 1];
     expect(last.id).toBe(UNATTRIBUTED_FLOW_ID);
@@ -116,7 +116,7 @@ describe("build_skeleton_flows (AC#3, AC#8)", () => {
   });
 });
 
-describe("flow_of_leaf (AC#2)", () => {
+describe("flow_of_leaf", () => {
   it("returns every flow whose induced subgraph contains the leaf", () => {
     const graph = make_graph(
       [
@@ -177,7 +177,7 @@ describe("build_symbol_path_index", () => {
   });
 });
 
-describe("induce_members bridges + linked docs (AC#2)", () => {
+describe("induce_members bridges + linked docs", () => {
   const graph = make_graph(
     [
       { id: "a", name: "a", file: "a.ts", calls: ["a_helper"] },
@@ -224,7 +224,7 @@ describe("build_skeleton_flows id de-duplication (D-FLOW-IDENTITY edge)", () => 
   });
 });
 
-describe("order_flows (AC#7)", () => {
+describe("order_flows", () => {
   const skeleton: FlowSummary[] = [
     summary({ id: "m.ts#main:function", member_count: 5 }),
     summary({ id: "c.ts#cli:function", member_count: 2 }),
@@ -276,7 +276,7 @@ describe("order_flows (AC#7)", () => {
   });
 });
 
-describe("read_hydrated_flows (AC#7)", () => {
+describe("read_hydrated_flows", () => {
   it("maps agentic.flow nodes to hydrated summaries and ignores other kinds + tombstones", () => {
     const summaries = read_hydrated_flows([
       {
@@ -345,7 +345,7 @@ describe("collect_persisted_flow", () => {
   });
 });
 
-describe("reconstruct_flow_membership (task-27.1.6)", () => {
+describe("reconstruct_flow_membership", () => {
   const graph = make_graph(
     [
       { id: "main", name: "main", file: "src/main.ts" },
@@ -409,7 +409,7 @@ describe("hydrated_seed_paths", () => {
   });
 });
 
-describe("persistence-row builders (AC#1)", () => {
+describe("persistence-row builders", () => {
   it("builds an agentic.flow node with the attribute bag, layer agentic, no anchor", () => {
     const node = build_flow_node({
       id: "src/main.ts#main:function",

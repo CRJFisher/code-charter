@@ -49,7 +49,7 @@ describe("module_group_id", () => {
   });
 });
 
-describe("build_module_scaffold (AC#9)", () => {
+describe("build_module_scaffold", () => {
   const resolver = file_module_resolver("src");
 
   it("emits one agentic.group per defining file, layer='agentic'", () => {

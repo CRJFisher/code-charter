@@ -1,5 +1,5 @@
 /**
- * task-27.1.2 AC#9 — the file-module first-parent tier.
+ * The file-module first-parent tier.
  *
  * Leaf code nodes are grouped under one `agentic.group` per defining file, derived deterministically
  * from each leaf's anchor (the `symbol_path` segment before `#`). Membership is persisted as
@@ -8,7 +8,7 @@
  *
  * Everything here is pure and path-derived, so recomputing over the same leaf set always yields
  * byte-identical rows — the scaffold is cheap to (re)build on demand for the worked-on file set rather
- * than eagerly across the whole repo. Directory rollups and clustering are deferred (task-27.1.3); they
+ * than eagerly across the whole repo. Directory rollups and clustering are deferred; they
  * arrive as alternative {@link ModuleResolver} implementations, not edits to this writer.
  */
 
@@ -33,13 +33,13 @@ export function file_of_symbol_path(symbol_path: string): string {
   return symbol_path.slice(0, hash);
 }
 
-/** Deterministic group id for a defining file. Path-derived, never hashed (AC#9). */
+/** Deterministic group id for a defining file. Path-derived, never hashed. */
 export function module_group_id(file_path: string): string {
   return `${MODULE_GROUP_PREFIX}${file_path}`;
 }
 
 /**
- * Maps a leaf node to its first-parent group. This is the task-27.1.3 seam: directory rollups and
+ * Maps a leaf node to its first-parent group. This is the grouping seam: directory rollups and
  * clustering are alternative implementations of this one method, leaving {@link build_module_scaffold}
  * unchanged.
  */
@@ -68,7 +68,7 @@ export function file_module_resolver(analyzed_root: string): ModuleResolver {
 
 /**
  * A resolver that buckets a leaf by its `path` column directly, rather than by parsing its `anchor`.
- * This is the task-27.1.3 seam for flow-render projection: call-graph-projected `code.function` rows
+ * This is the grouping seam for flow-render projection: call-graph-projected `code.function` rows
  * carry their file in `path` and no anchor (they are render-only, never persisted/hashed), so the
  * anchor-parsing {@link file_module_resolver} would skip them. Group ids are byte-identical to that
  * resolver's (same {@link module_group_id}), so a projected fold and a persisted fold agree.
@@ -100,7 +100,7 @@ export interface ModuleScaffold {
 
 /**
  * Build the file-module tier for `leaves`: one `agentic.group` node per distinct group the resolver
- * assigns, plus one `agentic.contains` edge per leaf (leaf → module, per AC#9). Output is sorted by
+ * assigns, plus one `agentic.contains` edge per leaf (leaf → module). Output is sorted by
  * group id then leaf id, so the same leaf set yields identical rows on every recompute regardless of
  * input order. Anchorless leaves are skipped (module membership is defined only for anchored code).
  */

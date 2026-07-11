@@ -18,7 +18,7 @@ export interface NodeSpec {
   calls?: string[];
   /** Marks the node as a test (gap-detection excludes tests by default). */
   is_test?: boolean;
-  /** Call sites with an empty `resolutions` array — unresolved (gap-detection AC#1). */
+  /** Call sites with an empty `resolutions` array — unresolved (gap-detection). */
   unresolved_calls?: string[];
   /** Call sites with more than one resolution — polymorphic/dynamic dispatch. */
   dynamic_calls?: Array<{ name: string; targets: string[] }>;

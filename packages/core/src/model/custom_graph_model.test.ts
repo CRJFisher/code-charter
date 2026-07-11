@@ -8,7 +8,7 @@ import type {
 } from "@code-charter/types";
 
 import { SqliteGraphStore } from "../storage/sqlite_graph_store";
-import { CustomGraphModel, graph_to_rows } from "./custom_graph_model";
+import { CustomGraphModel } from "./custom_graph_model";
 
 function make_node(over: Partial<NodeRow> = {}): NodeRow {
   return {
@@ -147,7 +147,7 @@ describe("CustomGraphModel", () => {
     store.close();
   });
 
-  describe("hydrate (AC#1)", () => {
+  describe("hydrate", () => {
     it("hydrates every node and edge including soft-deleted, keyed by id / edge key", () => {
       store.upsert_node(make_node({ id: "n.live", layer: "raw" }));
       store.upsert_node(make_node({ id: "n.dead", layer: "agentic" }));
@@ -194,7 +194,7 @@ describe("CustomGraphModel", () => {
     });
   });
 
-  describe("flush routing (AC#1)", () => {
+  describe("flush routing", () => {
     it("routes a field-level edit through write_fields only", () => {
       store.upsert_node(make_node({ id: "n1" }));
       const recording = new RecordingStore(store);
@@ -378,7 +378,7 @@ describe("CustomGraphModel", () => {
     });
   });
 
-  describe("layer promotion (AC#1)", () => {
+  describe("layer promotion", () => {
     it("promotes an agentic-layer node to layer='user' in memory and persists it through flush", () => {
       store.upsert_node(make_node({ id: "n", layer: "agentic" }));
       const model = CustomGraphModel.hydrate(store);
@@ -415,7 +415,7 @@ describe("CustomGraphModel", () => {
     });
   });
 
-  describe("soft-delete by convention (AC#2)", () => {
+  describe("soft-delete by convention", () => {
     it("keeps a soft-deleted row in memory, reconstructable with deleted_at set", () => {
       store.upsert_node(make_node({ id: "a", layer: "agentic" }));
       const model = CustomGraphModel.hydrate(store);
@@ -480,7 +480,7 @@ describe("CustomGraphModel", () => {
     });
   });
 
-  describe("render fold (AC#3)", () => {
+  describe("render fold", () => {
     it("includes each base-layer row once when ids do not collide across layers", () => {
       store.upsert_node(make_node({ id: "r", layer: "raw" }));
       store.upsert_node(make_node({ id: "g", layer: "agentic" }));
@@ -602,7 +602,7 @@ describe("CustomGraphModel", () => {
     });
   });
 
-  describe("proposed overlay composition (AC#4)", () => {
+  describe("proposed overlay composition", () => {
     it("composes a proposed overlay as one more list entry with no signature change", () => {
       store.upsert_node(make_node({ id: "a", layer: "raw", attributes: { label: "base" } }));
       store.upsert_node(make_node({ id: "b", layer: "raw" }));
@@ -640,25 +640,4 @@ describe("CustomGraphModel", () => {
     });
   });
 
-  describe("graph_to_rows", () => {
-    it("flattens a rendered graph to its plain node and edge row arrays", () => {
-      store.upsert_node(make_node({ id: "a", layer: "raw", attributes: { label: "A" } }));
-      store.upsert_node(make_node({ id: "b", layer: "raw" }));
-      store.upsert_edge(make_edge({ key: "e", src_id: "a", dst_id: "b", layer: "raw" }), []);
-      const model = CustomGraphModel.hydrate(store);
-
-      const { nodes, edges } = graph_to_rows(model.render([{ kind: "raw" }]));
-
-      expect(nodes.map((n) => n.id).sort()).toEqual(["a", "b"]);
-      expect(nodes.find((n) => n.id === "a")?.attributes.label).toBe("A");
-      expect(edges.map((edge) => edge.key)).toEqual(["e"]);
-      expect(edges[0].src_id).toBe("a");
-    });
-
-    it("flattens an empty graph to empty arrays", () => {
-      const model = CustomGraphModel.hydrate(store);
-
-      expect(graph_to_rows(model.render([]))).toEqual({ nodes: [], edges: [] });
-    });
-  });
 });

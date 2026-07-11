@@ -33,7 +33,7 @@ function main_flow() {
   return build_skeleton_flows(graph).find((f) => f.label === "main")!;
 }
 
-describe("project_flow — under budget (AC#3, AC#6)", () => {
+describe("project_flow — under budget", () => {
   it("emits a code.function row per member with label + file in the adapter-ready shape", () => {
     const { nodes } = project_flow(main_flow(), graph);
     const functions = nodes.filter((n) => n.kind === "code.function");
@@ -80,7 +80,7 @@ describe("project_flow — under budget (AC#3, AC#6)", () => {
   });
 });
 
-describe("project_flow — over budget collapses to module granularity (AC#6, D-LARGE-FLOW-RENDER)", () => {
+describe("project_flow — over budget collapses to module granularity (D-LARGE-FLOW-RENDER)", () => {
   // A flow with more leaves than the budget, spread across two files.
   const specs: NodeSpec[] = [{ id: "root", name: "root", file: "src/a.ts", calls: [] }];
   const calls: string[] = [];
@@ -111,7 +111,7 @@ describe("project_flow — over budget collapses to module granularity (AC#6, D-
   });
 });
 
-describe("project_flow — unattributed bucket (AC#8)", () => {
+describe("project_flow — unattributed bucket", () => {
   it("renders the unattributed members' subgraph", () => {
     const with_dead = make_graph(
       [
@@ -128,7 +128,7 @@ describe("project_flow — unattributed bucket (AC#8)", () => {
   });
 });
 
-describe("project_hydrated_flow (task-27.1.6)", () => {
+describe("project_hydrated_flow", () => {
   it("renders the code members exactly as the skeleton path does", () => {
     const membership: FlowMembership = { id: "main", seeds: ["main" as SymbolId] };
     const { nodes, edges } = project_hydrated_flow(membership, graph, []);

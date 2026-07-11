@@ -4,8 +4,8 @@ import { derive_code_state, format_anchor } from "../../resolver";
 import type { ResolverSymbol } from "../../resolver";
 
 /**
- * A deterministic stand-in for the Ariadne extractor + agentic pass, for the task-27.0.4 AC#5
- * round-trip. Task-27.1 wires the real extractor; here a fixture emits a tiny, fully-controlled graph.
+ * A deterministic stand-in for the Ariadne extractor + agentic pass, for the end-to-end round-trip:
+ * a fixture emits a tiny, fully-controlled graph.
  *
  * The "codebase" is one file with two functions: `main` calls `compute`. Version 2 renames `compute`
  * to `calculate` with an identical body, so its `content_hash` is stable and the resolver resolves the
@@ -193,7 +193,7 @@ export function load_preserved_tiers(s: GraphStore): void {
 }
 
 /**
- * The agentic pass (task-27.1 runs the real one). Re-emits the behaviour node anchored to the current
+ * The agentic pass. Re-emits the behaviour node anchored to the current
  * code, and rewrites the concept's `description` at agentic tier — the ladder skips the user-owned
  * `label`, so the user edit is preserved while the agentic default is regenerated.
  */

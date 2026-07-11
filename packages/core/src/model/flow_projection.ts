@@ -1,5 +1,5 @@
 /**
- * task-27.1.3 AC#3/#6 — project a flow into adapter-ready render rows.
+ * Project a flow into adapter-ready render rows.
  *
  * `project_flow` is the deterministic render path: it re-induces the flow's reachable subgraph from the
  * in-memory `CallGraph` (no SQLite, no agent), synthesizes one `code.function` `NodeRow` per member and
@@ -12,7 +12,7 @@
  * happens here — the rows are never persisted). The adapter reads `attributes.label` for the display
  * name, so the id format is irrelevant to rendering.
  *
- * Budget (AC#6, minimal): under budget, leaves render nested in their file-module groups (the adapter
+ * Budget: under budget, leaves render nested in their file-module groups (the adapter
  * turns `agentic.contains` into `parentId`). Over budget, the flow collapses to module granularity —
  * leaves drop and `code.calls` edges lift to module-to-module edges — preserving whole-flow coverage at
  * lower resolution rather than truncating. Deeper level-projection is deferred (D-LARGE-FLOW-RENDER).
@@ -24,7 +24,7 @@ import type { EdgeRow, NodeRow, RenderedRows } from "@code-charter/types";
 import { build_module_scaffold, path_module_resolver } from "./module_scaffold";
 import { induce_members, type FlowMembership, type SkeletonFlow } from "./flow";
 
-/** A per-view ceiling on rendered elements (AC#6). */
+/** A per-view ceiling on rendered elements. */
 export interface FlowBudget {
   max_nodes: number;
   max_edges: number;
@@ -34,7 +34,7 @@ export interface FlowBudget {
 export const DEFAULT_FLOW_BUDGET: FlowBudget = { max_nodes: 200, max_edges: 400 };
 
 export interface ProjectFlowOptions {
-  /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold (AC#9). */
+  /** Repo-relative prefix; leaves outside it bucket under `<external>` in the scaffold. */
   analyzed_root?: string;
   budget?: FlowBudget;
 }
@@ -46,14 +46,14 @@ const PROJECTION_ORIGIN = "call-graph-projection";
 /** Provenance confidence per resolution certainty — drives the dashed-edge render for weaker links. */
 const CONFIDENCE_BY_CERTAINTY: Record<string, number> = { certain: 1, probable: 0.6, possible: 0.3 };
 
-/** Project `flow`'s reachable subgraph into bounded, scaffold-folded render rows (AC#3, AC#6). */
+/** Project `flow`'s reachable subgraph into bounded, scaffold-folded render rows. */
 export function project_flow(flow: SkeletonFlow, graph: CallGraph, options: ProjectFlowOptions = {}): RenderedRows {
   const members = induce_members({ id: flow.id, seeds: flow.seeds }, graph);
   return project_member_set(members, graph, [], options, new Set(flow.seeds));
 }
 
 /**
- * Project a *hydrated* flow (task-27.1.6): induce from its full persisted membership (seeds + agent
+ * Project a *hydrated* flow: induce from its full persisted membership (seeds + agent
  * bridges + linked docs) and render. Doc-node members are not in the call graph, so the host passes
  * their `NodeRow`s in `doc_nodes`; they are appended as render rows after the call-graph projection so a
  * skill flow (whose members are docs, not callables) renders correctly. Code members render exactly as
@@ -112,7 +112,7 @@ function project_member_set(
   // lift each in-flow call to a module-to-module edge (dropping intra-module and duplicate edges). This
   // bounds a large flow to one node per defining file; a flow spanning more distinct files than the
   // budget (e.g. a whole-library unattributed bucket) still exceeds it — multi-level directory rollup
-  // for that case is D-LARGE-FLOW-RENDER (open), deferred to task-27.1.12.
+  // for that case is D-LARGE-FLOW-RENDER (open).
   const module_of = new Map<string, string>(); // leaf id -> module id
   for (const edge of scaffold.contains_edges) module_of.set(edge.src_id, edge.dst_id);
   const lifted = lift_edges_to_modules(call_edges, module_of);
