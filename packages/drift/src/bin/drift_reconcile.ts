@@ -243,8 +243,8 @@ async function main(): Promise<void> {
   const { args } = parsed;
   if (!args.dry_run) status_target = { store: args.store, success_recorded: false };
 
-  // Every stderr diagnostic is also collected into the turn's durable record — the run log exists
-  // because these lines used to die with the session transcript.
+  // Every stderr diagnostic is also collected into the turn's durable record, so a diagnostic
+  // outlives the session transcript.
   const diagnostics: string[] = [];
   const log = (message: string): void => {
     process.stderr.write(`drift-reconcile: ${message}\n`);

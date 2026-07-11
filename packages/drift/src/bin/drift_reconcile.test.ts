@@ -81,7 +81,7 @@ describe("drift-reconcile bin — retirement reporting (--json + summary)", () =
   });
 });
 
-describe("drift-reconcile bin — reconcile mutex (task-27.1.20.1)", () => {
+describe("drift-reconcile bin — reconcile mutex", () => {
   const SOURCE = "export function entry() { return helper(); }\n\nfunction helper() { return 1; }\n";
 
   /** A pid guaranteed dead: a child that has already exited by the time spawnSync returns. */
@@ -198,7 +198,7 @@ describe("drift-reconcile bin — reconcile mutex (task-27.1.20.1)", () => {
   });
 });
 
-describe("drift-reconcile bin — run log and sync status (task-27.1.20.3)", () => {
+describe("drift-reconcile bin — run log and sync status", () => {
   const SOURCE = "export function entry() { return helper(); }\n\nfunction helper() { return 1; }\n";
 
   function read_log(repo: string): ReconcileRunRecord[] {

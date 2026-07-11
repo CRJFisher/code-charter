@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tier 2 of the stitch eval harness (task-27.1.6.7): the live feedback loop for the agent's
+ * Tier 2 of the stitch eval harness: the live feedback loop for the agent's
  * stitching judgement. Per fixture under `__fixtures__/stitch_eval/` (each one Ariadne resolution
  * weakness), it scaffolds a throwaway repo, installs the production `.claude` bundle from
  * `assets/` via `install_drift` (so a `SKILL.md`/`drift-reconciler.md` edit lands in the next run

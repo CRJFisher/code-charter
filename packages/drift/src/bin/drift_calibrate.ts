@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
  * Judge calibration (docs/contracts/judge_calibration.md): join a human grades JSONL and a judge
- * verdicts JSONL on run_id and report raw agreement — the number the .13 gate reads before
- * trusting any description-quality judge, re-checked whenever the judge's model or prompt
- * changes.
+ * verdicts JSONL on run_id and report raw agreement — the number the description-quality gate
+ * reads before trusting any judge, re-checked whenever the judge's model or prompt changes.
  *
  * Deliberately standalone: node builtins only, zero drift imports, reading ONLY the generic keys
  * (run_id, verdict) both contracts pin at the top level. That constraint (decision-10 rule 4) is

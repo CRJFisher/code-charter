@@ -9,7 +9,7 @@
  * location, runs the real deterministic reconcile (the `default` mode: resync / retire / singleton
  * hydration) against the copy, and prints a before/after diff of flows, descriptions, and bridges. The
  * real store is never touched; the agentic modes (stitch, describe) are never invoked, so no tokens are
- * spent. Reuses the .4 inspect summary/diff rendering.
+ * spent.
  *
  * usage: drift-dev --repo <abs> --files <a,b,...> [--store <db_path>] [--goal <name>] [--json]
  *

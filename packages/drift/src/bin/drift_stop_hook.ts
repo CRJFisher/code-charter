@@ -160,7 +160,7 @@ async function main(): Promise<void> {
   }
   // Tripwire on the derived-transcript-path rule (docs/contracts/reconcile_run_record.md): the
   // payload carries the host's live path, so a host-side slug change surfaces here as a note
-  // instead of as silent misjoins in .16's trajectory view.
+  // instead of as silent misjoins in the trajectory view.
   const derived = derive_transcript_path(payload.cwd, payload.session_id);
   if (derived !== payload.transcript_path) {
     process.stderr.write(

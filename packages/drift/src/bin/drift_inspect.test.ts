@@ -266,7 +266,7 @@ function trajectory_fixture(opts: {
   return { store, run_id };
 }
 
-describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
+describe("drift-inspect bin — --trajectory", () => {
 
   it("prints the full trajectory for a resolvable run id", () => {
     const { store, run_id } = trajectory_fixture({ with_transcript: true });
@@ -350,7 +350,7 @@ describe("drift-inspect bin — --trajectory (task-27.1.20.16)", () => {
   });
 });
 
-describe("drift-inspect bin — --grade (task-27.1.20.17)", () => {
+describe("drift-inspect bin — --grade", () => {
   function grades_lines(store: string): string[] {
     return fs
       .readFileSync(path.join(path.dirname(store), "drift_run_grades.jsonl"), "utf8")

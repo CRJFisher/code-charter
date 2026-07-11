@@ -76,6 +76,16 @@ describe("drift-calibrate bin", () => {
     expect(result.stderr).toContain("usage: drift-calibrate");
   });
 
+  it("exits 1 naming the unreadable file when a path does not exist", () => {
+    const result = spawnSync(
+      "node",
+      [CALIBRATE_BIN, "/nonexistent/human.jsonl", "/nonexistent/judge.jsonl"],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("cannot read /nonexistent/human.jsonl");
+  });
+
   it("imports only node builtins — zero drift imports (the pinned seam)", () => {
     const source = fs.readFileSync(path.resolve(__dirname, "drift_calibrate.ts"), "utf8");
     const imports = [...source.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
