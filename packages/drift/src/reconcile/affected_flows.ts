@@ -1,5 +1,5 @@
 /**
- * Membership resolution (AC#2): which persisted CODE flows a turn's symbol-level change touches. A flow
+ * Membership resolution: which persisted CODE flows a turn's symbol-level change touches. A flow
  * re-syncs iff its body OR membership drifted this turn, via two symbol-level triggers — so an edit to a
  * shared file that changes a symbol no flow depends on does not re-sync that flow:
  *
@@ -9,7 +9,7 @@
  *   (b) MEMBERSHIP drift — the flow's freshly induced member set (as `flow_id_of` symbol_paths) differs
  *                          from its persisted `anchor_set`, catching added, removed, and relocated members.
  *
- * A whitespace/comment edit matches neither trigger, so the flow is a no-op (AC#4).
+ * A whitespace/comment edit matches neither trigger, so the flow is a no-op.
  *
  * A flow with no live code seed never reaches the (a)/(b) triggers (`paths_of(∅)` would otherwise fire (b)
  * spuriously against the stored `anchor_set`); the two zero-seed shapes split on whether the flow

@@ -1,5 +1,5 @@
 /**
- * AC#2 — the membership/body-drift trigger core, in memory. A hand-built `CallGraph` and hand-built
+ * The membership/body-drift trigger core, in memory. A hand-built `CallGraph` and hand-built
  * persisted flows (no store needed: `affected_persisted_flows` is pure over its inputs) drive every
  * branch: a flow re-syncs iff its body OR membership drifted, and the two zero-seed shapes split on
  * whether the flow enumerates member edges.
@@ -56,6 +56,11 @@ describe("affected_persisted_flows", () => {
 
   it("re-syncs on membership drift only: a stale anchor_set with no body-modified member", () => {
     const flow = code_flow({ seed_paths: [ENTRY_ID], anchor_set: [ENTRY_ID] }); // helper not yet in the stored set
+    expect(affected([flow])).toEqual([ENTRY_ID]);
+  });
+
+  it("re-syncs on a relocated member: an anchor_set of equal length but different paths", () => {
+    const flow = code_flow({ seed_paths: [ENTRY_ID], anchor_set: [ENTRY_ID, "m.ts#relocated:function"] });
     expect(affected([flow])).toEqual([ENTRY_ID]);
   });
 

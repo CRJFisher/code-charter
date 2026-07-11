@@ -69,7 +69,7 @@ export function resolve_descriptions(store: GraphStore, members: readonly Anchor
   // pass writes the name as a `provisional` stand-in so the flow hydrates complete, and the agent's
   // later `--apply-descriptions` upgrade overwrites it. `provisional` (not `placeholder`) keeps an
   // awaiting-real-text member distinguishable from a terminal over-cap placeholder if that pass never
-  // runs (AC#3).
+  // runs.
   for (const p of plan.needs_llm) push(p.symbol_path, p.content_hash, p.name, "provisional");
   for (const p of plan.placeholder) push(p.symbol_path, p.content_hash, p.text ?? p.name, "placeholder");
 

@@ -9,11 +9,14 @@ import {
 } from "@code-charter/core";
 
 import {
+  is_skill_flow_id,
   type PersistedFlow,
   read_persisted_flow,
   read_persisted_flows,
+  skill_flow_id,
   stored_seed_files,
   stored_seed_paths,
+  stored_skill_root,
   write_flow,
 } from "./flow_store";
 
@@ -44,6 +47,31 @@ describe("stored_seed_paths", () => {
 
   it("drops non-string elements from the agent-authored array", () => {
     expect(stored_seed_paths(flow_with_entry_points([SEED_A, 42, null, { x: 1 }, SEED_B]))).toEqual([SEED_A, SEED_B]);
+  });
+});
+
+describe("skill flow id namespace", () => {
+  it("round-trips a skill name through a namespaced flow id", () => {
+    expect(is_skill_flow_id(skill_flow_id("myskill"))).toBe(true);
+  });
+
+  it("does not classify a code flow id as a skill flow", () => {
+    expect(is_skill_flow_id(SEED_A)).toBe(false);
+  });
+});
+
+describe("stored_skill_root", () => {
+  it("returns the stored repo-relative bundle dir", () => {
+    const flow = flow_with_entry_points([]);
+    flow.node.attributes.skill_root = "skills/myskill";
+    expect(stored_skill_root(flow)).toBe("skills/myskill");
+  });
+
+  it("returns undefined when the attribute is absent or not a string", () => {
+    expect(stored_skill_root(flow_with_entry_points([]))).toBeUndefined();
+    const flow = flow_with_entry_points([]);
+    flow.node.attributes.skill_root = 42;
+    expect(stored_skill_root(flow)).toBeUndefined();
   });
 });
 
@@ -122,6 +150,36 @@ describe("write_flow", () => {
 
     const flow = read_persisted_flow(store, SEED_A)!;
     expect(flow.member_edges.map((e) => e.dst_id).sort()).toEqual(["m2", "m3"]);
+  });
+
+  it("persists a skill flow's skill_root and reads it back", () => {
+    write_flow(store, {
+      id: skill_flow_id("myskill"),
+      label: "Skill",
+      seed_paths: [],
+      member_ids: ["skills/myskill/agents/reviewer.md#doc"],
+      rationale: "r",
+      anchor_set: [],
+      last_synced_at: "t",
+      skill_root: "skills/myskill",
+    });
+
+    const flow = read_persisted_flow(store, skill_flow_id("myskill"))!;
+    expect(stored_skill_root(flow)).toBe("skills/myskill");
+  });
+
+  it("omits skill_root for a code flow", () => {
+    write_flow(store, {
+      id: SEED_A,
+      label: "Flow A",
+      seed_paths: [SEED_A],
+      member_ids: [],
+      rationale: "r",
+      anchor_set: [SEED_A],
+      last_synced_at: "t",
+    });
+
+    expect(stored_skill_root(read_persisted_flow(store, SEED_A)!)).toBeUndefined();
   });
 
   it("re-running with identical input is an idempotent replace", () => {
