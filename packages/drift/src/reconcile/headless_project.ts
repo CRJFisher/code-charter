@@ -17,7 +17,7 @@ import type { CallGraph, FilePath } from "@ariadnejs/types";
 import { to_repo_relative } from "./paths";
 
 /** Ariadne's per-file semantic index — derived from the `Project` method since it is not re-exported by name. */
-export type SemanticIndex = NonNullable<ReturnType<Project["get_index_single_file"]>>;
+type SemanticIndex = NonNullable<ReturnType<Project["get_index_single_file"]>>;
 
 const EXCLUDED_DIRS = new Set([
   "node_modules", "__pycache__", ".vscode", "out", ".git", ".hg",

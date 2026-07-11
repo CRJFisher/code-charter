@@ -51,7 +51,7 @@ afterEach(() => {
   fs.rmSync(tmp_dir, { recursive: true, force: true });
 });
 
-describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", () => {
+describe("ariadne_adapter — anonymous symbol_path collision", () => {
   it("the fixture really contains >= 2 bodied anonymous callables (collision guard, at the Ariadne layer)", () => {
     // Asserted against the raw Ariadne index, not the resolver output: the resolver skips anonymous
     // callables, so pinning the fixture's triggering property at the Ariadne layer keeps this guard
@@ -62,7 +62,7 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     expect(anon.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("(AC#1/#2/#4a) build_index returns a populated index with the named symbol and no <anonymous> record", () => {
+  it("build_index returns a populated index with the named symbol and no <anonymous> record", () => {
     const index = adapter.build_index([REL]);
 
     // The duplicate anonymous callables are not resolver symbols, so the fixture's only resolver symbol
@@ -72,7 +72,15 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     expect(index.by_symbol_path.has(ANON_SYMBOL_PATH)).toBe(false);
   });
 
-  it("(AC#3/#4b) re-sync preserves the named symbol's resolvable description — not soft-deleted", () => {
+  it("build_index skips unsupported and unindexed files in the set, keeping the resolvable ones", () => {
+    // Unsupported extension and a supported-but-never-indexed path both fall out of `file_inputs`
+    // (no source/index to derive from), so the index still holds exactly the one resolvable symbol.
+    const index = adapter.build_index(["notes.txt", "never_indexed.ts", REL]);
+    expect(index.by_symbol_path.size).toBe(1);
+    expect(index.by_symbol_path.has(NAMED_SYMBOL_PATH)).toBe(true);
+  });
+
+  it("re-sync preserves the named symbol's resolvable description — not soft-deleted", () => {
     // Derive the real anchor for the named symbol straight from the adapter, so the stored description's
     // content_hash matches the live code and resolves as a `hit` (never an accidental miss).
     const named = adapter.anchored_symbols([REL]).find((a) => a.symbol_path === NAMED_SYMBOL_PATH);
@@ -105,7 +113,7 @@ describe("ariadne_adapter — anonymous symbol_path collision (task-27.1.6.2)", 
     expect(soft_deleted).toBeUndefined();
   });
 
-  it("(AC#5) logs a drop and keeps the first when a residual duplicate symbol_path is deduped", () => {
+  it("logs a drop and keeps the first when a residual duplicate symbol_path is deduped", () => {
     // The upstream skip removes anonymous collisions, so build_index never drops in practice. The dedup
     // still guards the residual case — two *named* symbols deriving one symbol_path (a derivation defect,
     // e.g. a redeclaration) — which is reproduced here by two records sharing {name,kind,enclosing,file}.

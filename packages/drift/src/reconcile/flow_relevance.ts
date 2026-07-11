@@ -21,7 +21,7 @@ export function is_flow_relevant(abs_path: string, repo_root_abs: string): boole
 }
 
 /** A worked-on set split into the files that can form a flow and the rest (dropped, never reconciled). */
-export interface FlowRelevancePartition {
+interface FlowRelevancePartition {
   relevant: string[];
   dropped: string[];
 }
