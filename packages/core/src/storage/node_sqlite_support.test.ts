@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { MIN_NODE_SQLITE_VERSION, current_node_version, is_node_sqlite_supported } from "./node_sqlite_support";
 
-describe("is_node_sqlite_supported (AC#3 semver gate)", () => {
+describe("is_node_sqlite_supported", () => {
   it("accepts the exact minimum and above, rejects below — never a lexical compare", () => {
     expect(is_node_sqlite_supported("22.13.0")).toBe(true);
     expect(is_node_sqlite_supported("24.0.0")).toBe(true);
@@ -31,7 +31,7 @@ describe("current_node_version", () => {
   });
 });
 
-describe("node:sqlite availability (AC#9)", () => {
+describe("node:sqlite availability", () => {
   it("loads on the runner and opens an in-memory database", () => {
     expect(typeof DatabaseSync).toBe("function");
     const db = new DatabaseSync(":memory:");

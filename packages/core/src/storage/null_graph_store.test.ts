@@ -1,6 +1,6 @@
 import { NullGraphStore } from "./null_graph_store";
 
-describe("NullGraphStore (AC#3 degraded store)", () => {
+describe("NullGraphStore", () => {
   const store = new NullGraphStore();
 
   it("returns empty reads and undefined lookups", () => {

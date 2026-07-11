@@ -66,7 +66,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     store.close();
   });
 
-  describe("round-trip (AC#4)", () => {
+  describe("round-trip", () => {
     it("round-trips a node including nested JSON and open string columns", () => {
       const node = make_node({
         attributes: { description: "does a thing", members: ["x", "y"], meta: { n: 1 } },
@@ -132,7 +132,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("soft delete (AC#5)", () => {
+  describe("soft delete", () => {
     it("hides soft-deleted rows by default and reveals them with include_deleted", () => {
       const node = make_node({ id: "f.ts#a", layer: "user" });
       store.upsert_node(node);
@@ -155,9 +155,26 @@ describe("SqliteGraphStore (:memory:)", () => {
       store.soft_delete({ kind: "node", id: node.id });
       expect(store.node(node.id)).toEqual(node);
     });
+
+    it("snapshot hides soft-deleted rows by default and surfaces them with include_deleted (the retired-flows read path)", () => {
+      store.upsert_node(make_node({ id: "live", layer: "user", anchor: null }));
+      store.upsert_node(make_node({ id: "retired", layer: "user", anchor: null }));
+      store.upsert_edge(make_edge({ key: "retired_e", layer: "user" }), []);
+      store.soft_delete({ kind: "node", id: "retired" });
+      store.soft_delete({ kind: "edge", id: "retired_e" });
+
+      const live = store.snapshot();
+      expect(live.nodes.map((n) => n.id)).toEqual(["live"]);
+      expect(live.edges).toEqual([]);
+
+      const all = store.snapshot({ include_deleted: true });
+      expect(new Set(all.nodes.map((n) => n.id))).toEqual(new Set(["live", "retired"]));
+      expect(all.edges.map((e) => e.key)).toEqual(["retired_e"]);
+      expect(all.nodes.find((n) => n.id === "retired")?.deleted_at).not.toBeNull();
+    });
   });
 
-  describe("file incidence (AC#6)", () => {
+  describe("file incidence", () => {
     beforeEach(() => {
       store.upsert_node(make_node({ id: "f.ts#a", path: "f.ts", layer: "raw" }));
       store.upsert_node(make_node({ id: "f.ts#agentic", path: "f.ts", layer: "agentic" }));
@@ -196,7 +213,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("transactions (AC#7)", () => {
+  describe("constraint rollback", () => {
     it("rolls back an upsert_edge when its provenance violates a constraint", () => {
       const duplicate = make_prov();
       expect(() => store.upsert_edge(make_edge(), [duplicate, duplicate])).toThrow();
@@ -242,7 +259,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("write_fields layer promotion (AC#1)", () => {
+  describe("write_fields layer promotion", () => {
     it("promotes an agentic-layer node to layer='user' when a field is stamped user-owned", () => {
       store.upsert_node(make_node({ id: "n", layer: "agentic" }));
       store.write_fields({ kind: "node", id: "n" }, { description: "hand-written" }, "user");
@@ -292,7 +309,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("schema (AC#2)", () => {
+  describe("schema", () => {
     it("reports the current schema version and seeds the table registry", () => {
       expect(store.schema_version()).toBe(CURRENT_SCHEMA_VERSION);
       const disposition = store.table_disposition();
@@ -304,7 +321,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("round-trip edge cases (AC#4)", () => {
+  describe("round-trip edge cases", () => {
     it("round-trips a null anchor and a null value inside attributes", () => {
       const node = make_node({ id: "n.null", anchor: null, attributes: { note: null, kept: 1 } });
       store.upsert_node(node);
@@ -344,7 +361,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("edge soft-delete and ladder (AC#5)", () => {
+  describe("edge soft-delete and ladder", () => {
     it("soft-deletes, hides, reveals via include_deleted; a later upsert revives an edge", () => {
       store.upsert_edge(make_edge({ key: "e.user", layer: "user" }), []);
       store.soft_delete({ kind: "edge", id: "e.user" });
@@ -363,7 +380,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("invalidation scoping and guards (AC#6)", () => {
+  describe("invalidation scoping and guards", () => {
     it("invalidate_nodes_for_files leaves raw nodes on other paths untouched", () => {
       store.upsert_node(make_node({ id: "f.ts#a", path: "f.ts", layer: "raw", anchor: null }));
       store.upsert_node(make_node({ id: "g.ts#b", path: "g.ts", layer: "raw", anchor: null }));
@@ -383,7 +400,7 @@ describe("SqliteGraphStore (:memory:)", () => {
     });
   });
 
-  describe("performance (AC#9)", () => {
+  describe("performance", () => {
     it("a representative batch completes well under 500ms on :memory:", () => {
       const start = Date.now();
       for (let i = 0; i < 200; i++) {
@@ -400,7 +417,7 @@ describe("SqliteGraphStore (:memory:)", () => {
   });
 });
 
-describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
+describe("watermark ladder + tiered rebuild", () => {
   let store: SqliteGraphStore;
 
   beforeEach(() => {
@@ -411,7 +428,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
     store.close();
   });
 
-  describe("ladder matrix: owner tier × writing pass (AC#1, AC#2, AC#6)", () => {
+  describe("ladder matrix: owner tier × writing pass", () => {
     // Establish a field owned by `owner`, then attempt to rewrite it from a pass at `as_tier`.
     // The write lands iff TIER_RANK[owner] <= TIER_RANK[as_tier]; otherwise it is skipped and
     // the field is left unchanged. An "absent" owner is the raw-owned (rank 0) default.
@@ -420,7 +437,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
 
     function establish_owner(id: string, owner: "raw" | "agentic" | "user" | "absent"): void {
       store.upsert_node(make_node({ id, anchor: null }));
-      if (owner === "absent") return; // a field absent from field_ownership is raw-owned (AC#1)
+      if (owner === "absent") return; // a field absent from field_ownership is raw-owned
       store.write_fields({ kind: "node", id }, { f: `${owner}-value` }, owner);
     }
 
@@ -447,7 +464,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
     }
   });
 
-  describe("dual-sourced description: raw-absent → agentic → user (AC#2)", () => {
+  describe("dual-sourced description: raw-absent → agentic → user", () => {
     it("stamps an agentic-generated description agentic-owned, lets a user edit promote it, then preserves it against both a raw re-parse and an agentic pass", () => {
       store.upsert_node(make_node({ id: "fn", anchor: null }));
       // description starts absent (raw-owned by default), not pre-stamped
@@ -475,7 +492,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
     });
   });
 
-  describe("rebuild_layer preserves higher tiers (AC#3)", () => {
+  describe("rebuild_layer preserves higher tiers", () => {
     it("rebuild('raw') nukes raw rows, recreates them, and leaves agentic + user rows untouched", () => {
       store.upsert_node(make_node({ id: "raw_old", layer: "raw", anchor: null }));
       store.upsert_node(make_node({ id: "agentic_n", layer: "agentic", anchor: null }));
@@ -558,7 +575,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
     });
   });
 
-  describe("rebuild_layer consults table_disposition() as data (AC#4)", () => {
+  describe("rebuild_layer consults table_disposition() as data", () => {
     it("calls table_disposition() rather than a hard-coded name list on every rebuild", () => {
       const spy = jest.spyOn(store, "table_disposition");
       store.rebuild_layer("raw", () => {});
@@ -580,7 +597,7 @@ describe("watermark ladder + tiered rebuild (task-27.0.2)", () => {
     });
   });
 
-  describe("rebuild_layer leaves soft-deleted higher-tier rows intact (AC#5)", () => {
+  describe("rebuild_layer leaves soft-deleted higher-tier rows intact", () => {
     it("does not hard-delete or un-flag a soft-deleted agentic row; revival is a later upsert", () => {
       store.upsert_node(make_node({ id: "gone", layer: "agentic", anchor: null }));
       store.soft_delete({ kind: "node", id: "gone" });
@@ -622,7 +639,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     for (const dir of created_dirs) rmSync(dir, { recursive: true, force: true });
   });
 
-  it("creates exactly the seven tables and the named indexes, with no anchors table (AC#2)", () => {
+  it("creates exactly the seven tables and the named indexes, with no anchors table", () => {
     const path = temp_db_path();
     new SqliteGraphStore(path).close();
 
@@ -642,7 +659,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     raw.close();
   });
 
-  it("drops only disposable tables on a version mismatch; preserved tables (incl. one registered after seeding) survive (AC#8)", () => {
+  it("drops only disposable tables on a version mismatch; preserved tables (incl. one registered after seeding) survive", () => {
     const path = temp_db_path();
     const store = new SqliteGraphStore(path);
     store.upsert_node(make_node({ id: "raw_keep", layer: "raw" }));
@@ -652,7 +669,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     const raw = new DatabaseSync(path);
     // a row in the disposable cache
     raw.prepare("INSERT INTO anchor_resolution (anchor, status, resolved_at) VALUES (?, ?, ?)").run("a:h", "hit", "t");
-    // a brand-new preserved table declared AFTER seeding (simulates task-27.2's pending_edit)
+    // a brand-new preserved table declared AFTER seeding, exercising the post-seed registry path
     raw.prepare("INSERT INTO table_registry (table_name, disposable) VALUES (?, ?)").run("pending_edit", 0);
     raw.exec("CREATE TABLE pending_edit (id TEXT PRIMARY KEY)");
     raw.prepare("INSERT INTO pending_edit (id) VALUES (?)").run("keep-me");
@@ -692,6 +709,21 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     store.close();
   });
 
+  it("surfaces a corrupt row rather than silently mistyping it: an invalid layer value throws on read", () => {
+    const path = temp_db_path();
+    new SqliteGraphStore(path).close();
+
+    const raw = new DatabaseSync(path);
+    raw
+      .prepare("INSERT INTO nodes (id, kind, path, layer, origin, intent_source) VALUES (?, ?, ?, ?, ?, ?)")
+      .run("bad", "code.function", "f.ts", "bogus", "ariadne", "code-edit");
+    raw.close();
+
+    const store = new SqliteGraphStore(path);
+    expect(() => store.all_nodes()).toThrow(/layer/);
+    store.close();
+  });
+
   it("reports a deleted recorded file as changed rather than throwing", () => {
     const dir = mkdtempSync(join(tmpdir(), "cc-core-del-"));
     created_dirs.push(dir);
@@ -705,7 +737,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     store.close();
   });
 
-  it("persists rows across close and reopen at the same schema version (AC#4 durability)", () => {
+  it("persists rows across close and reopen at the same schema version", () => {
     const path = temp_db_path();
     const store = new SqliteGraphStore(path);
     store.upsert_node(make_node({ id: "keep", anchor: null }));
@@ -720,7 +752,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     reopened.close();
   });
 
-  it("rebuild_layer clears every disposable cache (incl. one registered after seeding) as data, preserving the tables themselves and registered-preserved caches (AC#3, AC#4)", () => {
+  it("rebuild_layer clears every disposable cache (incl. one registered after seeding) as data, preserving the tables themselves and registered-preserved caches", () => {
     const path = temp_db_path();
     const store = new SqliteGraphStore(path);
     store.upsert_node(make_node({ id: "raw_n", layer: "raw", anchor: null }));
@@ -754,7 +786,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     check.close();
   });
 
-  it("rolls back the disposable-cache clear when the rebuild writer throws (AC#3 atomicity)", () => {
+  it("rolls back the disposable-cache clear when the rebuild writer throws", () => {
     const path = temp_db_path();
     new SqliteGraphStore(path).close();
 
@@ -778,7 +810,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
     check.close();
   });
 
-  describe("concurrency discipline (task-27.1.20.1)", () => {
+  describe("concurrency discipline", () => {
     it("sets journal_mode=wal on a fresh store", () => {
       const path = temp_db_path();
       new SqliteGraphStore(path).close();
@@ -872,7 +904,7 @@ describe("on-disk schema + rebuild (file-backed)", () => {
 
       // A reader whose all_nodes() triggers a concurrent commit mid-snapshot: if snapshot() ran
       // its two reads as separate autocommit statements, the edge committed between them would
-      // surface — the torn pair AC#2 forbids.
+      // surface — the torn pair the single read transaction forbids.
       class MidSnapshotCommit extends SqliteGraphStore {
         all_nodes(opts?: { include_deleted?: boolean }): NodeRow[] {
           const rows = super.all_nodes(opts);

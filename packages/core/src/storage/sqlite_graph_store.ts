@@ -118,17 +118,6 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   /**
-   * Re-entrant transaction wrapper. Only the outermost call issues BEGIN/COMMIT, since SQLite
-   * forbids a nested BEGIN — an inner call runs `fn` inline within the open transaction. On
-   * error the outermost call rolls back and rethrows; a failing ROLLBACK never masks the
-   * original error.
-   *
-   * Writers default to BEGIN IMMEDIATE: it takes the write lock at BEGIN, where busy_timeout is
-   * honored, whereas a deferred transaction that upgrades to its first write mid-flight gets
-   * SQLITE_BUSY back without the busy handler ever running. Pure reads pass BEGIN DEFERRED,
-   * which never competes for the write lock (and is the only mode a read-only connection allows).
-   */
-  /**
    * Public async counterpart of {@link with_transaction}: hold ONE `BEGIN IMMEDIATE` transaction
    * across `fn`'s awaits so a caller's many writes commit or roll back as a unit (a mid-turn crash
    * leaves the WAL transaction uncommitted, rolled back on next open). Re-entrant against the same
@@ -156,6 +145,17 @@ export class SqliteGraphStore implements GraphStore {
     }
   }
 
+  /**
+   * Re-entrant transaction wrapper. Only the outermost call issues BEGIN/COMMIT, since SQLite
+   * forbids a nested BEGIN — an inner call runs `fn` inline within the open transaction. On
+   * error the outermost call rolls back and rethrows; a failing ROLLBACK never masks the
+   * original error.
+   *
+   * Writers default to BEGIN IMMEDIATE: it takes the write lock at BEGIN, where busy_timeout is
+   * honored, whereas a deferred transaction that upgrades to its first write mid-flight gets
+   * SQLITE_BUSY back without the busy handler ever running. Pure reads pass BEGIN DEFERRED,
+   * which never competes for the write lock (and is the only mode a read-only connection allows).
+   */
   private with_transaction<T>(fn: () => T, begin: "BEGIN IMMEDIATE" | "BEGIN DEFERRED" = "BEGIN IMMEDIATE"): T {
     if (this.in_transaction) {
       return fn();
@@ -411,7 +411,7 @@ export class SqliteGraphStore implements GraphStore {
   rebuild_layer(layer: "raw" | "agentic", write: (s: GraphStore) => void): void {
     this.with_transaction(() => {
       // Nuke only this tier's LIVE rows. A soft-deleted (deleted_at set) agentic/user row is
-      // left untouched — neither hard-deleted nor un-flagged — so it stays restorable (AC#5).
+      // left untouched — neither hard-deleted nor un-flagged — so it stays restorable.
       // Higher-tier rows survive because they carry a different `layer`; and any higher-tier-owned
       // field on a surviving row is protected by the write_fields ladder the writer goes through,
       // not by an ownership re-check here.
