@@ -293,6 +293,22 @@ describe("AriadneProjectManager - File Watcher Tests", () => {
       expect(nodeSymbols.some((s) => s.includes("added.py"))).toBe(true);
     });
 
+    it("re-indexes again on a later invalidate once the in-flight run has settled", async () => {
+      // Guards the run_index() in-flight-guard reset: if index_in_flight were not cleared after a run,
+      // a second invalidate would ride the already-resolved promise and silently drop the later change.
+      projectManager = new AriadneProjectManager(tempDir);
+      await projectManager.initialize();
+
+      await fs.promises.writeFile(path.join(tempDir, "one.py"), "def one(): pass", "utf-8");
+      await projectManager.invalidate();
+      await fs.promises.writeFile(path.join(tempDir, "two.py"), "def two(): pass", "utf-8");
+      await projectManager.invalidate();
+
+      const nodeSymbols = Array.from(projectManager.get_call_graph().nodes.keys());
+      expect(nodeSymbols.some((s) => s.includes("one.py"))).toBe(true);
+      expect(nodeSymbols.some((s) => s.includes("two.py"))).toBe(true);
+    });
+
     it("is a no-op before initialize (no project to re-index)", async () => {
       projectManager = new AriadneProjectManager(tempDir);
       mockEventEmitter.instance.fire.mockClear();
