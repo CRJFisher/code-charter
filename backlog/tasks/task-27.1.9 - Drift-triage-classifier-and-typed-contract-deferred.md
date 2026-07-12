@@ -40,4 +40,4 @@ A registered custom sub-agent (launched by the main agent, returning ~nothing) t
 
 ## Implementation Notes
 
-<!-- Added when work begins. -->
+**Existing code.** The classifier's decision-table input already exists: `re_extract` (`packages/core/src/reextract/re_extract.ts`) returns `ReExtractResult.findings: DriftFinding[]` — one typed per-node resolver verdict (relocated / missed, with anchors and rationale) per reconcile turn, alongside the `delta` the store mutations consume. Production currently reads only `.delta`; `findings` is the projection this task's decision table consumes — do not re-derive verdicts from the resolver. Task-27.1.10's change-scoped comprehension summary groups the same records.

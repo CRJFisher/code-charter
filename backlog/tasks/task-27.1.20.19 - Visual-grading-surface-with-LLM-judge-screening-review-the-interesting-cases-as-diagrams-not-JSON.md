@@ -65,4 +65,12 @@ uninterpretable — the direct field evidence this task exists to answer (record
    harvest-primary fixture corpus .13 AC#6 defers to. Every harness-side piece (loader,
    --no-agent skip, decline wrap) already ships; the corpus lands with zero further
    harness changes.
+
+**Existing code.** When rendering flows off store rows, `edge_style_for_row(edge,
+colors, selected)` in `packages/ui/src/components/code_chart_area/edge_styling.ts`
+styles an `EdgeRow` directly from its attribute set and already encodes low-confidence
+edges (stitched bridges under the dashed threshold) as dashed strokes — relevant to
+AC#5's at-a-glance drift-state legibility. Currently exercised only by its unit tests;
+style edges through it in either front-end rather than duplicating the confidence
+encoding.
 <!-- SECTION:NOTES:END -->

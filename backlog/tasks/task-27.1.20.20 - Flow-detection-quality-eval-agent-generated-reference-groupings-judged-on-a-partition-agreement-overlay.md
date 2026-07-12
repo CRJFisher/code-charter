@@ -50,3 +50,15 @@ Reuse is at the **surface**, not the schema: this rides on .19's webview plumbin
 - [ ] #6 The surface reuses .19's webview plumbing (salient spine sidebar per .16, judge/verdict panel) and writes verdicts through the same pinned grades contract as the CLI queue (.17 AC#5); this is a third surface consumer, not a third ChartDiff/edit-diff schema consumer
 
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+
+**Existing code.** The detector-side node→flow assignment for the partition-agreement
+signal (AC#2) already exists: `flow_of_leaf(leaf, flows, graph)` in
+`packages/core/src/model/flow.ts` answers "which flows does this leaf belong to" by
+re-inducing each flow's membership through `induce_members` — set-valued, so a leaf
+owned by overlapping flows is represented honestly. Currently exercised only by its
+unit tests; consume it for the detector column rather than re-deriving membership.
+<!-- SECTION:NOTES:END -->
