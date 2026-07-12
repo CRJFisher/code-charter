@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ThemedApp } from './index';
+import { ThemedApp } from './components/themed_app';
 import './styles/index.css';
 
 export function init(config?: { force_standalone?: boolean }): void {

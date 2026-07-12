@@ -5,7 +5,7 @@ const mock_themed_app = jest.fn((_props: { force_standalone?: boolean }) => (
   <div data-testid="themed-app" />
 ));
 
-jest.mock('./index', () => ({
+jest.mock('./components/themed_app', () => ({
   ThemedApp: (props: { force_standalone?: boolean }) => mock_themed_app(props),
 }));
 
